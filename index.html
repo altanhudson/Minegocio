@@ -197,7 +197,7 @@ select option{background:var(--surface2)}
 </head>
 <body>
 <header class="topbar">
-  <div class="topbar-title">MiNegocio</div>
+  <div class="topbar-title">Revendit</div>
   <button class="btn btn-primary btn-sm" id="btn-add" onclick="handleAdd()">+ Nuevo</button>
 </header>
 <div class="pages">
@@ -2913,7 +2913,7 @@ window.addEventListener('DOMContentLoaded', function(){
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/Minegocio/sw.js')
+        navigator.serviceWorker.register('/Revendit/sw.js')
           .then(reg => console.log('SW registrado:', reg.scope))
           .catch(err => console.log('SW error:', err));
       });
