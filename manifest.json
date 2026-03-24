@@ -1,13 +1,12 @@
 {
-      "name": "Revendit",
-        "short_name": "Revendit",
-          "description": "Gestión de distribuidora y reventas",
-            "start_url": "/Minegocio/",
-              "scope": "/Minegocio/",
-                "display": "standalone",
-                  "orientation": "portrait",
-                    "background_color": "#edf0ed",
-                      "theme_color": "#0d9488",
-                        "icons": []
-}
+  "name": "Revendit",
+  "short_name": "Revendit",
+  "description": "Gestión de distribuidora y reventas",
+  "start_url": "/Minegocio/",
+  "scope": "/Minegocio/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#edf0ed",
+  "theme_color": "#0d9488",
+  "icons": []
 }
