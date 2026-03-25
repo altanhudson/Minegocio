@@ -1762,12 +1762,13 @@ function updDash() {
   const v=mi.filter(i=>i.status==='pagada').reduce((s,i)=>s+i.total,0);
   const pend=S.invoices.filter(i=>i.status==='pendiente').length;
   const sp=S.products.filter(p=>!p.price).length;
-  document.getElementById('sv').textContent='$'+v.toFixed(0);
-  document.getElementById('sf').textContent=S.invoices.length;
-  document.getElementById('sp').textContent=pend;
-  document.getElementById('sc').textContent=S.clients.length;
-  document.getElementById('spr').textContent=S.products.length;
-  document.getElementById('sspx').textContent=sp;
+  const _s=(id,val)=>{const el=document.getElementById(id);if(el)el.textContent=val;};
+  _s('sv','$'+v.toFixed(0));
+  _s('sf',S.invoices.length);
+  _s('sp',pend);
+  _s('sc',S.clients.length);
+  _s('spr',S.products.length);
+  _s('sspx',sp);
   // Métricas
   const dm = document.getElementById('dash-metricas');
   if(dm) {
