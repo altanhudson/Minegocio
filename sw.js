@@ -22,12 +22,24 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
-  if (event.request.url.includes('firestore.googleapis.com') ||
-      event.request.url.includes('firebase') ||
-      event.request.url.includes('wa.me')) return;
+  const url = event.request.url;
+  if (url.includes('firestore.googleapis.com') ||
+      url.includes('firebase') ||
+      url.includes('googleapis.com') ||
+      url.includes('wa.me') ||
+      url.includes('fonts.g')) return;
+
   event.respondWith(
-    fetch(event.request)
-      .then(r => { caches.open(CACHE_NAME).then(c => c.put(event.request, r.clone())); return r; })
-      .catch(() => caches.match(event.request))
+    caches.match(event.request).then(cached => {
+      if (cached) return cached;
+      return fetch(event.request).then(response => {
+        if (!response || response.status !== 200 || response.type === 'opaque') {
+          return response;
+        }
+        const responseClone = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseClone));
+        return response;
+      });
+    }).catch(() => caches.match(event.request))
   );
 });
