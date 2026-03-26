@@ -34,9 +34,13 @@
   const DATA_DOC = doc(db, "negocio", "data");
 
   // Exponer funciones al scope global
+  function cleanUndefined(obj) {
+    return JSON.parse(JSON.stringify(obj, function(k,v){ return v === undefined ? null : v; }));
+  }
+
   window._fbSave = async function(data) {
     try {
-      await setDoc(DATA_DOC, data);
+      await setDoc(DATA_DOC, cleanUndefined(data));
     } catch(e) { console.error("Firebase save error:", e); }
   };
 
