@@ -817,24 +817,30 @@ function handleAdd() {
 }
 
 // === PHOTO ===
+window._photoUploading = false;
 function onPhoto(input) {
   if(!input.files[0]) return;
   const file = input.files[0];
-  // Preview local inmediato
   const r = new FileReader();
   r.onload = e => showPhoto(e.target.result);
   r.readAsDataURL(file);
-  // Subir a Firebase Storage
   const prodId = S.editId || ('PROD-' + String(S.nProd).padStart(3,'0'));
   const area = document.getElementById('photo-area');
+  const saveBtn = document.querySelector('[onclick="saveProd()"]');
   if(area) area.style.opacity = '0.5';
-  window._fbUploadPhoto(file, prodId).then(url => {
+  window._photoUploading = true;
+  if(saveBtn) { saveBtn.disabled = true; saveBtn.style.opacity = '0.5'; }
+  window._fbUploadPhoto(file, prodId).then(function(url) {
     S.photo = url;
     showPhoto(url);
     if(area) area.style.opacity = '1';
+    window._photoUploading = false;
+    if(saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = '1'; }
     toast('Foto subida ✓');
-  }).catch(err => {
+  }).catch(function(err) {
     if(area) area.style.opacity = '1';
+    window._photoUploading = false;
+    if(saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = '1'; }
     toast('Error al subir foto');
     console.error(err);
   });
