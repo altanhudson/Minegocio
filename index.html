@@ -71,7 +71,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);dis
 .page{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;padding:16px 16px calc(var(--nav-h) + 16px);display:none;-webkit-overflow-scrolling:touch}
 .page.active{display:block}
 .bottom-nav{height:var(--nav-h);min-height:var(--nav-h);background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:center;position:relative;z-index:10;padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
-.nav-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;border:none;background:var(--surface2);color:var(--text3);font-size:9px;font-family:'DM Sans',sans-serif;font-weight:500;transition:all .2s;padding:8px 4px;border-radius:14px;margin:0 3px}
+.nav-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;border:none;background:var(--surface2);color:var(--text3);font-size:11px;font-family:'DM Sans',sans-serif;font-weight:600;transition:all .2s;padding:8px 4px;border-radius:14px;margin:0 3px}
 .nav-tab .ni{font-size:22px;line-height:1}
 .nav-tab.active{background:var(--accent);color:#fff;box-shadow:0 4px 12px rgba(13,148,136,.4);transform:translateY(-2px)}
 .nav-badge{position:absolute;top:6px;right:calc(50% - 18px);background:var(--accent3);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:10px;min-width:16px;text-align:center}
@@ -1861,12 +1861,18 @@ function renderProvs(){
     const comps=S.compras.filter(c=>c.provId===pv.id);
     const tot=comps.reduce((s,c)=>s+c.total,0);
     const init=pv.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
-    return '<div class="list-item" data-action="openProv" data-id="'+pv.id+'">'
+    return '<div class="list-item" style="position:relative" data-action="openProv" data-id="'+pv.id+'">'
       +'<div style="width:44px;height:44px;border-radius:12px;background:'+pv.color+'22;color:'+pv.color+';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0;font-family:Syne,sans-serif">'+init+'</div>'
       +'<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">'+pv.name+'</div><div style="font-size:12px;color:var(--text3)">'+(pv.phone||'')+' '+(pv.days?'- '+pv.days:'')+'</div></div>'
       +'<div style="text-align:right;flex-shrink:0"><div style="font-family:Syne,sans-serif;font-weight:700;color:var(--accent);font-size:14px">$'+tot.toFixed(0)+'</div><div style="font-size:11px;color:var(--text3)">'+comps.length+' compras</div></div>'
+      +'<button onclick="event.stopPropagation();deleteProv(\''+pv.id+'\')" style="margin-left:8px;background:rgba(220,38,38,.1);border:none;border-radius:8px;padding:6px 8px;color:var(--accent3);font-size:16px;cursor:pointer;flex-shrink:0">🗑️</button>'
       +'</div>';
   }).join('')+'</div></div>';
+}
+function deleteProv(id){
+  if(!confirm('¿Eliminar este proveedor?')) return;
+  S.proveedores = S.proveedores.filter(p => p.id !== id);
+  renderProvs(); save(); toast('Proveedor eliminado');
 }
 document.getElementById('page-proveedores').addEventListener('click', function(e){
   const el=e.target.closest('[data-action="openProv"]');
