@@ -1200,6 +1200,11 @@ function renderClis(q) {
       +'</div>';
   }).join('')+'</div></div>';
 }
+document.getElementById('cli-tab-ranking-content').addEventListener('click', function(e) {
+  const el = e.target.closest('[data-cid]');
+  if(el) verCliDetalle(el.dataset.cid);
+});
+
 function swCliTab(tab, el) {
   document.querySelectorAll('#page-clientes .tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
@@ -1228,7 +1233,7 @@ function renderRanking() {
     +'<div class="card"><div style="padding:0">'+ranking.map((x,i)=>{
     const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
     const init = x.c.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
-    return '<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;'+(i>0?'border-top:1px solid var(--border)':'')+'" onclick="verCliDetalle(''+x.c.id+'')">'
+    return '<div data-cid="'+x.c.id+'" style="display:flex;align-items:center;gap:12px;padding:12px 14px;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
       +'<div style="font-size:20px;width:28px;text-align:center">'+(medal||'<span style="font-family:Syne,sans-serif;font-weight:800;color:var(--text3);font-size:14px">'+(i+1)+'</span>')+'</div>'
       +'<div style="width:40px;height:40px;border-radius:10px;background:'+x.c.color+'22;color:'+x.c.color+';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;font-family:Syne,sans-serif;flex-shrink:0">'+init+'</div>'
       +'<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">'+x.c.name+'</div><div style="font-size:12px;color:var(--text3)">$'+x.total.toFixed(0)+'</div></div>'
@@ -1944,7 +1949,7 @@ function renderProvs(){
       +'<div style="width:44px;height:44px;border-radius:12px;background:'+pv.color+'22;color:'+pv.color+';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0;font-family:Syne,sans-serif">'+init+'</div>'
       +'<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">'+pv.name+'</div><div style="font-size:12px;color:var(--text3)">'+(pv.phone||'')+' '+(pv.days?'- '+pv.days:'')+'</div></div>'
       +'<div style="text-align:right;flex-shrink:0"><div style="font-family:Syne,sans-serif;font-weight:700;color:var(--accent);font-size:14px">$'+tot.toFixed(0)+'</div><div style="font-size:11px;color:var(--text3)">'+comps.length+' compras</div></div>'
-      +'<button onclick="event.stopPropagation();deleteProv(\''+pv.id+'\')" style="margin-left:8px;background:rgba(220,38,38,.1);border:none;border-radius:8px;padding:6px 8px;color:var(--accent3);font-size:16px;cursor:pointer;flex-shrink:0">🗑️</button>'
+      +'<button data-dpid="'+pv.id+'" onclick="event.stopPropagation();deleteProv(this.dataset.dpid)" style="margin-left:8px;background:rgba(220,38,38,.1);border:none;border-radius:8px;padding:6px 8px;color:var(--accent3);font-size:16px;cursor:pointer;flex-shrink:0">🗑️</button>'
       +'</div>';
   }).join('')+'</div></div>';
 }
