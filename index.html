@@ -1404,19 +1404,17 @@ function cartRenderList(q) {
   el.innerHTML = prods.map((p,i) => {
     const idx = S.invItems.findIndex(x=>x.prodId===p.id);
     const qty = idx>=0 ? S.invItems[idx].qty : 0;
-    return '<div style="display:flex;align-items:center;padding:13px 16px;background:var(--surface);'+(i>0?'border-top:1px solid var(--border)':'')+'">'
+    const hasQty = qty > 0;
+    return '<div style="display:flex;align-items:center;padding:12px 16px;background:var(--surface);'+(i>0?'border-top:1px solid var(--border)':'')+'">'
       +'<div style="flex:1;min-width:0">'
       +'<div style="font-weight:600;font-size:14px">'+p.name+'</div>'
-      +'<div style="font-size:12px;color:var(--text3);margin-top:2px">$'+p.price.toFixed(2)+'</div>'
+      +'<div style="font-size:12px;color:var(--text3);margin-top:1px">$'+p.price.toFixed(2)+(hasQty?' &nbsp;·&nbsp; <span style="color:var(--accent);font-weight:700">$'+(qty*p.price).toFixed(0)+'</span>':'')+'</div>'
       +'</div>'
-      +(qty>0
-        ? '<div style="display:flex;align-items:center;gap:6px">'
-          +'<button data-cartminus="'+p.id+'" style="width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);font-size:20px;cursor:pointer;font-weight:300;flex-shrink:0">−</button>'
-          +'<input type="number" data-cspid="'+p.id+'" value="'+qty+'" min="1" inputmode="numeric" style="width:44px;text-align:center;font-size:16px;font-weight:700;border:1px solid var(--border);border-radius:8px;padding:4px 0" onchange="cartSetQty(this.dataset.cspid,this.value)">'
-          +'<button data-cartplus="'+p.id+'" style="width:34px;height:34px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:20px;cursor:pointer;flex-shrink:0">+</button>'
-          +'</div>'
-        : '<button data-cartadd="'+p.id+'" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap">Agregar</button>'
-      )
+      +'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
+      +'<button data-cartminus="'+p.id+'" style="width:36px;height:36px;border-radius:10px;border:1px solid var(--border);background:'+(hasQty?'var(--surface2)':'transparent')+';color:'+(hasQty?'var(--text)':'var(--border)')+';font-size:22px;cursor:pointer;font-weight:300;line-height:1">−</button>'
+      +'<span style="width:32px;text-align:center;font-size:16px;font-weight:700;color:'+(hasQty?'var(--text)':'var(--text3)')+'">'+qty+'</span>'
+      +'<button data-cartplus="'+p.id+'" style="width:36px;height:36px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:22px;cursor:pointer;line-height:1">+</button>'
+      +'</div>'
       +'</div>';
   }).join('');
 }
