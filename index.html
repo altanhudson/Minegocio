@@ -282,7 +282,6 @@ select option{background:var(--surface2)}
     <div style="padding:10px 16px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;position:relative">
       <input type="text" id="cart-search" placeholder="🔍 Buscar y agregar producto..." autocomplete="off"
         oninput="cartSearch(this.value)" onfocus="cartSearch(this.value)"
-        onblur="setTimeout(function(){document.getElementById('cart-ac').style.display='none'},200)"
         style="width:100%;font-size:15px;padding:11px 14px;border:1.5px solid var(--accent);border-radius:12px;background:var(--surface);font-family:DM Sans,sans-serif;outline:none">
       <div id="cart-ac" style="display:none;position:absolute;left:16px;right:16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;z-index:50;max-height:240px;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,.15);margin-top:4px"></div>
     </div>
@@ -1404,17 +1403,23 @@ function cartSearch(q) {
   }).join('');
 }
 
+document.addEventListener('touchstart', function(e) {
+  const ac = document.getElementById('cart-ac');
+  if(!ac || ac.style.display==='none') return;
+  const item = e.target.closest('[data-pid]');
+  if(item) {
+    e.preventDefault();
+    cartAddProduct(item.dataset.pid);
+  } else if(!ac.contains(e.target) && e.target.id!=='cart-search') {
+    ac.style.display='none';
+  }
+}, {passive:false});
 document.addEventListener('mousedown', function(e) {
   const ac = document.getElementById('cart-ac');
-  if(!ac) return;
+  if(!ac || ac.style.display==='none') return;
   const item = e.target.closest('[data-pid]');
-  if(item && ac.contains(item)) cartAddProduct(item.dataset.pid);
-});
-document.addEventListener('touchend', function(e) {
-  const ac = document.getElementById('cart-ac');
-  if(!ac) return;
-  const item = e.target.closest('[data-pid]');
-  if(item && ac.contains(item)) { e.preventDefault(); cartAddProduct(item.dataset.pid); }
+  if(item) cartAddProduct(item.dataset.pid);
+  else if(!ac.contains(e.target) && e.target.id!=='cart-search') ac.style.display='none';
 });
 
 function cartAddProduct(pid) {
