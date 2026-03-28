@@ -1433,7 +1433,32 @@ function cartAddProduct(pid) {
   }
   calcTotals();
   nfUpdateFooter();
-  cartRenderList(document.getElementById('cart-search')?document.getElementById('cart-search').value:'');
+  cartUpdateRow(pid);
+}
+
+function cartUpdateRow(pid) {
+  const p = S.products.find(x=>x.id===pid);
+  if(!p) return;
+  const idx = S.invItems.findIndex(x=>x.prodId===pid);
+  const qty = idx>=0 ? S.invItems[idx].qty : 0;
+  const hasQty = qty > 0;
+  // Find the row by its minus button data attribute
+  const minusBtn = document.querySelector('[data-cartminus="'+pid+'"]');
+  if(!minusBtn) return;
+  const row = minusBtn.closest('div[style*="display:flex"]');
+  if(!row) return;
+  // Update minus button style
+  minusBtn.style.background = hasQty ? 'var(--surface2)' : 'transparent';
+  minusBtn.style.color = hasQty ? 'var(--text)' : 'var(--border)';
+  // Update quantity span
+  const qtySpan = minusBtn.nextElementSibling;
+  if(qtySpan) {
+    qtySpan.textContent = qty;
+    qtySpan.style.color = hasQty ? 'var(--text)' : 'var(--text3)';
+  }
+  // Update price line
+  const priceLine = row.querySelector('div[style*="font-size:12px"]');
+  if(priceLine) priceLine.innerHTML = '$'+p.price.toFixed(2)+(hasQty?' &nbsp;·&nbsp; <span style="color:var(--accent);font-weight:700">$'+(qty*p.price).toFixed(0)+'</span>':'');
 }
 
 function cartSetQty(pid, val) {
@@ -1469,10 +1494,11 @@ document.addEventListener('click', function(e) {
     const pid = minus.dataset.cartminus;
     const idx = S.invItems.findIndex(x=>x.prodId===pid);
     if(idx>=0) {
-      if(S.invItems[idx].qty>1) { S.invItems[idx].qty--; chkW(idx); calcTotals(); }
+      if(S.invItems[idx].qty>1) { S.invItems[idx].qty--; chkW(idx); }
       else S.invItems.splice(idx,1);
+      calcTotals();
       nfUpdateFooter();
-      cartRenderList(document.getElementById('cart-search')?document.getElementById('cart-search').value:'');
+      cartUpdateRow(pid);
     }
   }
 });
