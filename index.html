@@ -16,6 +16,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyD3h1qGQnU_zxteM6CeM-dPqYn21EG93Oo",
@@ -49,6 +50,16 @@
     return onSnapshot(DATA_DOC, (snap) => {
       if (snap.exists()) callback(snap.data());
     });
+  };
+
+  const storage = getStorage(app);
+  window._fbUploadPhoto = async function(file, productId) {
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const storageRef = ref(storage, 'productos/' + productId + '.' + ext);
+      await uploadBytes(storageRef, file);
+      return await getDownloadURL(storageRef);
+    } catch(e) { console.error("Storage upload error:", e); throw e; }
   };
 
   window._firebaseReady = true;
@@ -2461,7 +2472,7 @@ function pagocliConfirm() {
 // === INIT ===
 let _fbListenerActive = false;
 
-async function initApp() {
+async async function initApp() {
   // 1. Cargar desde localStorage inmediatamente (app arranca rápido)
   const hasLocalData = load();
 
