@@ -1516,49 +1516,8 @@ function nfVerResumen() {
   showPage('resumen-factura');
 }
 
-function cartHandleAction(e) {
-  const plus = e.target.closest('[data-cartplus]');
-  const minus = e.target.closest('[data-cartminus]');
-  if(!plus && !minus) return;
-  e.preventDefault();
-  e.stopPropagation();
-  const pid = plus ? plus.dataset.cartplus : minus.dataset.cartminus;
-  const p = S.products.find(x=>x.id===pid);
-  if(!p) return;
-  const existing = S.invItems.findIndex(i=>i.prodId===pid);
-  if(plus) {
-    if(existing>=0) { S.invItems[existing].qty++; chkW(existing); }
-    else { S.invItems.push({desc:p.name,qty:1,price:p.price,prodId:p.id,retailPrice:p.price,wholesalePrice:p.wholesalePrice||0,wholesaleQty:p.wholesaleQty||0}); chkW(S.invItems.length-1); }
-  } else {
-    if(existing>=0) {
-      if(S.invItems[existing].qty>1) { S.invItems[existing].qty--; chkW(existing); }
-      else S.invItems.splice(existing,1);
-    }
-  }
-  calcTotals();
-  nfUpdateFooter();
-  // Update only this row's quantity display directly
-  const newQty = existing>=0 ? S.invItems[S.invItems.findIndex(i=>i.prodId===pid)]?.qty||0 : 0;
-  const btn = plus||minus;
-  const row = btn.closest('div[style*="display:flex"]');
-  if(row) {
-    const qtySpan = row.querySelector('span');
-    if(qtySpan) qtySpan.textContent = newQty;
-    const minBtn = row.querySelector('[data-cartminus]');
-    if(minBtn) { minBtn.style.background = newQty>0?'var(--surface2)':'transparent'; minBtn.style.color = newQty>0?'var(--text)':'var(--border)'; }
-    const priceDiv = row.querySelector('div > div:last-child');
-    if(priceDiv && priceDiv.style && priceDiv.style.fontSize==='12px') {
-      priceDiv.innerHTML = '$'+p.price.toFixed(2)+(newQty>0?' &nbsp;·&nbsp; <span style="color:var(--accent);font-weight:700">$'+(newQty*p.price).toFixed(0)+'</span>':'');
-    }
-  }
-}
-document.getElementById('nf-prod-list').addEventListener('touchstart', function(e) {
-  const plus = e.target.closest('[data-cartplus]');
-  const minus = e.target.closest('[data-cartminus]');
-  if(plus || minus) e.preventDefault();
-}, {passive:false});
-document.getElementById('nf-prod-list').addEventListener('touchend', cartHandleAction, {passive:false});
-document.getElementById('nf-prod-list').addEventListener('click', cartHandleAction);
+
+
 
 function addIItem() {
   const idx=S.invItems.length;
