@@ -1484,10 +1484,16 @@ function nfVerResumen() {
   showPage('resumen-factura');
 }
 
-document.addEventListener('click', function(e) {
+function cartHandleAction(e) {
   const add = e.target.closest('[data-cartadd]');
   const plus = e.target.closest('[data-cartplus]');
   const minus = e.target.closest('[data-cartminus]');
+  if(!add && !plus && !minus) return;
+  e.preventDefault();
+  e.stopPropagation();
+  // Blur search input so it doesn't interfere
+  const inp = document.getElementById('cart-search');
+  if(inp) inp.blur();
   if(add) { cartAddProduct(add.dataset.cartadd); }
   else if(plus) { cartAddProduct(plus.dataset.cartplus); }
   else if(minus) {
@@ -1501,7 +1507,9 @@ document.addEventListener('click', function(e) {
       cartUpdateRow(pid);
     }
   }
-});
+}
+document.getElementById('nf-prod-list').addEventListener('touchend', cartHandleAction, {passive:false});
+document.getElementById('nf-prod-list').addEventListener('click', cartHandleAction);
 
 function addIItem() {
   const idx=S.invItems.length;
