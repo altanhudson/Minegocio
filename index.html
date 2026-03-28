@@ -277,8 +277,15 @@ select option{background:var(--surface2)}
   </div>
 
   <div class="page" id="page-clientes">
-    <div class="search-bar"><span style="color:var(--text3)">&#128269;</span><input type="text" id="cli-search" placeholder="Buscar cliente..." oninput="renderClis(this.value)"></div>
-    <div id="cli-list"></div>
+    <div class="tabs" style="margin-bottom:12px">
+      <div class="tab active" id="cli-tab-lista" onclick="swCliTab('lista',this)">Clientes</div>
+      <div class="tab" id="cli-tab-ranking" onclick="swCliTab('ranking',this)">🏆 Ranking</div>
+    </div>
+    <div id="cli-tab-lista-content">
+      <div class="search-bar"><span style="color:var(--text3)">&#128269;</span><input type="text" id="cli-search" placeholder="Buscar cliente..." oninput="renderClis(this.value)"></div>
+      <div id="cli-list"></div>
+    </div>
+    <div id="cli-tab-ranking-content" style="display:none"></div>
   </div>
 
   <div class="page" id="page-compras">
@@ -319,6 +326,7 @@ select option{background:var(--surface2)}
       <div id="clidet-nombre" style="font-family:Syne,sans-serif;font-size:18px;font-weight:800"></div>
     </div>
     <div id="clidet-saldo" style="border-radius:var(--r);padding:16px;margin-bottom:14px;text-align:center"></div>
+    <div id="clidet-metricas" style="margin-bottom:14px"></div>
     <div style="display:flex;gap:10px;margin-bottom:16px">
       <button onclick="showCliTab('pagos')" id="clidet-btn-pagos" class="btn btn-primary" style="flex:1">💰 Pagos</button>
       <button onclick="showCliTab('productos')" id="clidet-btn-prods" class="btn btn-ghost" style="flex:1">📦 Productos</button>
@@ -456,6 +464,7 @@ select option{background:var(--surface2)}
       <div class="form-group"><label class="fl">Direccion</label><input type="text" id="c-addr" placeholder="Calle, Ciudad"></div>
       <div class="form-group"><label class="fl">CUIT / ID Fiscal</label><input type="text" id="c-tax" placeholder="Opcional"></div>
       <div class="form-group"><label class="fl">Notas</label><textarea id="c-notes" placeholder="Notas..."></textarea></div>
+      <div class="form-group"><label class="fl">Compras previas (historial externo)</label><input type="number" id="c-prevCompras" placeholder="0" inputmode="numeric" min="0"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" style="flex:1" onclick="closeM('mcli')">Cancelar</button>
@@ -1140,9 +1149,10 @@ function openCli(id) {
     document.getElementById('c-addr').value = c.addr||'';
     document.getElementById('c-tax').value = c.tax||'';
     document.getElementById('c-notes').value = c.notes||'';
+    document.getElementById('c-prevCompras').value = c.prevCompras||'';
   } else {
     document.getElementById('mcli-title').textContent = 'Nuevo Cliente';
-    ['c-name','c-phone','c-email','c-addr','c-tax','c-notes'].forEach(f=>document.getElementById(f).value='');
+    ['c-name','c-phone','c-email','c-addr','c-tax','c-notes','c-prevCompras'].forEach(f=>document.getElementById(f).value='');
     document.getElementById('c-type').value='persona';
   }
   document.getElementById('mcli').classList.add('open');
@@ -1158,6 +1168,7 @@ function saveCli() {
     addr:document.getElementById('c-addr').value,
     tax:document.getElementById('c-tax').value,
     notes:document.getElementById('c-notes').value,
+    prevCompras:parseInt(document.getElementById('c-prevCompras').value)||0,
     color: S.editId?(S.clients.find(x=>x.id===S.editId)||{}).color||CCOLS[0]:CCOLS[S.clients.length%CCOLS.length]
   };
   if(S.editId){const i=S.clients.findIndex(x=>x.id===S.editId);S.clients[i]=c;}else S.clients.push(c);
@@ -1189,6 +1200,43 @@ function renderClis(q) {
       +'</div>';
   }).join('')+'</div></div>';
 }
+function swCliTab(tab, el) {
+  document.querySelectorAll('#page-clientes .tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('cli-tab-lista-content').style.display = tab==='lista'?'':'none';
+  document.getElementById('cli-tab-ranking-content').style.display = tab==='ranking'?'':'none';
+  if(tab==='ranking') renderRanking();
+}
+
+function renderRanking() {
+  const el = document.getElementById('cli-tab-ranking-content');
+  const now = new Date();
+  const m = now.getMonth(), y = now.getFullYear();
+  // Calcular unidades vendidas este mes por cliente
+  const ranking = S.clients.map(c => {
+    const invs = S.invoices.filter(i=>i.clientId===c.id && i.type!=='presupuesto' && (() => { const d=new Date(i.date); return d.getMonth()===m&&d.getFullYear()===y; })());
+    const uds = invs.reduce((s,i)=>(i.items||[]).reduce((ss,it)=>ss+(it.qty||1),s),0);
+    const total = invs.reduce((s,i)=>s+(i.total||0),0);
+    return { c, uds, total };
+  }).filter(x=>x.uds>0).sort((a,b)=>b.uds-a.uds);
+  if(!ranking.length) {
+    el.innerHTML='<div class="empty"><div class="ei">🏆</div><h3>Sin ventas este mes</h3><p>El ranking se actualiza con las facturas del mes</p></div>';
+    return;
+  }
+  const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  el.innerHTML='<div style="font-size:12px;color:var(--text3);margin-bottom:10px;font-weight:600">'+meses[m]+' '+y+' — por unidades vendidas</div>'
+    +'<div class="card"><div style="padding:0">'+ranking.map((x,i)=>{
+    const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+    const init = x.c.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+    return '<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;'+(i>0?'border-top:1px solid var(--border)':'')+'" onclick="verCliDetalle(''+x.c.id+'')">'
+      +'<div style="font-size:20px;width:28px;text-align:center">'+(medal||'<span style="font-family:Syne,sans-serif;font-weight:800;color:var(--text3);font-size:14px">'+(i+1)+'</span>')+'</div>'
+      +'<div style="width:40px;height:40px;border-radius:10px;background:'+x.c.color+'22;color:'+x.c.color+';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;font-family:Syne,sans-serif;flex-shrink:0">'+init+'</div>'
+      +'<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">'+x.c.name+'</div><div style="font-size:12px;color:var(--text3)">$'+x.total.toFixed(0)+'</div></div>'
+      +'<div style="text-align:right;flex-shrink:0"><div style="font-family:Syne,sans-serif;font-weight:800;font-size:16px;color:var(--accent)">'+x.uds+'</div><div style="font-size:10px;color:var(--text3)">uds</div></div>'
+      +'</div>';
+  }).join('')+'</div></div>';
+}
+
 document.getElementById('page-clientes').addEventListener('click', function(e){
   const el=e.target.closest('[data-action="openCli"]');
   if(el) verCliDetalle(el.dataset.id);
@@ -1671,6 +1719,37 @@ function verCliDetalle(id) {
     saldoEl.style.background = 'var(--surface2)';
     saldoEl.style.border = '1px solid var(--border)';
     saldoEl.innerHTML = '<div style="font-size:14px;color:var(--text3)">✓ Al día</div>';
+  }
+  // Métricas del cliente
+  const invs = S.invoices.filter(i=>i.clientId===id && i.type!=='presupuesto');
+  const now = new Date();
+  const mes = (y,m) => invs.filter(i=>{ const d=new Date(i.date); return d.getFullYear()===y&&d.getMonth()===m; });
+  const m0 = mes(now.getFullYear(), now.getMonth());
+  const m1 = mes(now.getMonth()===0?now.getFullYear()-1:now.getFullYear(), now.getMonth()===0?11:now.getMonth()-1);
+  const m2 = mes(now.getMonth()<=1?now.getFullYear()-1:now.getFullYear(), (now.getMonth()-2+12)%12);
+  const sumUds = arr => arr.reduce((s,i)=>(i.items||[]).reduce((ss,it)=>ss+(it.qty||1),s),0);
+  const sumTotal = arr => arr.reduce((s,i)=>s+(i.total||0),0);
+  const totalVida = sumTotal(invs);
+  const prevCompras = c.prevCompras||0;
+  const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const nm = (n,offset) => meses[(now.getMonth()-offset+12)%12];
+  const metricsEl = document.getElementById('clidet-metricas');
+  if(metricsEl) {
+    const u0=sumUds(m0),u1=sumUds(m1),u2=sumUds(m2);
+    const t0=sumTotal(m0),t1=sumTotal(m1),t2=sumTotal(m2);
+    const promMensual = invs.length ? (totalVida/Math.max(1,new Set(invs.map(i=>i.date.substring(0,7))).size)).toFixed(0) : 0;
+    metricsEl.innerHTML =
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">'
+      +'<div style="background:var(--surface2);border-radius:12px;padding:12px;text-align:center"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Total de por vida</div><div style="font-family:Syne,sans-serif;font-size:18px;font-weight:800;color:var(--accent)">$'+totalVida.toFixed(0)+'</div></div>'
+      +'<div style="background:var(--surface2);border-radius:12px;padding:12px;text-align:center"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Promedio mensual</div><div style="font-family:Syne,sans-serif;font-size:18px;font-weight:800;color:var(--accent2)">$'+promMensual+'</div></div>'
+      +(prevCompras?'<div style="background:var(--surface2);border-radius:12px;padding:12px;text-align:center;grid-column:span 2"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Compras históricas (Invoice Manager)</div><div style="font-family:Syne,sans-serif;font-size:18px;font-weight:800;color:var(--text2)">'+prevCompras+' compras</div></div>':'')
+      +'</div>'
+      +'<div style="margin-bottom:4px;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:600">Últimos 3 meses — unidades</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:12px">'
+      +'<div style="background:var(--surface2);border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--text3)">'+nm(now,2)+'</div><div style="font-family:Syne,sans-serif;font-size:16px;font-weight:800">'+u2+'</div><div style="font-size:10px;color:var(--text3)">$'+t2.toFixed(0)+'</div></div>'
+      +'<div style="background:var(--surface2);border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--text3)">'+nm(now,1)+'</div><div style="font-family:Syne,sans-serif;font-size:16px;font-weight:800">'+u1+'</div><div style="font-size:10px;color:var(--text3)">$'+t1.toFixed(0)+'</div></div>'
+      +'<div style="background:var(--accent);border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.7)">'+nm(now,0)+'</div><div style="font-family:Syne,sans-serif;font-size:16px;font-weight:800;color:#fff">'+u0+'</div><div style="font-size:10px;color:rgba(255,255,255,.7)">$'+t0.toFixed(0)+'</div></div>'
+      +'</div>';
   }
   showCliTab('pagos');
   showPage('cli-detalle');
