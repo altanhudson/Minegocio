@@ -487,9 +487,15 @@ select option{background:var(--surface2)}
         <div class="form-group"><label class="fl">Tipo</label><select id="i-type"><option value="factura">Factura</option><option value="presupuesto">Presupuesto</option></select></div>
         <div class="form-group"><label class="fl">Estado</label><select id="i-status"><option value="pendiente">Pendiente</option><option value="pagada">Pagada</option></select></div>
       </div>
-      <div class="section-ttl">Productos / Servicios</div>
-      <div id="inv-items"></div>
-      <button class="btn btn-ghost btn-sm btn-full" onclick="addIItem()" style="margin-bottom:12px">+ Agregar item</button>
+      <div class="section-ttl">Productos</div>
+      <div style="position:relative;margin-bottom:8px">
+        <input type="text" id="cart-search" placeholder="🔍 Buscar producto..." autocomplete="off"
+          oninput="cartSearch(this.value)" onfocus="cartSearch(this.value)"
+          onblur="setTimeout(function(){document.getElementById('cart-ac').style.display='none'},200)"
+          style="width:100%;font-size:15px;padding:10px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--surface2);font-family:DM Sans,sans-serif">
+        <div id="cart-ac" style="display:none;position:absolute;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:12px;z-index:50;max-height:220px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,.1);margin-top:4px"></div>
+      </div>
+      <div id="inv-items" style="margin-bottom:8px"></div>
       <div class="totals-box">
         <div class="tot-row"><span style="color:var(--text2)">Subtotal</span><span id="i-sub">$0.00</span></div>
         <div class="tot-row">
@@ -792,7 +798,7 @@ function showPage(p) {
   const L = {dashboard:'+ Nuevo',facturas:'+ Factura',productos:'+ Producto',clientes:'+ Cliente',compras:'+ Compra',proveedores:'+ Proveedor',stock:'','cli-detalle':'','prov-detalle':''};
   document.getElementById('btn-add').textContent = L[p] !== undefined ? L[p] : '+ Nuevo';
   const fab = document.querySelector('.fab');
-  if(fab) fab.style.display = (p==='stock') ? 'none' : '';
+  if(fab) fab.style.display = (p==='stock'||p==='cli-detalle'||p==='prov-detalle'||p==='grupos') ? 'none' : '';
   if(p==='dashboard') updDash();
 }
 
@@ -1287,23 +1293,93 @@ function openInv(id) {
 
 function renderIItem(idx, item) {
   item = item || {desc:'',qty:1,price:0,prodId:null};
-  const wrap=document.createElement('div');
+  const existing = document.getElementById('irow-'+idx);
+  const wrap = existing || document.createElement('div');
   wrap.className='inv-item-box'; wrap.id='irow-'+idx;
   const selProd=item.prodId?S.products.find(p=>p.id===item.prodId):null;
-  wrap.innerHTML='<button class="rm" onclick="remIItem('+idx+')">x</button>'
-    +'<div class="ac-wrap" style="margin-bottom:8px">'
-    +'<input type="text" id="ac-'+idx+'" value="'+(selProd?selProd.name:(item.desc||'')).replace(/"/g,'&quot;')+'" placeholder="Escribi para buscar producto..." autocomplete="off" oninput="acSrch('+idx+',this.value)" onfocus="scrollToItem('+idx+')" onblur="setTimeout(function(){acHide('+idx+')},250)" style="font-size:14px">'
-    +'<div class="ac-list" id="acl-'+idx+'"></div>'
+  const name = selProd?selProd.name:(item.desc||'Item');
+  const subtotal = (item.qty||1)*(item.price||0);
+  wrap.innerHTML=
+    '<div style="display:flex;align-items:center;gap:10px">'
+    +'<div style="flex:1;min-width:0">'
+    +'<div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+name+'</div>'
+    +'<div style="font-size:12px;color:var(--text3)">$'+(item.price||0).toFixed(2)+' c/u &nbsp;|&nbsp; <span style="color:var(--accent);font-weight:700">$'+subtotal.toFixed(0)+'</span></div>'
+    +'<div id="wtag-'+idx+'" style="font-size:10px;color:var(--accent2);display:none">⭐ Precio mayorista</div>'
     +'</div>'
-    +'<div style="display:flex;gap:8px">'
-    +'<div style="flex:1"><div style="font-size:10px;color:var(--text3);margin-bottom:3px">CANTIDAD</div>'
-    +'<input type="number" id="iq-'+idx+'" value="'+(item.qty||1)+'" min="1" inputmode="numeric" data-qidx="'+idx+'" class="qty-input" onchange="S.invItems['+idx+'].qty=parseFloat(this.value)||1;chkW('+idx+');calcTotals()">'
-    +'<div id="wtag-'+idx+'" style="font-size:10px;color:var(--accent2);margin-top:2px;display:none">Precio mayorista</div></div>'
-    +'<div style="flex:1"><div style="font-size:10px;color:var(--text3);margin-bottom:3px">PRECIO UNIT.</div>'
-    +'<input type="number" id="ip-'+idx+'" value="'+(item.price||0)+'" min="0" step="0.01" inputmode="decimal" onchange="S.invItems['+idx+'].price=parseFloat(this.value)||0;calcTotals()"></div>'
+    +'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
+    +'<button data-ridx="'+idx+'" class="cart-minus" style="width:34px;height:34px;border-radius:10px;border:none;background:var(--surface2);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:300">−</button>'
+    +'<input type="number" id="iq-'+idx+'" value="'+(item.qty||1)+'" min="1" inputmode="numeric" data-qidx="'+idx+'" class="qty-input" style="width:44px;text-align:center;font-size:16px;font-weight:700;border:1.5px solid var(--border);border-radius:8px;padding:4px 0;background:var(--surface)" onchange="S.invItems['+idx+'].qty=parseFloat(this.value)||1;chkW('+idx+');calcTotals();renderIItem('+idx+',S.invItems['+idx+'])">'
+    +'<button data-ridx="'+idx+'" class="cart-plus" style="width:34px;height:34px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>'
+    +'<button data-ridx="'+idx+'" class="cart-del" style="width:30px;height:30px;border-radius:8px;border:none;background:rgba(220,38,38,.1);color:var(--accent3);font-size:14px;cursor:pointer;margin-left:2px">✕</button>'
+    +'</div>'
     +'</div>';
-  document.getElementById('inv-items').appendChild(wrap);
+  if(!existing) document.getElementById('inv-items').appendChild(wrap);
 }
+
+function cartSearch(q) {
+  const ac = document.getElementById('cart-ac');
+  if(!q || q.length < 1) { ac.style.display='none'; return; }
+  const ql = q.trim().toLowerCase();
+  const res = S.products.filter(p=>p.visible!==false && p.name.toLowerCase().includes(ql)).slice(0,10);
+  if(!res.length) { ac.style.display='none'; return; }
+  ac.style.display='block';
+  ac.innerHTML = res.map(p=>{
+    const existing = S.invItems.findIndex(i=>i.prodId===p.id);
+    const qty = existing>=0 ? S.invItems[existing].qty : 0;
+    return '<div data-pid="'+p.id+'" class="cart-ac-item" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border)">'
+      +'<div><div style="font-weight:600;font-size:14px">'+p.name+'</div><div style="font-size:12px;color:var(--text3)">$'+p.price.toFixed(2)+(qty>0?' · <span style="color:var(--accent);font-weight:700">'+qty+' en carrito</span>':'')+'</div></div>'
+      +'<div style="width:32px;height:32px;border-radius:8px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">'+(qty>0?qty:'+')+'</div>'
+      +'</div>';
+  }).join('');
+}
+
+document.getElementById('cart-ac').addEventListener('mousedown', function(e) {
+  const item = e.target.closest('[data-pid]');
+  if(!item) return;
+  cartAddProduct(item.dataset.pid);
+});
+document.getElementById('cart-ac').addEventListener('touchend', function(e) {
+  const item = e.target.closest('[data-pid]');
+  if(!item) return;
+  e.preventDefault();
+  cartAddProduct(item.dataset.pid);
+});
+
+function cartAddProduct(pid) {
+  const p = S.products.find(x=>x.id===pid);
+  if(!p) return;
+  const existing = S.invItems.findIndex(i=>i.prodId===pid);
+  if(existing >= 0) {
+    S.invItems[existing].qty += 1;
+    chkW(existing);
+    calcTotals();
+    renderIItem(existing, S.invItems[existing]);
+  } else {
+    const idx = S.invItems.length;
+    S.invItems.push({desc:p.name, qty:1, price:p.price, prodId:p.id, retailPrice:p.price, wholesalePrice:p.wholesalePrice, wholesaleQty:p.wholesaleQty});
+    chkW(idx);
+    calcTotals();
+    renderIItem(idx, S.invItems[idx]);
+  }
+  const inp = document.getElementById('cart-search');
+  if(inp) { cartSearch(inp.value); }
+}
+
+document.getElementById('inv-items').addEventListener('click', function(e) {
+  const minus = e.target.closest('.cart-minus');
+  const plus = e.target.closest('.cart-plus');
+  const del = e.target.closest('.cart-del');
+  if(minus) {
+    const idx = parseInt(minus.dataset.ridx);
+    if(S.invItems[idx].qty > 1) { S.invItems[idx].qty--; chkW(idx); calcTotals(); renderIItem(idx, S.invItems[idx]); }
+    else remIItem(idx);
+  } else if(plus) {
+    const idx = parseInt(plus.dataset.ridx);
+    S.invItems[idx].qty++; chkW(idx); calcTotals(); renderIItem(idx, S.invItems[idx]);
+  } else if(del) {
+    remIItem(parseInt(del.dataset.ridx));
+  }
+});
 
 function addIItem() {
   const idx=S.invItems.length;
