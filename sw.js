@@ -1,4 +1,4 @@
-const CACHE_NAME = 'revendit-v6';
+const CACHE_NAME = 'revendit-v7';
 const ASSETS = [
   '/Minegocio/',
   '/Minegocio/index.html',
@@ -29,6 +29,21 @@ self.addEventListener('fetch', event => {
       url.includes('wa.me') ||
       url.includes('fonts.g')) return;
 
+  // Network-first para index.html — siempre busca la versión más reciente
+  if (url.includes('/Minegocio/') && (url.endsWith('/Minegocio/') || url.includes('index.html'))) {
+    event.respondWith(
+      fetch(event.request).then(response => {
+        if (response && response.status === 200) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        }
+        return response;
+      }).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Cache-first para el resto (iconos, manifest)
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
