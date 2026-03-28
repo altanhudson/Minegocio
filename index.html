@@ -1412,7 +1412,7 @@ function cartRenderList(q) {
       +(qty>0
         ? '<div style="display:flex;align-items:center;gap:6px">'
           +'<button data-cartminus="'+p.id+'" style="width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);font-size:20px;cursor:pointer;font-weight:300;flex-shrink:0">−</button>'
-          +'<input type="number" value="'+qty+'" min="1" inputmode="numeric" style="width:44px;text-align:center;font-size:16px;font-weight:700;border:1px solid var(--border);border-radius:8px;padding:4px 0" onchange="cartSetQty(''+p.id+'',this.value)">'
+          +'<input type="number" data-cspid="'+p.id+'" value="'+qty+'" min="1" inputmode="numeric" style="width:44px;text-align:center;font-size:16px;font-weight:700;border:1px solid var(--border);border-radius:8px;padding:4px 0" onchange="cartSetQty(this.dataset.cspid,this.value)">'
           +'<button data-cartplus="'+p.id+'" style="width:34px;height:34px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:20px;cursor:pointer;flex-shrink:0">+</button>'
           +'</div>'
         : '<button data-cartadd="'+p.id+'" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap">Agregar</button>'
