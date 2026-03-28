@@ -855,9 +855,11 @@ function closeM(id) { document.getElementById(id).classList.remove('open'); S.ed
 document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) o.classList.remove('open'); }));
 
 function showPage(p) {
-  document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(x => { x.classList.remove('active'); x.style.display=''; });
   document.querySelectorAll('.nav-tab').forEach(x => x.classList.remove('active'));
-  document.getElementById('page-'+p).classList.add('active');
+  const pageEl = document.getElementById('page-'+p);
+  pageEl.classList.add('active');
+  if(p==='nueva-factura') pageEl.style.display='flex';
   const navEl = document.getElementById('nav-'+p);
   if(navEl) navEl.classList.add('active');
   S.page = p;
