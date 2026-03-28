@@ -1410,15 +1410,47 @@ function cartRenderList(q) {
       +'<div style="font-weight:600;font-size:14px">'+p.name+'</div>'
       +'<div style="font-size:12px;color:var(--text3);margin-top:1px">$'+p.price.toFixed(2)+(hasQty?' &nbsp;·&nbsp; <span style="color:var(--accent);font-weight:700">$'+(qty*p.price).toFixed(0)+'</span>':'')+'</div>'
       +'</div>'
-      +'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
-      +'<button data-cartminus="'+p.id+'" style="width:36px;height:36px;border-radius:10px;border:1px solid var(--border);background:'+(hasQty?'var(--surface2)':'transparent')+';color:'+(hasQty?'var(--text)':'var(--border)')+';font-size:22px;cursor:pointer;font-weight:300;line-height:1">−</button>'
-      +'<span style="width:32px;text-align:center;font-size:16px;font-weight:700;color:'+(hasQty?'var(--text)':'var(--text3)')+'">'+qty+'</span>'
-      +'<button data-cartplus="'+p.id+'" style="width:36px;height:36px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:22px;cursor:pointer;line-height:1">+</button>'
+      +'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0" id="crow-'+p.id+'">'
+      +'<button data-pid="'+p.id+'" ontouchstart="cartMinus(event,this.dataset.pid);return false" onclick="cartMinus(event,this.dataset.pid)" style="width:36px;height:36px;border-radius:10px;border:1px solid var(--border);background:'+(hasQty?'var(--surface2)':'transparent')+';color:'+(hasQty?'var(--text)':'var(--border)')+';font-size:22px;cursor:pointer;font-weight:300;line-height:1">−</button>'
+      +'<span id="cqty-'+p.id+'" style="width:32px;text-align:center;font-size:16px;font-weight:700;color:'+(hasQty?'var(--text)':'var(--text3)')+'">'+qty+'</span>'
+      +'<button data-pid="'+p.id+'" ontouchstart="cartPlus(event,this.dataset.pid);return false" onclick="cartPlus(event,this.dataset.pid)" style="width:36px;height:36px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:22px;cursor:pointer;line-height:1">+</button>'
       +'</div>'
       +'</div>';
   }).join('');
 }
 
+function cartPlus(e, pid) {
+  e.preventDefault();
+  e.stopPropagation();
+  cartAddProduct(pid);
+}
+function cartMinus(e, pid) {
+  e.preventDefault();
+  e.stopPropagation();
+  const idx = S.invItems.findIndex(x=>x.prodId===pid);
+  if(idx<0) return;
+  if(S.invItems[idx].qty>1) { S.invItems[idx].qty--; chkW(idx); }
+  else S.invItems.splice(idx,1);
+  calcTotals();
+  nfUpdateFooter();
+  cartInlineUpdate(pid);
+}
+function cartInlineUpdate(pid) {
+  const p = S.products.find(x=>x.id===pid);
+  if(!p) return;
+  const idx = S.invItems.findIndex(x=>x.prodId===pid);
+  const qty = idx>=0 ? S.invItems[idx].qty : 0;
+  const qtyEl = document.getElementById('cqty-'+pid);
+  if(qtyEl) {
+    qtyEl.textContent = qty;
+    qtyEl.style.color = qty>0 ? 'var(--text)' : 'var(--text3)';
+  }
+  const row = document.getElementById('crow-'+pid);
+  if(row) {
+    const minBtn = row.querySelector('button:first-child');
+    if(minBtn) { minBtn.style.background = qty>0?'var(--surface2)':'transparent'; minBtn.style.color = qty>0?'var(--text)':'var(--border)'; }
+  }
+}
 function cartAddProduct(pid) {
   const p = S.products.find(x=>x.id===pid);
   if(!p) return;
@@ -1433,8 +1465,7 @@ function cartAddProduct(pid) {
   }
   calcTotals();
   nfUpdateFooter();
-  const inp2 = document.getElementById('cart-search');
-  cartRenderList(inp2 ? inp2.value : '');
+  cartInlineUpdate(pid);
 }
 
 function cartUpdateRow(pid) {
