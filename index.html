@@ -261,40 +261,49 @@ select option{background:var(--surface2)}
 
   <!-- PÁGINA NUEVA FACTURA (carrito) -->
   <div class="page" id="page-nueva-factura" style="padding:0;display:flex;flex-direction:column;height:100%">
-    <!-- Header fijo -->
-    <div style="padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0">
-      <button onclick="cerrarNuevaFac()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 14px;font-size:16px;cursor:pointer">←</button>
-      <div id="nf-title" style="font-family:Syne,sans-serif;font-size:17px;font-weight:800;flex:1">Nueva Factura</div>
-      <button onclick="saveInv()" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer">Guardar</button>
-    </div>
-    <!-- Cliente + fecha -->
-    <div style="padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0">
-      <div style="display:flex;gap:8px">
-        <div style="flex:2"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Cliente *</div><select id="i-cli" style="width:100%;font-size:13px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:DM Sans,sans-serif"></select></div>
-        <div style="flex:1"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Fecha</div><input type="date" id="i-date" style="width:100%;font-size:12px;padding:8px 6px;border:1px solid var(--border);border-radius:10px;background:var(--surface2)"></div>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:6px">
-        <div style="flex:1"><select id="i-type" style="width:100%;font-size:13px;padding:7px 8px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:DM Sans,sans-serif"><option value="factura">Factura</option><option value="presupuesto">Presupuesto</option></select></div>
-        <div style="flex:1"><select id="i-status" style="width:100%;font-size:13px;padding:7px 8px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:DM Sans,sans-serif"><option value="pendiente">Pendiente</option><option value="pagada">Pagada</option></select></div>
-      </div>
+    <!-- Header -->
+    <div style="padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0">
+      <button onclick="cerrarNuevaFac()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 12px;font-size:16px;cursor:pointer">←</button>
+      <select id="i-cli" style="flex:1;font-size:14px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:DM Sans,sans-serif"></select>
+      <input type="date" id="i-date" style="font-size:12px;padding:8px 6px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);width:120px">
     </div>
     <!-- Buscador fijo -->
-    <div style="padding:10px 16px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;position:relative">
-      <input type="text" id="cart-search" placeholder="🔍 Buscar y agregar producto..." autocomplete="off"
-        oninput="cartSearch(this.value)" onfocus="cartSearch(this.value)"
-        style="width:100%;font-size:15px;padding:11px 14px;border:1.5px solid var(--accent);border-radius:12px;background:var(--surface);font-family:DM Sans,sans-serif;outline:none">
-      <div id="cart-ac" style="display:none;position:absolute;left:16px;right:16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;z-index:50;max-height:240px;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,.15);margin-top:4px"></div>
+    <div style="padding:8px 12px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0">
+      <input type="search" id="cart-search" placeholder="🔍 Buscar producto..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+        oninput="cartRenderList(this.value)"
+        style="width:100%;font-size:15px;padding:10px 14px;border:1.5px solid var(--accent);border-radius:12px;background:var(--surface);font-family:DM Sans,sans-serif;outline:none">
     </div>
-    <!-- Carrito scrolleable -->
-    <div style="flex:1;overflow-y:auto;padding:12px 16px" id="nf-scroll">
-      <div id="inv-items" style="margin-bottom:8px"></div>
-      <!-- Totales -->
-      <div class="totals-box" id="nf-totals" style="display:none">
+    <!-- Lista de productos scrolleable -->
+    <div style="flex:1;overflow-y:auto" id="nf-prod-list"></div>
+    <!-- Footer fijo con total y guardar -->
+    <div id="nf-footer" style="background:var(--accent);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <div>
+        <div style="font-size:11px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.5px" id="nf-footer-items">0 productos</div>
+        <div style="font-family:Syne,sans-serif;font-size:22px;font-weight:800;color:#fff" id="nf-footer-total">$0</div>
+      </div>
+      <button onclick="nfVerResumen()" style="background:#fff;color:var(--accent);border:none;border-radius:12px;padding:12px 22px;font-size:15px;font-weight:700;cursor:pointer;font-family:DM Sans,sans-serif">Ver resumen →</button>
+    </div>
+  </div>
+
+  <!-- PÁGINA RESUMEN FACTURA -->
+  <div class="page" id="page-resumen-factura" style="padding:0;display:flex;flex-direction:column;height:100%">
+    <div style="padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0">
+      <button onclick="showPage('nueva-factura')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 14px;font-size:16px;cursor:pointer">←</button>
+      <div style="font-family:Syne,sans-serif;font-size:17px;font-weight:800;flex:1">Resumen</div>
+      <button onclick="saveInv()" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer">Guardar</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:12px 16px">
+      <div id="inv-items" style="margin-bottom:12px"></div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <div style="flex:1"><select id="i-type" style="width:100%;font-size:13px;padding:8px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:DM Sans,sans-serif"><option value="factura">Factura</option><option value="presupuesto">Presupuesto</option></select></div>
+        <div style="flex:1"><select id="i-status" style="width:100%;font-size:13px;padding:8px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:DM Sans,sans-serif"><option value="pendiente">Pendiente</option><option value="pagada">Pagada</option></select></div>
+      </div>
+      <div class="totals-box" id="nf-totals">
         <div class="tot-row"><span style="color:var(--text2)">Subtotal</span><span id="i-sub">$0.00</span></div>
         <div class="tot-row">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--text2);font-size:13px">
             <input type="checkbox" id="i-desc-ret" onchange="calcTotals()" style="width:18px;height:18px;accent-color:var(--accent)">
-            <span>Desc. retiro deposito <strong style="color:var(--accent)">-5%</strong></span>
+            <span>Desc. retiro depósito <strong style="color:var(--accent)">-5%</strong></span>
           </label>
           <span id="i-ret-amt" style="color:var(--green)">-$0.00</span>
         </div>
@@ -308,19 +317,18 @@ select option{background:var(--surface2)}
         </div>
         <div class="tot-row tot-grand"><span>TOTAL</span><span id="i-total">$0.00</span></div>
       </div>
-      <!-- Pago -->
-      <div class="pago-box" id="nf-pago" style="display:none">
+      <div class="pago-box" style="margin-top:12px">
         <div style="font-size:11px;color:var(--accent2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Registrar Pago</div>
-        <div style="display:flex;gap:8px;align-items:flex-end">
-          <div style="flex:1"><div style="font-size:10px;color:var(--text3);margin-bottom:4px">MONTO PAGADO AHORA</div><input type="number" id="i-pago" placeholder="0.00" min="0" step="0.01" inputmode="decimal" oninput="calcPago()" style="font-size:15px;font-weight:600;width:100%;border:1px solid var(--border);border-radius:10px;padding:8px"></div>
-          <div style="flex:1"><div style="font-size:10px;color:var(--text3);margin-bottom:4px">FORMA DE PAGO</div><select id="i-pmethod" style="font-size:13px;width:100%;border:1px solid var(--border);border-radius:10px;padding:8px;background:var(--surface2)"><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="debito">Debito</option><option value="credito">Credito</option></select></div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1"><div style="font-size:10px;color:var(--text3);margin-bottom:4px">MONTO</div><input type="number" id="i-pago" placeholder="0.00" min="0" step="0.01" inputmode="decimal" oninput="calcPago()" style="font-size:15px;font-weight:600;width:100%;border:1px solid var(--border);border-radius:10px;padding:8px"></div>
+          <div style="flex:1"><div style="font-size:10px;color:var(--text3);margin-bottom:4px">FORMA</div><select id="i-pmethod" style="font-size:13px;width:100%;border:1px solid var(--border);border-radius:10px;padding:8px;background:var(--surface2)"><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="debito">Débito</option><option value="credito">Crédito</option></select></div>
         </div>
         <div id="pago-info" style="display:none;margin-top:10px;font-size:13px">
           <div id="pi-pend" class="pago-info-row" style="display:none"><span style="color:var(--text2)">Queda pendiente</span><span id="pi-pend-amt" style="color:var(--accent3);font-weight:700"></span></div>
           <div id="pi-fav" class="pago-info-row" style="display:none"><span style="color:var(--text2)">Queda a favor</span><span id="pi-fav-amt" style="color:var(--green);font-weight:700"></span></div>
         </div>
       </div>
-      <div class="form-group" id="nf-notas" style="display:none;margin-top:14px"><label class="fl">Notas</label><textarea id="i-notes" placeholder="Notas para el cliente..."></textarea></div>
+      <div class="form-group" style="margin-top:14px"><label class="fl">Notas</label><textarea id="i-notes" placeholder="Notas para el cliente..."></textarea></div>
     </div>
   </div>
 
@@ -851,16 +859,16 @@ function showPage(p) {
   document.querySelectorAll('.nav-tab').forEach(x => x.classList.remove('active'));
   const pageEl = document.getElementById('page-'+p);
   pageEl.classList.add('active');
-  if(p==='nueva-factura') pageEl.style.display='flex';
+  if(p==='nueva-factura'||p==='resumen-factura') pageEl.style.display='flex';
   const navEl = document.getElementById('nav-'+p);
   if(navEl) navEl.classList.add('active');
   S.page = p;
-  const L = {dashboard:'+ Nuevo',facturas:'+ Factura',productos:'+ Producto',clientes:'+ Cliente',compras:'+ Compra',proveedores:'+ Proveedor',stock:'','cli-detalle':'','prov-detalle':'','nueva-factura':'','grupos':''};
+  const L = {dashboard:'+ Nuevo',facturas:'+ Factura',productos:'+ Producto',clientes:'+ Cliente',compras:'+ Compra',proveedores:'+ Proveedor',stock:'','cli-detalle':'','prov-detalle':'','nueva-factura':'','resumen-factura':'','grupos':''};
   document.getElementById('btn-add').textContent = L[p] !== undefined ? L[p] : '+ Nuevo';
   const fab = document.querySelector('.fab');
-  if(fab) fab.style.display = (p==='stock'||p==='cli-detalle'||p==='prov-detalle'||p==='grupos'||p==='nueva-factura') ? 'none' : '';
+  if(fab) fab.style.display = (p==='stock'||p==='cli-detalle'||p==='prov-detalle'||p==='grupos'||p==='nueva-factura'||p==='resumen-factura') ? 'none' : '';
   const nav = document.querySelector('.bottom-nav');
-  if(nav) nav.style.display = p==='nueva-factura' ? 'none' : '';
+  if(nav) nav.style.display = (p==='nueva-factura'||p==='resumen-factura') ? 'none' : '';
   if(p==='dashboard') updDash();
 }
 
@@ -1349,11 +1357,8 @@ function openInv(id) {
     document.getElementById('pago-info').style.display='none';
   }
   calcTotals();
-  // Mostrar/ocultar totales y pago si hay items
-  const hasItems = S.invItems.length > 0;
-  document.getElementById('nf-totals').style.display = hasItems ? '' : 'none';
-  document.getElementById('nf-pago').style.display = hasItems ? '' : 'none';
-  document.getElementById('nf-notas').style.display = hasItems ? '' : 'none';
+  nfUpdateFooter();
+  cartRenderList('');
   showPage('nueva-factura');
 }
 
@@ -1386,41 +1391,35 @@ function renderIItem(idx, item) {
   if(!existing) document.getElementById('inv-items').appendChild(wrap);
 }
 
-function cartSearch(q) {
-  const ac = document.getElementById('cart-ac');
-  if(!q || q.length < 1) { ac.style.display='none'; return; }
-  const ql = q.trim().toLowerCase();
-  const res = S.products.filter(p=>p.visible!==false && p.name.toLowerCase().includes(ql)).slice(0,10);
-  if(!res.length) { ac.style.display='none'; return; }
-  ac.style.display='block';
-  ac.innerHTML = res.map(p=>{
-    const existing = S.invItems.findIndex(i=>i.prodId===p.id);
-    const qty = existing>=0 ? S.invItems[existing].qty : 0;
-    return '<div data-pid="'+p.id+'" class="cart-ac-item" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border)">'
-      +'<div><div style="font-weight:600;font-size:14px">'+p.name+'</div><div style="font-size:12px;color:var(--text3)">$'+p.price.toFixed(2)+(qty>0?' · <span style="color:var(--accent);font-weight:700">'+qty+' en carrito</span>':'')+'</div></div>'
-      +'<div style="width:32px;height:32px;border-radius:8px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">'+(qty>0?qty:'+')+'</div>'
+function cartRenderList(q) {
+  const el = document.getElementById('nf-prod-list');
+  if(!el) return;
+  const ql = (q||'').trim().toLowerCase();
+  let prods = S.products.filter(p=>p.visible!==false);
+  if(ql) prods = prods.filter(p=>p.name.toLowerCase().includes(ql));
+  if(!prods.length) {
+    el.innerHTML='<div style="text-align:center;padding:40px;color:var(--text3)">Sin resultados</div>';
+    return;
+  }
+  el.innerHTML = prods.map((p,i) => {
+    const idx = S.invItems.findIndex(x=>x.prodId===p.id);
+    const qty = idx>=0 ? S.invItems[idx].qty : 0;
+    return '<div style="display:flex;align-items:center;padding:13px 16px;background:var(--surface);'+(i>0?'border-top:1px solid var(--border)':'')+'">'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-weight:600;font-size:14px">'+p.name+'</div>'
+      +'<div style="font-size:12px;color:var(--text3);margin-top:2px">$'+p.price.toFixed(2)+'</div>'
+      +'</div>'
+      +(qty>0
+        ? '<div style="display:flex;align-items:center;gap:6px">'
+          +'<button data-cartminus="'+p.id+'" style="width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);font-size:20px;cursor:pointer;font-weight:300;flex-shrink:0">−</button>'
+          +'<input type="number" value="'+qty+'" min="1" inputmode="numeric" style="width:44px;text-align:center;font-size:16px;font-weight:700;border:1px solid var(--border);border-radius:8px;padding:4px 0" onchange="cartSetQty(''+p.id+'',this.value)">'
+          +'<button data-cartplus="'+p.id+'" style="width:34px;height:34px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:20px;cursor:pointer;flex-shrink:0">+</button>'
+          +'</div>'
+        : '<button data-cartadd="'+p.id+'" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap">Agregar</button>'
+      )
       +'</div>';
   }).join('');
 }
-
-document.addEventListener('touchstart', function(e) {
-  const ac = document.getElementById('cart-ac');
-  if(!ac || ac.style.display==='none') return;
-  const item = e.target.closest('[data-pid]');
-  if(item) {
-    e.preventDefault();
-    cartAddProduct(item.dataset.pid);
-  } else if(!ac.contains(e.target) && e.target.id!=='cart-search') {
-    ac.style.display='none';
-  }
-}, {passive:false});
-document.addEventListener('mousedown', function(e) {
-  const ac = document.getElementById('cart-ac');
-  if(!ac || ac.style.display==='none') return;
-  const item = e.target.closest('[data-pid]');
-  if(item) cartAddProduct(item.dataset.pid);
-  else if(!ac.contains(e.target) && e.target.id!=='cart-search') ac.style.display='none';
-});
 
 function cartAddProduct(pid) {
   const p = S.products.find(x=>x.id===pid);
@@ -1429,35 +1428,54 @@ function cartAddProduct(pid) {
   if(existing >= 0) {
     S.invItems[existing].qty += 1;
     chkW(existing);
-    calcTotals();
-    renderIItem(existing, S.invItems[existing]);
   } else {
     const idx = S.invItems.length;
-    S.invItems.push({desc:p.name, qty:1, price:p.price, prodId:p.id, retailPrice:p.price, wholesalePrice:p.wholesalePrice, wholesaleQty:p.wholesaleQty});
+    S.invItems.push({desc:p.name, qty:1, price:p.price, prodId:p.id, retailPrice:p.price, wholesalePrice:p.wholesalePrice||0, wholesaleQty:p.wholesaleQty||0});
     chkW(idx);
-    calcTotals();
-    renderIItem(idx, S.invItems[idx]);
   }
-  const inp = document.getElementById('cart-search');
-  if(inp) { cartSearch(inp.value); }
-  document.getElementById('nf-totals').style.display = '';
-  document.getElementById('nf-pago').style.display = '';
-  document.getElementById('nf-notas').style.display = '';
+  calcTotals();
+  nfUpdateFooter();
+  cartRenderList(document.getElementById('cart-search')?document.getElementById('cart-search').value:'');
 }
 
-document.getElementById('inv-items').addEventListener('click', function(e) {
-  const minus = e.target.closest('.cart-minus');
-  const plus = e.target.closest('.cart-plus');
-  const del = e.target.closest('.cart-del');
-  if(minus) {
-    const idx = parseInt(minus.dataset.ridx);
-    if(S.invItems[idx].qty > 1) { S.invItems[idx].qty--; chkW(idx); calcTotals(); renderIItem(idx, S.invItems[idx]); }
-    else remIItem(idx);
-  } else if(plus) {
-    const idx = parseInt(plus.dataset.ridx);
-    S.invItems[idx].qty++; chkW(idx); calcTotals(); renderIItem(idx, S.invItems[idx]);
-  } else if(del) {
-    remIItem(parseInt(del.dataset.ridx));
+function cartSetQty(pid, val) {
+  const qty = parseInt(val)||1;
+  const idx = S.invItems.findIndex(x=>x.prodId===pid);
+  if(idx>=0) { S.invItems[idx].qty=qty; chkW(idx); calcTotals(); nfUpdateFooter(); }
+}
+
+function nfUpdateFooter() {
+  const total = S.invItems.reduce((s,i)=>s+(i.qty*(i.price||0)),0);
+  const uds = S.invItems.reduce((s,i)=>s+i.qty,0);
+  const fi = document.getElementById('nf-footer-items');
+  const ft = document.getElementById('nf-footer-total');
+  if(fi) fi.textContent = uds+' producto'+(uds!==1?'s':'');
+  if(ft) ft.textContent = '$'+total.toFixed(0);
+}
+
+function nfVerResumen() {
+  if(!S.invItems.length) { toast('Agregá al menos un producto'); return; }
+  document.getElementById('inv-items').innerHTML='';
+  S.invItems.forEach((_,i)=>renderIItem(i,S.invItems[i]));
+  calcTotals();
+  showPage('resumen-factura');
+}
+
+document.addEventListener('click', function(e) {
+  const add = e.target.closest('[data-cartadd]');
+  const plus = e.target.closest('[data-cartplus]');
+  const minus = e.target.closest('[data-cartminus]');
+  if(add) { cartAddProduct(add.dataset.cartadd); }
+  else if(plus) { cartAddProduct(plus.dataset.cartplus); }
+  else if(minus) {
+    const pid = minus.dataset.cartminus;
+    const idx = S.invItems.findIndex(x=>x.prodId===pid);
+    if(idx>=0) {
+      if(S.invItems[idx].qty>1) { S.invItems[idx].qty--; chkW(idx); calcTotals(); }
+      else S.invItems.splice(idx,1);
+      nfUpdateFooter();
+      cartRenderList(document.getElementById('cart-search')?document.getElementById('cart-search').value:'');
+    }
   }
 });
 
@@ -1718,7 +1736,7 @@ function saveInv() {
     saldo:Math.max(0,saldo), aFavor:saldo<0?Math.abs(saldo):0
   };
   if(S.editId){const i=S.invoices.findIndex(x=>x.id===S.editId);S.invoices[i]=inv;}else S.invoices.unshift(inv);
-  try{renderInvs();}catch(e){} try{updDash();}catch(e){} try{save();}catch(e){} showPage('facturas'); toast('Factura guardada');
+  try{renderInvs();}catch(e){} try{updDash();}catch(e){} try{save();}catch(e){} cerrarNuevaFac(); toast('Factura guardada');
 
   // Detectar productos nuevos (sin prodId) y ofrecer darlos de alta
   const nuevos = inv.items.filter(i => !i.prodId && (i.desc||'').trim());
