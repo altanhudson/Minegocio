@@ -1391,7 +1391,7 @@ function cartRenderList(q) {
       +'</div>'
       +'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0" id="crow-'+p.id+'">'
       +'<button data-pid="'+p.id+'" ontouchstart="cartMinus(event,this.dataset.pid);return false" onclick="cartMinus(event,this.dataset.pid)" style="width:36px;height:36px;border-radius:10px;border:1px solid var(--border);background:'+(hasQty?'var(--surface2)':'transparent')+';color:'+(hasQty?'var(--text)':'var(--border)')+';font-size:22px;cursor:pointer;font-weight:300;line-height:1">−</button>'
-      +'<span id="cqty-'+p.id+'" style="width:32px;text-align:center;font-size:16px;font-weight:700;color:'+(hasQty?'var(--text)':'var(--text3)')+'">'+qty+'</span>'
+      +'<input id="cqty-'+p.id+'" data-qpid="'+p.id+'" type="number" inputmode="numeric" value="'+qty+'" min="0" style="width:44px;text-align:center;font-size:16px;font-weight:700;border:1px solid var(--border);border-radius:8px;padding:3px 0;color:'+(hasQty?'var(--text)':'var(--text3)')+';background:var(--surface)" onchange="cartSetQtyById(this.dataset.qpid,this.value)">'
       +'<button data-pid="'+p.id+'" ontouchstart="cartPlus(event,this.dataset.pid);return false" onclick="cartPlus(event,this.dataset.pid)" style="width:36px;height:36px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:22px;cursor:pointer;line-height:1">+</button>'
       +'</div>'
       +'</div>';
@@ -1409,19 +1409,7 @@ function cartPlus(e, pid) {
   else { S.invItems.push({desc:p.name,qty:1,price:p.price,prodId:p.id,retailPrice:p.price,wholesalePrice:p.wholesalePrice||0,wholesaleQty:p.wholesaleQty||0}); chkW(S.invItems.length-1); }
   calcTotals();
   nfUpdateFooter();
-  // Update DOM directly from the button reference
-  const row = btn.closest('[id^="crow-"]') || btn.parentElement;
-  if(row) {
-    const newIdx = S.invItems.findIndex(i=>i.prodId===pid);
-    const newQty = newIdx>=0 ? S.invItems[newIdx].qty : 0;
-    const span = row.querySelector('span');
-    if(span) { span.textContent = newQty; span.style.color = 'var(--text)'; }
-    const minBtn = row.querySelector('button:first-child');
-    if(minBtn) { minBtn.style.background = 'var(--surface2)'; minBtn.style.color = 'var(--text)'; }
-    // Update price line
-    const priceEl = row.previousElementSibling ? row.previousElementSibling.querySelector('div:last-child') : null;
-    if(priceEl) priceEl.innerHTML = '$'+p.price.toFixed(2)+(newQty>0?' &nbsp;·&nbsp; <span style="color:var(--accent);font-weight:700">$'+(newQty*p.price).toFixed(0)+'</span>':'');
-  }
+  cartInlineUpdate(pid);
 }
 function cartMinus(e, pid) {
   e.preventDefault();
@@ -1445,7 +1433,40 @@ function cartMinus(e, pid) {
     if(priceEl && p) priceEl.innerHTML = '$'+p.price.toFixed(2)+(newQty>0?' &nbsp;·&nbsp; <span style="color:var(--accent);font-weight:700">$'+(newQty*p.price).toFixed(0)+'</span>':'');
   }
 }
-function cartInlineUpdate(pid) {}
+function cartInlineUpdate(pid) {
+  const qtyEl = document.getElementById('cqty-'+pid);
+  const row = document.getElementById('crow-'+pid);
+  if(!qtyEl || !row) return;
+  const idx = S.invItems.findIndex(x=>x.prodId===pid);
+  const qty = idx>=0 ? S.invItems[idx].qty : 0;
+  qtyEl.value = qty;
+  qtyEl.style.color = qty>0 ? 'var(--text)' : 'var(--text3)';
+  const minBtn = row.querySelector('button:first-child');
+  if(minBtn) { minBtn.style.background = qty>0?'var(--surface2)':'transparent'; minBtn.style.color = qty>0?'var(--text)':'var(--border)'; }
+  const p = S.products.find(x=>x.id===pid);
+  const priceEl = row.previousElementSibling ? row.previousElementSibling.querySelector('div:last-child') : null;
+  if(priceEl && p) priceEl.innerHTML = '$'+p.price.toFixed(2)+(qty>0?' &nbsp;·&nbsp; <span style="color:var(--accent);font-weight:700">$'+(qty*p.price).toFixed(0)+'</span>':'');
+  // Force repaint
+  row.style.opacity = '0.99';
+  requestAnimationFrame(function(){ row.style.opacity = '1'; });
+}
+
+function cartSetQtyById(pid, val) {
+  const qty = parseInt(val)||0;
+  const idx = S.invItems.findIndex(x=>x.prodId===pid);
+  if(qty <= 0) {
+    if(idx>=0) S.invItems.splice(idx,1);
+  } else {
+    if(idx>=0) { S.invItems[idx].qty=qty; chkW(idx); }
+    else {
+      const p = S.products.find(x=>x.id===pid);
+      if(p) { S.invItems.push({desc:p.name,qty,price:p.price,prodId:p.id,retailPrice:p.price,wholesalePrice:p.wholesalePrice||0,wholesaleQty:p.wholesaleQty||0}); chkW(S.invItems.length-1); }
+    }
+  }
+  calcTotals();
+  nfUpdateFooter();
+  cartInlineUpdate(pid);
+}
 function cartAddProduct(pid) {
   const p = S.products.find(x=>x.id===pid);
   if(!p) return;
