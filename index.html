@@ -33,9 +33,31 @@
   const DATA_DOC = doc(db, "negocio", "data");
 
   // Exponer funciones al scope global
+  function cleanUndefined(obj) {
+    return JSON.parse(JSON.stringify(obj, function(k,v){ return v === undefined ? null : v; }));
+  }
+
   window._fbSave = async function(data) {
     try {
-      await setDoc(DATA_DOC, data);
+      // PROTECCION: no guardar arrays vacios si Firebase ya tiene datos
+      if(data.products !== undefined && data.products.length === 0) {
+        const current = await getDoc(DATA_DOC);
+        if(current.exists()) {
+          const cur = current.data();
+          if(cur.products && cur.products.length > 0) {
+            console.error("PROTECCION ACTIVADA: se canceló guardado con products vacío");
+            return;
+          }
+        }
+      }
+      // Backup local antes de guardar
+      try {
+        const bk = 'mneg_bk_' + Date.now();
+        localStorage.setItem(bk, JSON.stringify(data));
+        const keys = Object.keys(localStorage).filter(k=>k.startsWith('mneg_bk_')).sort();
+        while(keys.length > 3) localStorage.removeItem(keys.shift());
+      } catch(e) {}
+      await setDoc(DATA_DOC, cleanUndefined(data));
     } catch(e) { console.error("Firebase save error:", e); }
   };
 
