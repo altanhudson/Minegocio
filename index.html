@@ -1403,50 +1403,59 @@ function cartRenderList(q) {
 function cartPlus(e, pid) {
   e.preventDefault();
   e.stopPropagation();
-  cartAddProduct(pid);
+  const btn = e.currentTarget || e.target;
+  const p = S.products.find(x=>x.id===pid);
+  if(!p) return;
+  const existing = S.invItems.findIndex(i=>i.prodId===pid);
+  if(existing >= 0) { S.invItems[existing].qty++; chkW(existing); }
+  else { S.invItems.push({desc:p.name,qty:1,price:p.price,prodId:p.id,retailPrice:p.price,wholesalePrice:p.wholesalePrice||0,wholesaleQty:p.wholesaleQty||0}); chkW(S.invItems.length-1); }
+  calcTotals();
+  nfUpdateFooter();
+  // Update DOM directly from the button reference
+  const row = btn.closest('[id^="crow-"]') || btn.parentElement;
+  if(row) {
+    const newIdx = S.invItems.findIndex(i=>i.prodId===pid);
+    const newQty = newIdx>=0 ? S.invItems[newIdx].qty : 0;
+    const span = row.querySelector('span');
+    if(span) { span.textContent = newQty; span.style.color = 'var(--text)'; }
+    const minBtn = row.querySelector('button:first-child');
+    if(minBtn) { minBtn.style.background = 'var(--surface2)'; minBtn.style.color = 'var(--text)'; }
+    // Update price line
+    const priceEl = row.previousElementSibling ? row.previousElementSibling.querySelector('div:last-child') : null;
+    if(priceEl) priceEl.innerHTML = '$'+p.price.toFixed(2)+(newQty>0?' &nbsp;·&nbsp; <span style="color:var(--accent);font-weight:700">$'+(newQty*p.price).toFixed(0)+'</span>':'');
+  }
 }
 function cartMinus(e, pid) {
   e.preventDefault();
   e.stopPropagation();
+  const btn = e.currentTarget || e.target;
   const idx = S.invItems.findIndex(x=>x.prodId===pid);
   if(idx<0) return;
   if(S.invItems[idx].qty>1) { S.invItems[idx].qty--; chkW(idx); }
   else S.invItems.splice(idx,1);
   calcTotals();
   nfUpdateFooter();
-  cartInlineUpdate(pid);
-}
-function cartInlineUpdate(pid) {
-  const p = S.products.find(x=>x.id===pid);
-  if(!p) return;
-  const idx = S.invItems.findIndex(x=>x.prodId===pid);
-  const qty = idx>=0 ? S.invItems[idx].qty : 0;
-  const qtyEl = document.getElementById('cqty-'+pid);
-  if(qtyEl) {
-    qtyEl.textContent = qty;
-    qtyEl.style.color = qty>0 ? 'var(--text)' : 'var(--text3)';
-  }
-  const row = document.getElementById('crow-'+pid);
+  const row = btn.closest('[id^="crow-"]') || btn.parentElement;
   if(row) {
-    const minBtn = row.querySelector('button:first-child');
-    if(minBtn) { minBtn.style.background = qty>0?'var(--surface2)':'transparent'; minBtn.style.color = qty>0?'var(--text)':'var(--border)'; }
+    const newIdx = S.invItems.findIndex(i=>i.prodId===pid);
+    const newQty = newIdx>=0 ? S.invItems[newIdx].qty : 0;
+    const span = row.querySelector('span');
+    if(span) { span.textContent = newQty; span.style.color = newQty>0?'var(--text)':'var(--text3)'; }
+    if(newQty===0) { btn.style.background='transparent'; btn.style.color='var(--border)'; }
+    const p = S.products.find(x=>x.id===pid);
+    const priceEl = row.previousElementSibling ? row.previousElementSibling.querySelector('div:last-child') : null;
+    if(priceEl && p) priceEl.innerHTML = '$'+p.price.toFixed(2)+(newQty>0?' &nbsp;·&nbsp; <span style="color:var(--accent);font-weight:700">$'+(newQty*p.price).toFixed(0)+'</span>':'');
   }
 }
+function cartInlineUpdate(pid) {}
 function cartAddProduct(pid) {
   const p = S.products.find(x=>x.id===pid);
   if(!p) return;
   const existing = S.invItems.findIndex(i=>i.prodId===pid);
-  if(existing >= 0) {
-    S.invItems[existing].qty += 1;
-    chkW(existing);
-  } else {
-    const idx = S.invItems.length;
-    S.invItems.push({desc:p.name, qty:1, price:p.price, prodId:p.id, retailPrice:p.price, wholesalePrice:p.wholesalePrice||0, wholesaleQty:p.wholesaleQty||0});
-    chkW(idx);
-  }
+  if(existing >= 0) { S.invItems[existing].qty++; chkW(existing); }
+  else { S.invItems.push({desc:p.name,qty:1,price:p.price,prodId:p.id,retailPrice:p.price,wholesalePrice:p.wholesalePrice||0,wholesaleQty:p.wholesaleQty||0}); chkW(S.invItems.length-1); }
   calcTotals();
   nfUpdateFooter();
-  cartInlineUpdate(pid);
 }
 
 function cartUpdateRow(pid) {
