@@ -1314,7 +1314,6 @@ function openInv(id) {
   document.getElementById('inv-items').innerHTML='';
   if(id) {
     const inv=S.invoices.find(x=>x.id===id);
-    document.getElementById('minv-title').textContent='Editar Factura';
     document.getElementById('i-type').value=inv.type;
     document.getElementById('i-status').value=inv.status;
     document.getElementById('i-cli').value=inv.clientId;
@@ -1327,7 +1326,6 @@ function openInv(id) {
     S.invItems=[...inv.items];
     inv.items.forEach((_,i)=>renderIItem(i,S.invItems[i]));
   } else {
-    document.getElementById('minv-title').textContent='Nueva Factura';
     document.getElementById('i-type').value='factura';
     document.getElementById('i-status').value='pendiente';
     document.getElementById('i-cli').value='';
