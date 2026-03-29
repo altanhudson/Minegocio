@@ -1405,7 +1405,10 @@ function renderIItem(idx, item) {
     '<div style="display:flex;align-items:center;gap:10px">'
     +'<div style="flex:1;min-width:0">'
     +'<div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+name+'</div>'
-    +'<div style="font-size:12px;color:var(--text3)">$'+(item.price||0).toFixed(2)+' c/u &nbsp;|&nbsp; <span style="color:var(--accent);font-weight:700">$'+subtotal.toFixed(0)+'</span></div>'
+    +'<div style="display:flex;align-items:center;gap:6px;margin-top:4px">'
+    +'<input type="number" data-iidx="'+idx+'" value="'+(item.price||0)+'" min="0" inputmode="decimal" onfocus="this.select()" onchange="resumePriceChange(this)" style="width:80px;height:30px;text-align:center;font-size:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text3);font-family:DM Sans,sans-serif;outline:none">'
+    +'<span style="font-size:12px;color:var(--text3)">c/u &nbsp;·&nbsp; <span style="color:var(--accent);font-weight:700">$'+subtotal.toFixed(0)+'</span></span>'
+    +'</div>'
     +'<div id="wtag-'+idx+'" style="font-size:10px;color:var(--accent2);display:none">⭐ Precio mayorista</div>'
     +'</div>'
     +'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
@@ -1416,6 +1419,22 @@ function renderIItem(idx, item) {
     +'</div>'
     +'</div>';
   if(!existing) document.getElementById('inv-items').appendChild(wrap);
+}
+
+function resumePriceChange(input) {
+  const idx = parseInt(input.dataset.iidx);
+  const price = parseFloat(input.value)||0;
+  if(!S.invItems[idx]) return;
+  S.invItems[idx].price = price;
+  S.invItems[idx].retailPrice = price;
+  // Save to product too
+  const prodId = S.invItems[idx].prodId;
+  if(prodId) {
+    const p = S.products.find(x=>x.id===prodId);
+    if(p) { p.price = price; save(); }
+  }
+  calcTotals();
+  renderIItem(idx, S.invItems[idx]);
 }
 
 function cartRenderList(q) {
