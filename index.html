@@ -3701,6 +3701,17 @@ window.addEventListener('DOMContentLoaded', function(){
       if (banner) banner.style.display = 'flex';
     });
 
+    // Ajustar footer cuando el teclado virtual aparece
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', function() {
+        const offset = window.innerHeight - window.visualViewport.height;
+        ['page-nueva-compra','page-nueva-factura'].forEach(function(id) {
+          const el = document.getElementById(id);
+          if (el) el.style.paddingBottom = offset > 50 ? offset + 'px' : '0';
+        });
+      });
+    }
+
     function instalarPWA() {
       if (!deferredPrompt) return;
       deferredPrompt.prompt();
