@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Revendit</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -93,24 +93,24 @@
   --accent:#0d9488; --accent2:#0891b2; --accent3:#dc2626;
   --text:#162018; --text2:#3a5042; --text3:#7a9485;
   --green:#0d9488; --orange:#ea580c;
-  --nav-h:68px; --top-h:56px; --r:14px; --rs:10px;
+  --nav-h:74px; --top-h:60px; --r:14px; --rs:10px;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden}
-body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;height:100vh;height:100dvh}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;height:100vh;height:100dvh}
 .topbar{height:var(--top-h);min-height:var(--top-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 16px;gap:10px;position:relative;z-index:10}
-.topbar-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--accent)}
+.topbar-title{font-family:'Inter',sans-serif;font-size:21px;font-weight:800;color:var(--accent)}
 .pages{flex:1;overflow:hidden;position:relative}
 .page{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;padding:16px 16px calc(var(--nav-h) + 16px);display:none;-webkit-overflow-scrolling:touch}
 .page.active{display:block}
 .bottom-nav{height:var(--nav-h);min-height:var(--nav-h);background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:center;position:relative;z-index:10;padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
-.nav-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;border:none;background:var(--surface2);color:var(--text3);font-size:13px;font-family:'DM Sans',sans-serif;font-weight:600;transition:all .2s;padding:8px 4px;border-radius:14px;margin:0 3px}
-.nav-tab .ni{font-size:22px;line-height:1}
+.nav-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;border:none;background:var(--surface2);color:var(--text3);font-size:15px;font-family:'Inter',sans-serif;font-weight:600;transition:all .2s;padding:8px 4px;border-radius:14px;margin:0 3px}
+.nav-tab .ni{font-size:26px;line-height:1}
 .nav-tab.active{background:var(--accent);color:#fff;box-shadow:0 4px 12px rgba(13,148,136,.4);transform:translateY(-2px)}
 .nav-badge{position:absolute;top:6px;right:calc(50% - 18px);background:var(--accent3);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:10px;min-width:16px;text-align:center}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:12px}
 .card-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)}
-.card-title{font-family:'Syne',sans-serif;font-weight:700;font-size:14px}
+.card-title{font-family:'Inter',sans-serif;font-weight:700;font-size:16px}
 .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
 .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px;position:relative;overflow:hidden}
 .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
@@ -118,24 +118,24 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);dis
 .stat-card.c2::before{background:var(--accent2)}
 .stat-card.c3::before{background:var(--green)}
 .stat-card.c4::before{background:var(--accent3)}
-.stat-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:500;margin-bottom:6px}
-.stat-value{font-family:'Syne',sans-serif;font-size:24px;font-weight:800}
-.stat-sub{font-size:11px;color:var(--text3);margin-top:3px}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 16px;height:44px;border-radius:var(--rs);font-size:14px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;border:none;transition:all .15s;white-space:nowrap}
+.stat-label{font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:500;margin-bottom:6px}
+.stat-value{font-family:'Inter',sans-serif;font-size:24px;font-weight:800}
+.stat-sub{font-size:13px;color:var(--text3);margin-top:3px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 16px;height:44px;border-radius:var(--rs);font-size:14px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;border:none;transition:all .15s;white-space:nowrap}
 .btn-primary{background:var(--accent);color:#ffffff}
 .btn-primary:active{transform:scale(.97)}
 .btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
 .btn-ghost:active{background:var(--surface2)}
-.btn-sm{height:36px;padding:0 12px;font-size:13px}
-.btn-xs{height:32px;padding:0 10px;font-size:12px}
+.btn-sm{height:36px;padding:0 12px;font-size:15px}
+.btn-xs{height:32px;padding:0 10px;font-size:14px}
 .btn-danger{background:rgba(255,107,107,.15);color:var(--accent3);border:1px solid rgba(255,107,107,.2)}
 .btn-full{width:100%}
 .fab{position:fixed;bottom:calc(var(--nav-h) + 16px);right:16px;z-index:20;width:56px;height:56px;border-radius:50%;background:var(--accent);color:#ffffff;border:none;font-size:26px;cursor:pointer;box-shadow:0 4px 20px rgba(232,255,71,.3);display:none;align-items:center;justify-content:center;transition:transform .15s}
 .fab:active{transform:scale(.93)}
 .form-group{margin-bottom:14px}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.fl{display:block;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:500;margin-bottom:5px}
-input[type=text],input[type=number],input[type=email],input[type=tel],input[type=date],select,textarea{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:12px 14px;font-size:15px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .15s;-webkit-appearance:none}
+.fl{display:block;font-size:13px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:500;margin-bottom:5px}
+input[type=text],input[type=number],input[type=email],input[type=tel],input[type=date],select,textarea{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:12px 14px;font-size:15px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s;-webkit-appearance:none}
 input:focus,select:focus,textarea:focus{border-color:var(--accent)}
 textarea{resize:none;min-height:72px}
 select option{background:var(--surface2)}
@@ -145,11 +145,11 @@ select option{background:var(--surface2)}
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 .modal-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:10px auto 0}
 .modal-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);flex-shrink:0}
-.modal-title{font-family:'Syne',sans-serif;font-weight:800;font-size:17px}
+.modal-title{font-family:'Inter',sans-serif;font-weight:800;font-size:17px}
 .modal-body{flex:1;overflow-y:auto;padding:20px;-webkit-overflow-scrolling:touch}
 .modal-footer{display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--border);flex-shrink:0;padding-bottom:calc(14px + env(safe-area-inset-bottom))}
 .close-btn{background:var(--surface2);border:none;color:var(--text2);font-size:18px;cursor:pointer;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center}
-.badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:20px;font-size:13px;font-weight:600}
 .badge-green{background:rgba(74,222,128,.15);color:var(--green)}
 .badge-gray{background:rgba(122,148,133,.15);color:var(--text3)}
 .badge-orange{background:rgba(251,146,60,.15);color:var(--orange)}
@@ -164,36 +164,36 @@ select option{background:var(--surface2)}
 .prod-img{aspect-ratio:1;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:42px;position:relative;overflow:hidden}
 .prod-img img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
 .prod-body{padding:10px;flex:1;display:flex;flex-direction:column;cursor:pointer}
-.prod-name{font-size:13px;font-weight:600;line-height:1.3;margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.prod-price{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:var(--accent);margin-top:auto}
-.prod-no-price{color:var(--text3);font-size:13px}
+.prod-name{font-size:15px;font-weight:600;line-height:1.3;margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.prod-price{font-family:'Inter',sans-serif;font-size:16px;font-weight:800;color:var(--accent);margin-top:auto}
+.prod-no-price{color:var(--text3);font-size:15px}
 .qe-panel{padding:10px;background:var(--bg);border-top:2px solid var(--accent);display:none}
 .qe-panel.open{display:block}
 .qe-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.qe-lbl{font-size:11px;font-weight:600;width:72px;flex-shrink:0;text-transform:uppercase;letter-spacing:.5px}
+.qe-lbl{font-size:13px;font-weight:600;width:72px;flex-shrink:0;text-transform:uppercase;letter-spacing:.5px}
 .qe-row input{flex:1;padding:8px 10px;font-size:14px;font-weight:600}
 .qe-row input.sm{width:56px;flex:none;padding:8px 6px;text-align:center}
 .prod-actions{display:flex;gap:6px;padding:8px 10px;border-top:1px solid var(--border)}
-.prod-actions .btn{flex:1;height:34px;font-size:12px}
+.prod-actions .btn{flex:1;height:34px;font-size:14px}
 .search-bar{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 14px;margin-bottom:14px}
 .search-bar input{background:none;border:none;color:var(--text);font-size:15px;outline:none;width:100%;padding:0}
 .inv-item-box{background:var(--surface2);border-radius:var(--rs);padding:10px 12px;margin-bottom:8px;position:relative}
 .inv-item-box .rm{position:absolute;top:8px;right:8px;background:none;border:none;color:var(--accent3);font-size:20px;cursor:pointer;padding:2px;line-height:1}
 .totals-box{background:var(--surface2);border-radius:var(--rs);padding:14px;margin-top:8px}
 .tot-row{display:flex;justify-content:space-between;align-items:center;font-size:14px;padding:5px 0}
-.tot-grand{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--accent);border-top:1px solid var(--border);padding-top:10px;margin-top:6px}
+.tot-grand{font-family:'Inter',sans-serif;font-size:20px;font-weight:800;color:var(--accent);border-top:1px solid var(--border);padding-top:10px;margin-top:6px}
 .pago-box{background:var(--surface2);border-radius:var(--rs);padding:14px;margin-top:10px}
-.pago-info-row{display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--border);font-size:13px}
+.pago-info-row{display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--border);font-size:15px}
 .tabs{display:flex;background:var(--surface2);border-radius:var(--rs);padding:3px;margin-bottom:14px}
-.tab{flex:1;text-align:center;padding:8px 4px;border-radius:8px;font-size:12px;font-weight:500;color:var(--text3);cursor:pointer;transition:all .15s}
+.tab{flex:1;text-align:center;padding:8px 4px;border-radius:8px;font-size:14px;font-weight:500;color:var(--text3);cursor:pointer;transition:all .15s}
 .tab.active{background:var(--surface);color:var(--text);font-weight:600}
 .empty{text-align:center;padding:48px 20px}
 .empty .ei{font-size:48px;margin-bottom:12px;opacity:.4}
-.empty h3{font-family:'Syne',sans-serif;font-size:17px;margin-bottom:6px}
-.empty p{color:var(--text3);font-size:13px}
+.empty h3{font-family:'Inter',sans-serif;font-size:17px;margin-bottom:6px}
+.empty p{color:var(--text3);font-size:15px}
 .filter-chips{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
 .filter-chips::-webkit-scrollbar{display:none}
-.chip{height:32px;padding:0 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--text2);white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;transition:all .15s}
+.chip{height:32px;padding:0 14px;border-radius:20px;font-size:14px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--text2);white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;transition:all .15s}
 .chip.active{background:var(--accent);color:#ffffff;border-color:var(--accent)}
 .photo-area{border:2px dashed var(--border);border-radius:var(--r);padding:20px;text-align:center;cursor:pointer;background:var(--surface2)}
 .photo-area img{width:100%;border-radius:var(--rs);display:block}
@@ -208,22 +208,22 @@ select option{background:var(--surface2)}
 .img-full{position:fixed;inset:0;z-index:300;background:#000;display:none;align-items:center;justify-content:center}
 .img-full.open{display:flex}
 .img-full img{max-width:100%;max-height:100%;object-fit:contain}
-.inv-print{color:#111;font-size:13px;line-height:1.5}
+.inv-print{color:#111;font-size:15px;line-height:1.5}
 .inv-print-header{background:#0f0f0f;color:#e8ff47;padding:16px 20px;display:flex;justify-content:space-between;align-items:flex-start}
-.inv-print-title{font-size:20px;font-weight:800;font-family:Syne,sans-serif}
-.inv-print-meta{font-size:11px;opacity:.8;text-align:right}
+.inv-print-title{font-size:20px;font-weight:800;font-family:'Inter',sans-serif}
+.inv-print-meta{font-size:13px;opacity:.8;text-align:right}
 .inv-print-client{padding:12px 20px;background:#f8f8f8;border-bottom:1px solid #eee}
 .inv-print-client strong{font-size:14px;font-weight:700}
 .inv-print-table{width:100%;border-collapse:collapse}
-.inv-print-table th{background:#f0f0f0;padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#555}
-.inv-print-table td{padding:9px 12px;border-bottom:1px solid #f0f0f0;font-size:13px}
+.inv-print-table th{background:#f0f0f0;padding:8px 12px;text-align:left;font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:#555}
+.inv-print-table td{padding:9px 12px;border-bottom:1px solid #f0f0f0;font-size:15px}
 .inv-print-table tr:last-child td{border-bottom:none}
 .inv-print-totals{padding:12px 20px;background:#f8f8f8}
-.inv-print-grand{font-family:Syne,sans-serif;font-size:20px;font-weight:800;color:#0f0f0f}
-.inv-print-saldo{color:#e63946;font-size:13px;font-weight:600;margin-top:4px}
-.inv-print-footer{background:#0f0f0f;color:#666;padding:10px 20px;font-size:11px;text-align:center}
+.inv-print-grand{font-family:'Inter',sans-serif;font-size:20px;font-weight:800;color:#0f0f0f}
+.inv-print-saldo{color:#e63946;font-size:15px;font-weight:600;margin-top:4px}
+.inv-print-footer{background:#0f0f0f;color:#666;padding:10px 20px;font-size:13px;text-align:center}
 .img-full-close{position:absolute;top:16px;right:16px;background:rgba(0,0,0,.6);border:none;color:#fff;font-size:24px;cursor:pointer;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center}
-.section-ttl{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px}
+.section-ttl{font-family:'Inter',sans-serif;font-size:14px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
@@ -236,11 +236,11 @@ select option{background:var(--surface2)}
 
   <div class="page active" id="page-dashboard">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
-      <button onclick="openInv()" style="background:var(--accent);color:#ffffff;border:none;border-radius:var(--r);padding:16px 10px;font-family:Syne,sans-serif;font-size:15px;font-weight:800;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;active:transform:scale(.97)">
+      <button onclick="openInv()" style="background:var(--accent);color:#ffffff;border:none;border-radius:var(--r);padding:16px 10px;font-family:Inter,sans-serif;font-size:15px;font-weight:800;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;active:transform:scale(.97)">
         <span style="font-size:28px">&#129534;</span>
         Nueva Factura
       </button>
-      <button onclick="openNuevaCompra()" style="background:var(--surface);color:var(--accent2);border:2px solid var(--accent2);border-radius:var(--r);padding:16px 10px;font-family:Syne,sans-serif;font-size:15px;font-weight:800;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px">
+      <button onclick="openNuevaCompra()" style="background:var(--surface);color:var(--accent2);border:2px solid var(--accent2);border-radius:var(--r);padding:16px 10px;font-family:Inter,sans-serif;font-size:15px;font-weight:800;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px">
         <span style="font-size:28px">&#128717;</span>
         Nueva Compra
       </button>
@@ -248,29 +248,29 @@ select option{background:var(--surface2)}
     <div class="stats-grid">
       <div class="stat-card c1" onclick="showPage('facturas')" style="cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:18px 10px">
         <span style="font-size:28px">🧾</span>
-        <div style="font-family:Syne,sans-serif;font-weight:800;font-size:14px">Facturas</div>
-        <div style="font-size:11px;color:var(--text3)"><span id="sp">0</span> pendientes</div>
+        <div style="font-family:Inter,sans-serif;font-weight:800;font-size:14px">Facturas</div>
+        <div style="font-size:13px;color:var(--text3)"><span id="sp">0</span> pendientes</div>
       </div>
       <div class="stat-card c2" onclick="showPage('productos')" style="cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:18px 10px">
         <span style="font-size:28px">📦</span>
-        <div style="font-family:Syne,sans-serif;font-weight:800;font-size:14px">Productos</div>
-        <div style="font-size:11px;color:var(--text3)"><span id="sspx">0</span> sin precio</div>
+        <div style="font-family:Inter,sans-serif;font-weight:800;font-size:14px">Productos</div>
+        <div style="font-size:13px;color:var(--text3)"><span id="sspx">0</span> sin precio</div>
       </div>
       <div class="stat-card c3" onclick="showPage('clientes')" style="cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:18px 10px">
         <span style="font-size:28px">👥</span>
-        <div style="font-family:Syne,sans-serif;font-weight:800;font-size:14px">Clientes</div>
-        <div style="font-size:11px;color:var(--text3)"><span id="sc">0</span> registrados</div>
+        <div style="font-family:Inter,sans-serif;font-weight:800;font-size:14px">Clientes</div>
+        <div style="font-size:13px;color:var(--text3)"><span id="sc">0</span> registrados</div>
       </div>
       <div class="stat-card c4" onclick="openPagoCliente()" style="cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:18px 10px">
         <span style="font-size:28px">💵</span>
-        <div style="font-family:Syne,sans-serif;font-weight:800;font-size:14px">Cobrar</div>
-        <div style="font-size:11px;color:var(--text3)">registrar pago</div>
+        <div style="font-family:Inter,sans-serif;font-weight:800;font-size:14px">Cobrar</div>
+        <div style="font-size:13px;color:var(--text3)">registrar pago</div>
       </div>
     </div>
     <div class="card">
       <div class="card-header">
         <span class="card-title">Métricas</span>
-        <select id="dash-periodo" onchange="updDash()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:4px 10px;font-size:12px;font-family:inherit;cursor:pointer;outline:none">
+        <select id="dash-periodo" onchange="updDash()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:4px 10px;font-size:14px;font-family:inherit;cursor:pointer;outline:none">
           <option value="hoy">Hoy</option>
           <option value="semana">Esta semana</option>
           <option value="mes" selected>Este mes</option>
@@ -279,7 +279,7 @@ select option{background:var(--surface2)}
       </div>
       <div id="dash-metricas"></div>
     </div>
-    <div class="card" style="cursor:pointer" onclick="toast('Módulo en desarrollo')"><div class="card-header"><span class="card-title">🚚 Reparto del día</span></div><div style="padding:16px;text-align:center;color:var(--text3);font-size:13px">Gestioná las entregas del día</div></div>
+    <div class="card" style="cursor:pointer" onclick="abrirReparto()"><div class="card-header"><span class="card-title">🚚 Reparto del día</span></div><div style="padding:16px;text-align:center;color:var(--text3);font-size:15px">Gestioná las entregas del día</div></div>
   </div>
 
   <div class="page" id="page-facturas">
@@ -296,21 +296,21 @@ select option{background:var(--surface2)}
   <div class="page" id="page-nueva-factura" style="padding:0;flex-direction:column;height:100%">
     <div style="padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0">
       <button onclick="cerrarNuevaFac()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 12px;font-size:16px;cursor:pointer">←</button>
-      <select id="i-cli" style="flex:1;font-size:13px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:DM Sans,sans-serif"></select>
-      <input type="date" id="i-date" style="font-size:12px;padding:7px 6px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);width:118px">
+      <select id="i-cli" style="flex:1;font-size:15px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:Inter,sans-serif"></select>
+      <input type="date" id="i-date" style="font-size:14px;padding:7px 6px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);width:118px">
     </div>
     <div style="padding:8px 12px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0">
       <input type="search" id="cart-search" placeholder="🔍 Buscar producto..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
         oninput="cartRenderList(this.value)"
-        style="width:100%;font-size:15px;padding:10px 14px;border:1.5px solid var(--accent);border-radius:12px;background:var(--surface);font-family:DM Sans,sans-serif;outline:none">
+        style="width:100%;font-size:15px;padding:10px 14px;border:1.5px solid var(--accent);border-radius:12px;background:var(--surface);font-family:Inter,sans-serif;outline:none">
     </div>
     <div style="flex:1;overflow-y:auto" id="nf-prod-list"></div>
     <div style="background:var(--accent);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
       <div>
-        <div style="font-size:11px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.5px" id="nf-footer-items">0 productos</div>
-        <div style="font-family:Syne,sans-serif;font-size:22px;font-weight:800;color:#fff" id="nf-footer-total">$0</div>
+        <div style="font-size:13px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.5px" id="nf-footer-items">0 productos</div>
+        <div style="font-family:Inter,sans-serif;font-size:22px;font-weight:800;color:#fff" id="nf-footer-total">$0</div>
       </div>
-      <button onclick="nfVerResumen()" style="background:#fff;color:var(--accent);border:none;border-radius:12px;padding:12px 22px;font-size:15px;font-weight:700;cursor:pointer;font-family:DM Sans,sans-serif">Ver resumen →</button>
+      <button onclick="nfVerResumen()" style="background:#fff;color:var(--accent);border:none;border-radius:12px;padding:12px 22px;font-size:15px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif">Ver resumen →</button>
     </div>
   </div>
 
@@ -318,21 +318,21 @@ select option{background:var(--surface2)}
   <div class="page" id="page-nueva-compra" style="padding:0;flex-direction:column;height:100%">
     <div style="padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0">
       <button onclick="showPage('compras')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 12px;font-size:16px;cursor:pointer">←</button>
-      <select id="nc-prov" style="flex:1;font-size:13px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:DM Sans,sans-serif"></select>
-      <input type="date" id="nc-date" style="font-size:12px;padding:7px 6px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);width:118px">
+      <select id="nc-prov" style="flex:1;font-size:15px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:Inter,sans-serif"></select>
+      <input type="date" id="nc-date" style="font-size:14px;padding:7px 6px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);width:118px">
     </div>
     <div style="padding:8px 12px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0">
       <input type="search" id="nc-search" placeholder="🔍 Buscar producto..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
         oninput="ncRenderList(this.value)"
-        style="width:100%;font-size:15px;padding:10px 14px;border:1.5px solid var(--accent2);border-radius:12px;background:var(--surface);font-family:DM Sans,sans-serif;outline:none">
+        style="width:100%;font-size:15px;padding:10px 14px;border:1.5px solid var(--accent2);border-radius:12px;background:var(--surface);font-family:Inter,sans-serif;outline:none">
     </div>
     <div style="flex:1;overflow-y:auto" id="nc-prod-list"></div>
     <div style="background:var(--accent2);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
       <div>
-        <div style="font-size:11px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.5px" id="nc-footer-items">0 productos</div>
-        <div style="font-family:Syne,sans-serif;font-size:22px;font-weight:800;color:#fff" id="nc-footer-total">$0</div>
+        <div style="font-size:13px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.5px" id="nc-footer-items">0 productos</div>
+        <div style="font-family:Inter,sans-serif;font-size:22px;font-weight:800;color:#fff" id="nc-footer-total">$0</div>
       </div>
-      <button onclick="ncVerResumen()" style="background:#fff;color:var(--accent2);border:none;border-radius:12px;padding:12px 22px;font-size:15px;font-weight:700;cursor:pointer;font-family:DM Sans,sans-serif">Ver resumen →</button>
+      <button onclick="ncVerResumen()" style="background:#fff;color:var(--accent2);border:none;border-radius:12px;padding:12px 22px;font-size:15px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif">Ver resumen →</button>
     </div>
   </div>
 
@@ -340,13 +340,13 @@ select option{background:var(--surface2)}
   <div class="page" id="page-resumen-compra" style="padding:0;flex-direction:column;height:100%">
     <div style="padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0">
       <button onclick="showPage('nueva-compra')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 14px;font-size:16px;cursor:pointer">←</button>
-      <div style="font-family:Syne,sans-serif;font-size:17px;font-weight:800;flex:1">Resumen compra</div>
+      <div style="font-family:Inter,sans-serif;font-size:17px;font-weight:800;flex:1">Resumen compra</div>
       <button onclick="saveComp()" style="background:var(--accent2);color:#fff;border:none;border-radius:10px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer">Guardar</button>
     </div>
     <div style="flex:1;overflow-y:auto;padding:12px 16px">
       <div id="nc-items-resumen" style="margin-bottom:12px"></div>
       <div style="display:flex;gap:8px;margin-bottom:12px">
-        <div style="flex:1"><label style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Borrador</label><br><input type="checkbox" id="nc-draft" style="width:20px;height:20px;margin-top:6px;accent-color:var(--accent2)"></div>
+        <div style="flex:1"><label style="font-size:13px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Borrador</label><br><input type="checkbox" id="nc-draft" style="width:20px;height:20px;margin-top:6px;accent-color:var(--accent2)"></div>
       </div>
       <div class="totals-box">
         <div class="tot-row tot-grand"><span>TOTAL</span><span id="nc-total">$0.00</span></div>
@@ -359,41 +359,41 @@ select option{background:var(--surface2)}
   <div class="page" id="page-resumen-factura" style="padding:0;flex-direction:column;height:100%">
     <div style="padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0">
       <button onclick="showPage('nueva-factura')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 14px;font-size:16px;cursor:pointer">←</button>
-      <div style="font-family:Syne,sans-serif;font-size:17px;font-weight:800;flex:1">Resumen</div>
+      <div style="font-family:Inter,sans-serif;font-size:17px;font-weight:800;flex:1">Resumen</div>
       <button onclick="saveInv()" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer">Guardar</button>
     </div>
     <div style="flex:1;overflow-y:auto;padding:12px 16px">
       <div id="inv-items" style="margin-bottom:12px"></div>
       <div style="display:flex;gap:8px;margin-bottom:12px">
-        <div style="flex:1"><select id="i-type" style="width:100%;font-size:13px;padding:8px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:DM Sans,sans-serif"><option value="factura">Factura</option><option value="presupuesto">Presupuesto</option></select></div>
-        <div style="flex:1"><select id="i-status" style="width:100%;font-size:13px;padding:8px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:DM Sans,sans-serif"><option value="pendiente">Pendiente</option><option value="pagada">Pagada</option></select></div>
+        <div style="flex:1"><select id="i-type" style="width:100%;font-size:15px;padding:8px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:Inter,sans-serif"><option value="factura">Factura</option><option value="presupuesto">Presupuesto</option></select></div>
+        <div style="flex:1"><select id="i-status" style="width:100%;font-size:15px;padding:8px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:Inter,sans-serif"><option value="pendiente">Pendiente</option><option value="pagada">Pagada</option></select></div>
       </div>
       <div class="totals-box" id="nf-totals">
         <div class="tot-row"><span style="color:var(--text2)">Subtotal</span><span id="i-sub">$0.00</span></div>
         <div class="tot-row">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--text2);font-size:13px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--text2);font-size:15px">
             <input type="checkbox" id="i-desc-ret" onchange="calcTotals()" style="width:18px;height:18px;accent-color:var(--accent)">
             <span>Desc. retiro depósito <strong style="color:var(--accent)">-5%</strong></span>
           </label>
           <span id="i-ret-amt" style="color:var(--green)">-$0.00</span>
         </div>
         <div class="tot-row" style="gap:8px">
-          <span style="color:var(--text2);font-size:13px;white-space:nowrap">Desc. extra</span>
+          <span style="color:var(--text2);font-size:15px;white-space:nowrap">Desc. extra</span>
           <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
-            <input type="number" id="i-desc-ext" value="0" min="0" max="100" step="1" inputmode="numeric" onchange="calcTotals()" style="width:64px;padding:4px 8px;font-size:13px;text-align:center;border:1px solid var(--border);border-radius:8px">
-            <span style="color:var(--text2);font-size:13px">%</span>
+            <input type="number" id="i-desc-ext" value="0" min="0" max="100" step="1" inputmode="numeric" onchange="calcTotals()" style="width:64px;padding:4px 8px;font-size:15px;text-align:center;border:1px solid var(--border);border-radius:8px">
+            <span style="color:var(--text2);font-size:15px">%</span>
             <span id="i-ext-amt" style="color:var(--green)">-$0.00</span>
           </div>
         </div>
         <div class="tot-row tot-grand"><span>TOTAL</span><span id="i-total">$0.00</span></div>
       </div>
       <div class="pago-box" style="margin-top:12px">
-        <div style="font-size:11px;color:var(--accent2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Registrar Pago</div>
+        <div style="font-size:13px;color:var(--accent2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Registrar Pago</div>
         <div style="display:flex;gap:8px">
-          <div style="flex:1"><div style="font-size:10px;color:var(--text3);margin-bottom:4px">MONTO</div><input type="number" id="i-pago" placeholder="0.00" min="0" step="0.01" inputmode="decimal" oninput="calcPago()" style="font-size:15px;font-weight:600;width:100%;border:1px solid var(--border);border-radius:10px;padding:8px"></div>
-          <div style="flex:1"><div style="font-size:10px;color:var(--text3);margin-bottom:4px">FORMA</div><select id="i-pmethod" style="font-size:13px;width:100%;border:1px solid var(--border);border-radius:10px;padding:8px;background:var(--surface2)"><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="debito">Débito</option><option value="credito">Crédito</option></select></div>
+          <div style="flex:1"><div style="font-size:12px;color:var(--text3);margin-bottom:4px">MONTO</div><input type="number" id="i-pago" placeholder="0.00" min="0" step="0.01" inputmode="decimal" oninput="calcPago()" style="font-size:15px;font-weight:600;width:100%;border:1px solid var(--border);border-radius:10px;padding:8px"></div>
+          <div style="flex:1"><div style="font-size:12px;color:var(--text3);margin-bottom:4px">FORMA</div><select id="i-pmethod" style="font-size:15px;width:100%;border:1px solid var(--border);border-radius:10px;padding:8px;background:var(--surface2)"><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="debito">Débito</option><option value="credito">Crédito</option></select></div>
         </div>
-        <div id="pago-info" style="display:none;margin-top:10px;font-size:13px">
+        <div id="pago-info" style="display:none;margin-top:10px;font-size:15px">
           <div id="pi-pend" class="pago-info-row" style="display:none"><span style="color:var(--text2)">Queda pendiente</span><span id="pi-pend-amt" style="color:var(--accent3);font-weight:700"></span></div>
           <div id="pi-fav" class="pago-info-row" style="display:none"><span style="color:var(--text2)">Queda a favor</span><span id="pi-fav-amt" style="color:var(--green);font-weight:700"></span></div>
         </div>
@@ -402,12 +402,50 @@ select option{background:var(--surface2)}
     </div>
   </div>
 
+  <!-- PÁGINA REPARTO -->
+  <div class="page" id="page-reparto" style="padding:0;flex-direction:column;height:100%">
+    <!-- Header -->
+    <div style="padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0">
+      <button onclick="showPage('dashboard')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 12px;font-size:16px;cursor:pointer">←</button>
+      <div style="font-family:Inter,sans-serif;font-size:17px;font-weight:800;flex:1">🚚 Reparto del día</div>
+      <button id="reparto-modo-btn" onclick="toggleRepartoModo()" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:15px;font-weight:700;cursor:pointer">Salir a repartir</button>
+    </div>
+    <!-- Tabs -->
+    <div class="tabs" style="flex-shrink:0" id="reparto-tabs">
+      <div class="tab active" id="rtab-sel" onclick="swRepartoTab('sel',this)">Seleccionar</div>
+      <div class="tab" id="rtab-ruta" onclick="swRepartoTab('ruta',this)">Ruta</div>
+    </div>
+    <!-- Tab Seleccionar facturas -->
+    <div style="flex:1;overflow-y:auto" id="reparto-sel-content">
+      <div style="padding:10px 16px;font-size:14px;color:var(--text3)">Seleccioná las facturas pendientes de hoy</div>
+      <div id="reparto-facturas-list"></div>
+    </div>
+    <!-- Tab Ruta (drag to reorder) -->
+    <div style="flex:1;overflow-y:auto;display:none" id="reparto-ruta-content">
+      <div style="padding:10px 16px;font-size:14px;color:var(--text3)">Arrastrá para reordenar · Tocá para marcar entregado</div>
+      <div id="reparto-ruta-list"></div>
+    </div>
+    <!-- Footer -->
+    <div style="padding:12px 16px;background:var(--surface);border-top:1px solid var(--border);flex-shrink:0" id="reparto-footer">
+      <div id="reparto-footer-info" style="font-size:15px;color:var(--text3);margin-bottom:8px"></div>
+      <button onclick="guardarOrdenReparto()" style="background:var(--accent);color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;width:100%">✓ Guardar orden y cerrar</button>
+    </div>
+  </div>
+
+  <div class="page" id="page-cobrar-reparto" style="padding:0;flex-direction:column;height:100%">
+    <div style="padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0">
+      <button onclick="showPage('reparto')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 12px;font-size:16px;cursor:pointer">←</button>
+      <div style="font-family:Inter,sans-serif;font-size:17px;font-weight:800;flex:1" id="cobrar-rep-titulo">Cobrar</div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:16px" id="cobrar-rep-content"></div>
+  </div>
+
   <div class="page" id="page-productos">
     <div class="search-bar"><span style="color:var(--text3)">&#128269;</span><input type="text" id="prod-search" placeholder="Buscar producto..." oninput="renderProds(this.value)"></div>
     <div class="filter-chips" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <div class="chip active" onclick="setPF('all',this)">Todos</div>
       <div class="chip" onclick="setPF('noprice',this)">Sin precio</div>
-      <select id="prod-sort" onchange="renderProds(document.getElementById('prod-search').value)" style="margin-left:auto;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:20px;padding:6px 12px;font-size:12px;font-family:inherit;cursor:pointer;outline:none">
+      <select id="prod-sort" onchange="renderProds(document.getElementById('prod-search').value)" style="margin-left:auto;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:20px;padding:6px 12px;font-size:14px;font-family:inherit;cursor:pointer;outline:none">
         <option value="vendidos">Más vendidos</option>
         <option value="az">A-Z</option>
         <option value="marca">Marca</option>
@@ -439,7 +477,7 @@ select option{background:var(--surface2)}
     </div>
     <div id="comp-hist"><div class="empty"><div class="ei">&#128717;</div><h3>Sin compras</h3><p>Toca + para registrar una compra</p></div></div>
     <div id="comp-lista" style="display:none">
-      <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Productos faltantes en facturas pendientes de entrega</div>
+      <div style="font-size:14px;color:var(--text3);margin-bottom:10px">Productos faltantes en facturas pendientes de entrega</div>
       <div id="lista-compras-content"></div>
       <button class="btn btn-ghost btn-full" style="margin-top:10px" onclick="shareListaCompras()">&#128205; Compartir lista</button>
     </div>
@@ -453,10 +491,10 @@ select option{background:var(--surface2)}
   <div class="page" id="page-grupos" style="display:none">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
       <div>
-        <div style="font-family:Syne,sans-serif;font-size:18px;font-weight:800">Grupos Mayoristas</div>
-        <div style="font-size:12px;color:var(--text3)">Define el mínimo por grupo para precio mayorista</div>
+        <div style="font-family:Inter,sans-serif;font-size:18px;font-weight:800">Grupos Mayoristas</div>
+        <div style="font-size:14px;color:var(--text3)">Define el mínimo por grupo para precio mayorista</div>
       </div>
-      <button onclick="showPage('productos')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 14px;font-size:13px;cursor:pointer">← Volver</button>
+      <button onclick="showPage('productos')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 14px;font-size:15px;cursor:pointer">← Volver</button>
     </div>
     <div id="grupos-list"></div>
     <button class="btn btn-primary btn-full" style="margin-top:12px" onclick="openGrupo()">+ Nuevo grupo</button>
@@ -466,7 +504,7 @@ select option{background:var(--surface2)}
   <div class="page" id="page-cli-detalle">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
       <button onclick="showPage('clientes')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:10px 14px;font-size:16px;cursor:pointer">←</button>
-      <div id="clidet-nombre" style="font-family:Syne,sans-serif;font-size:18px;font-weight:800"></div>
+      <div id="clidet-nombre" style="font-family:Inter,sans-serif;font-size:18px;font-weight:800"></div>
     </div>
     <div id="clidet-saldo" style="border-radius:var(--r);padding:16px;margin-bottom:14px;text-align:center"></div>
     <div id="clidet-metricas" style="margin-bottom:14px"></div>
@@ -481,7 +519,7 @@ select option{background:var(--surface2)}
   <div class="page" id="page-prov-detalle">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
       <button onclick="showPage('proveedores')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:10px 14px;font-size:16px;cursor:pointer">←</button>
-      <div id="provdet-nombre" style="font-family:Syne,sans-serif;font-size:18px;font-weight:800"></div>
+      <div id="provdet-nombre" style="font-family:Inter,sans-serif;font-size:18px;font-weight:800"></div>
     </div>
     <div id="provdet-content"></div>
   </div>
@@ -509,7 +547,7 @@ select option{background:var(--surface2)}
         <span style="color:var(--text3)">&#128269;</span>
         <input type="text" id="stock-ajuste-search" placeholder="Buscar producto..." autocomplete="off" oninput="renderStockAjuste(this.value)">
       </div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Escribí el stock real de cada producto. Dejá en blanco los que no cambian.</div>
+      <div style="font-size:14px;color:var(--text3);margin-bottom:10px">Escribí el stock real de cada producto. Dejá en blanco los que no cambian.</div>
       <div id="stock-ajuste-list"></div>
       <button class="btn btn-primary btn-full" style="margin-top:12px" onclick="saveStockAjuste()">💾 Guardar ajuste</button>
     </div>
@@ -517,7 +555,7 @@ select option{background:var(--surface2)}
     <!-- TAB LISTA DE COMPRAS -->
     <div id="stock-tab-compras" style="display:none">
       <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
-        <div style="font-size:12px;color:var(--text3);flex:1">Productos con stock negativo (salió más de lo que había)</div>
+        <div style="font-size:14px;color:var(--text3);flex:1">Productos con stock negativo (salió más de lo que había)</div>
         <button class="btn btn-primary btn-sm" onclick="generarListaCompras()">Generar</button>
       </div>
       <div id="stock-compras-list"><div class="empty"><div class="ei">🛒</div><h3>Sin lista</h3><p>Tocá Generar para crear la lista de lo vendido</p></div></div>
@@ -538,10 +576,10 @@ select option{background:var(--surface2)}
 <div id="pwa-install-banner" style="display:none;position:fixed;bottom:calc(var(--nav-h) + 12px);left:12px;right:12px;background:var(--surface);border:1.5px solid var(--accent);border-radius:var(--r);padding:12px 14px;z-index:999;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(13,148,136,.2)">
   <span style="font-size:24px">📲</span>
   <div style="flex:1">
-    <div style="font-weight:700;font-size:13px;color:var(--text)">Instalá Revendit</div>
-    <div style="font-size:11px;color:var(--text3)">Accedé rápido desde tu pantalla de inicio</div>
+    <div style="font-weight:700;font-size:15px;color:var(--text)">Instalá Revendit</div>
+    <div style="font-size:13px;color:var(--text3)">Accedé rápido desde tu pantalla de inicio</div>
   </div>
-  <button onclick="instalarPWA()" style="background:var(--accent);color:#fff;border:none;border-radius:var(--rs);padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Instalar</button>
+  <button onclick="instalarPWA()" style="background:var(--accent);color:#fff;border:none;border-radius:var(--rs);padding:8px 14px;font-size:14px;font-weight:700;cursor:pointer">Instalar</button>
   <button onclick="document.getElementById('pwa-install-banner').style.display='none'" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:0 4px">×</button>
 </div>
 
@@ -554,7 +592,7 @@ select option{background:var(--surface2)}
       <div class="form-group">
         <label class="fl">Foto del producto</label>
         <div class="photo-area" id="photo-area" onclick="document.getElementById('photo-input').click()">
-          <div id="photo-preview"><div style="font-size:40px;margin-bottom:8px">&#128247;</div><div style="font-size:13px;color:var(--text3)">Toca para agregar foto</div></div>
+          <div id="photo-preview"><div style="font-size:40px;margin-bottom:8px">&#128247;</div><div style="font-size:15px;color:var(--text3)">Toca para agregar foto</div></div>
         </div>
         <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="onPhoto(this)">
       </div>
@@ -565,7 +603,7 @@ select option{background:var(--surface2)}
         <div class="form-group"><label class="fl">Fracción mínima</label><input type="number" id="p-frac" placeholder="1" min="1" inputmode="numeric"></div>
       </div>
       <div style="background:var(--surface2);border-radius:var(--rs);padding:14px;margin-bottom:14px">
-        <div style="font-size:11px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Precios</div>
+        <div style="font-size:13px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Precios</div>
         <div class="form-group"><label class="fl">Precio Minorista</label><input type="number" id="p-price" placeholder="0.00" min="0" step="0.01" inputmode="decimal"></div>
         <div class="form-row">
           <div class="form-group"><label class="fl">Precio Mayorista</label><input type="number" id="p-wprice" placeholder="0.00" min="0" step="0.01" inputmode="decimal"></div>
@@ -581,7 +619,7 @@ select option{background:var(--surface2)}
       <div class="form-group">
         <label class="fl">Proveedores donde se compra</label>
         <div id="p-suppliers-list" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs)"></div>
-        <div style="font-size:11px;color:var(--text3);margin-top:4px">Tocá para seleccionar/deseleccionar</div>
+        <div style="font-size:13px;color:var(--text3);margin-top:4px">Tocá para seleccionar/deseleccionar</div>
       </div>
       <div class="form-group"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="p-vis" checked style="width:20px;height:20px"><span style="font-size:14px">Visible en tienda online</span></label></div>
     </div>
@@ -661,7 +699,7 @@ select option{background:var(--surface2)}
     </div>
     <div style="display:flex;align-items:center;gap:10px;padding:0 4px;margin-bottom:10px">
       <input type="checkbox" id="cp-draft" style="width:18px;height:18px;accent-color:var(--accent2)">
-      <label for="cp-draft" style="font-size:13px;color:var(--text2);cursor:pointer">Solo calcular total (no actualizar stock todavía)</label>
+      <label for="cp-draft" style="font-size:15px;color:var(--text2);cursor:pointer">Solo calcular total (no actualizar stock todavía)</label>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" style="flex:1" onclick="closeM('mcomp')">Cancelar</button>
@@ -686,7 +724,7 @@ select option{background:var(--surface2)}
         </div>
       </div>
       <div id="pagocli-facturas" style="display:none">
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:600;margin-bottom:8px">Facturas pendientes</div>
+        <div style="font-size:13px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:600;margin-bottom:8px">Facturas pendientes</div>
         <div id="pagocli-lista"></div>
         <div class="form-group" style="margin-top:14px">
           <label class="fl">Monto recibido</label>
@@ -694,7 +732,7 @@ select option{background:var(--surface2)}
         </div>
         <div id="pagocli-resultado" style="margin-top:10px"></div>
       </div>
-      <div id="pagocli-empty" style="display:none;text-align:center;padding:20px;color:var(--text3);font-size:13px">Este cliente no tiene facturas pendientes</div>
+      <div id="pagocli-empty" style="display:none;text-align:center;padding:20px;color:var(--text3);font-size:15px">Este cliente no tiene facturas pendientes</div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" style="flex:1" onclick="closeM('mpagocli')">Cancelar</button>
@@ -709,10 +747,10 @@ select option{background:var(--surface2)}
     <div class="modal-handle"></div>
     <div class="modal-header"><span class="modal-title">Importar CSV</span><button class="close-btn" onclick="closeM('mimport')">x</button></div>
     <div class="modal-body">
-      <div style="background:var(--surface2);border-radius:var(--rs);padding:14px;margin-bottom:16px;font-size:13px;color:var(--text2);line-height:1.7">Columnas: nombre, precio, costo, stock, stock_minimo, categoria, precio_mayorista, cantidad_mayorista</div>
+      <div style="background:var(--surface2);border-radius:var(--rs);padding:14px;margin-bottom:16px;font-size:15px;color:var(--text2);line-height:1.7">Columnas: nombre, precio, costo, stock, stock_minimo, categoria, precio_mayorista, cantidad_mayorista</div>
       <button class="btn btn-ghost btn-sm" onclick="dlTemplate()">Descargar plantilla</button>
       <div class="form-group" style="margin-top:12px"><label class="fl">Archivo CSV</label><input type="file" id="csv-file" accept=".csv,.txt" onchange="prevCSV(this)"></div>
-      <div id="csv-prev" style="display:none;font-size:12px;color:var(--text2);background:var(--surface2);border-radius:var(--rs);padding:10px;max-height:150px;overflow-y:auto;margin-top:8px"></div>
+      <div id="csv-prev" style="display:none;font-size:14px;color:var(--text2);background:var(--surface2);border-radius:var(--rs);padding:10px;max-height:150px;overflow-y:auto;margin-top:8px"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" style="flex:1" onclick="closeM('mimport')">Cancelar</button>
@@ -737,7 +775,7 @@ select option{background:var(--surface2)}
       <button class="close-btn" onclick="closeM('mqpago')">x</button>
     </div>
     <div class="modal-body">
-      <div id="mqpago-info" style="background:var(--surface2);border-radius:var(--rs);padding:12px;margin-bottom:14px;font-size:13px"></div>
+      <div id="mqpago-info" style="background:var(--surface2);border-radius:var(--rs);padding:12px;margin-bottom:14px;font-size:15px"></div>
       <div class="form-group">
         <label class="fl">Monto que paga ahora</label>
         <input type="number" id="qp-monto" placeholder="0.00" min="0" step="0.01" inputmode="decimal" oninput="calcQPago()" style="font-size:20px;font-weight:700">
@@ -768,7 +806,7 @@ select option{background:var(--surface2)}
       <button class="close-btn" onclick="closeM('mshare')">x</button>
     </div>
     <div class="modal-body" style="padding:12px">
-      <div id="invoice-render" style="background:#fff;border-radius:10px;overflow:hidden;font-family:DM Sans,sans-serif"></div>
+      <div id="invoice-render" style="background:#fff;border-radius:10px;overflow:hidden;font-family:Inter,sans-serif"></div>
       <div style="display:flex;gap:10px;margin-top:14px">
         <button class="btn btn-primary" style="flex:1" onclick="shareInvoiceImg('whatsapp')">&#128132; WhatsApp</button>
         <button class="btn btn-ghost" style="flex:1;color:var(--accent2);border-color:var(--accent2)" onclick="shareInvoiceImg('telegram')">&#9992;&#65039; Telegram</button>
@@ -877,20 +915,20 @@ function showPage(p) {
   document.querySelectorAll('.nav-tab').forEach(x => x.classList.remove('active'));
   const pageEl = document.getElementById('page-'+p);
   pageEl.classList.add('active');
-  if(p==='nueva-factura'||p==='resumen-factura'||p==='nueva-compra'||p==='resumen-compra') pageEl.style.display='flex';
+  if(['nueva-factura','resumen-factura','nueva-compra','resumen-compra','reparto','cobrar-reparto'].includes(p)) pageEl.style.display='flex';
   const navEl = document.getElementById('nav-'+p);
   if(navEl) navEl.classList.add('active');
   S.page = p;
-  const L = {dashboard:'+ Nuevo',facturas:'+ Factura',productos:'+ Producto',clientes:'+ Cliente',compras:'+ Compra',proveedores:'+ Proveedor',stock:'','cli-detalle':'','prov-detalle':'','nueva-factura':'','resumen-factura':'','nueva-compra':'','resumen-compra':'','grupos':''};
+  const L = {dashboard:'+ Nuevo',facturas:'+ Factura',productos:'+ Producto',clientes:'+ Cliente',compras:'+ Compra',proveedores:'+ Proveedor',stock:'','cli-detalle':'','prov-detalle':'','nueva-factura':'','resumen-factura':'','nueva-compra':'','resumen-compra':'','reparto':'','cobrar-reparto':'','grupos':''};
   document.getElementById('btn-add').textContent = L[p] !== undefined ? L[p] : '+ Nuevo';
   const btnAdd = document.getElementById('btn-add');
-  const hideBtn = ['nueva-factura','resumen-factura','nueva-compra','resumen-compra'].includes(p);
+  const hideBtn = ['nueva-factura','resumen-factura','nueva-compra','resumen-compra','reparto','cobrar-reparto'].includes(p);
   if(btnAdd) btnAdd.style.display = hideBtn ? 'none' : '';
   const fab = document.querySelector('.fab');
-  const showFab = !['stock','cli-detalle','prov-detalle','grupos','nueva-factura','resumen-factura','nueva-compra','resumen-compra'].includes(p);
+  const showFab = !['stock','cli-detalle','prov-detalle','grupos','nueva-factura','resumen-factura','nueva-compra','resumen-compra','reparto','cobrar-reparto'].includes(p);
   if(fab) fab.style.display = showFab ? 'flex' : 'none';
   const nav = document.querySelector('.bottom-nav');
-  if(nav) nav.style.display = (p==='nueva-factura'||p==='resumen-factura'||p==='nueva-compra'||p==='resumen-compra') ? 'none' : '';
+  if(nav) nav.style.display = ['nueva-factura','resumen-factura','nueva-compra','resumen-compra','reparto','cobrar-reparto'].includes(p) ? 'none' : '';
   if(p==='dashboard') updDash();
 }
 
@@ -916,7 +954,7 @@ function showPhoto(src) {
 }
 function resetPhoto(em) {
   S.photo = null;
-  document.getElementById('photo-preview').innerHTML = '<div style="font-size:40px;margin-bottom:8px">'+(em||'&#128247;')+'</div><div style="font-size:13px;color:var(--text3)">Toca para agregar foto</div>';
+  document.getElementById('photo-preview').innerHTML = '<div style="font-size:40px;margin-bottom:8px">'+(em||'&#128247;')+'</div><div style="font-size:15px;color:var(--text3)">Toca para agregar foto</div>';
   document.getElementById('photo-input').value = '';
 }
 
@@ -1095,7 +1133,7 @@ function renderProds(q) {
         const wrap = document.createElement('div');
         wrap.style.marginBottom = '8px';
         const title = document.createElement('div');
-        title.style.cssText = 'font-size:12px;font-weight:700;color:var(--accent);margin-bottom:8px';
+        title.style.cssText = 'font-size:14px;font-weight:700;color:var(--accent);margin-bottom:8px';
         title.textContent = '📦 ' + prods[0].grupoMay + ' — ' + prods.length + ' productos';
         wrap.appendChild(title);
         const row = document.createElement('div');
@@ -1104,12 +1142,12 @@ function renderProds(q) {
           const inp = document.createElement('input');
           inp.type = 'number'; inp.placeholder = label; inp.inputMode = 'decimal';
           inp.id = ['mb-min-','mb-may-','mb-cos-'][li] + marca;
-          inp.style.cssText = 'width:'+(li<2?'90':'80')+'px;padding:6px 8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-size:13px';
+          inp.style.cssText = 'width:'+(li<2?'90':'80')+'px;padding:6px 8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-size:15px';
           row.appendChild(inp);
         });
         const btn = document.createElement('button');
         btn.textContent = 'Aplicar';
-        btn.style.cssText = 'padding:6px 14px;background:var(--accent);color:#ffffff;border:none;border-radius:var(--rs);font-size:12px;font-weight:700;cursor:pointer';
+        btn.style.cssText = 'padding:6px 14px;background:var(--accent);color:#ffffff;border:none;border-radius:var(--rs);font-size:14px;font-weight:700;cursor:pointer';
         btn.dataset.marca = marca;
         btn.dataset.ids = prods.map(p=>p.id).join(',');
         btn.onclick = function(){ applyMarcaUpdateBtn(this); };
@@ -1141,11 +1179,11 @@ function renderProds(q) {
       const pid = p.id;
       return '<div class="list-item" style="padding:10px 14px;gap:10px" id="pc-'+pid+'">'
         + '<div style="flex:1;min-width:0">'
-        + '<div style="font-weight:600;font-size:13px;margin-bottom:2px">'+p.name+'</div>'
+        + '<div style="font-weight:600;font-size:15px;margin-bottom:2px">'+p.name+'</div>'
         + '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
-        + (p.price>0?'<span style="font-family:Syne,sans-serif;font-weight:700;color:var(--accent);font-size:13px">$'+p.price.toFixed(0)+'</span>':'<span style="font-size:11px;color:var(--accent3)">sin precio</span>')
-        + '<span style="font-size:11px;color:'+stColor+'">'+stTxt+'</span>'
-        + (p.cost>0?'<span style="font-size:11px;color:var(--text3)">Costo: $'+p.cost.toFixed(0)+'</span>':'')
+        + (p.price>0?'<span style="font-family:Inter,sans-serif;font-weight:700;color:var(--accent);font-size:15px">$'+p.price.toFixed(0)+'</span>':'<span style="font-size:13px;color:var(--accent3)">sin precio</span>')
+        + '<span style="font-size:13px;color:'+stColor+'">'+stTxt+'</span>'
+        + (p.cost>0?'<span style="font-size:13px;color:var(--text3)">Costo: $'+p.cost.toFixed(0)+'</span>':'')
         + '</div></div>'
         + '<div style="display:flex;gap:6px;flex-shrink:0">'
         + '<button class="btn btn-ghost btn-sm" data-action="openProd" data-id="'+pid+'" style="padding:8px 10px">✏️</button>'
@@ -1164,14 +1202,14 @@ function renderProds(q) {
         '<div class="prod-img" data-action="openProd" data-id="'+pid+'">',
           '<span>'+(p.emoji||'&#128230;')+'</span>',
           (p.image?'<img src="'+p.image+'" data-action="openImg">':''),
-          '<span class="badge '+sc+'" style="position:absolute;top:6px;right:6px;font-size:10px">'+st+'</span>',
+          '<span class="badge '+sc+'" style="position:absolute;top:6px;right:6px;font-size:12px">'+st+'</span>',
           (!hasPx?'<span style="position:absolute;bottom:6px;left:6px;background:rgba(232,255,71,.15);color:var(--accent);font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px">SIN PRECIO</span>':''),
         '</div>',
         '<div class="prod-body" data-action="openProd" data-id="'+pid+'">',
           '<div class="prod-name">'+p.name+'</div>',
           '<div class="prod-price'+(hasPx?'':' prod-no-price')+'">'+(hasPx?'$'+p.price.toFixed(2):'sin precio')+'</div>',
-          (p.wholesalePrice&&p.wholesaleQty?'<div style="font-size:10px;color:var(--accent2)">Mayor: $'+p.wholesalePrice.toFixed(2)+' x'+p.wholesaleQty+'</div>':''),
-          (p.cost>0?'<div style="font-size:10px;color:var(--text3)">Margen: '+(p.price>0?(((p.price-p.cost)/p.price)*100).toFixed(0)+'%':'---')+'</div>':''),
+          (p.wholesalePrice&&p.wholesaleQty?'<div style="font-size:12px;color:var(--accent2)">Mayor: $'+p.wholesalePrice.toFixed(2)+' x'+p.wholesaleQty+'</div>':''),
+          (p.cost>0?'<div style="font-size:12px;color:var(--text3)">Margen: '+(p.price>0?(((p.price-p.cost)/p.price)*100).toFixed(0)+'%':'---')+'</div>':''),
         '</div>',
         '<div class="qe-panel" id="qe-'+pid+'">',
           '<div class="qe-row"><span class="qe-lbl" style="color:var(--text2)">Minorista</span>',
@@ -1300,8 +1338,8 @@ function renderClis(q) {
     const saldoTxt = saldo>0?'Debe $'+saldo.toFixed(0):saldo<0?'A favor $'+Math.abs(saldo).toFixed(0):'Al día';
     return '<div class="list-item" data-action="openCli" data-id="'+c.id+'">'
       +'<div style="width:40px;height:40px;border-radius:50%;background:'+c.color+'22;color:'+c.color+';display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0">'+init+'</div>'
-      +'<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">'+c.name+'</div><div style="font-size:12px;color:var(--text3)">'+(c.phone||c.email||c.type)+'</div></div>'
-      +'<div style="text-align:right;flex-shrink:0"><div style="font-family:Syne,sans-serif;font-weight:700;font-size:13px;color:'+saldoColor+'">'+saldoTxt+'</div><div style="font-size:11px;color:var(--text3)">'+inv.length+' facturas</div></div>'
+      +'<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">'+c.name+'</div><div style="font-size:14px;color:var(--text3)">'+(c.phone||c.email||c.type)+'</div></div>'
+      +'<div style="text-align:right;flex-shrink:0"><div style="font-family:Inter,sans-serif;font-weight:700;font-size:15px;color:'+saldoColor+'">'+saldoTxt+'</div><div style="font-size:13px;color:var(--text3)">'+inv.length+' facturas</div></div>'
       +'</div>';
   }).join('')+'</div></div>';
 }
@@ -1334,15 +1372,15 @@ function renderRanking() {
     return;
   }
   const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  el.innerHTML='<div style="font-size:12px;color:var(--text3);margin-bottom:10px;font-weight:600">'+meses[m]+' '+y+' — por unidades vendidas</div>'
+  el.innerHTML='<div style="font-size:14px;color:var(--text3);margin-bottom:10px;font-weight:600">'+meses[m]+' '+y+' — por unidades vendidas</div>'
     +'<div class="card"><div style="padding:0">'+ranking.map((x,i)=>{
     const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
     const init = x.c.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
     return '<div data-cid="'+x.c.id+'" style="display:flex;align-items:center;gap:12px;padding:12px 14px;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
-      +'<div style="font-size:20px;width:28px;text-align:center">'+(medal||'<span style="font-family:Syne,sans-serif;font-weight:800;color:var(--text3);font-size:14px">'+(i+1)+'</span>')+'</div>'
-      +'<div style="width:40px;height:40px;border-radius:10px;background:'+x.c.color+'22;color:'+x.c.color+';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;font-family:Syne,sans-serif;flex-shrink:0">'+init+'</div>'
-      +'<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">'+x.c.name+'</div><div style="font-size:12px;color:var(--text3)">$'+x.total.toFixed(0)+'</div></div>'
-      +'<div style="text-align:right;flex-shrink:0"><div style="font-family:Syne,sans-serif;font-weight:800;font-size:16px;color:var(--accent)">'+x.uds+'</div><div style="font-size:10px;color:var(--text3)">uds</div></div>'
+      +'<div style="font-size:20px;width:28px;text-align:center">'+(medal||'<span style="font-family:Inter,sans-serif;font-weight:800;color:var(--text3);font-size:14px">'+(i+1)+'</span>')+'</div>'
+      +'<div style="width:40px;height:40px;border-radius:10px;background:'+x.c.color+'22;color:'+x.c.color+';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;font-family:Inter,sans-serif;flex-shrink:0">'+init+'</div>'
+      +'<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">'+x.c.name+'</div><div style="font-size:14px;color:var(--text3)">$'+x.total.toFixed(0)+'</div></div>'
+      +'<div style="text-align:right;flex-shrink:0"><div style="font-family:Inter,sans-serif;font-weight:800;font-size:16px;color:var(--accent)">'+x.uds+'</div><div style="font-size:12px;color:var(--text3)">uds</div></div>'
       +'</div>';
   }).join('')+'</div></div>';
 }
@@ -1406,10 +1444,10 @@ function renderIItem(idx, item) {
     +'<div style="flex:1;min-width:0">'
     +'<div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+name+'</div>'
     +'<div style="display:flex;align-items:center;gap:6px;margin-top:4px">'
-    +'<input type="number" data-iidx="'+idx+'" value="'+(item.price||0)+'" min="0" inputmode="decimal" onfocus="this.select()" onchange="resumePriceChange(this)" style="width:80px;height:30px;text-align:center;font-size:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text3);font-family:DM Sans,sans-serif;outline:none">'
-    +'<span style="font-size:12px;color:var(--text3)">c/u &nbsp;·&nbsp; <span style="color:var(--accent);font-weight:700">$'+subtotal.toFixed(0)+'</span></span>'
+    +'<input type="number" data-iidx="'+idx+'" value="'+(item.price||0)+'" min="0" inputmode="decimal" onfocus="this.select()" onchange="resumePriceChange(this)" style="width:80px;height:30px;text-align:center;font-size:14px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text3);font-family:Inter,sans-serif;outline:none">'
+    +'<span style="font-size:14px;color:var(--text3)">c/u &nbsp;·&nbsp; <span style="color:var(--accent);font-weight:700">$'+subtotal.toFixed(0)+'</span></span>'
     +'</div>'
-    +'<div id="wtag-'+idx+'" style="font-size:10px;color:var(--accent2);display:none">⭐ Precio mayorista</div>'
+    +'<div id="wtag-'+idx+'" style="font-size:12px;color:var(--accent2);display:none">⭐ Precio mayorista</div>'
     +'</div>'
     +'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
     +'<button data-ridx="'+idx+'" class="cart-minus" style="width:34px;height:34px;border-radius:10px;border:none;background:var(--surface2);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:300">−</button>'
@@ -1456,17 +1494,17 @@ function cartRenderList(q) {
     return '<div style="display:flex;align-items:center;padding:11px 16px;background:'+(hasQty?'#f0faf9':'var(--surface)')+';'+(i>0?'border-top:1px solid var(--border)':'')+';'+(hasQty?'border-left:3px solid var(--accent)':'')+'">'
       +'<div style="flex:1;min-width:0">'
       +'<div style="font-weight:600;font-size:14px">'+p.name+'</div>'
-      +'<div style="font-size:12px;color:var(--text3);margin-top:2px" id="cprice-'+p.id+'">$'+itemPrice.toFixed(2)+(hasQty?' &nbsp;·&nbsp; <span style="color:var(--accent);font-weight:700">$'+(qty*itemPrice).toFixed(0)+'</span>':'')+'</div>'
+      +'<div style="font-size:14px;color:var(--text3);margin-top:2px" id="cprice-'+p.id+'">$'+itemPrice.toFixed(2)+(hasQty?' &nbsp;·&nbsp; <span style="color:var(--accent);font-weight:700">$'+(qty*itemPrice).toFixed(0)+'</span>':'')+'</div>'
       +'</div>'
       +'<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;align-items:flex-end">'
       +'<input id="cqty-'+p.id+'" data-pid="'+p.id+'" data-price="'+itemPrice+'" type="number" inputmode="numeric" placeholder="0" value="'+(hasQty?qty:'')+'" min="0"'
       +' onfocus="this.select()"'
       +' onchange="cartQtyChange(this)"'
-      +' style="width:72px;height:48px;text-align:center;font-size:20px;font-weight:700;border:2px solid '+(hasQty?'var(--accent)':'var(--border)')+';border-radius:12px;background:'+(hasQty?'#fff':'var(--surface)')+';color:'+(hasQty?'var(--accent)':'var(--text)')+';font-family:DM Sans,sans-serif;outline:none">'
+      +' style="width:72px;height:48px;text-align:center;font-size:20px;font-weight:700;border:2px solid '+(hasQty?'var(--accent)':'var(--border)')+';border-radius:12px;background:'+(hasQty?'#fff':'var(--surface)')+';color:'+(hasQty?'var(--accent)':'var(--text)')+';font-family:Inter,sans-serif;outline:none">'
       +'<input id="cpreciou-'+p.id+'" data-pid="'+p.id+'" type="number" inputmode="decimal" placeholder="$Precio" value="'+(hasQty?itemPrice:'')+'" min="0"'
       +' onfocus="this.select()"'
       +' onchange="cartPriceChange(this)"'
-      +' style="width:90px;height:32px;text-align:center;font-size:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text3);font-family:DM Sans,sans-serif;outline:none;display:'+(hasQty?'block':'none')+'">'
+      +' style="width:90px;height:32px;text-align:center;font-size:14px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text3);font-family:Inter,sans-serif;outline:none;display:'+(hasQty?'block':'none')+'">'
       +'</div>'
       +'</div>';
   }).join('')
@@ -1568,11 +1606,11 @@ function ncRenderList(q) {
     return '<div style="display:flex;align-items:center;padding:11px 16px;background:'+(hasQty?'#f0f8ff':'var(--surface)')+';'+(i>0?'border-top:1px solid var(--border)':'')+';'+(hasQty?'border-left:3px solid var(--accent2)':'')+'">'
       +'<div style="flex:1;min-width:0">'
       +'<div style="font-weight:600;font-size:14px">'+p.name+'</div>'
-      +'<div style="font-size:12px;color:var(--text3);margin-top:2px">Costo actual: $'+(p.cost||0)+'</div>'
+      +'<div style="font-size:14px;color:var(--text3);margin-top:2px">Costo actual: $'+(p.cost||0)+'</div>'
       +'</div>'
       +'<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;align-items:flex-end">'
-      +'<input data-ncpid="'+p.id+'" data-field="qty" type="number" inputmode="numeric" placeholder="Cant." value="'+(hasQty?item.qty:'')+'" min="0" onfocus="this.select()" onchange="ncQtyChange(this)" style="width:72px;height:40px;text-align:center;font-size:17px;font-weight:700;border:2px solid '+(hasQty?'var(--accent2)':'var(--border)')+';border-radius:10px;background:'+(hasQty?'#fff':'var(--surface)')+';color:'+(hasQty?'var(--accent2)':'var(--text)')+';font-family:DM Sans,sans-serif;outline:none">'
-      +'<input data-ncpid="'+p.id+'" data-field="cost" type="number" inputmode="decimal" placeholder="$Costo" value="'+(item.cost||'')+'" min="0" onfocus="this.select()" onchange="ncCostChange(this)" style="width:80px;height:36px;text-align:center;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-family:DM Sans,sans-serif;outline:none;color:var(--text3);caret-color:var(--text3)">'
+      +'<input data-ncpid="'+p.id+'" data-field="qty" type="number" inputmode="numeric" placeholder="Cant." value="'+(hasQty?item.qty:'')+'" min="0" onfocus="this.select()" onchange="ncQtyChange(this)" style="width:72px;height:40px;text-align:center;font-size:17px;font-weight:700;border:2px solid '+(hasQty?'var(--accent2)':'var(--border)')+';border-radius:10px;background:'+(hasQty?'#fff':'var(--surface)')+';color:'+(hasQty?'var(--accent2)':'var(--text)')+';font-family:Inter,sans-serif;outline:none">'
+      +'<input data-ncpid="'+p.id+'" data-field="cost" type="number" inputmode="decimal" placeholder="$Costo" value="'+(item.cost||'')+'" min="0" onfocus="this.select()" onchange="ncCostChange(this)" style="width:80px;height:36px;text-align:center;font-size:15px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-family:Inter,sans-serif;outline:none;color:var(--text3);caret-color:var(--text3)">'
       +'</div>'
       +'</div>';
   }).join('')
@@ -1617,8 +1655,8 @@ function ncVerResumen() {
       const p = S.products.find(x=>x.id===pid);
       return '<div class="inv-item-box" style="display:flex;align-items:center;gap:12px">'
         +'<div style="flex:1"><div style="font-weight:600;font-size:14px">'+(p?p.name:pid)+'</div>'
-        +'<div style="font-size:12px;color:var(--text3)">'+item.qty+' uds · $'+(item.cost||0)+' c/u</div></div>'
-        +'<div style="font-family:Syne,sans-serif;font-weight:700;color:var(--accent2)">$'+(item.qty*(item.cost||0)).toFixed(0)+'</div>'
+        +'<div style="font-size:14px;color:var(--text3)">'+item.qty+' uds · $'+(item.cost||0)+' c/u</div></div>'
+        +'<div style="font-family:Inter,sans-serif;font-weight:700;color:var(--accent2)">$'+(item.qty*(item.cost||0)).toFixed(0)+'</div>'
         +'</div>';
     }).join('');
     const total = items.reduce((s,[pid,item])=>s+item.qty*(item.cost||0),0);
@@ -1739,7 +1777,7 @@ function cartUpdateRow(pid) {
     qtySpan.style.color = hasQty ? 'var(--text)' : 'var(--text3)';
   }
   // Update price line
-  const priceLine = row.querySelector('div[style*="font-size:12px"]');
+  const priceLine = row.querySelector('div[style*="font-size:14px"]');
   if(priceLine) priceLine.innerHTML = '$'+p.price.toFixed(2)+(hasQty?' &nbsp;·&nbsp; <span style="color:var(--accent);font-weight:700">$'+(qty*p.price).toFixed(0)+'</span>':'');
 }
 
@@ -1843,8 +1881,8 @@ function acSrch(idx,q) {
     return '<div class="ac-item" data-prodid="'+p.id+'" data-idx="'+idx+'">'
       +'<span style="font-size:20px">'+(p.emoji||'&#128230;')+'</span>'
       +'<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600">'+hlText(p.name,ql)+'</div>'
-      +'<div style="font-size:11px;'+stc+'">'+(p.stock===0?'Sin stock':p.stock+' en stock')+(p.wholesalePrice&&p.wholesaleQty?' - Mayor x'+p.wholesaleQty:'')+'</div></div>'
-      +'<span style="font-family:Syne,sans-serif;font-weight:700;color:var(--accent);font-size:13px;flex-shrink:0">'+(p.price>0?'$'+p.price.toFixed(2):'---')+'</span>'
+      +'<div style="font-size:13px;'+stc+'">'+(p.stock===0?'Sin stock':p.stock+' en stock')+(p.wholesalePrice&&p.wholesaleQty?' - Mayor x'+p.wholesaleQty:'')+'</div></div>'
+      +'<span style="font-family:Inter,sans-serif;font-weight:700;color:var(--accent);font-size:15px;flex-shrink:0">'+(p.price>0?'$'+p.price.toFixed(2):'---')+'</span>'
       +'</div>';
   }).join('');
   // Position the list under the input using fixed coords
@@ -1961,7 +1999,7 @@ function calcTotals() {
     if(!note) {
       note = document.createElement('div');
       note.id = 'i-ret-note';
-      note.style.cssText = 'font-size:11px;color:var(--orange);margin-top:3px;grid-column:1/-1';
+      note.style.cssText = 'font-size:13px;color:var(--orange);margin-top:3px;grid-column:1/-1';
       retEl.parentElement.after(note);
     }
     note.textContent = 'Excluido: cigarrillos $'+subExcluded.toFixed(2);
@@ -2077,27 +2115,30 @@ function renderInvs() {
   if(S.invFilter!=='all') list=list.filter(i=>S.invFilter==='presupuesto'?i.type==='presupuesto':i.status===S.invFilter);
   if(!list.length){el.innerHTML='<div class="empty"><div class="ei">&#129534;</div><h3>Sin facturas</h3><p>Crea tu primera factura</p></div>';return;}
   const sb={pendiente:'<span class="badge badge-orange">Pendiente</span>',pagada:'<span class="badge badge-green">Pagada</span>',cancelada:'<span class="badge badge-red">Cancelada</span>'};
-  el.innerHTML='<div class="card"><div style="padding:0">'+list.map(inv=>
-    '<div class="list-item" data-action="openInv" data-id="'+inv.id+'">'
+  el.innerHTML='<div class="card"><div style="padding:0">'+list.map(inv=>{
+    const saldo = inv.status==='pagada' ? 0 : (inv.saldo||0);
+    return '<div class="list-item" data-action="openInv" data-id="'+inv.id+'">'
     +'<div style="flex:1;min-width:0">'
-    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px"><span style="font-family:Syne,sans-serif;font-weight:800;color:var(--accent);font-size:13px">'+inv.id+'</span>'+(inv.type==='presupuesto'?'<span class="badge badge-blue">Presup.</span>':sb[inv.status]||'')+'</div>'
-    +'<div style="font-weight:600;font-size:14px">'+inv.clientName+'</div>'
-    +'<div style="font-size:12px;color:var(--text3)">'+inv.date+' - '+inv.items.length+' item(s)</div>'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">'
+    +(inv.type==='presupuesto'?'<span class="badge badge-blue">Presup.</span>':sb[inv.status]||'')
+    +'<span style="font-size:13px;color:var(--text3);white-space:nowrap">'+inv.date+' · '+inv.items.length+' prod.'+'</span>'
+    +'</div>'
+    +'<div style="font-weight:800;font-size:16px">'+inv.clientName+'</div>'
     +'</div>'
     +'<div style="text-align:right;flex-shrink:0">'
-    +'<div style="font-family:Syne,sans-serif;font-weight:800;font-size:16px;color:var(--accent)">$'+inv.total.toFixed(0)+'</div>'
-    +(inv.saldo>0?'<div style="font-size:11px;color:var(--accent3)">Debe: $'+inv.saldo.toFixed(0)+'</div>':'')
-    +(inv.aFavor>0?'<div style="font-size:11px;color:var(--green)">A favor: $'+inv.aFavor.toFixed(0)+'</div>':'')
-    +'<div style="display:flex;gap:4px;margin-top:4px">'
-    +'<button class="btn btn-ghost btn-sm" data-action="shareInv" data-id="'+inv.id+'" style="color:var(--green);min-width:44px;min-height:44px">&#128247;</button>'
-    +(inv.status==='pendiente'?'<button class="btn btn-ghost btn-sm" data-action="qpago" data-id="'+inv.id+'" style="color:var(--accent);min-width:44px;min-height:44px">&#128180;</button>':'')
-    +'<button class="btn btn-ghost btn-sm" data-action="cycleInv" data-id="'+inv.id+'" style="min-width:44px;min-height:44px">&#128260;</button>'
-    +'<button class="btn btn-danger btn-sm" data-action="delInv" data-id="'+inv.id+'" style="min-width:44px;min-height:44px">&#128465;&#65039;</button>'
-    +'</div></div></div>'
-  ).join('')+'</div></div>';
+    +'<div style="font-family:Inter,sans-serif;font-weight:800;font-size:16px;color:var(--accent)">$'+inv.total.toFixed(0)+'</div>'
+    +(saldo>0?'<div style="font-size:13px;color:var(--accent3);font-weight:600">Debe: $'+saldo.toFixed(0)+'</div>':'')
+    +(inv.aFavor>0?'<div style="font-size:13px;color:var(--green)">A favor: $'+inv.aFavor.toFixed(0)+'</div>':'')
+    +'<div style="display:flex;gap:6px;margin-top:8px;justify-content:flex-end">'
+    +'<button data-action="shareInv" data-id="'+inv.id+'" style="display:flex;flex-direction:column;align-items:center;gap:2px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:6px 10px;cursor:pointer;min-width:56px"><span style="font-size:18px">📤</span><span style="font-size:12px;color:var(--green);font-weight:600">Enviar</span></button>'
+    +(saldo>0?'<button data-action="qpago" data-id="'+inv.id+'" style="display:flex;flex-direction:column;align-items:center;gap:2px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:6px 10px;cursor:pointer;min-width:56px"><span style="font-size:18px">💰</span><span style="font-size:12px;color:var(--accent);font-weight:600">Cobrar</span></button>':'')
+    +'<button data-action="cycleInv" data-id="'+inv.id+'" style="display:flex;flex-direction:column;align-items:center;gap:2px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:6px 10px;cursor:pointer;min-width:56px"><span style="font-size:18px">🔄</span><span style="font-size:12px;color:var(--text2);font-weight:600">Estado</span></button>'
+    +'<button data-action="delInv" data-id="'+inv.id+'" style="display:flex;flex-direction:column;align-items:center;gap:2px;background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.2);border-radius:10px;padding:6px 10px;cursor:pointer;min-width:56px"><span style="font-size:18px">🗑️</span><span style="font-size:12px;color:var(--accent3);font-weight:600">Borrar</span></button>'
+    +'</div></div></div>';
+  }).join('')+'</div></div>';
   const pend=S.invoices.filter(i=>i.status==='pendiente').length;
   const b=document.getElementById('nbadge');
-  b.textContent=pend; b.style.display=pend?'':'none';
+  if(b){b.textContent=pend; b.style.display=pend?'':'none';}
 }
 document.getElementById('page-facturas').addEventListener('click', function(e){
   const btn = e.target.closest('[data-action]');
@@ -2179,11 +2220,11 @@ function verCliDetalle(id) {
   if(saldo > 0) {
     saldoEl.style.background = 'rgba(255,107,107,0.1)';
     saldoEl.style.border = '1px solid var(--accent3)';
-    saldoEl.innerHTML = '<div style="font-size:12px;color:var(--accent3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Debe</div><div style="font-family:Syne,sans-serif;font-size:28px;font-weight:900;color:var(--accent3)">$'+saldo.toFixed(0)+'</div>';
+    saldoEl.innerHTML = '<div style="font-size:14px;color:var(--accent3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Debe</div><div style="font-family:Inter,sans-serif;font-size:28px;font-weight:900;color:var(--accent3)">$'+saldo.toFixed(0)+'</div>';
   } else if(saldo < 0) {
     saldoEl.style.background = 'rgba(74,222,128,0.1)';
     saldoEl.style.border = '1px solid var(--green)';
-    saldoEl.innerHTML = '<div style="font-size:12px;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">A favor</div><div style="font-family:Syne,sans-serif;font-size:28px;font-weight:900;color:var(--green)">$'+Math.abs(saldo).toFixed(0)+'</div>';
+    saldoEl.innerHTML = '<div style="font-size:14px;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">A favor</div><div style="font-family:Inter,sans-serif;font-size:28px;font-weight:900;color:var(--green)">$'+Math.abs(saldo).toFixed(0)+'</div>';
   } else {
     saldoEl.style.background = 'var(--surface2)';
     saldoEl.style.border = '1px solid var(--border)';
@@ -2209,15 +2250,15 @@ function verCliDetalle(id) {
     const promMensual = invs.length ? (totalVida/Math.max(1,new Set(invs.map(i=>i.date.substring(0,7))).size)).toFixed(0) : 0;
     metricsEl.innerHTML =
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">'
-      +'<div style="background:var(--surface2);border-radius:12px;padding:12px;text-align:center"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Total de por vida</div><div style="font-family:Syne,sans-serif;font-size:18px;font-weight:800;color:var(--accent)">$'+totalVida.toFixed(0)+'</div></div>'
-      +'<div style="background:var(--surface2);border-radius:12px;padding:12px;text-align:center"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Promedio mensual</div><div style="font-family:Syne,sans-serif;font-size:18px;font-weight:800;color:var(--accent2)">$'+promMensual+'</div></div>'
-      +(prevCompras?'<div style="background:var(--surface2);border-radius:12px;padding:12px;text-align:center;grid-column:span 2"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Compras históricas (Invoice Manager)</div><div style="font-family:Syne,sans-serif;font-size:18px;font-weight:800;color:var(--text2)">'+prevCompras+' compras</div></div>':'')
+      +'<div style="background:var(--surface2);border-radius:12px;padding:12px;text-align:center"><div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Total de por vida</div><div style="font-family:Inter,sans-serif;font-size:18px;font-weight:800;color:var(--accent)">$'+totalVida.toFixed(0)+'</div></div>'
+      +'<div style="background:var(--surface2);border-radius:12px;padding:12px;text-align:center"><div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Promedio mensual</div><div style="font-family:Inter,sans-serif;font-size:18px;font-weight:800;color:var(--accent2)">$'+promMensual+'</div></div>'
+      +(prevCompras?'<div style="background:var(--surface2);border-radius:12px;padding:12px;text-align:center;grid-column:span 2"><div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Compras históricas (Invoice Manager)</div><div style="font-family:Inter,sans-serif;font-size:18px;font-weight:800;color:var(--text2)">'+prevCompras+' compras</div></div>':'')
       +'</div>'
-      +'<div style="margin-bottom:4px;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:600">Últimos 3 meses — unidades</div>'
+      +'<div style="margin-bottom:4px;font-size:13px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:600">Últimos 3 meses — unidades</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:12px">'
-      +'<div style="background:var(--surface2);border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--text3)">'+nm(now,2)+'</div><div style="font-family:Syne,sans-serif;font-size:16px;font-weight:800">'+u2+'</div><div style="font-size:10px;color:var(--text3)">$'+t2.toFixed(0)+'</div></div>'
-      +'<div style="background:var(--surface2);border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--text3)">'+nm(now,1)+'</div><div style="font-family:Syne,sans-serif;font-size:16px;font-weight:800">'+u1+'</div><div style="font-size:10px;color:var(--text3)">$'+t1.toFixed(0)+'</div></div>'
-      +'<div style="background:var(--accent);border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.7)">'+nm(now,0)+'</div><div style="font-family:Syne,sans-serif;font-size:16px;font-weight:800;color:#fff">'+u0+'</div><div style="font-size:10px;color:rgba(255,255,255,.7)">$'+t0.toFixed(0)+'</div></div>'
+      +'<div style="background:var(--surface2);border-radius:10px;padding:10px;text-align:center"><div style="font-size:12px;color:var(--text3)">'+nm(now,2)+'</div><div style="font-family:Inter,sans-serif;font-size:16px;font-weight:800">'+u2+'</div><div style="font-size:12px;color:var(--text3)">$'+t2.toFixed(0)+'</div></div>'
+      +'<div style="background:var(--surface2);border-radius:10px;padding:10px;text-align:center"><div style="font-size:12px;color:var(--text3)">'+nm(now,1)+'</div><div style="font-family:Inter,sans-serif;font-size:16px;font-weight:800">'+u1+'</div><div style="font-size:12px;color:var(--text3)">$'+t1.toFixed(0)+'</div></div>'
+      +'<div style="background:var(--accent);border-radius:10px;padding:10px;text-align:center"><div style="font-size:12px;color:rgba(255,255,255,.7)">'+nm(now,0)+'</div><div style="font-family:Inter,sans-serif;font-size:16px;font-weight:800;color:#fff">'+u0+'</div><div style="font-size:12px;color:rgba(255,255,255,.7)">$'+t0.toFixed(0)+'</div></div>'
       +'</div>';
   }
   showCliTab('pagos');
@@ -2238,14 +2279,14 @@ function showCliTab(tab) {
       const sc = inv.saldo>0?'badge-orange':inv.status==='pagada'?'badge-green':'badge-blue';
       return '<div style="padding:12px 14px;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
         +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
-        +'<div><div style="font-weight:700;font-size:13px">'+inv.id+' — '+inv.date+'</div>'
-        +'<div style="font-size:11px;color:var(--text3)">'+inv.items.length+' producto(s)</div></div>'
-        +'<div style="text-align:right"><div style="font-family:Syne,sans-serif;font-weight:800;color:var(--accent)">$'+inv.total.toFixed(0)+'</div>'
+        +'<div><div style="font-weight:700;font-size:15px">'+inv.id+' — '+inv.date+'</div>'
+        +'<div style="font-size:13px;color:var(--text3)">'+inv.items.length+' producto(s)</div></div>'
+        +'<div style="text-align:right"><div style="font-family:Inter,sans-serif;font-weight:800;color:var(--accent)">$'+inv.total.toFixed(0)+'</div>'
         +'<span class="badge '+sc+'">'+inv.status+'</span></div></div>'
         +(pagos.length?'<div style="margin-top:6px;padding:8px;background:var(--surface2);border-radius:8px">'
-        +pagos.map(p=>'<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px"><span style="color:var(--text3)">'+p.date+' — '+p.method+'</span><span style="color:var(--green);font-weight:600">+$'+p.monto.toFixed(0)+'</span></div>').join('')
-        +(inv.saldo>0?'<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-top:4px;padding-top:4px;border-top:1px solid var(--border)"><span style="color:var(--accent3)">Pendiente</span><span style="color:var(--accent3)">$'+inv.saldo.toFixed(0)+'</span></div>':'')
-        +'</div>':'<div style="font-size:12px;color:var(--accent3);margin-top:4px">Sin pagos registrados</div>')
+        +pagos.map(p=>'<div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:2px"><span style="color:var(--text3)">'+p.date+' — '+p.method+'</span><span style="color:var(--green);font-weight:600">+$'+p.monto.toFixed(0)+'</span></div>').join('')
+        +(inv.saldo>0?'<div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700;margin-top:4px;padding-top:4px;border-top:1px solid var(--border)"><span style="color:var(--accent3)">Pendiente</span><span style="color:var(--accent3)">$'+inv.saldo.toFixed(0)+'</span></div>':'')
+        +'</div>':'<div style="font-size:14px;color:var(--accent3);margin-top:4px">Sin pagos registrados</div>')
         +'</div>';
     }).join('')+'</div></div>';
   } else {
@@ -2264,8 +2305,8 @@ function showCliTab(tab) {
       const p=S.products.find(x=>x.id===pid);
       return '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
       +'<span style="font-size:22px">'+(p&&p.image?'':'📦')+'</span>'
-      +'<div style="flex:1"><div style="font-weight:600;font-size:13px">'+(p?p.name:pid)+'</div><div style="font-size:11px;color:var(--text3)">'+d.qty+' unidades</div></div>'
-      +'<div style="font-family:Syne,sans-serif;font-weight:700;color:var(--accent)">$'+d.total.toFixed(0)+'</div>'
+      +'<div style="flex:1"><div style="font-weight:600;font-size:15px">'+(p?p.name:pid)+'</div><div style="font-size:13px;color:var(--text3)">'+d.qty+' unidades</div></div>'
+      +'<div style="font-family:Inter,sans-serif;font-weight:700;color:var(--accent)">$'+d.total.toFixed(0)+'</div>'
       +'</div>';
     }).join('')+'</div></div>';
   }
@@ -2281,21 +2322,21 @@ function verProvDetalle(id) {
   if(!comps.length) { cont.innerHTML='<div class="empty"><div class="ei">🏭</div><h3>Sin compras</h3></div>'; return; }
   const total = comps.reduce((s,c)=>s+c.total,0);
   cont.innerHTML = '<div style="background:var(--surface2);border-radius:var(--rs);padding:14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">'
-    +'<div><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">Total comprado</div><div style="font-family:Syne,sans-serif;font-size:22px;font-weight:900;color:var(--accent)">$'+total.toFixed(0)+'</div></div>'
-    +'<div style="font-size:12px;color:var(--text3)">'+comps.length+' compras</div>'
+    +'<div><div style="font-size:13px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">Total comprado</div><div style="font-family:Inter,sans-serif;font-size:22px;font-weight:900;color:var(--accent)">$'+total.toFixed(0)+'</div></div>'
+    +'<div style="font-size:14px;color:var(--text3)">'+comps.length+' compras</div>'
     +'</div>'
     +'<div class="card"><div style="padding:0">'+comps.map((c,i)=>{
       return '<div style="padding:12px 14px;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
         +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
-        +'<div style="font-weight:700;font-size:13px">'+c.date+'</div>'
-        +'<div style="font-family:Syne,sans-serif;font-weight:800;color:var(--accent)">$'+c.total.toFixed(0)+'</div></div>'
-        +'<div style="font-size:12px;color:var(--text3)">'+c.items.map(it=>(it.name||it.prodId||'')+(it.qty?' x'+it.qty:'')).filter(Boolean).slice(0,4).join(', ')+(c.items.length>4?' +más...':'')+'</div>'
+        +'<div style="font-weight:700;font-size:15px">'+c.date+'</div>'
+        +'<div style="font-family:Inter,sans-serif;font-weight:800;color:var(--accent)">$'+c.total.toFixed(0)+'</div></div>'
+        +'<div style="font-size:14px;color:var(--text3)">'+c.items.map(it=>(it.name||it.prodId||'')+(it.qty?' x'+it.qty:'')).filter(Boolean).slice(0,4).join(', ')+(c.items.length>4?' +más...':'')+'</div>'
         +'</div>';
     }).join('')+'</div></div>';
   showPage('prov-detalle');
 }
 
-function cycleInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv||inv.type==='presupuesto')return;const c={pendiente:'pagada',pagada:'cancelada',cancelada:'pendiente'};inv.status=c[inv.status];renderInvs();updDash();save();toast('Estado: '+inv.status);}
+function cycleInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv||inv.type==='presupuesto')return;const estados={pendiente:'Pagada',pagada:'Cancelada',cancelada:'Pendiente'};const next=estados[inv.status];if(!confirm('Cambiar estado a '+next+'?'))return;const c={pendiente:'pagada',pagada:'cancelada',cancelada:'pendiente'};inv.status=c[inv.status];if(inv.status==='pagada'){if(!inv.pagos)inv.pagos=[];const totalPagado=inv.pagos.reduce((s,p)=>s+p.monto,0);if(totalPagado===0){inv.pagos.push({monto:inv.total,method:'efectivo',date:new Date().toISOString().split('T')[0]});}inv.saldo=0;inv.aFavor=0;}renderInvs();updDash();save();toast('Estado: '+inv.status);}
 function cancelInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv)return;if(inv.status==='cancelada'){toast('Ya esta cancelada');return;}if(!confirm('Cancelar la factura '+id+'? Quedara en el historial sin modificar el stock.'))return;inv.status='cancelada';renderInvs();updDash();save();toast('Factura cancelada');}
 function delInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv)return;const hasPago=inv.pagos&&inv.pagos.reduce((s,p)=>s+p.monto,0)>0;if(!confirm('Eliminar la factura '+id+(hasPago?' (tiene pagos registrados)':'')+' y devolver el stock?'))return;inv.items.forEach(item=>{if(!item.prodId)return;const p=S.products.find(x=>x.id===item.prodId);if(p)p.stock=(p.stock||0)+(item.qty||0);});S.invoices=S.invoices.filter(i=>i.id!==id);renderInvs();renderProds();updDash();save();toast('Factura eliminada y stock restaurado');}
 
@@ -2364,35 +2405,35 @@ function updDash() {
 
     dm.innerHTML =
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">'
-      +'<div style="background:var(--surface2);border-radius:var(--rs);padding:12px"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Ventas</div><div style="font-family:Syne,sans-serif;font-weight:800;font-size:18px;color:var(--accent)">$'+ventas.toFixed(0)+'</div><div style="font-size:10px;color:var(--text3)">'+invsFiltradas.length+' facturas</div></div>'
-      +'<div style="background:var(--surface2);border-radius:var(--rs);padding:12px"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Ganancia est.</div><div style="font-family:Syne,sans-serif;font-weight:800;font-size:18px;color:var(--green)">$'+ganancia.toFixed(0)+'</div><div style="font-size:10px;color:var(--text3)">'+(ventas>0?((ganancia/ventas)*100).toFixed(0)+'% margen':'---')+'</div></div>'
-      +'<div style="background:var(--surface2);border-radius:var(--rs);padding:12px"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Cobrado</div><div style="font-family:Syne,sans-serif;font-weight:800;font-size:18px;color:var(--green)">$'+cobrado.toFixed(0)+'</div></div>'
-      +'<div style="background:var(--surface2);border-radius:var(--rs);padding:12px"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Por cobrar</div><div style="font-family:Syne,sans-serif;font-weight:800;font-size:18px;color:var(--accent3)">$'+pendienteMonto.toFixed(0)+'</div></div>'
+      +'<div style="background:var(--surface2);border-radius:var(--rs);padding:12px"><div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Ventas</div><div style="font-family:Inter,sans-serif;font-weight:800;font-size:18px;color:var(--accent)">$'+ventas.toFixed(0)+'</div><div style="font-size:12px;color:var(--text3)">'+invsFiltradas.length+' facturas</div></div>'
+      +'<div style="background:var(--surface2);border-radius:var(--rs);padding:12px"><div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Ganancia est.</div><div style="font-family:Inter,sans-serif;font-weight:800;font-size:18px;color:var(--green)">$'+ganancia.toFixed(0)+'</div><div style="font-size:12px;color:var(--text3)">'+(ventas>0?((ganancia/ventas)*100).toFixed(0)+'% margen':'---')+'</div></div>'
+      +'<div style="background:var(--surface2);border-radius:var(--rs);padding:12px"><div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Cobrado</div><div style="font-family:Inter,sans-serif;font-weight:800;font-size:18px;color:var(--green)">$'+cobrado.toFixed(0)+'</div></div>'
+      +'<div style="background:var(--surface2);border-radius:var(--rs);padding:12px"><div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Por cobrar</div><div style="font-family:Inter,sans-serif;font-weight:800;font-size:18px;color:var(--accent3)">$'+pendienteMonto.toFixed(0)+'</div></div>'
       +'</div>'
-      +(topProds.length?'<div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Productos top</div>'
+      +(topProds.length?'<div style="font-size:13px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Productos top</div>'
       +'<div style="background:var(--surface2);border-radius:var(--rs);overflow:hidden;margin-bottom:14px">'
       +topProds.map(([pid,d],i)=>{const p=S.products.find(x=>x.id===pid);return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
-      +'<span style="font-size:11px;font-weight:700;color:var(--text3);min-width:16px">'+(i+1)+'</span>'
-      +'<div style="flex:1;font-size:13px;font-weight:600">'+(p?p.name:'---')+'</div>'
-      +'<div style="text-align:right"><div style="font-size:13px;font-weight:700;color:var(--accent)">$'+d.total.toFixed(0)+'</div><div style="font-size:10px;color:var(--text3)">'+d.qty+' uds</div></div>'
+      +'<span style="font-size:13px;font-weight:700;color:var(--text3);min-width:16px">'+(i+1)+'</span>'
+      +'<div style="flex:1;font-size:15px;font-weight:600">'+(p?p.name:'---')+'</div>'
+      +'<div style="text-align:right"><div style="font-size:15px;font-weight:700;color:var(--accent)">$'+d.total.toFixed(0)+'</div><div style="font-size:12px;color:var(--text3)">'+d.qty+' uds</div></div>'
       +'</div>';}).join('')+'</div>':'')
-      +(topClis.length?'<div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Clientes top</div>'
+      +(topClis.length?'<div style="font-size:13px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Clientes top</div>'
       +'<div style="background:var(--surface2);border-radius:var(--rs);overflow:hidden">'
       +topClis.map(([cid,d],i)=>{const c=S.clients.find(x=>x.id===cid);return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
-      +'<span style="font-size:11px;font-weight:700;color:var(--text3);min-width:16px">'+(i+1)+'</span>'
-      +'<div style="flex:1;font-size:13px;font-weight:600">'+(c?c.name:'---')+'</div>'
-      +'<div style="text-align:right"><div style="font-size:13px;font-weight:700;color:var(--accent)">$'+d.total.toFixed(0)+'</div><div style="font-size:10px;color:var(--text3)">'+d.count+' facturas</div></div>'
+      +'<span style="font-size:13px;font-weight:700;color:var(--text3);min-width:16px">'+(i+1)+'</span>'
+      +'<div style="flex:1;font-size:15px;font-weight:600">'+(c?c.name:'---')+'</div>'
+      +'<div style="text-align:right"><div style="font-size:15px;font-weight:700;color:var(--accent)">$'+d.total.toFixed(0)+'</div><div style="font-size:12px;color:var(--text3)">'+d.count+' facturas</div></div>'
       +'</div>';}).join('')+'</div>':'');
   }
   const st=document.getElementById('dash-stock');
   const low=S.products.filter(p=>p.stock<0||(p.stock>0&&p.minStock>0&&p.stock<=p.minStock)).slice(0,5);
   if(!low.length) {
-    st.innerHTML='<div class="list-item" style="cursor:default"><span style="color:var(--text3);font-size:13px">Sin alertas</span></div>';
+    st.innerHTML='<div class="list-item" style="cursor:default"><span style="color:var(--text3);font-size:15px">Sin alertas</span></div>';
   } else {
     st.innerHTML=low.map(p=>
       '<div class="list-item" data-action="openProd" data-id="'+p.id+'">'
       +'<span style="font-size:22px">'+(p.emoji||'&#128230;')+'</span>'
-      +'<div style="flex:1"><div style="font-weight:600;font-size:13px">'+p.name+'</div></div>'
+      +'<div style="flex:1"><div style="font-weight:600;font-size:15px">'+p.name+'</div></div>'
       +'<span class="badge '+(p.stock===0?'badge-red':'badge-orange')+'">'+(p.stock===0?'Sin stock':p.stock+' uds')+'</span>'
       +'</div>'
     ).join('');
@@ -2411,9 +2452,9 @@ function renderProvs(){
     const tot=comps.reduce((s,c)=>s+c.total,0);
     const init=pv.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
     return '<div class="list-item" style="position:relative" data-action="openProv" data-id="'+pv.id+'">'
-      +'<div style="width:44px;height:44px;border-radius:12px;background:'+pv.color+'22;color:'+pv.color+';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0;font-family:Syne,sans-serif">'+init+'</div>'
-      +'<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">'+pv.name+'</div><div style="font-size:12px;color:var(--text3)">'+(pv.phone||'')+' '+(pv.days?'- '+pv.days:'')+'</div></div>'
-      +'<div style="text-align:right;flex-shrink:0"><div style="font-family:Syne,sans-serif;font-weight:700;color:var(--accent);font-size:14px">$'+tot.toFixed(0)+'</div><div style="font-size:11px;color:var(--text3)">'+comps.length+' compras</div></div>'
+      +'<div style="width:44px;height:44px;border-radius:12px;background:'+pv.color+'22;color:'+pv.color+';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0;font-family:Inter,sans-serif">'+init+'</div>'
+      +'<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">'+pv.name+'</div><div style="font-size:14px;color:var(--text3)">'+(pv.phone||'')+' '+(pv.days?'- '+pv.days:'')+'</div></div>'
+      +'<div style="text-align:right;flex-shrink:0"><div style="font-family:Inter,sans-serif;font-weight:700;color:var(--accent);font-size:14px">$'+tot.toFixed(0)+'</div><div style="font-size:13px;color:var(--text3)">'+comps.length+' compras</div></div>'
       +'<button data-dpid="'+pv.id+'" onclick="event.stopPropagation();deleteProv(this.dataset.dpid)" style="margin-left:8px;background:rgba(220,38,38,.1);border:none;border-radius:8px;padding:6px 8px;color:var(--accent3);font-size:16px;cursor:pointer;flex-shrink:0">🗑️</button>'
       +'</div>';
   }).join('')+'</div></div>';
@@ -2441,9 +2482,9 @@ function renderCItem(idx,item){
     +'<div class="ac-list" id="cacl-'+idx+'"></div>'
     +'</div>'
     +'<div style="display:flex;gap:8px">'
-    +'<div style="flex:1"><div style="font-size:10px;color:var(--text3);margin-bottom:3px">CANTIDAD</div>'
+    +'<div style="flex:1"><div style="font-size:12px;color:var(--text3);margin-bottom:3px">CANTIDAD</div>'
     +'<input type="number" id="cq-'+idx+'" value="'+(item.qty||1)+'" min="1" inputmode="numeric" data-cidx="'+idx+'" class="cqty-input" onchange="S.compItems['+idx+'].qty=parseFloat(this.value)||1;calcCTotal()"></div>'
-    +'<div style="flex:1"><div style="font-size:10px;color:var(--text3);margin-bottom:3px">PRECIO COSTO</div>'
+    +'<div style="flex:1"><div style="font-size:12px;color:var(--text3);margin-bottom:3px">PRECIO COSTO</div>'
     +'<input type="number" id="cc-'+idx+'" value="'+(item.cost||'')+'" placeholder="0.00" min="0" step="0.01" inputmode="decimal" onchange="S.compItems['+idx+'].cost=parseFloat(this.value)||0;calcCTotal()"></div>'
     +'</div>';
   document.getElementById('comp-items').appendChild(wrap);
@@ -2458,8 +2499,8 @@ function cAcSrch(idx,q){
     '<div class="ac-item" data-prodid="'+p.id+'" data-cidx="'+idx+'">'
     +'<span style="font-size:18px">'+(p.emoji||'\u{1F4E6}')+'</span>'
     +'<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600">'+p.name+'</div>'
-    +'<div style="font-size:11px;color:var(--text3)">'+(p.stock>0?p.stock+' en stock':'Sin stock')+'</div></div>'
-    +(p.cost>0?'<span style="font-family:Syne,sans-serif;font-weight:700;color:var(--accent2);font-size:13px;flex-shrink:0">$'+p.cost.toFixed(2)+'</span>':'')
+    +'<div style="font-size:13px;color:var(--text3)">'+(p.stock>0?p.stock+' en stock':'Sin stock')+'</div></div>'
+    +(p.cost>0?'<span style="font-family:Inter,sans-serif;font-weight:700;color:var(--accent2);font-size:15px;flex-shrink:0">$'+p.cost.toFixed(2)+'</span>':'')
     +'</div>'
   ).join('');
   const inp=document.getElementById('cac-'+idx);
@@ -2525,13 +2566,13 @@ function renderComps(){
   const bd={};
   S.compras.forEach(c=>{if(!bd[c.date])bd[c.date]=[];bd[c.date].push(c);});
   el.innerHTML=Object.entries(bd).sort((a,b)=>b[0].localeCompare(a[0])).map(([date,cs])=>
-    '<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:600;margin:12px 0 6px">'+fmtDate(date)+'</div>'
+    '<div style="font-size:13px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:600;margin:12px 0 6px">'+fmtDate(date)+'</div>'
     +'<div class="card" style="margin-bottom:0">'
     +cs.map(c=>'<div class="list-item" style="flex-wrap:wrap;gap:6px">'
       +'<div style="flex:1;min-width:0" data-action="openComp" data-id="'+c.id+'"><div style="font-weight:600;font-size:14px;display:flex;align-items:center;gap:6px">'+c.provName+(c.draft?'<span class="badge badge-blue">Borrador</span>':'')+'</div>'
-      +'<div style="font-size:12px;color:var(--text3)">'+c.id+' - '+c.items.length+' productos'+'</div></div>'
+      +'<div style="font-size:14px;color:var(--text3)">'+c.id+' - '+c.items.length+' productos'+'</div></div>'
       +'<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'
-      +'<div style="font-family:Syne,sans-serif;font-weight:800;color:var(--accent2);font-size:15px">$'+c.total.toFixed(0)+'</div>'
+      +'<div style="font-family:Inter,sans-serif;font-weight:800;color:var(--accent2);font-size:15px">$'+c.total.toFixed(0)+'</div>'
       +(c.draft?'<button class="btn btn-primary btn-sm" data-action="confirmComp" data-id="'+c.id+'">✓ Confirmar</button>':'')
       +'<button class="btn btn-sm" style="background:#ff3b3022;color:#ff6b60;border:1px solid #ff3b3044;padding:6px 10px" data-action="deleteComp" data-id="'+c.id+'">🗑️</button>'
       +'</div>'
@@ -2557,7 +2598,7 @@ document.getElementById('page-compras').addEventListener('click', function(e){
   else if(el.dataset.action==='deleteComp') { e.stopPropagation(); deleteComp(el.dataset.id); }
 });
 function swCompTab(tab,el){document.querySelectorAll('#page-compras .tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');document.getElementById('comp-hist').style.display=tab==='historial'?'':'none';document.getElementById('comp-comp').style.display=tab==='comparador'?'':'none';document.getElementById('comp-lista').style.display=tab==='lista'?'':'none';if(tab==='comparador')renderComp();if(tab==='lista')renderListaCompras();}
-function renderComp(q){q=(q||'').toLowerCase();const el=document.getElementById('comp-list');const map={};S.compras.forEach(c=>c.items.forEach(item=>{if(!item.prodId||!item.cost)return;if(!map[item.prodId])map[item.prodId]=[];map[item.prodId].push({provName:c.provName,cost:item.cost,date:c.date});}));let ents=Object.entries(map);if(q)ents=ents.filter(([pid])=>{const p=S.products.find(x=>x.id===pid);return p&&p.name.toLowerCase().includes(q);});if(!ents.length){el.innerHTML='<div class="empty"><div class="ei">&#128269;</div><h3>Sin datos</h3><p>Registra compras para comparar precios</p></div>';return;}el.innerHTML=ents.map(([pid,purchases])=>{const prod=S.products.find(p=>p.id===pid);if(!prod)return'';const bp={};purchases.forEach(p=>{if(!bp[p.provName]||p.date>bp[p.provName].date)bp[p.provName]=p;});const pl=Object.entries(bp).sort((a,b)=>a[1].cost-b[1].cost);const mn=pl[0]?pl[0][1].cost:0;return'<div class="card" style="margin-bottom:10px"><div style="padding:12px 14px;border-bottom:1px solid var(--border)"><div style="font-weight:700;font-size:14px">'+(prod.emoji||'&#128230;')+' '+prod.name+'</div><div style="font-size:11px;color:var(--text3);margin-top:2px">Venta: <span style="color:var(--accent)">$'+prod.price.toFixed(2)+'</span> - Costo actual: $'+prod.cost.toFixed(2)+'</div></div>'+pl.map(([pn,d],i)=>'<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)"><div style="font-size:18px">'+(i===0?'&#127945;':i===1?'&#127946;':'&#127947;')+'</div><div style="flex:1"><div style="font-size:13px;font-weight:600">'+pn+'</div><div style="font-size:11px;color:var(--text3)">'+fmtDate(d.date)+'</div></div><div style="text-align:right"><div style="font-family:Syne,sans-serif;font-weight:800;font-size:15px;color:'+(d.cost===mn?'var(--green)':'var(--text)')+'">$'+d.cost.toFixed(2)+'</div>'+(d.cost>mn?'<div style="font-size:10px;color:var(--accent3)">+$'+(d.cost-mn).toFixed(2)+' mas caro</div>':'<div style="font-size:10px;color:var(--green)">Mas barato</div>')+'</div></div>').join('')+'</div>';}).join('');}
+function renderComp(q){q=(q||'').toLowerCase();const el=document.getElementById('comp-list');const map={};S.compras.forEach(c=>c.items.forEach(item=>{if(!item.prodId||!item.cost)return;if(!map[item.prodId])map[item.prodId]=[];map[item.prodId].push({provName:c.provName,cost:item.cost,date:c.date});}));let ents=Object.entries(map);if(q)ents=ents.filter(([pid])=>{const p=S.products.find(x=>x.id===pid);return p&&p.name.toLowerCase().includes(q);});if(!ents.length){el.innerHTML='<div class="empty"><div class="ei">&#128269;</div><h3>Sin datos</h3><p>Registra compras para comparar precios</p></div>';return;}el.innerHTML=ents.map(([pid,purchases])=>{const prod=S.products.find(p=>p.id===pid);if(!prod)return'';const bp={};purchases.forEach(p=>{if(!bp[p.provName]||p.date>bp[p.provName].date)bp[p.provName]=p;});const pl=Object.entries(bp).sort((a,b)=>a[1].cost-b[1].cost);const mn=pl[0]?pl[0][1].cost:0;return'<div class="card" style="margin-bottom:10px"><div style="padding:12px 14px;border-bottom:1px solid var(--border)"><div style="font-weight:700;font-size:14px">'+(prod.emoji||'&#128230;')+' '+prod.name+'</div><div style="font-size:13px;color:var(--text3);margin-top:2px">Venta: <span style="color:var(--accent)">$'+prod.price.toFixed(2)+'</span> - Costo actual: $'+prod.cost.toFixed(2)+'</div></div>'+pl.map(([pn,d],i)=>'<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)"><div style="font-size:18px">'+(i===0?'&#127945;':i===1?'&#127946;':'&#127947;')+'</div><div style="flex:1"><div style="font-size:15px;font-weight:600">'+pn+'</div><div style="font-size:13px;color:var(--text3)">'+fmtDate(d.date)+'</div></div><div style="text-align:right"><div style="font-family:Inter,sans-serif;font-weight:800;font-size:15px;color:'+(d.cost===mn?'var(--green)':'var(--text)')+'">$'+d.cost.toFixed(2)+'</div>'+(d.cost>mn?'<div style="font-size:12px;color:var(--accent3)">+$'+(d.cost-mn).toFixed(2)+' mas caro</div>':'<div style="font-size:12px;color:var(--green)">Mas barato</div>')+'</div></div>').join('')+'</div>';}).join('');}
 function fmtDate(s){if(!s)return'';const[y,m,d]=s.split('-');const ms=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];return d+' '+ms[parseInt(m)-1]+' '+y;}
 
 // === CSV ===
@@ -2629,7 +2670,7 @@ function pagocliSearch(q) {
   if (!res.length) { list.style.display = 'none'; return; }
   list.innerHTML = res.map(c =>
     '<div class="ac-item" data-cliid="' + c.id + '">'
-    + '<div style="width:32px;height:32px;border-radius:50%;background:' + (c.color || '#444') + ';display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">' + c.name.charAt(0).toUpperCase() + '</div>'
+    + '<div style="width:32px;height:32px;border-radius:50%;background:' + (c.color || '#444') + ';display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0">' + c.name.charAt(0).toUpperCase() + '</div>'
     + '<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600">' + c.name + '</div></div>'
     + '</div>'
   ).join('');
@@ -2672,14 +2713,14 @@ function pagocliSelectClient(cliId) {
     const pagado = (inv.pagos || []).reduce((a, p) => a + p.monto, 0);
     const saldo = inv.total - pagado;
     return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">'
-      + '<div><div style="font-size:13px;font-weight:600">' + inv.id + '</div>'
-      + '<div style="font-size:11px;color:var(--text3)">' + inv.date + '</div></div>'
-      + '<div style="font-family:Syne,sans-serif;font-weight:700;color:#fb923c;font-size:14px">$' + saldo.toFixed(0) + '</div>'
+      + '<div><div style="font-size:15px;font-weight:600">' + inv.id + '</div>'
+      + '<div style="font-size:13px;color:var(--text3)">' + inv.date + '</div></div>'
+      + '<div style="font-family:Inter,sans-serif;font-weight:700;color:#fb923c;font-size:14px">$' + saldo.toFixed(0) + '</div>'
       + '</div>';
   }).join('')
     + '<div style="display:flex;justify-content:space-between;padding:10px 0 0;font-weight:700">'
     + '<span style="font-size:15px;font-weight:700">Total deuda</span>'
-    + '<span style="font-family:Syne,sans-serif;color:#e63946;font-size:22px;font-weight:900">$' + totalDeuda.toFixed(0) + '</span>'
+    + '<span style="font-family:Inter,sans-serif;color:#e63946;font-size:22px;font-weight:900">$' + totalDeuda.toFixed(0) + '</span>'
     + '</div>';
 
   document.getElementById('pagocli-monto').value = totalDeuda.toFixed(0);
@@ -2704,14 +2745,14 @@ function pagocliCalc() {
 
   if (monto < totalDeuda) {
     const resta = totalDeuda - monto;
-    res.innerHTML = '<div style="background:#ff6b3522;border:1px solid var(--accent3);border-radius:8px;padding:10px 12px;font-size:13px">'
+    res.innerHTML = '<div style="background:#ff6b3522;border:1px solid var(--accent3);border-radius:8px;padding:10px 12px;font-size:15px">'
       + '⚠️ Pago parcial — quedan <strong>$' + resta.toFixed(0) + '</strong> pendientes</div>';
   } else if (monto === totalDeuda) {
-    res.innerHTML = '<div style="background:#22c55e22;border:1px solid var(--green);border-radius:8px;padding:10px 12px;font-size:13px">'
+    res.innerHTML = '<div style="background:#22c55e22;border:1px solid var(--green);border-radius:8px;padding:10px 12px;font-size:15px">'
       + '✅ Salda toda la deuda exactamente</div>';
   } else {
     const favor = monto - totalDeuda;
-    res.innerHTML = '<div style="background:#22c55e22;border:1px solid var(--green);border-radius:8px;padding:10px 12px;font-size:13px">'
+    res.innerHTML = '<div style="background:#22c55e22;border:1px solid var(--green);border-radius:8px;padding:10px 12px;font-size:15px">'
       + '✅ Salda toda la deuda y queda <strong style="color:var(--green)">$' + favor.toFixed(0) + ' a favor</strong></div>';
   }
 }
@@ -2759,6 +2800,186 @@ function pagocliConfirm() {
   let msg = facturasAct + ' factura(s) actualizadas';
   if (restante > 0) msg += ' · $' + restante.toFixed(0) + ' a favor del cliente';
   toast(msg);
+}
+
+
+// === REPARTO DEL DÍA ===
+var repartoSeleccionados = []; // ids de facturas seleccionadas
+var repartoRuta = []; // orden de clientes [{invId, clientId, clientName, total, status}]
+var repartoModoActivo = false;
+
+function abrirReparto() {
+  repartoModoActivo = false;
+  document.getElementById('reparto-modo-btn').textContent = 'Salir a repartir';
+  document.getElementById('reparto-modo-btn').style.background = 'var(--accent)';
+  swRepartoTab('sel', document.getElementById('rtab-sel'));
+  renderRepartoFacturas();
+  showPage('reparto');
+}
+
+function swRepartoTab(tab, el) {
+  document.querySelectorAll('#reparto-tabs .tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('reparto-sel-content').style.display = tab==='sel' ? '' : 'none';
+  document.getElementById('reparto-ruta-content').style.display = tab==='ruta' ? '' : 'none';
+  if(tab==='ruta') renderRepartoRuta();
+}
+
+function renderRepartoFacturas() {
+  const el = document.getElementById('reparto-facturas-list');
+  const pendientes = S.invoices.filter(i=>i.status==='pendiente' && i.type!=='presupuesto');
+  if(!pendientes.length) {
+    el.innerHTML='<div class="empty"><div class="ei">✅</div><h3>Sin facturas pendientes</h3><p>No hay facturas pendientes de entrega</p></div>';
+    return;
+  }
+  el.innerHTML = pendientes.map(inv => {
+    const cli = S.clients.find(c=>c.id===inv.clientId);
+    const sel = repartoSeleccionados.includes(inv.id);
+    return '<div data-invid="'+inv.id+'" style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--border);cursor:pointer" onclick="toggleRepartoFacById(this.dataset.invid)">'
+      +'<div style="width:24px;height:24px;border-radius:6px;border:2px solid '+(sel?'var(--accent)':'var(--border)')+';background:'+(sel?'var(--accent)':'transparent')+';display:flex;align-items:center;justify-content:center;flex-shrink:0">'
+      +(sel?'<span style="color:#fff;font-size:14px">✓</span>':'')
+      +'</div>'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-weight:600;font-size:14px">'+(cli?cli.name:inv.clientId)+'</div>'
+      +'<div style="font-size:14px;color:var(--text3)">'+inv.id+' · $'+inv.total.toFixed(0)+'</div>'
+      +'</div>'
+      +'<div style="font-size:14px;color:var(--accent3);font-weight:600">$'+(inv.saldo||inv.total).toFixed(0)+' pendiente</div>'
+      +'</div>';
+  }).join('');
+  actualizarFooterReparto();
+}
+
+function toggleRepartoFacById(invId) { toggleRepartoFac(invId); }
+function toggleRepartoFac(invId) {
+  const idx = repartoSeleccionados.indexOf(invId);
+  if(idx>=0) repartoSeleccionados.splice(idx,1);
+  else repartoSeleccionados.push(invId);
+  renderRepartoFacturas();
+}
+
+function actualizarFooterReparto() {
+  const el = document.getElementById('reparto-footer-info');
+  if(el) el.textContent = repartoSeleccionados.length + ' facturas seleccionadas';
+}
+
+function renderRepartoRuta() {
+  // Build ruta from seleccionados, sorted by last known order
+  const lastOrder = JSON.parse(localStorage.getItem('reparto_order')||'{}');
+  repartoRuta = repartoSeleccionados.map(invId => {
+    const inv = S.invoices.find(i=>i.id===invId);
+    const cli = inv ? S.clients.find(c=>c.id===inv.clientId) : null;
+    return {
+      invId,
+      clientId: inv ? inv.clientId : '',
+      clientName: cli ? cli.name : (inv ? inv.clientId : invId),
+      total: inv ? inv.total : 0,
+      saldo: inv ? (inv.saldo||inv.total) : 0,
+      status: 'pendiente',
+      sortKey: lastOrder[inv ? inv.clientId : ''] !== undefined ? lastOrder[inv ? inv.clientId : ''] : 999
+    };
+  }).sort((a,b)=>a.sortKey-b.sortKey);
+
+  renderRutaList();
+}
+
+function renderRutaList() {
+  const el = document.getElementById('reparto-ruta-list');
+  if(!repartoRuta.length) {
+    el.innerHTML='<div style="text-align:center;padding:40px;color:var(--text3)">Seleccioná facturas primero</div>';
+    return;
+  }
+  el.innerHTML = repartoRuta.map((item, i) => {
+    const entregado = item.status === 'entregado';
+    return '<div data-ridx="'+i+'" draggable="true" ondragstart="rDragStart(event,parseInt(this.dataset.ridx))" ondragover="rDragOver(event,parseInt(this.dataset.ridx))" ondrop="rDrop(event,parseInt(this.dataset.ridx))" style="display:flex;align-items:center;gap:12px;padding:13px 16px;background:'+(entregado?'#f0faf9':'var(--surface)')+';border-bottom:1px solid var(--border);cursor:grab;'+(entregado?'opacity:.7':'')+'">'
+      +'<div style="font-size:20px;color:var(--text3);cursor:grab">⠿</div>'
+      +'<div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-family:Inter,sans-serif;font-weight:800;font-size:15px;flex-shrink:0">'+(i+1)+'</div>'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-weight:600;font-size:15px'+(entregado?';text-decoration:line-through':'')+'">'+item.clientName+'</div>'
+      +'<div style="font-size:14px;color:var(--text3)">$'+item.saldo.toFixed(0)+' a cobrar</div>'
+      +'</div>'
+      +(entregado
+        ? '<span style="font-size:14px;color:var(--accent);font-weight:700">✓ Entregado</span>'
+        : '<button onclick="abrirCobrarReparto('+i+')" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:15px;font-weight:700;cursor:pointer">Cobrar</button>'
+      )
+      +'</div>';
+  }).join('');
+}
+
+// Drag and drop
+var rDragIdx = null;
+function rDragStart(e, i) { rDragIdx = i; e.dataTransfer.effectAllowed='move'; }
+function rDragOver(e, i) { e.preventDefault(); }
+function rDrop(e, i) {
+  e.preventDefault();
+  if(rDragIdx === null || rDragIdx === i) return;
+  const moved = repartoRuta.splice(rDragIdx, 1)[0];
+  repartoRuta.splice(i, 0, moved);
+  rDragIdx = null;
+  renderRutaList();
+}
+
+function toggleRepartoModo() {
+  if(!repartoSeleccionados.length) { toast('Seleccioná facturas primero'); return; }
+  repartoModoActivo = !repartoModoActivo;
+  const btn = document.getElementById('reparto-modo-btn');
+  if(repartoModoActivo) {
+    btn.textContent = '← Volver';
+    btn.style.background = 'var(--surface2)';
+    btn.style.color = 'var(--text)';
+    swRepartoTab('ruta', document.getElementById('rtab-ruta'));
+  } else {
+    btn.textContent = 'Salir a repartir';
+    btn.style.background = 'var(--accent)';
+    btn.style.color = '#fff';
+    swRepartoTab('sel', document.getElementById('rtab-sel'));
+  }
+}
+
+function guardarOrdenReparto() {
+  // Save order by clientId
+  const order = {};
+  repartoRuta.forEach((item, i) => { order[item.clientId] = i; });
+  localStorage.setItem('reparto_order', JSON.stringify(order));
+  toast('Orden guardado');
+  showPage('dashboard');
+}
+
+function abrirCobrarReparto(rutaIdx) {
+  const item = repartoRuta[rutaIdx];
+  const inv = S.invoices.find(i=>i.id===item.invId);
+  if(!inv) return;
+  const el = document.getElementById('cobrar-rep-content');
+  document.getElementById('cobrar-rep-titulo').textContent = item.clientName;
+  el.innerHTML = '<div style="text-align:center;margin-bottom:20px">'
+    +'<div style="font-size:14px;color:var(--text3)">Factura '+inv.id+'</div>'
+    +'<div style="font-family:Inter,sans-serif;font-size:36px;font-weight:900;color:var(--accent3)">$'+item.saldo.toFixed(0)+'</div>'
+    +'<div style="font-size:15px;color:var(--text3)">pendiente de cobro</div>'
+    +'</div>'
+    +'<div class="form-group"><label class="fl">Monto cobrado</label><input type="number" id="cobrar-rep-monto" value="'+item.saldo.toFixed(0)+'" inputmode="decimal" style="font-size:24px;font-weight:700;text-align:center" onfocus="this.select()"></div>'
+    +'<div class="form-group"><label class="fl">Forma de pago</label><select id="cobrar-rep-method"><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="debito">Débito</option><option value="credito">Crédito</option></select></div>'
+    +'<button onclick="confirmarCobroReparto('+rutaIdx+')" style="background:var(--accent);color:#fff;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:700;cursor:pointer;width:100%;margin-top:12px">✓ Confirmar cobro</button>';
+  showPage('cobrar-reparto');
+}
+
+function confirmarCobroReparto(rutaIdx) {
+  const item = repartoRuta[rutaIdx];
+  const inv = S.invoices.find(i=>i.id===item.invId);
+  if(!inv) return;
+  const monto = parseFloat(document.getElementById('cobrar-rep-monto').value)||0;
+  const method = document.getElementById('cobrar-rep-method').value;
+  // Register payment
+  if(!inv.pagos) inv.pagos = [];
+  inv.pagos.push({date:new Date().toISOString().split('T')[0], monto, method});
+  const totalPagado = inv.pagos.reduce((s,p)=>s+p.monto,0);
+  inv.saldo = Math.max(0, inv.total - totalPagado);
+  if(inv.saldo <= 0) inv.status = 'pagada';
+  // Mark as delivered
+  repartoRuta[rutaIdx].status = 'entregado';
+  repartoRuta[rutaIdx].saldo = inv.saldo;
+  save();
+  toast('Cobro registrado ✓');
+  showPage('reparto');
+  swRepartoTab('ruta', document.getElementById('rtab-ruta'));
 }
 
 // === INIT ===
@@ -2831,7 +3052,7 @@ function renderPSuppliers() {
   S.proveedores.forEach(pv => {
     const sel = pSelectedSuppliers.includes(pv.id);
     const chip = document.createElement('div');
-    chip.style.cssText = 'padding:5px 10px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid;transition:all .15s;';
+    chip.style.cssText = 'padding:5px 10px;border-radius:20px;font-size:14px;cursor:pointer;border:1px solid;transition:all .15s;';
     if (sel) {
       chip.style.background = 'var(--accent)';
       chip.style.color = '#0f0f0f';
@@ -2853,7 +3074,7 @@ function renderPSuppliers() {
     el.appendChild(chip);
   });
   if (S.proveedores.length === 0) {
-    el.innerHTML = '<span style="font-size:12px;color:var(--text3)">No hay proveedores cargados todavía</span>';
+    el.innerHTML = '<span style="font-size:14px;color:var(--text3)">No hay proveedores cargados todavía</span>';
   }
 }
 
@@ -2894,7 +3115,7 @@ function renderStockAlertas() {
   let html = '';
 
   if (negativos.length > 0) {
-    html += '<div style="font-size:11px;font-weight:700;color:var(--accent3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding:0 4px">⚠️ Faltan comprar (' + negativos.length + ')</div>';
+    html += '<div style="font-size:13px;font-weight:700;color:var(--accent3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding:0 4px">⚠️ Faltan comprar (' + negativos.length + ')</div>';
     html += negativos.map(p => {
       const provNames = (p.suppliers||[]).map(id => {
         const pv = S.proveedores.find(x=>x.id===id);
@@ -2902,17 +3123,17 @@ function renderStockAlertas() {
       }).filter(Boolean).join(', ');
       return '<div class="list-item" style="flex-direction:column;align-items:flex-start;gap:4px">'
         + '<div style="display:flex;justify-content:space-between;width:100%;align-items:center">'
-        + '<div style="font-size:13px;font-weight:600">' + p.name + '</div>'
-        + '<div style="font-size:13px;font-weight:700;color:var(--accent3)">Faltan ' + Math.abs(p.stock) + ' uds</div>'
+        + '<div style="font-size:15px;font-weight:600">' + p.name + '</div>'
+        + '<div style="font-size:15px;font-weight:700;color:var(--accent3)">Faltan ' + Math.abs(p.stock) + ' uds</div>'
         + '</div>'
-        + (provNames ? '<div style="font-size:11px;color:var(--text3)">📦 ' + provNames + '</div>' : '')
+        + (provNames ? '<div style="font-size:13px;color:var(--text3)">📦 ' + provNames + '</div>' : '')
         + '</div>';
     }).join('');
   }
 
   if (bajoStock.length > 0) {
     if (negativos.length > 0) html += '<div style="height:12px"></div>';
-    html += '<div style="font-size:11px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding:0 4px">📉 Bajo stock (' + bajoStock.length + ')</div>';
+    html += '<div style="font-size:13px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding:0 4px">📉 Bajo stock (' + bajoStock.length + ')</div>';
     html += bajoStock.map(p => {
       const provNames = (p.suppliers||[]).map(id => {
         const pv = S.proveedores.find(x=>x.id===id);
@@ -2920,10 +3141,10 @@ function renderStockAlertas() {
       }).filter(Boolean).join(', ');
       return '<div class="list-item" style="flex-direction:column;align-items:flex-start;gap:4px">'
         + '<div style="display:flex;justify-content:space-between;width:100%;align-items:center">'
-        + '<div style="font-size:13px;font-weight:600">' + p.name + '</div>'
-        + '<div style="font-size:13px;font-weight:700;color:var(--orange)">' + p.stock + ' / ' + p.minStock + ' uds</div>'
+        + '<div style="font-size:15px;font-weight:600">' + p.name + '</div>'
+        + '<div style="font-size:15px;font-weight:700;color:var(--orange)">' + p.stock + ' / ' + p.minStock + ' uds</div>'
         + '</div>'
-        + (provNames ? '<div style="font-size:11px;color:var(--text3)">📦 ' + provNames + '</div>' : '')
+        + (provNames ? '<div style="font-size:13px;color:var(--text3)">📦 ' + provNames + '</div>' : '')
         + '</div>';
     }).join('');
   }
@@ -2943,7 +3164,7 @@ function renderStockAjuste(q) {
   if (prods.length === 0) { el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">Sin resultados</div>'; return; }
   el.innerHTML = prods.map(p => {
     return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">'
-      + '<div style="flex:1;font-size:13px;font-weight:500;line-height:1.3">' + p.name + '<br><span style="font-size:11px;color:var(--text3)">Actual: ' + (p.stock||0) + '</span></div>'
+      + '<div style="flex:1;font-size:15px;font-weight:500;line-height:1.3">' + p.name + '<br><span style="font-size:13px;color:var(--text3)">Actual: ' + (p.stock||0) + '</span></div>'
       + '<input type="number" min="0" inputmode="numeric" placeholder="' + (p.stock||0) + '" data-prodid="' + p.id + '" style="width:70px;text-align:center;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-size:14px;font-weight:600">'
       + '</div>';
   }).join('');
@@ -3010,15 +3231,15 @@ function renderListaCompras() {
     }
   });
   const fecha = new Date(lista.generadoEn).toLocaleDateString('es-AR');
-  let html = '<div style="font-size:11px;color:var(--text3);margin-bottom:12px">Generada: ' + fecha + '</div>';
+  let html = '<div style="font-size:13px;color:var(--text3);margin-bottom:12px">Generada: ' + fecha + '</div>';
   // Renderizar por proveedor
   Object.entries(porProv).forEach(([pvId, items]) => {
     const pv = S.proveedores.find(x => x.id === pvId);
     const pvName = pv ? pv.name : pvId;
     html += '<div style="background:var(--surface2);border-radius:var(--r);padding:14px;margin-bottom:12px">';
-    html += '<div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:10px">📦 ' + pvName + '</div>';
+    html += '<div style="font-size:15px;font-weight:700;color:var(--accent);margin-bottom:10px">📦 ' + pvName + '</div>';
     items.forEach(({prod, qty}) => {
-      html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">'
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:15px">'
         + '<span>' + prod.name + '</span>'
         + '<span style="font-weight:700;color:var(--text)">' + qty + ' u.</span>'
         + '</div>';
@@ -3027,9 +3248,9 @@ function renderListaCompras() {
   });
   if (sinProv.length > 0) {
     html += '<div style="background:var(--surface2);border-radius:var(--r);padding:14px;margin-bottom:12px">';
-    html += '<div style="font-size:13px;font-weight:700;color:var(--text3);margin-bottom:10px">📦 Sin proveedor asignado</div>';
+    html += '<div style="font-size:15px;font-weight:700;color:var(--text3);margin-bottom:10px">📦 Sin proveedor asignado</div>';
     sinProv.forEach(({prod, qty}) => {
-      html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">'
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:15px">'
         + '<span>' + prod.name + '</span>'
         + '<span style="font-weight:700">' + qty + ' u.</span>'
         + '</div>';
@@ -3140,10 +3361,10 @@ function renderInvoiceHTML(inv) {
 
   const rows = inv.items.map((item,i) =>
     '<tr style="background:'+(i%2===0?'#fff':'#f9f9f9')+'">'
-    +'<td style="padding:7px 8px;font-size:13px;border-bottom:1px solid #e5e5e5">'+( item.desc||item.name||'-')+'</td>'
-    +'<td style="padding:7px 8px;text-align:center;font-size:13px;border-bottom:1px solid #e5e5e5;white-space:nowrap">'+item.qty+'</td>'
-    +'<td style="padding:7px 8px;text-align:right;font-size:13px;border-bottom:1px solid #e5e5e5;white-space:nowrap">$'+item.price.toFixed(2)+'</td>'
-    +'<td style="padding:7px 8px;text-align:right;font-size:13px;font-weight:700;border-bottom:1px solid #e5e5e5;white-space:nowrap">$'+(item.qty*item.price).toFixed(2)+'</td>'
+    +'<td style="padding:7px 8px;font-size:15px;border-bottom:1px solid #e5e5e5">'+( item.desc||item.name||'-')+'</td>'
+    +'<td style="padding:7px 8px;text-align:center;font-size:15px;border-bottom:1px solid #e5e5e5;white-space:nowrap">'+item.qty+'</td>'
+    +'<td style="padding:7px 8px;text-align:right;font-size:15px;border-bottom:1px solid #e5e5e5;white-space:nowrap">$'+item.price.toFixed(2)+'</td>'
+    +'<td style="padding:7px 8px;text-align:right;font-size:15px;font-weight:700;border-bottom:1px solid #e5e5e5;white-space:nowrap">$'+(item.qty*item.price).toFixed(2)+'</td>'
     +'</tr>'
   ).join('');
 
@@ -3151,40 +3372,40 @@ function renderInvoiceHTML(inv) {
 
   const html = ''
     // Outer wrapper - white, clean
-    +'<div style="background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif;font-size:13px;max-width:480px;margin:0 auto">'
+    +'<div style="background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif;font-size:15px;max-width:480px;margin:0 auto">'
 
     // HEADER
     +'<div style="padding:16px 20px 12px;border-bottom:3px solid #111;display:flex;justify-content:space-between;align-items:flex-start">'
       // Logo/Name area - prepared for logo swap later
       +'<div>'
         +'<div id="inv-logo-area" style="font-size:26px;font-weight:900;letter-spacing:-1px;font-family:Arial Black,Arial,sans-serif;color:#111;line-height:1">SURTIMAR</div>'
-        +'<div style="font-size:10px;color:#666;margin-top:3px;letter-spacing:1px;text-transform:uppercase">Distribuidora</div>'
+        +'<div style="font-size:12px;color:#666;margin-top:3px;letter-spacing:1px;text-transform:uppercase">Distribuidora</div>'
       +'</div>'
       // Invoice number + date + status
       +'<div style="text-align:right">'
         +'<div style="font-size:17px;font-weight:800;color:#111">'+inv.date+'</div>'
-        +'<div style="font-size:10px;color:#aaa;margin-top:2px">'+inv.id+'</div>'
-        +'<div style="margin-top:5px;display:inline-block;border:1.5px solid '+statusColor+';color:'+statusColor+';font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;letter-spacing:.5px">'+statusLabel+'</div>'
+        +'<div style="font-size:12px;color:#aaa;margin-top:2px">'+inv.id+'</div>'
+        +'<div style="margin-top:5px;display:inline-block;border:1.5px solid '+statusColor+';color:'+statusColor+';font-size:12px;font-weight:700;padding:2px 8px;border-radius:3px;letter-spacing:.5px">'+statusLabel+'</div>'
       +'</div>'
     +'</div>'
 
     // CLIENT
     +'<div style="padding:10px 20px;border-bottom:1px solid #ddd;display:flex;justify-content:space-between;align-items:center">'
       +'<div>'
-        +'<div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px">Cliente</div>'
+        +'<div style="font-size:12px;color:#888;text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px">Cliente</div>'
         +'<div style="font-size:15px;font-weight:700">'+inv.clientName+'</div>'
       +'</div>'
-      +(inv.type==='presupuesto'?'<div style="background:#f0f0f0;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:700;color:#555">PRESUPUESTO</div>':'')
+      +(inv.type==='presupuesto'?'<div style="background:#f0f0f0;padding:4px 10px;border-radius:4px;font-size:13px;font-weight:700;color:#555">PRESUPUESTO</div>':'')
     +'</div>'
 
     // ITEMS TABLE
     +'<table style="width:100%;border-collapse:collapse">'
       +'<thead>'
         +'<tr style="background:#111">'
-          +'<th style="padding:8px;text-align:left;font-size:11px;color:#fff;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Producto</th>'
-          +'<th style="padding:8px;text-align:center;font-size:11px;color:#fff;font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Cant.</th>'
-          +'<th style="padding:8px;text-align:right;font-size:11px;color:#fff;font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">P.Unit</th>'
-          +'<th style="padding:8px;text-align:right;font-size:11px;color:#fff;font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Total</th>'
+          +'<th style="padding:8px;text-align:left;font-size:13px;color:#fff;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Producto</th>'
+          +'<th style="padding:8px;text-align:center;font-size:13px;color:#fff;font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Cant.</th>'
+          +'<th style="padding:8px;text-align:right;font-size:13px;color:#fff;font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">P.Unit</th>'
+          +'<th style="padding:8px;text-align:right;font-size:13px;color:#fff;font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Total</th>'
         +'</tr>'
       +'</thead>'
       +'<tbody>'+rows+'</tbody>'
@@ -3193,13 +3414,13 @@ function renderInvoiceHTML(inv) {
     // TOTALS
     +'<div style="padding:12px 20px;border-top:2px solid #111">'
       +(inv.subtotal!==inv.total||hasDiscount
-        ? '<div style="display:flex;justify-content:space-between;font-size:12px;color:#555;margin-bottom:4px"><span>Subtotal</span><span>$'+inv.subtotal.toFixed(2)+'</span></div>'
+        ? '<div style="display:flex;justify-content:space-between;font-size:14px;color:#555;margin-bottom:4px"><span>Subtotal</span><span>$'+inv.subtotal.toFixed(2)+'</span></div>'
         : '')
       +((inv.descRetiro||0)>0
-        ? '<div style="display:flex;justify-content:space-between;font-size:12px;color:#166534;margin-bottom:4px"><span>Desc. retiro deposito -5%</span><span>-$'+(inv.descRetiro).toFixed(2)+'</span></div>'
+        ? '<div style="display:flex;justify-content:space-between;font-size:14px;color:#166534;margin-bottom:4px"><span>Desc. retiro deposito -5%</span><span>-$'+(inv.descRetiro).toFixed(2)+'</span></div>'
         : '')
       +((inv.descExtra||0)>0
-        ? '<div style="display:flex;justify-content:space-between;font-size:12px;color:#166534;margin-bottom:4px"><span>Descuento '+inv.descExtraPct+'%</span><span>-$'+(inv.descExtra).toFixed(2)+'</span></div>'
+        ? '<div style="display:flex;justify-content:space-between;font-size:14px;color:#166534;margin-bottom:4px"><span>Descuento '+inv.descExtraPct+'%</span><span>-$'+(inv.descExtra).toFixed(2)+'</span></div>'
         : '')
       +'<div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1.5px solid #111;margin-top:4px">'
         +'<span style="font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Total</span>'
@@ -3207,13 +3428,13 @@ function renderInvoiceHTML(inv) {
       +'</div>'
       +((inv.saldo||0)>0
         ? '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center">'
-            +'<span style="font-size:12px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Saldo pendiente</span>'
+            +'<span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Saldo pendiente</span>'
             +'<span style="font-size:18px;font-weight:900;color:#c05000">$'+(inv.saldo).toFixed(2)+'</span>'
           +'</div>'
         : '')
       +((inv.aFavor||0)>0
         ? '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #166534;border-radius:4px;display:flex;justify-content:space-between;align-items:center">'
-            +'<span style="font-size:12px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:.5px">A favor</span>'
+            +'<span style="font-size:14px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:.5px">A favor</span>'
             +'<span style="font-size:18px;font-weight:900;color:#166534">$'+(inv.aFavor).toFixed(2)+'</span>'
           +'</div>'
         : '')
@@ -3221,7 +3442,7 @@ function renderInvoiceHTML(inv) {
 
     // FOOTER
     +'<div style="padding:8px 20px;border-top:1px solid #ddd;text-align:center">'
-      +'<div style="font-size:10px;color:#999;letter-spacing:.5px">Gracias por su compra - Surtimar</div>'
+      +'<div style="font-size:12px;color:#999;letter-spacing:.5px">Gracias por su compra - Surtimar</div>'
     +'</div>'
 
     +'</div>';
@@ -3236,16 +3457,16 @@ function renderInvoiceHTML(inv) {
   <!-- Pantalla de bienvenida -->
   <div id="tienda-login" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100dvh;padding:32px 24px">
     <div style="font-size:48px;margin-bottom:16px">🛒</div>
-    <div style="font-family:Syne,sans-serif;font-size:26px;font-weight:800;color:#e8ff47;margin-bottom:8px" id="tienda-titulo">Surtimar</div>
+    <div style="font-family:Inter,sans-serif;font-size:26px;font-weight:800;color:#e8ff47;margin-bottom:8px" id="tienda-titulo">Surtimar</div>
     <div style="color:#aaa;font-size:14px;margin-bottom:40px;text-align:center">Hacé tu pedido fácil y rápido</div>
     <div style="width:100%;max-width:340px">
-      <div style="font-size:12px;color:#aaa;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">¿Cómo te llamás?</div>
+      <div style="font-size:14px;color:#aaa;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">¿Cómo te llamás?</div>
       <input id="tienda-nombre-input" type="text" placeholder="Tu nombre..." autocomplete="name"
         style="width:100%;padding:16px;font-size:16px;border-radius:14px;border:2px solid #333;background:#1a1a1a;color:#fff;box-sizing:border-box;outline:none"
         onfocus="this.style.borderColor='#e8ff47'" onblur="this.style.borderColor='#333'"
         onkeydown="if(event.key==='Enter')tiendaEntrar()">
       <button onclick="tiendaEntrar()"
-        style="width:100%;margin-top:14px;padding:16px;background:#e8ff47;color:#0f0f0f;border:none;border-radius:14px;font-size:16px;font-weight:700;font-family:Syne,sans-serif;cursor:pointer">
+        style="width:100%;margin-top:14px;padding:16px;background:#e8ff47;color:#0f0f0f;border:none;border-radius:14px;font-size:16px;font-weight:700;font-family:Inter,sans-serif;cursor:pointer">
         Ver productos →
       </button>
     </div>
@@ -3256,11 +3477,11 @@ function renderInvoiceHTML(inv) {
     <div style="position:sticky;top:0;z-index:10;background:#0f0f0f;padding:16px 16px 12px;border-bottom:1px solid #222">
       <div style="display:flex;align-items:center;justify-content:space-between">
         <div>
-          <div style="font-family:Syne,sans-serif;font-size:18px;font-weight:800;color:#e8ff47" id="tienda-cat-titulo">Surtimar</div>
-          <div style="font-size:12px;color:#666" id="tienda-saludo"></div>
+          <div style="font-family:Inter,sans-serif;font-size:18px;font-weight:800;color:#e8ff47" id="tienda-cat-titulo">Surtimar</div>
+          <div style="font-size:14px;color:#666" id="tienda-saludo"></div>
         </div>
         <button onclick="tiendaVerCarrito()" style="position:relative;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:12px;padding:10px 14px;font-size:20px;cursor:pointer">
-          🛒<span id="tienda-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#e8ff47;color:#0f0f0f;font-size:10px;font-weight:700;padding:2px 5px;border-radius:10px;min-width:16px;text-align:center">0</span>
+          🛒<span id="tienda-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#e8ff47;color:#0f0f0f;font-size:12px;font-weight:700;padding:2px 5px;border-radius:10px;min-width:16px;text-align:center">0</span>
         </button>
       </div>
       <input id="tienda-buscar" type="text" placeholder="Buscar producto..." oninput="tiendaRender()"
@@ -3273,7 +3494,7 @@ function renderInvoiceHTML(inv) {
   <div id="tienda-carrito" style="display:none;padding-bottom:120px">
     <div style="position:sticky;top:0;z-index:10;background:#0f0f0f;padding:16px;border-bottom:1px solid #222;display:flex;align-items:center;gap:12px">
       <button onclick="tiendaVolverCatalogo()" style="background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:10px 14px;font-size:16px;cursor:pointer">←</button>
-      <div style="font-family:Syne,sans-serif;font-size:18px;font-weight:800;color:#fff">Tu pedido</div>
+      <div style="font-family:Inter,sans-serif;font-size:18px;font-weight:800;color:#fff">Tu pedido</div>
     </div>
     <div id="tienda-carrito-items" style="padding:16px;display:flex;flex-direction:column;gap:10px"></div>
     <div id="tienda-carrito-empty" style="display:none;text-align:center;padding:60px 24px;color:#555">
@@ -3285,11 +3506,11 @@ function renderInvoiceHTML(inv) {
   <!-- Footer fijo con total y botón confirmar -->
   <div id="tienda-footer" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#111;border-top:1px solid #222;padding:14px 16px;padding-bottom:calc(14px + env(safe-area-inset-bottom))">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <span style="color:#aaa;font-size:13px">Total del pedido</span>
-      <span id="tienda-total" style="font-family:Syne,sans-serif;font-size:20px;font-weight:800;color:#e8ff47">$0.00</span>
+      <span style="color:#aaa;font-size:15px">Total del pedido</span>
+      <span id="tienda-total" style="font-family:Inter,sans-serif;font-size:20px;font-weight:800;color:#e8ff47">$0.00</span>
     </div>
     <button id="tienda-btn-confirmar" onclick="tiendaConfirmar()"
-      style="width:100%;padding:16px;background:#e8ff47;color:#0f0f0f;border:none;border-radius:14px;font-size:16px;font-weight:700;font-family:Syne,sans-serif;cursor:pointer">
+      style="width:100%;padding:16px;background:#e8ff47;color:#0f0f0f;border:none;border-radius:14px;font-size:16px;font-weight:700;font-family:Inter,sans-serif;cursor:pointer">
       Confirmar pedido por WhatsApp 📲
     </button>
   </div>
@@ -3347,7 +3568,7 @@ function tiendaRender() {
     const imgHtml = p.image
       ? '<img src="'+p.image+'" style="width:72px;height:72px;border-radius:12px;object-fit:cover;flex-shrink:0">'
       : '<div style="width:72px;height:72px;border-radius:12px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0">'+(p.emoji||'📦')+'</div>';
-    const stockTxt = p.stock===0 ? '<span style="color:#ff6b6b;font-size:11px">Sin stock</span>' : '';
+    const stockTxt = p.stock===0 ? '<span style="color:#ff6b6b;font-size:13px">Sin stock</span>' : '';
     const ctrl = qty===0
       ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="background:#e8ff47;color:#0f0f0f;border:none;border-radius:10px;padding:10px 16px;font-weight:700;font-size:14px;cursor:pointer">+ Agregar</button>'
       : '<div style="display:flex;align-items:center;gap:10px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#333;color:#fff;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">−</button><span style="font-size:16px;font-weight:700;min-width:20px;text-align:center">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#e8ff47;color:#0f0f0f;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button></div>';
@@ -3355,7 +3576,7 @@ function tiendaRender() {
       +imgHtml
       +'<div style="flex:1;min-width:0">'
       +'<div style="font-size:14px;font-weight:600;margin-bottom:3px">'+p.name+'</div>'
-      +(p.desc?'<div style="font-size:12px;color:#666;margin-bottom:4px">'+p.desc+'</div>':'')
+      +(p.desc?'<div style="font-size:14px;color:#666;margin-bottom:4px">'+p.desc+'</div>':'')
       +stockTxt
       +'<div style="font-size:16px;font-weight:700;color:#e8ff47;margin-top:4px">$'+p.price.toFixed(2)+'</div>'
       +'</div>'
@@ -3420,7 +3641,7 @@ function tiendaRenderCarrito() {
     return '<div style="background:#1a1a1a;border-radius:14px;padding:14px;display:flex;align-items:center;gap:12px">'
       +'<div style="font-size:28px">'+(p.emoji||'📦')+'</div>'
       +'<div style="flex:1"><div style="font-size:14px;font-weight:600">'+p.name+'</div>'
-      +'<div style="font-size:13px;color:#e8ff47;margin-top:2px">$'+(p.price*qty).toFixed(2)+'</div></div>'
+      +'<div style="font-size:15px;color:#e8ff47;margin-top:2px">$'+(p.price*qty).toFixed(2)+'</div></div>'
       +'<div style="display:flex;align-items:center;gap:10px">'
       +'<button data-tid="'+id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#333;color:#fff;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">−</button>'
       +'<span style="font-size:16px;font-weight:700;min-width:20px;text-align:center">'+qty+'</span>'
@@ -3453,7 +3674,7 @@ function tiendaConfirmar() {
   TC={};
   tiendaRenderCarrito();
   tiendaActBadge();
-  document.getElementById('tienda-carrito').innerHTML='<div style="text-align:center;padding:80px 24px"><div style="font-size:60px;margin-bottom:20px">✅</div><div style="font-family:Syne,sans-serif;font-size:22px;font-weight:800;color:#e8ff47;margin-bottom:10px">¡Pedido enviado!</div><div style="color:#aaa;font-size:14px">Nos llega tu pedido por WhatsApp y te confirmamos.</div></div>';
+  document.getElementById('tienda-carrito').innerHTML='<div style="text-align:center;padding:80px 24px"><div style="font-size:60px;margin-bottom:20px">✅</div><div style="font-family:Inter,sans-serif;font-size:22px;font-weight:800;color:#e8ff47;margin-bottom:10px">¡Pedido enviado!</div><div style="color:#aaa;font-size:14px">Nos llega tu pedido por WhatsApp y te confirmamos.</div></div>';
 }
 
 // Iniciar tienda si la URL corresponde
