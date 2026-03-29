@@ -2016,6 +2016,7 @@ function updDash() {
   const pend=S.invoices.filter(i=>i.status==='pendiente').length;
   const sp=S.products.filter(p=>!p.price).length;
   if(!document.getElementById('sv')) return;
+  if(!document.getElementById('sv')) return;
   document.getElementById('sv').textContent='$'+v.toFixed(0);
   document.getElementById('sf').textContent=S.invoices.length;
   document.getElementById('sp').textContent=pend;
