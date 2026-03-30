@@ -358,7 +358,7 @@ select option{background:var(--surface2)}
   <!-- PÁGINA RESUMEN FACTURA -->
   <div class="page" id="page-resumen-factura" style="padding:0;flex-direction:column;height:100%">
     <div style="padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0">
-      <button onclick="showPage('nueva-factura')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 14px;font-size:16px;cursor:pointer">←</button>
+      <button onclick="S.editId?showPage('facturas'):showPage('nueva-factura')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 14px;font-size:16px;cursor:pointer">←</button>
       <div style="font-family:Inter,sans-serif;font-size:17px;font-weight:800;flex:1">Resumen</div>
       <button onclick="saveInv()" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer">Guardar</button>
     </div>
@@ -1428,6 +1428,24 @@ function openInv(id) {
   showPage('nueva-factura');
 }
 
+function verInv(id) {
+  const inv = S.invoices.find(x=>x.id===id);
+  if(!inv) return;
+  S.editId = id;
+  S.invItems = [...inv.items];
+  document.getElementById('i-type').value = inv.type;
+  document.getElementById('i-status').value = inv.status;
+  document.getElementById('i-date').value = inv.date;
+  document.getElementById('i-notes').value = inv.notes||'';
+  document.getElementById('i-desc-ret').checked = !!inv.descRetiro;
+  document.getElementById('i-desc-ext').value = inv.descExtraPct||0;
+  document.getElementById('i-pago').value = '';
+  document.getElementById('pago-info').style.display = 'none';
+  document.getElementById('inv-items').innerHTML = '';
+  inv.items.forEach((_,i) => renderIItem(i, S.invItems[i]));
+  calcTotals();
+  showPage('resumen-factura');
+}
 function cerrarNuevaFac() {
   showPage('facturas');
 }
@@ -2124,27 +2142,28 @@ function renderInvs() {
   if(S.invFilter!=='all') list=list.filter(i=>S.invFilter==='presupuesto'?i.type==='presupuesto':i.status===S.invFilter);
   if(!list.length){el.innerHTML='<div class="empty"><div class="ei">&#129534;</div><h3>Sin facturas</h3><p>Crea tu primera factura</p></div>';return;}
   const sb={pendiente:'<span class="badge badge-orange">Pendiente</span>',pagada:'<span class="badge badge-green">Pagada</span>',cancelada:'<span class="badge badge-red">Cancelada</span>'};
-  el.innerHTML='<div class="card"><div style="padding:0">'+list.map(inv=>{
+  el.innerHTML='<div style="display:flex;flex-direction:column;gap:10px">'+list.map((inv,ii)=>{
     const saldo = inv.status==='pagada' ? 0 : (inv.saldo||0);
-    return '<div class="list-item" data-action="openInv" data-id="'+inv.id+'">'
-    +'<div style="flex:1;min-width:0">'
-    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">'
-    +(inv.type==='presupuesto'?'<span class="badge badge-blue">Presup.</span>':sb[inv.status]||'')
-    +'<span style="font-size:13px;color:var(--text3);white-space:nowrap">'+inv.date+' · '+inv.items.length+' prod.'+'</span>'
-    +'</div>'
-    +'<div style="font-weight:800;font-size:16px">'+inv.clientName+'</div>'
-    +'</div>'
-    +'<div style="text-align:right;flex-shrink:0">'
-    +'<div style="font-family:Inter,sans-serif;font-weight:800;font-size:16px;color:var(--accent)">$'+inv.total.toFixed(0)+'</div>'
+    const badge = inv.type==='presupuesto'?'<span class="badge badge-blue">Presup.</span>':(sb[inv.status]||'');
+    const btnStyle = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 4px;cursor:pointer;background:var(--surface);border:none;flex:1;border-right:1px solid var(--border)';
+    return '<div class="card" style="overflow:hidden">'
+    +'<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:12px 14px 6px">'
+    +'<div style="font-weight:900;font-size:18px;color:var(--text);flex:1;line-height:1.2">'+inv.clientName+'</div>'
+    +'<div style="text-align:right;flex-shrink:0;padding-left:8px">'
+    +'<div style="font-weight:800;font-size:16px;color:var(--accent)">$'+inv.total.toFixed(0)+'</div>'
     +(saldo>0?'<div style="font-size:13px;color:var(--accent3);font-weight:600">Debe: $'+saldo.toFixed(0)+'</div>':'')
     +(inv.aFavor>0?'<div style="font-size:13px;color:var(--green)">A favor: $'+inv.aFavor.toFixed(0)+'</div>':'')
-    +'<div style="display:flex;gap:6px;margin-top:8px;justify-content:flex-end">'
-    +'<button data-action="shareInv" data-id="'+inv.id+'" style="display:flex;flex-direction:column;align-items:center;gap:2px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:6px 10px;cursor:pointer;min-width:56px"><span style="font-size:18px">📤</span><span style="font-size:12px;color:var(--green);font-weight:600">Enviar</span></button>'
-    +(saldo>0?'<button data-action="qpago" data-id="'+inv.id+'" style="display:flex;flex-direction:column;align-items:center;gap:2px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:6px 10px;cursor:pointer;min-width:56px"><span style="font-size:18px">💰</span><span style="font-size:12px;color:var(--accent);font-weight:600">Cobrar</span></button>':'')
-    +'<button data-action="cycleInv" data-id="'+inv.id+'" style="display:flex;flex-direction:column;align-items:center;gap:2px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:6px 10px;cursor:pointer;min-width:56px"><span style="font-size:18px">🔄</span><span style="font-size:12px;color:var(--text2);font-weight:600">Estado</span></button>'
-    +'<button data-action="delInv" data-id="'+inv.id+'" style="display:flex;flex-direction:column;align-items:center;gap:2px;background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.2);border-radius:10px;padding:6px 10px;cursor:pointer;min-width:56px"><span style="font-size:18px">🗑️</span><span style="font-size:12px;color:var(--accent3);font-weight:600">Borrar</span></button>'
-    +'</div></div></div>';
-  }).join('')+'</div></div>';
+    +'</div></div>'
+    +'<div style="display:flex;align-items:center;gap:8px;padding:0 14px 10px">'
+    +badge+'<span style="font-size:13px;color:var(--text3)">'+inv.date+' · '+inv.items.length+' prod.</span>'
+    +'</div>'
+    +'<div style="display:flex;border-top:1px solid var(--border)">'
+    +'<button data-action="shareInv" data-id="'+inv.id+'" style="'+btnStyle+'"><span style="font-size:20px">📤</span><span style="font-size:12px;font-weight:700;color:var(--text2)">Enviar</span></button>'
+    +(saldo>0?'<button data-action="qpago" data-id="'+inv.id+'" style="'+btnStyle+'"><span style="font-size:20px">💰</span><span style="font-size:12px;font-weight:700;color:var(--accent)">Cobrar</span></button>':'')
+    +'<button data-action="verInv" data-id="'+inv.id+'" style="'+btnStyle+'"><span style="font-size:20px">📋</span><span style="font-size:12px;font-weight:700;color:var(--text2)">Ver</span></button>'
+    +'<button data-action="delInv" data-id="'+inv.id+'" style="'+btnStyle+';border-right:none"><span style="font-size:20px">🗑️</span><span style="font-size:12px;font-weight:700;color:var(--accent3)">Borrar</span></button>'
+    +'</div></div>';
+  }).join('')+'</div>';
   const pend=S.invoices.filter(i=>i.status==='pendiente').length;
   const b=document.getElementById('nbadge');
   if(b){b.textContent=pend; b.style.display=pend?'':'none';}
@@ -2155,7 +2174,7 @@ document.getElementById('page-facturas').addEventListener('click', function(e){
   const action=btn.dataset.action, id=btn.dataset.id;
   e.stopPropagation();
   if(action==='openInv') openInv(id);
-  else if(action==='cycleInv') cycleInv(id);
+  else if(action==='verInv') verInv(id);
   else if(action==='delInv') delInv(id);
   else if(action==='shareInv') openShareInvoice(id);
   else if(action==='qpago') openQPago(id);
@@ -2293,7 +2312,7 @@ function showCliTab(tab) {
         +'<div style="text-align:right"><div style="font-family:Inter,sans-serif;font-weight:800;color:var(--accent)">$'+inv.total.toFixed(0)+'</div>'
         +'<span class="badge '+sc+'">'+inv.status+'</span></div></div>'
         +(pagos.length?'<div style="margin-top:6px;padding:8px;background:var(--surface2);border-radius:8px">'
-        +pagos.map(p=>'<div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:2px"><span style="color:var(--text3)">'+p.date+' — '+p.method+'</span><span style="color:var(--green);font-weight:600">+$'+p.monto.toFixed(0)+'</span></div>').join('')
+        +pagos.map((p,pi)=>'<div style="display:flex;align-items:center;gap:6px;font-size:14px;margin-bottom:2px"><span style="color:var(--text3);flex:1">'+p.date+' — '+p.method+'</span><span style="color:var(--green);font-weight:600">+$'+p.monto.toFixed(0)+'</span><button onclick="editarPago(\''+inv.id+'\','+pi+')" style="background:none;border:none;cursor:pointer;font-size:15px;padding:2px 4px">✏️</button><button onclick="eliminarPago(\''+inv.id+'\','+pi+')" style="background:none;border:none;cursor:pointer;font-size:15px;padding:2px 4px">🗑️</button></div>').join('')
         +(inv.saldo>0?'<div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700;margin-top:4px;padding-top:4px;border-top:1px solid var(--border)"><span style="color:var(--accent3)">Pendiente</span><span style="color:var(--accent3)">$'+inv.saldo.toFixed(0)+'</span></div>':'')
         +'</div>':'<div style="font-size:14px;color:var(--accent3);margin-top:4px">Sin pagos registrados</div>')
         +'</div>';
@@ -2345,6 +2364,33 @@ function verProvDetalle(id) {
   showPage('prov-detalle');
 }
 
+function _recalcInv(inv) {
+  const totalPagado = (inv.pagos||[]).reduce((s,p)=>s+p.monto, 0);
+  inv.saldo = Math.max(0, inv.total - totalPagado);
+  if(inv.saldo <= 0) inv.status = 'pagada';
+  else if(inv.status === 'pagada') inv.status = 'pendiente';
+}
+function eliminarPago(invId, pi) {
+  const inv = S.invoices.find(i=>i.id===invId);
+  if(!inv||!inv.pagos) return;
+  const p = inv.pagos[pi];
+  if(!confirm('Eliminar pago de $'+p.monto.toFixed(0)+'?')) return;
+  inv.pagos.splice(pi, 1);
+  _recalcInv(inv);
+  save(); renderInvs(); showCliTab('pagos'); toast('Pago eliminado');
+}
+function editarPago(invId, pi) {
+  const inv = S.invoices.find(i=>i.id===invId);
+  if(!inv||!inv.pagos) return;
+  const p = inv.pagos[pi];
+  const nuevo = prompt('Nuevo monto del pago:', p.monto.toFixed(0));
+  if(nuevo === null) return;
+  const val = parseFloat(nuevo);
+  if(isNaN(val) || val < 0) { toast('Monto inválido'); return; }
+  p.monto = val;
+  _recalcInv(inv);
+  save(); renderInvs(); showCliTab('pagos'); toast('Pago actualizado');
+}
 function cycleInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv||inv.type==='presupuesto')return;const estados={pendiente:'Pagada',pagada:'Cancelada',cancelada:'Pendiente'};const next=estados[inv.status];if(!confirm('Cambiar estado a '+next+'?'))return;const c={pendiente:'pagada',pagada:'cancelada',cancelada:'pendiente'};inv.status=c[inv.status];if(inv.status==='pagada'){if(!inv.pagos)inv.pagos=[];const totalPagado=inv.pagos.reduce((s,p)=>s+p.monto,0);if(totalPagado===0){inv.pagos.push({monto:inv.total,method:'efectivo',date:new Date().toISOString().split('T')[0]});}inv.saldo=0;inv.aFavor=0;}renderInvs();updDash();save();toast('Estado: '+inv.status);}
 function cancelInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv)return;if(inv.status==='cancelada'){toast('Ya esta cancelada');return;}if(!confirm('Cancelar la factura '+id+'? Quedara en el historial sin modificar el stock.'))return;inv.status='cancelada';renderInvs();updDash();save();toast('Factura cancelada');}
 function delInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv)return;const hasPago=inv.pagos&&inv.pagos.reduce((s,p)=>s+p.monto,0)>0;if(!confirm('Eliminar la factura '+id+(hasPago?' (tiene pagos registrados)':'')+' y devolver el stock?'))return;inv.items.forEach(item=>{if(!item.prodId)return;const p=S.products.find(x=>x.id===item.prodId);if(p)p.stock=(p.stock||0)+(item.qty||0);});S.invoices=S.invoices.filter(i=>i.id!==id);renderInvs();renderProds();updDash();save();toast('Factura eliminada y stock restaurado');}
