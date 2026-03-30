@@ -1718,6 +1718,7 @@ function saveComp() {
     renderProds();
   }
   S.compras.push(comp);
+  ncItems = {};
   try{renderComps();}catch(e){}
   try{updDash();}catch(e){}
   try{save();}catch(e){}
