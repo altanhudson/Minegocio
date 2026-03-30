@@ -318,7 +318,10 @@ select option{background:var(--surface2)}
   <div class="page" id="page-nueva-compra" style="padding:0;flex-direction:column;height:100%">
     <div style="padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0">
       <button onclick="showPage('compras')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 12px;font-size:16px;cursor:pointer">←</button>
-      <select id="nc-prov" style="flex:1;font-size:15px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:Inter,sans-serif"></select>
+      <div style="flex:1">
+        <div style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Proveedor</div>
+        <select id="nc-prov" style="width:100%;font-size:15px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:Inter,sans-serif"></select>
+      </div>
       <input type="date" id="nc-date" style="font-size:14px;padding:7px 6px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);width:118px">
     </div>
     <div style="padding:8px 12px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0">
@@ -1607,7 +1610,7 @@ function openNuevaCompra(id) {
   document.getElementById('nc-draft').checked = false;
   const sel = document.getElementById('nc-prov');
   if(!S.proveedores.length) { toast('Primero agrega un proveedor'); return; }
-  sel.innerHTML = S.proveedores.map(pv=>'<option value="'+pv.id+'">'+pv.name+'</option>').join('');
+  sel.innerHTML = '<option value="">-- Elegir proveedor --</option>'+S.proveedores.map(pv=>'<option value="'+pv.id+'">'+pv.name+'</option>').join('');
   ncRenderList('');
   showPage('nueva-compra');
 }
@@ -1697,6 +1700,7 @@ function saveComp() {
   const items = Object.entries(ncItems).filter(([pid,item])=>item.qty>0);
   if(!items.length) { toast('Sin productos'); return; }
   const provId = document.getElementById('nc-prov').value;
+  if(!provId) { toast('Falta seleccionar el proveedor'); return; }
   const prov = S.proveedores.find(p=>p.id===provId);
   const comp = {
     id: 'COMP-'+String(S.nComp++).padStart(4,'0'),
