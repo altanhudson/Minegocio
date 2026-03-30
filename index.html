@@ -438,6 +438,7 @@ select option{background:var(--surface2)}
       <div style="font-family:Inter,sans-serif;font-size:17px;font-weight:800;flex:1" id="cobrar-rep-titulo">Cobrar</div>
     </div>
     <div style="flex:1;overflow-y:auto;padding:16px" id="cobrar-rep-content"></div>
+    <div style="padding:12px 16px;background:var(--surface);border-top:1px solid var(--border);flex-shrink:0" id="cobrar-rep-footer"></div>
   </div>
 
   <div class="page" id="page-productos">
@@ -1601,7 +1602,7 @@ function ncRenderList(q) {
   if(ql) prods = prods.filter(p=>p.name.toLowerCase().includes(ql));
   if(!prods.length) { el.innerHTML='<div style="text-align:center;padding:40px;color:var(--text3)">Sin resultados</div><div style="padding:0 16px 16px"><button onclick="ncNuevoProd()" style="background:var(--surface);border:2px dashed var(--border);border-radius:12px;padding:12px 20px;font-size:14px;font-weight:600;color:var(--accent2);cursor:pointer;width:100%">+ Producto nuevo</button></div>'; return; }
   el.innerHTML = prods.map((p,i) => {
-    const item = ncItems[p.id] || {qty:'',cost:''};
+    const item = ncItems[p.id] || {qty:'', cost: p.cost||''};
     const hasQty = item.qty > 0;
     return '<div style="display:flex;align-items:center;padding:11px 16px;background:'+(hasQty?'#f0f8ff':'var(--surface)')+';'+(i>0?'border-top:1px solid var(--border)':'')+';'+(hasQty?'border-left:3px solid var(--accent2)':'')+'">'
       +'<div style="flex:1;min-width:0">'
@@ -1609,7 +1610,7 @@ function ncRenderList(q) {
       +'<div style="font-size:14px;color:var(--text3);margin-top:2px">Costo actual: $'+(p.cost||0)+'</div>'
       +'</div>'
       +'<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;align-items:flex-end">'
-      +'<input data-ncpid="'+p.id+'" data-field="qty" type="number" inputmode="numeric" placeholder="Cant." value="'+(hasQty?item.qty:'')+'" min="0" onfocus="this.select()" onchange="ncQtyChange(this)" style="width:72px;height:40px;text-align:center;font-size:17px;font-weight:700;border:2px solid '+(hasQty?'var(--accent2)':'var(--border)')+';border-radius:10px;background:'+(hasQty?'#fff':'var(--surface)')+';color:'+(hasQty?'var(--accent2)':'var(--text)')+';font-family:Inter,sans-serif;outline:none">'
+      +'<input data-ncpid="'+p.id+'" data-field="qty" type="number" inputmode="numeric" placeholder="Cant." value="'+(hasQty?item.qty:'')+'" min="0" onfocus="this.select()" onchange="ncQtyChange(this)" style="width:72px;height:40px;text-align:center;font-size:17px;font-weight:700;caret-color:var(--accent2);border:2px solid '+(hasQty?'var(--accent2)':'var(--border)')+';border-radius:10px;background:'+(hasQty?'#fff':'var(--surface)')+';color:'+(hasQty?'var(--accent2)':'var(--text)')+';font-family:Inter,sans-serif;outline:none">'
       +'<input data-ncpid="'+p.id+'" data-field="cost" type="number" inputmode="decimal" placeholder="$Costo" value="'+(item.cost||'')+'" min="0" onfocus="this.select()" onchange="ncCostChange(this)" style="width:80px;height:36px;text-align:center;font-size:15px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-family:Inter,sans-serif;outline:none;color:var(--text3);caret-color:var(--text3)">'
       +'</div>'
       +'</div>';
@@ -1622,7 +1623,12 @@ function ncRenderList(q) {
 function ncQtyChange(input) {
   const pid = input.dataset.ncpid;
   const qty = parseInt(input.value)||0;
-  if(!ncItems[pid]) ncItems[pid] = {qty:0, cost:0};
+  if(!ncItems[pid]) {
+    const costInput = input.parentElement && input.parentElement.querySelector('[data-field="cost"]');
+    const costVal = costInput ? (parseFloat(costInput.value)||0) : 0;
+    const prod = S.products.find(p=>p.id===pid);
+    ncItems[pid] = {qty:0, cost: costVal || (prod?prod.cost:0) || 0};
+  }
   ncItems[pid].qty = qty;
   ncUpdateFooter();
   const row = input.closest('div[style*="display:flex"]');
@@ -1634,6 +1640,9 @@ function ncCostChange(input) {
   const cost = parseFloat(input.value)||0;
   if(!ncItems[pid]) ncItems[pid] = {qty:0, cost:0};
   ncItems[pid].cost = cost;
+  // Actualizar costo del producto para próximas veces
+  const prod = S.products.find(p=>p.id===pid);
+  if(prod && cost>0) { prod.cost = cost; _fbSave(); }
   ncUpdateFooter();
 }
 
@@ -2895,7 +2904,7 @@ function renderRutaList() {
       +'<div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-family:Inter,sans-serif;font-weight:800;font-size:15px;flex-shrink:0">'+(i+1)+'</div>'
       +'<div style="flex:1;min-width:0">'
       +'<div style="font-weight:600;font-size:15px'+(entregado?';text-decoration:line-through':'')+'">'+item.clientName+'</div>'
-      +'<div style="font-size:14px;color:var(--text3)">$'+item.saldo.toFixed(0)+' a cobrar</div>'
+      +'<div style="font-size:16px;font-weight:700;color:var(--accent3)">$'+item.saldo.toFixed(0)+' a cobrar</div>'
       +'</div>'
       +(entregado
         ? '<span style="font-size:14px;color:var(--accent);font-weight:700">✓ Entregado</span>'
@@ -2957,7 +2966,9 @@ function abrirCobrarReparto(rutaIdx) {
     +'</div>'
     +'<div class="form-group"><label class="fl">Monto cobrado</label><input type="number" id="cobrar-rep-monto" value="'+item.saldo.toFixed(0)+'" inputmode="decimal" style="font-size:24px;font-weight:700;text-align:center" onfocus="this.select()"></div>'
     +'<div class="form-group"><label class="fl">Forma de pago</label><select id="cobrar-rep-method"><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="debito">Débito</option><option value="credito">Crédito</option></select></div>'
-    +'<button onclick="confirmarCobroReparto('+rutaIdx+')" style="background:var(--accent);color:#fff;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:700;cursor:pointer;width:100%;margin-top:12px">✓ Confirmar cobro</button>';
+  ;
+  const footer = document.getElementById('cobrar-rep-footer');
+  if(footer) footer.innerHTML = '<button onclick="confirmarCobroReparto('+rutaIdx+')" style="background:var(--accent);color:#fff;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:700;cursor:pointer;width:100%">✓ Confirmar cobro</button>';
   showPage('cobrar-reparto');
 }
 
@@ -3705,7 +3716,7 @@ window.addEventListener('DOMContentLoaded', function(){
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', function() {
         const offset = window.innerHeight - window.visualViewport.height;
-        ['page-nueva-compra','page-nueva-factura'].forEach(function(id) {
+        ['page-nueva-compra','page-nueva-factura','page-cobrar-reparto'].forEach(function(id) {
           const el = document.getElementById(id);
           if (el) el.style.paddingBottom = offset > 50 ? offset + 'px' : '0';
         });
