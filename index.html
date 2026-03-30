@@ -367,6 +367,8 @@ select option{background:var(--surface2)}
     </div>
     <div style="flex:1;overflow-y:auto;padding:12px 16px">
       <div id="inv-items" style="margin-bottom:12px"></div>
+      <button onclick="invAgregarProducto()" style="width:100%;padding:10px;margin-bottom:12px;background:var(--surface2);border:2px dashed var(--border);border-radius:12px;font-size:14px;font-weight:600;color:var(--accent);cursor:pointer">➕ Agregar producto</button>
+      <div style="margin-bottom:10px"><div style="font-size:12px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Fecha</div><input type="date" id="i-date-res" style="width:100%;font-size:15px;padding:8px;border:1px solid var(--border);border-radius:10px;background:var(--surface2)"></div>
       <div style="display:flex;gap:8px;margin-bottom:12px">
         <div style="flex:1"><select id="i-type" style="width:100%;font-size:15px;padding:8px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:Inter,sans-serif"><option value="factura">Factura</option><option value="presupuesto">Presupuesto</option></select></div>
         <div style="flex:1"><select id="i-status" style="width:100%;font-size:15px;padding:8px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:Inter,sans-serif"><option value="pendiente">Pendiente</option><option value="pagada">Pagada</option></select></div>
@@ -923,6 +925,8 @@ function showPage(p) {
   const navEl = document.getElementById('nav-'+p);
   if(navEl) navEl.classList.add('active');
   S.page = p;
+  // History API for Android back button
+  if(window.history && !window._historyNav) history.pushState({page:p}, '', '');
   const L = {dashboard:'+ Nuevo',facturas:'+ Factura',productos:'+ Producto',clientes:'+ Cliente',compras:'+ Compra',proveedores:'+ Proveedor',stock:'','cli-detalle':'','prov-detalle':'','nueva-factura':'','resumen-factura':'','nueva-compra':'','resumen-compra':'','reparto':'','cobrar-reparto':'','grupos':''};
   document.getElementById('btn-add').textContent = L[p] !== undefined ? L[p] : '+ Nuevo';
   const btnAdd = document.getElementById('btn-add');
@@ -1446,8 +1450,18 @@ function verInv(id) {
   document.getElementById('pago-info').style.display = 'none';
   document.getElementById('inv-items').innerHTML = '';
   inv.items.forEach((_,i) => renderIItem(i, S.invItems[i]));
+  // Cargar fecha en campo de resumen
+  const dateRes = document.getElementById('i-date-res');
+  if(dateRes) dateRes.value = inv.date;
+  S.returnToResumen = false;
   calcTotals();
   showPage('resumen-factura');
+}
+function invAgregarProducto() {
+  S.returnToResumen = true;
+  cartRenderList('');
+  nfUpdateFooter();
+  showPage('nueva-factura');
 }
 function cerrarNuevaFac() {
   showPage('facturas');
@@ -1836,6 +1850,12 @@ function nfVerResumen() {
   document.getElementById('inv-items').innerHTML='';
   S.invItems.forEach((_,i)=>renderIItem(i,S.invItems[i]));
   calcTotals();
+  // Sync date back to resumen field
+  if(S.returnToResumen) {
+    S.returnToResumen = false;
+    const dr=document.getElementById('i-date-res'); const di=document.getElementById('i-date');
+    if(dr&&di&&di.value) dr.value=dr.value||di.value;
+  }
   showPage('resumen-factura');
 }
 
@@ -2066,6 +2086,8 @@ function calcPago() {
 function saveInv() {
   const cid=document.getElementById('i-cli').value;
   if(!cid){toast('Elegi un cliente');return;}
+  // Sync date from resumen field if editing
+  if(S.editId){ const dr=document.getElementById('i-date-res'); const di=document.getElementById('i-date'); if(dr&&dr.value) di.value=dr.value; }
   if(!S.invItems.length){toast('Agrega al menos un item');return;}
   // Sincronizar texto de inputs al estado antes de guardar
   S.invItems.forEach((item, idx) => {
@@ -2168,7 +2190,7 @@ function renderInvs() {
     +'<div style="display:flex;border-top:1px solid var(--border)">'
     +'<button data-action="shareInv" data-id="'+inv.id+'" style="'+btnStyle+'"><span style="font-size:20px">📤</span><span style="font-size:12px;font-weight:700;color:var(--text2)">Enviar</span></button>'
     +(saldo>0?'<button data-action="qpago" data-id="'+inv.id+'" style="'+btnStyle+'"><span style="font-size:20px">💰</span><span style="font-size:12px;font-weight:700;color:var(--accent)">Cobrar</span></button>':'')
-    +'<button data-action="verInv" data-id="'+inv.id+'" style="'+btnStyle+'"><span style="font-size:20px">📋</span><span style="font-size:12px;font-weight:700;color:var(--text2)">Ver</span></button>'
+    +'<button data-action="verInv" data-id="'+inv.id+'" style="'+btnStyle+'"><span style="font-size:20px">✏️</span><span style="font-size:12px;font-weight:700;color:var(--text2)">Ver/Editar</span></button>'
     +'<button data-action="delInv" data-id="'+inv.id+'" style="'+btnStyle+';border-right:none"><span style="font-size:20px">🗑️</span><span style="font-size:12px;font-weight:700;color:var(--accent3)">Borrar</span></button>'
     +'</div></div>';
   }).join('')+'</div>';
@@ -3765,6 +3787,26 @@ window.addEventListener('DOMContentLoaded', function(){
       const banner = document.getElementById('pwa-install-banner');
       if (banner) banner.style.display = 'flex';
     });
+
+    // Android back button via History API
+    window.addEventListener('popstate', function(e) {
+      window._historyNav = true;
+      const prev = e.state && e.state.page;
+      if(prev && prev !== S.page) {
+        // Smart back: certain pages go to their parent
+        const parents = {'resumen-factura':'facturas','nueva-factura':'facturas','resumen-compra':'compras','nueva-compra':'compras','cobrar-reparto':'reparto','cli-detalle':'clientes','prov-detalle':'proveedores'};
+        const target = parents[S.page] || prev;
+        showPage(target);
+        history.pushState({page:target}, '', '');
+      } else {
+        // fallback: go to dashboard
+        showPage('dashboard');
+        history.pushState({page:'dashboard'}, '', '');
+      }
+      window._historyNav = false;
+    });
+    // Initial state
+    history.replaceState({page:'dashboard'}, '', '');
 
     // Ajustar footer cuando el teclado virtual aparece
     if (window.visualViewport) {
