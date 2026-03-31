@@ -508,10 +508,21 @@ select option{background:var(--surface2)}
   </div>
 
   <!-- DETALLE CLIENTE -->
+  <div class="page" id="page-prod-historial">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      <button onclick="showPage('productos')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:10px 14px;font-size:16px;cursor:pointer">←</button>
+      <div id="prodh-nombre" style="font-family:Inter,sans-serif;font-size:18px;font-weight:800;flex:1"></div>
+      <button onclick="openProd(prodHistId)" style="background:var(--surface2);border:1px solid var(--border);color:var(--accent);border-radius:10px;padding:8px 14px;font-size:14px;font-weight:700;cursor:pointer">✏️ Editar</button>
+    </div>
+    <div id="prodh-stats" style="display:flex;gap:0;background:var(--surface);border-radius:var(--r);border:1px solid var(--border);overflow:hidden;margin-bottom:14px"></div>
+    <div id="prodh-content"></div>
+  </div>
+
   <div class="page" id="page-cli-detalle">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
       <button onclick="showPage('clientes')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:10px 14px;font-size:16px;cursor:pointer">←</button>
-      <div id="clidet-nombre" style="font-family:Inter,sans-serif;font-size:18px;font-weight:800"></div>
+      <div id="clidet-nombre" style="font-family:Inter,sans-serif;font-size:18px;font-weight:800;flex:1"></div>
+      <button onclick="openCli(cliDetId)" style="background:var(--surface2);border:1px solid var(--border);color:var(--accent);border-radius:10px;padding:8px 14px;font-size:14px;font-weight:700;cursor:pointer">✏️ Editar</button>
     </div>
     <div id="clidet-saldo" style="border-radius:var(--r);padding:16px;margin-bottom:14px;text-align:center"></div>
     <div id="clidet-metricas" style="margin-bottom:14px"></div>
@@ -526,7 +537,8 @@ select option{background:var(--surface2)}
   <div class="page" id="page-prov-detalle">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
       <button onclick="showPage('proveedores')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:10px 14px;font-size:16px;cursor:pointer">←</button>
-      <div id="provdet-nombre" style="font-family:Inter,sans-serif;font-size:18px;font-weight:800"></div>
+      <div id="provdet-nombre" style="font-family:Inter,sans-serif;font-size:18px;font-weight:800;flex:1"></div>
+      <button onclick="openProv(provDetId)" style="background:var(--surface2);border:1px solid var(--border);color:var(--accent);border-radius:10px;padding:8px 14px;font-size:14px;font-weight:700;cursor:pointer">✏️ Editar</button>
     </div>
     <div id="provdet-content"></div>
   </div>
@@ -815,10 +827,10 @@ select option{background:var(--surface2)}
     <div class="modal-body" style="padding:12px">
       <div id="invoice-render" style="background:#fff;border-radius:10px;overflow:hidden;font-family:Inter,sans-serif"></div>
       <div style="display:flex;gap:10px;margin-top:14px">
-        <button class="btn btn-primary" style="flex:1" onclick="shareInvoiceImg('whatsapp')">&#128132; WhatsApp</button>
-        <button class="btn btn-ghost" style="flex:1;color:var(--accent2);border-color:var(--accent2)" onclick="shareInvoiceImg('telegram')">&#9992;&#65039; Telegram</button>
+        <button class="btn btn-primary" style="flex:1" id="share-wa-btn" onclick="shareInvoiceImg('whatsapp')">&#128132; WhatsApp</button>
+        <button class="btn btn-ghost btn-full" style="flex:1" onclick="shareInvoiceImg('download')">&#8595; Guardar imagen</button>
       </div>
-      <button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="shareInvoiceImg('download')">&#8595; Guardar imagen</button>
+      <button class="btn btn-ghost btn-full" style="margin-top:8px;font-size:13px;color:var(--text3)" onclick="shareInvoiceText()">Compartir como texto</button>
     </div>
   </div>
 </div>
@@ -928,13 +940,13 @@ function showPage(p) {
   S.page = p;
   // History API for Android back button
   if(window.history && !window._historyNav) history.pushState({page:p}, '', '');
-  const L = {dashboard:'+ Nuevo',facturas:'+ Factura',productos:'+ Producto',clientes:'+ Cliente',compras:'+ Compra',proveedores:'+ Proveedor',stock:'','cli-detalle':'','prov-detalle':'','nueva-factura':'','resumen-factura':'','nueva-compra':'','resumen-compra':'','reparto':'','cobrar-reparto':'','grupos':''};
+  const L = {dashboard:'+ Nuevo',facturas:'+ Factura',productos:'+ Producto',clientes:'+ Cliente',compras:'+ Compra',proveedores:'+ Proveedor',stock:'','cli-detalle':'','prov-detalle':'','prod-historial':'','nueva-factura':'','resumen-factura':'','nueva-compra':'','resumen-compra':'','reparto':'','cobrar-reparto':'','grupos':''};
   document.getElementById('btn-add').textContent = L[p] !== undefined ? L[p] : '+ Nuevo';
   const btnAdd = document.getElementById('btn-add');
   const hideBtn = ['nueva-factura','resumen-factura','nueva-compra','resumen-compra','reparto','cobrar-reparto'].includes(p);
   if(btnAdd) btnAdd.style.display = hideBtn ? 'none' : '';
   const fab = document.querySelector('.fab');
-  const showFab = !['stock','cli-detalle','prov-detalle','grupos','nueva-factura','resumen-factura','nueva-compra','resumen-compra','reparto','cobrar-reparto'].includes(p);
+  const showFab = !['stock','cli-detalle','prov-detalle','prod-historial','prod-historial','grupos','nueva-factura','resumen-factura','nueva-compra','resumen-compra','reparto','cobrar-reparto'].includes(p);
   if(fab) fab.style.display = showFab ? 'flex' : 'none';
   const nav = document.querySelector('.bottom-nav');
   if(nav) nav.style.display = ['nueva-factura','resumen-factura','nueva-compra','resumen-compra','reparto','cobrar-reparto'].includes(p) ? 'none' : '';
@@ -1195,6 +1207,7 @@ function renderProds(q) {
         + (p.cost>0?'<span style="font-size:13px;color:var(--text3)">Costo: $'+p.cost.toFixed(0)+'</span>':'')
         + '</div></div>'
         + '<div style="display:flex;gap:6px;flex-shrink:0">'
+        + '<button class="btn btn-ghost btn-sm" data-action="verProdHist" data-id="'+pid+'" style="padding:8px 10px">📋</button>'
         + '<button class="btn btn-ghost btn-sm" data-action="openProd" data-id="'+pid+'" style="padding:8px 10px">✏️</button>'
         + '<button class="btn btn-danger btn-sm" data-action="delProd" data-id="'+pid+'" style="padding:8px 10px">🗑️</button>'
         + '</div>'
@@ -1249,6 +1262,7 @@ document.getElementById('page-productos').addEventListener('click', function(e) 
   if(!el) return;
   const action = el.dataset.action;
   const id = el.dataset.id;
+  if(action==='verProdHist') { verProdHistorial(id); return; }
   if(action==='openProd') openProd(id);
   else if(action==='togQE') togQE(id);
   else if(action==='saveQE') saveQE(id);
@@ -1365,31 +1379,42 @@ function swCliTab(tab, el) {
   if(tab==='ranking') renderRanking();
 }
 
+let rankingMode = 'uds';
 function renderRanking() {
   const el = document.getElementById('cli-tab-ranking-content');
   const now = new Date();
   const m = now.getMonth(), y = now.getFullYear();
-  // Calcular unidades vendidas este mes por cliente
   const ranking = S.clients.map(c => {
     const invs = S.invoices.filter(i=>i.clientId===c.id && i.type!=='presupuesto' && (() => { const d=new Date(i.date); return d.getMonth()===m&&d.getFullYear()===y; })());
     const uds = invs.reduce((s,i)=>(i.items||[]).reduce((ss,it)=>ss+(it.qty||1),s),0);
     const total = invs.reduce((s,i)=>s+(i.total||0),0);
     return { c, uds, total };
-  }).filter(x=>x.uds>0).sort((a,b)=>b.uds-a.uds);
+  }).filter(x=>x.uds>0||x.total>0);
+  if(rankingMode==='uds') ranking.sort((a,b)=>b.uds-a.uds);
+  else ranking.sort((a,b)=>b.total-a.total);
   if(!ranking.length) {
     el.innerHTML='<div class="empty"><div class="ei">🏆</div><h3>Sin ventas este mes</h3><p>El ranking se actualiza con las facturas del mes</p></div>';
     return;
   }
   const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  el.innerHTML='<div style="font-size:14px;color:var(--text3);margin-bottom:10px;font-weight:600">'+meses[m]+' '+y+' — por unidades vendidas</div>'
+  const label = rankingMode==='uds' ? 'por unidades vendidas' : 'por monto facturado';
+  el.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
+    +'<div style="font-size:14px;color:var(--text3);font-weight:600">'+meses[m]+' '+y+'</div>'
+    +'<div style="display:flex;gap:6px">'
+    +'<button onclick="rankingMode=&quot;uds&quot;;renderRanking()" style="font-size:13px;font-weight:700;padding:4px 12px;border-radius:8px;border:1px solid var(--border);cursor:pointer;background:'+(rankingMode==='uds'?'var(--accent)':'var(--surface2)')+';color:'+(rankingMode==='uds'?'#fff':'var(--text2)')+'">Uds</button>'
+    +'<button onclick="rankingMode=&quot;monto&quot;;renderRanking()" style="font-size:13px;font-weight:700;padding:4px 12px;border-radius:8px;border:1px solid var(--border);cursor:pointer;background:'+(rankingMode==='monto'?'var(--accent)':'var(--surface2)')+';color:'+(rankingMode==='monto'?'#fff':'var(--text2)')+'">$</button>'
+    +'</div></div>'
     +'<div class="card"><div style="padding:0">'+ranking.map((x,i)=>{
     const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
     const init = x.c.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+    const mainVal = rankingMode==='uds' ? x.uds : '$'+x.total.toFixed(0);
+    const mainLabel = rankingMode==='uds' ? 'uds' : '';
+    const subVal = rankingMode==='uds' ? '$'+x.total.toFixed(0) : x.uds+' uds';
     return '<div data-cid="'+x.c.id+'" style="display:flex;align-items:center;gap:12px;padding:12px 14px;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
       +'<div style="font-size:20px;width:28px;text-align:center">'+(medal||'<span style="font-family:Inter,sans-serif;font-weight:800;color:var(--text3);font-size:14px">'+(i+1)+'</span>')+'</div>'
       +'<div style="width:40px;height:40px;border-radius:10px;background:'+x.c.color+'22;color:'+x.c.color+';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;font-family:Inter,sans-serif;flex-shrink:0">'+init+'</div>'
-      +'<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">'+x.c.name+'</div><div style="font-size:14px;color:var(--text3)">$'+x.total.toFixed(0)+'</div></div>'
-      +'<div style="text-align:right;flex-shrink:0"><div style="font-family:Inter,sans-serif;font-weight:800;font-size:16px;color:var(--accent)">'+x.uds+'</div><div style="font-size:12px;color:var(--text3)">uds</div></div>'
+      +'<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">'+x.c.name+'</div><div style="font-size:13px;color:var(--text3)">'+subVal+'</div></div>'
+      +'<div style="text-align:right;flex-shrink:0"><div style="font-family:Inter,sans-serif;font-weight:800;font-size:16px;color:var(--accent)">'+mainVal+'</div><div style="font-size:12px;color:var(--text3)">'+mainLabel+'</div></div>'
       +'</div>';
   }).join('')+'</div></div>';
 }
@@ -1469,10 +1494,23 @@ function renderInvPagos() {
   const el = document.getElementById('inv-pagos-existentes');
   if(!el) return;
   const inv = S.editId ? S.invoices.find(i=>i.id===S.editId) : null;
-  const pagos = inv && inv.pagos && inv.pagos.length ? inv.pagos : [];
-  if(!pagos.length) { el.innerHTML=''; return; }
+  if(!inv) { el.innerHTML=''; return; }
+  const pagos = inv.pagos && inv.pagos.length ? inv.pagos : [];
+  const totalPagado = pagos.reduce((s,p)=>s+p.monto,0);
+  if(!pagos.length) {
+    // Sin pagos pero existe la factura — mostrar estado
+    if(inv.status==='pagada') {
+      el.innerHTML = '<div class="pago-box" style="border:1px solid var(--border)">'
+        +'<div style="font-size:13px;color:var(--text3);font-weight:600;margin-bottom:4px">Sin pagos registrados</div>'
+        +'<div style="font-size:13px;color:var(--text3)">Esta factura fue marcada como pagada sin registrar un pago. Podés registrar el pago correcto abajo.</div>'
+        +'</div>';
+    } else {
+      el.innerHTML='';
+    }
+    return;
+  }
   el.innerHTML = '<div class="pago-box">'
-    +'<div style="font-size:13px;color:var(--green);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Pagos registrados</div>'
+    +'<div style="font-size:13px;color:var(--green);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Pagos registrados — Total: $'+totalPagado.toFixed(0)+'</div>'
     +pagos.map((p,pi)=>'<div style="display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border)">'
       +'<span style="flex:1;color:var(--text3)">'+p.date+' — '+(p.method||p.forma||'efectivo')+'</span>'
       +'<span style="color:var(--green);font-weight:700">+$'+p.monto.toFixed(0)+'</span>'
@@ -1480,6 +1518,59 @@ function renderInvPagos() {
       +'<button onclick="eliminarPago(&quot;'+inv.id+'&quot;,'+pi+');renderInvPagos()" style="background:none;border:none;cursor:pointer;font-size:15px;padding:2px 4px">🗑️</button>'
       +'</div>').join('')
     +'</div>';
+}
+let prodHistId = null;
+function verProdHistorial(id) {
+  const p = S.products.find(x=>x.id===id);
+  if(!p) return;
+  prodHistId = id;
+  document.getElementById('prodh-nombre').textContent = (p.emoji||'📦')+' '+p.name;
+
+  // Buscar todas las ventas de este producto
+  const ventas = [];
+  S.invoices.forEach(inv => {
+    if(inv.type==='presupuesto') return;
+    (inv.items||[]).forEach(item => {
+      if(item.prodId === id || item.desc === p.name) {
+        ventas.push({ date: inv.date, invId: inv.id, clientName: inv.clientName, clientId: inv.clientId, qty: item.qty||1, price: item.price||0 });
+      }
+    });
+  });
+  ventas.sort((a,b)=>b.date.localeCompare(a.date));
+
+  // Stats
+  const totalUds = ventas.reduce((s,v)=>s+v.qty,0);
+  const clientes = new Set(ventas.map(v=>v.clientId)).size;
+  const ultima = ventas.length ? ventas[0].date : '—';
+  const statsEl = document.getElementById('prodh-stats');
+  const statStyle = 'flex:1;padding:10px 8px;text-align:center;border-right:1px solid var(--border)';
+  statsEl.innerHTML =
+    '<div style="'+statStyle+'"><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Vendido</div><div style="font-size:20px;font-weight:900;color:var(--accent)">'+totalUds+' uds</div></div>'
+    +'<div style="'+statStyle+'"><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Clientes</div><div style="font-size:20px;font-weight:900;color:var(--accent)">'+clientes+'</div></div>'
+    +'<div style="flex:1;padding:10px 8px;text-align:center"><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Última venta</div><div style="font-size:14px;font-weight:700;color:var(--text2)">'+ultima+'</div></div>';
+
+  // Content
+  const contEl = document.getElementById('prodh-content');
+  if(!ventas.length) {
+    contEl.innerHTML = '<div class="empty"><div class="ei">📋</div><h3>Sin ventas</h3><p>Este producto no tiene ventas registradas</p></div>';
+    showPage('prod-historial');
+    return;
+  }
+  contEl.innerHTML = '<div class="card"><div style="padding:0">'
+    +ventas.map((v,i)=>
+      '<div style="display:flex;align-items:center;gap:10px;padding:11px 14px;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-weight:700;font-size:15px">'+v.clientName+'</div>'
+      +'<div style="font-size:13px;color:var(--text3)">'+v.date+' · '+v.invId+'</div>'
+      +'</div>'
+      +'<div style="text-align:right;flex-shrink:0">'
+      +'<div style="font-weight:800;font-size:16px;color:var(--accent)">x'+v.qty+'</div>'
+      +'<div style="font-size:13px;color:var(--text3)">$'+v.price.toFixed(0)+' c/u</div>'
+      +'</div>'
+      +'</div>'
+    ).join('')
+    +'</div></div>';
+  showPage('prod-historial');
 }
 function cerrarNuevaFac() {
   showPage('facturas');
@@ -2197,7 +2288,15 @@ function renderInvs() {
     const saldo = inv.status==='pagada' ? 0 : (inv.saldo||0);
     const badge = inv.type==='presupuesto'?'<span class="badge badge-blue">Presup.</span>':(sb[inv.status]||'');
     const btnStyle = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 4px;cursor:pointer;background:var(--surface);border:none;flex:1;border-right:1px solid var(--border)';
+    const prodLines = inv.items.map(item=>
+      '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:14px">'
+      +'<span style="flex:1;color:var(--text2)">'+(item.desc||item.name||'Producto')+'</span>'
+      +'<span style="color:var(--text3);white-space:nowrap;margin:0 8px">x'+item.qty+'</span>'
+      +'<span style="font-weight:700;color:var(--accent);white-space:nowrap">$'+(item.qty*item.price).toFixed(0)+'</span>'
+      +'</div>'
+    ).join('');
     return '<div class="card" style="overflow:hidden">'
+    +'<div data-action="toggleInv" data-id="'+inv.id+'" style="cursor:pointer">'
     +'<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:12px 14px 6px">'
     +'<div style="font-weight:900;font-size:18px;color:var(--text);flex:1;line-height:1.2">'+inv.clientName+'</div>'
     +'<div style="text-align:right;flex-shrink:0;padding-left:8px">'
@@ -2207,6 +2306,11 @@ function renderInvs() {
     +'</div></div>'
     +'<div style="display:flex;align-items:center;gap:8px;padding:0 14px 10px">'
     +badge+'<span style="font-size:13px;color:var(--text3)">'+inv.date+' · '+inv.items.length+' prod.</span>'
+    +'<span style="margin-left:auto;font-size:14px;color:var(--text3)" id="inv-arrow-'+inv.id+'">▼</span>'
+    +'</div>'
+    +'</div>'
+    +'<div id="inv-detail-'+inv.id+'" style="display:none;padding:8px 14px;background:var(--bg);border-top:1px solid var(--border)">'
+    +prodLines
     +'</div>'
     +'<div style="display:flex;border-top:1px solid var(--border)">'
     +'<button data-action="shareInv" data-id="'+inv.id+'" style="'+btnStyle+'"><span style="font-size:20px">📤</span><span style="font-size:12px;font-weight:700;color:var(--text2)">Enviar</span></button>'
@@ -2224,7 +2328,13 @@ document.getElementById('page-facturas').addEventListener('click', function(e){
   if(!btn) return;
   const action=btn.dataset.action, id=btn.dataset.id;
   e.stopPropagation();
-  if(action==='openInv') openInv(id);
+  if(action==='toggleInv') {
+    const det=document.getElementById('inv-detail-'+id);
+    const arrow=document.getElementById('inv-arrow-'+id);
+    if(det){ const open=det.style.display==='none'; det.style.display=open?'':'none'; if(arrow) arrow.textContent=open?'▲':'▼'; }
+    return;
+  }
+  else if(action==='openInv') openInv(id);
   else if(action==='verInv') verInv(id);
   else if(action==='delInv') delInv(id);
   else if(action==='shareInv') openShareInvoice(id);
@@ -3521,37 +3631,103 @@ function shareInvoiceImg(dest) {
   const inv = S.invoices.find(i=>i.id===S.shareInvId);
   if(!inv) return;
 
-  // Armar texto de la factura
-  let txt = '*'+inv.id+'* - '+inv.date+'\n';
-  txt += 'Cliente: '+inv.clientName+'\n\n';
-  inv.items.forEach(item=>{
-    if(item.desc||item.prodId) txt += '\u2022 '+(item.desc||'Producto')+' x'+item.qty+' = $'+(item.qty*item.price).toFixed(2)+'\n';
-  });
-  txt += '\n*Total: $'+inv.total.toFixed(2)+'*';
-  if(inv.saldo>0) txt += '\nSaldo pendiente: $'+inv.saldo.toFixed(2);
-  const encoded = encodeURIComponent(txt);
+  toast('Generando imagen...');
 
-  if(dest==='whatsapp') {
-    // Si el cliente tiene teléfono, abrir su chat directamente
-    const cli = S.clients.find(c=>c.id===inv.clientId);
-    const phone = cli && cli.phone ? cli.phone.replace(/\D/g,'') : '';
-    if(phone) {
-      window.open('https://wa.me/'+phone+'?text='+encoded,'_blank');
-    } else {
-      window.open('https://wa.me/?text='+encoded,'_blank');
-    }
-  } else if(dest==='telegram') {
-    window.open('https://t.me/share/url?url=&text='+encoded,'_blank');
-  } else if(dest==='download') {
-    const w = window.open('','_blank');
-    w.document.write('<html><head><title>'+inv.id+'</title></head><body style="margin:0">');
-    w.document.write(invEl.innerHTML);
-    w.document.write('</body></html>');
-    w.document.close();
-    w.print();
+  function doCapture() {
+    // Fijar ancho para captura consistente
+    invEl.style.width = '480px';
+    invEl.style.minWidth = '480px';
+
+    html2canvas(invEl, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      useCORS: true,
+      logging: false,
+      width: 480
+    }).then(function(canvas) {
+      invEl.style.width = '';
+      invEl.style.minWidth = '';
+
+      canvas.toBlob(function(blob) {
+        const filename = 'factura-' + inv.id + '.png';
+        const file = new File([blob], filename, {type: 'image/png'});
+        const cli = S.clients.find(function(c){return c.id===inv.clientId;});
+        const phone = cli && cli.phone ? cli.phone.replace(/\D/g,'') : '';
+
+        if(dest === 'download') {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = filename;
+          document.body.appendChild(a); a.click();
+          document.body.removeChild(a);
+          setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+          return;
+        }
+
+        // Intentar Web Share API con archivo (Android Chrome 86+)
+        if(navigator.canShare && navigator.canShare({files: [file]})) {
+          navigator.share({
+            files: [file],
+            title: 'Factura ' + inv.id,
+            text: inv.clientName
+          }).catch(function(e){ if(e.name !== 'AbortError') toast('No se pudo compartir'); });
+        } else {
+          // Fallback: descargar imagen y abrir WhatsApp/Telegram
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = filename;
+          document.body.appendChild(a); a.click();
+          document.body.removeChild(a);
+          setTimeout(function(){
+            URL.revokeObjectURL(url);
+            if(dest === 'whatsapp') {
+              const waUrl = phone
+                ? 'https://wa.me/54' + phone + '?text=' + encodeURIComponent('Factura ' + inv.id + ' - ' + inv.clientName)
+                : 'https://wa.me/?text=' + encodeURIComponent('Factura ' + inv.id + ' - ' + inv.clientName);
+              window.open(waUrl, '_blank');
+            } else if(dest === 'telegram') {
+              window.open('https://t.me/share/url?url=&text=' + encodeURIComponent('Factura ' + inv.id + ' - ' + inv.clientName), '_blank');
+            }
+          }, 800);
+          toast('Imagen guardada - abriendo app...');
+        }
+      }, 'image/png');
+    }).catch(function(err) {
+      invEl.style.width = '';
+      invEl.style.minWidth = '';
+      toast('Error al generar imagen');
+      console.error('html2canvas error:', err);
+    });
+  }
+
+  // Cargar html2canvas solo cuando se necesita (lazy load)
+  if(typeof html2canvas === 'undefined') {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    script.onload = doCapture;
+    script.onerror = function() { toast('Error: sin conexión para generar imagen'); };
+    document.head.appendChild(script);
+  } else {
+    doCapture();
   }
 }
 
+function shareInvoiceText() {
+  const inv = S.invoices.find(i=>i.id===S.shareInvId);
+  if(!inv) return;
+  let txt = '*'+inv.id+'* - '+inv.date+'\n';
+  txt += 'Cliente: '+inv.clientName+'\n\n';
+  inv.items.forEach(function(item){
+    if(item.desc||item.prodId) txt += '\u2022 '+(item.desc||item.name||'Producto')+' x'+item.qty+' = $'+(item.qty*item.price).toFixed(2)+'\n';
+  });
+  txt += '\n*Total: $'+inv.total.toFixed(2)+'*';
+  if(inv.saldo>0) txt += '\nSaldo pendiente: $'+inv.saldo.toFixed(2);
+  const cli = S.clients.find(function(c){return c.id===inv.clientId;});
+  const phone = cli && cli.phone ? cli.phone.replace(/\D/g,'') : '';
+  const encoded = encodeURIComponent(txt);
+  const url = phone ? 'https://wa.me/54'+phone+'?text='+encoded : 'https://wa.me/?text='+encoded;
+  window.open(url, '_blank');
+}
 function renderInvoiceHTML(inv) {
   const statusLabel = {pendiente:'PENDIENTE',pagada:'PAGADA',cancelada:'CANCELADA'}[inv.status]||inv.status.toUpperCase();
   const statusColor = {pendiente:'#c05000',pagada:'#166534',cancelada:'#991b1b'}[inv.status]||'#333';
@@ -3638,8 +3814,9 @@ function renderInvoiceHTML(inv) {
     +'</div>'
 
     // FOOTER
-    +'<div style="padding:8px 20px;border-top:1px solid #ddd;text-align:center">'
-      +'<div style="font-size:12px;color:#999;letter-spacing:.5px">Gracias por su compra - Surtimar</div>'
+    +'<div style="padding:8px 20px;border-top:1px solid #ddd;display:flex;justify-content:space-between;align-items:center;gap:8px">'
+      +'<div style="font-size:12px;color:#555"><div>Alias: <strong>Surtimar</strong></div><div>A nombre de Yamila Glavopolo</div></div>'
+      +'<div style="font-size:12px;color:#999;text-align:right">Gracias por su compra</div>'
     +'</div>'
 
     +'</div>';
@@ -3904,7 +4081,7 @@ window.addEventListener('DOMContentLoaded', function(){
       const prev = e.state && e.state.page;
       if(prev && prev !== S.page) {
         // Smart back: certain pages go to their parent
-        const parents = {'resumen-factura':'facturas','nueva-factura':'facturas','resumen-compra':'compras','nueva-compra':'compras','cobrar-reparto':'reparto','cli-detalle':'clientes','prov-detalle':'proveedores'};
+        const parents = {'resumen-factura':'facturas','nueva-factura':'facturas','resumen-compra':'compras','nueva-compra':'compras','cobrar-reparto':'reparto','cli-detalle':'clientes','prov-detalle':'proveedores','prod-historial':'productos'};
         const target = parents[S.page] || prev;
         showPage(target);
         history.pushState({page:target}, '', '');
