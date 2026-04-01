@@ -1973,6 +1973,7 @@ function nfVerResumen() {
   document.getElementById('inv-items').innerHTML='';
   S.invItems.forEach((_,i)=>renderIItem(i,S.invItems[i]));
   calcTotals();
+  renderInvPagos();
   // Sync date back to resumen field
   if(S.returnToResumen) {
     S.returnToResumen = false;
@@ -2240,9 +2241,26 @@ function saveInv() {
     status, notes:document.getElementById('i-notes').value,
     items:[...S.invItems], subtotal:sub,
     descRetiro:ret, descExtraPct:extPct, descExtra:extAmt, total,
-    pagos:pago>0?[{monto:pago,method:document.getElementById('i-pmethod').value,date:document.getElementById('i-date').value}]:[],
-    saldo:Math.max(0,saldo), aFavor:saldo<0?Math.abs(saldo):0
+    pagos:[], // se completa abajo
+    saldo:0, aFavor:0
   };
+  // Preservar pagos existentes si es edición
+  if(S.editId) {
+    const prevInv = S.invoices.find(x=>x.id===S.editId);
+    inv.pagos = prevInv ? [...(prevInv.pagos||[])] : [];
+  }
+  // Agregar nuevo pago si se ingresó uno
+  if(pago>0) {
+    inv.pagos.push({monto:pago, method:document.getElementById('i-pmethod').value, date:document.getElementById('i-date').value});
+    if(!S.cobranzas) S.cobranzas = [];
+    const cli2 = S.clients.find(c=>c.id===cid);
+    S.cobranzas.push({id:'COB-'+Date.now(), clientId:cid, clientName:cli2?cli2.name:'---', monto:pago, method:document.getElementById('i-pmethod').value, date:document.getElementById('i-date').value, facturas:[inv.id], aFavor:0});
+  }
+  // Recalcular saldo con todos los pagos
+  const totalPagadoFinal = inv.pagos.reduce((s,p)=>s+p.monto,0);
+  inv.saldo = Math.max(0, inv.total - totalPagadoFinal);
+  inv.aFavor = totalPagadoFinal > inv.total ? totalPagadoFinal - inv.total : 0;
+  if(pago>0 || S.editId) inv.status = inv.saldo<=0 ? 'pagada' : status;
   if(S.editId){const i=S.invoices.findIndex(x=>x.id===S.editId);S.invoices[i]=inv;}else S.invoices.unshift(inv);
   try{renderInvs();}catch(e){} try{updDash();}catch(e){} try{save();}catch(e){} cerrarNuevaFac(); toast('Factura guardada');
 
