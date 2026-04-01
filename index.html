@@ -527,7 +527,8 @@ select option{background:var(--surface2)}
     <div id="clidet-saldo" style="border-radius:var(--r);padding:16px;margin-bottom:14px;text-align:center"></div>
     <div id="clidet-metricas" style="margin-bottom:14px"></div>
     <div style="display:flex;gap:10px;margin-bottom:16px">
-      <button onclick="showCliTab(&quot;pagos&quot;)" id="clidet-btn-pagos" class="btn btn-primary" style="flex:1">💰 Pagos</button>
+      <button onclick="showCliTab(&quot;cobranzas&quot;)" id="clidet-btn-cob" class="btn btn-ghost" style="flex:1">💵 Recibido</button>
+      <button onclick="showCliTab(&quot;pagos&quot;)" id="clidet-btn-pagos" class="btn btn-ghost" style="flex:1">💰 Facturas</button>
       <button onclick="showCliTab(&quot;productos&quot;)" id="clidet-btn-prods" class="btn btn-ghost" style="flex:1">📦 Productos</button>
     </div>
     <div id="clidet-content"></div>
@@ -754,6 +755,15 @@ select option{background:var(--surface2)}
       <div id="pagocli-empty" style="display:none;text-align:center;padding:20px;color:var(--text3);font-size:15px">Este cliente no tiene facturas pendientes</div>
     </div>
     <div class="modal-footer">
+      <div style="margin-bottom:10px">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:4px">FORMA DE PAGO</div>
+        <select id="pagocli-method" style="width:100%;font-size:15px;padding:8px;border:1px solid var(--border);border-radius:10px;background:var(--surface2)">
+          <option value="efectivo">Efectivo</option>
+          <option value="transferencia">Transferencia</option>
+          <option value="debito">Débito</option>
+          <option value="credito">Crédito</option>
+        </select>
+      </div>
       <button class="btn btn-ghost" style="flex:1" onclick="closeM('mpagocli')">Cancelar</button>
       <button class="btn btn-primary" style="flex:2" id="pagocli-btn" onclick="pagocliConfirm()" disabled>Confirmar pago</button>
     </div>
@@ -855,7 +865,7 @@ function save() {
   try {
     localStorage.setItem(SK, JSON.stringify({
       products:S.products, clients:S.clients, invoices:S.invoices, gruposMay:S.gruposMay||[],
-      compras:S.compras, proveedores:S.proveedores, listaCompras:S.listaCompras||null,
+      compras:S.compras, proveedores:S.proveedores, listaCompras:S.listaCompras||null, cobranzas:S.cobranzas||[],
       nInv:S.nInv, nCli:S.nCli, nProd:S.nProd, nComp:S.nComp, nProv:S.nProv
     }));
   } catch(e) {}
@@ -867,7 +877,8 @@ function save() {
         products:S.products, clients:S.clients, invoices:S.invoices,
         compras:S.compras, proveedores:S.proveedores, gruposMay:S.gruposMay||[],
         nInv:S.nInv, nCli:S.nCli, nProd:S.nProd, nComp:S.nComp, nProv:S.nProv, nGrupo:S.nGrupo,
-        listaCompras:S.listaCompras||null
+        listaCompras:S.listaCompras||null,
+        cobranzas:S.cobranzas||[]
       });
     }
   }, 800);
@@ -2388,6 +2399,18 @@ function saveQPago() {
   inv.saldo = Math.max(0, inv.total - totalPagado);
   inv.aFavor = totalPagado > inv.total ? totalPagado - inv.total : 0;
   inv.status = inv.saldo <= 0 ? 'pagada' : 'pendiente';
+  // Registrar cobranza
+  if(!S.cobranzas) S.cobranzas = [];
+  S.cobranzas.push({
+    id: 'COB-'+Date.now(),
+    clientId: inv.clientId,
+    clientName: inv.clientName,
+    monto: monto,
+    method: method,
+    date: new Date().toISOString().split('T')[0],
+    facturas: [inv.id],
+    aFavor: inv.aFavor||0
+  });
   try{renderInvs();}catch(e){} try{renderClis();}catch(e){} try{updDash();}catch(e){} try{save();}catch(e){}
   closeM('mqpago');
   toast('Pago registrado');
@@ -2399,7 +2422,7 @@ let cliDetTab = 'pagos';
 
 function verCliDetalle(id) {
   cliDetId = id;
-  cliDetTab = 'pagos';
+  cliDetTab = 'cobranzas';
   const c = S.clients.find(x=>x.id===id);
   if(!c) return;
   document.getElementById('clidet-nombre').textContent = c.name;
@@ -2450,16 +2473,42 @@ function verCliDetalle(id) {
       +'<div style="background:var(--accent);border-radius:10px;padding:10px;text-align:center"><div style="font-size:12px;color:rgba(255,255,255,.7)">'+nm(now,0)+'</div><div style="font-family:Inter,sans-serif;font-size:16px;font-weight:800;color:#fff">'+u0+'</div><div style="font-size:12px;color:rgba(255,255,255,.7)">$'+t0.toFixed(0)+'</div></div>'
       +'</div>';
   }
-  showCliTab('pagos');
+  showCliTab('cobranzas');
   showPage('cli-detalle');
 }
 
 function showCliTab(tab) {
   cliDetTab = tab;
+  const cont = document.getElementById('clidet-content');
+  document.getElementById('clidet-btn-cob').className = 'btn '+(tab==='cobranzas'?'btn-primary':'btn-ghost');
   document.getElementById('clidet-btn-pagos').className = 'btn '+(tab==='pagos'?'btn-primary':'btn-ghost');
   document.getElementById('clidet-btn-prods').className = 'btn '+(tab==='productos'?'btn-primary':'btn-ghost');
-  const cont = document.getElementById('clidet-content');
-  const invs = S.invoices.filter(i=>i.clientId===cliDetId && i.type!=='presupuesto').sort((a,b)=>b.date.localeCompare(a.date));
+  if(tab==='cobranzas') {
+    if(!S.cobranzas) S.cobranzas = [];
+    const cobs = S.cobranzas.filter(c=>c.clientId===cliDetId).sort((a,b)=>b.date.localeCompare(a.date));
+    if(!cobs.length) {
+      cont.innerHTML='<div class="empty"><div class="ei">💵</div><h3>Sin cobranzas</h3><p>Los pagos globales registrados aparecerán aquí</p></div>';
+      return;
+    }
+    const totalRec = cobs.reduce((s,c)=>s+c.monto,0);
+    cont.innerHTML = '<div style="background:var(--surface2);border-radius:var(--rs);padding:12px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">'
+      +'<div style="font-size:13px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Total recibido</div>'
+      +'<div style="font-family:Inter,sans-serif;font-size:22px;font-weight:900;color:var(--green)">$'+totalRec.toFixed(0)+'</div>'
+      +'</div>'
+      +'<div class="card"><div style="padding:0">'+cobs.map((c,i)=>
+        '<div style="padding:12px 14px;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
+        +'<div style="font-weight:700;font-size:15px">$'+c.monto.toFixed(0)+'</div>'
+        +'<div style="font-size:13px;color:var(--text3)">'+c.date+'</div>'
+        +'</div>'
+        +'<div style="display:flex;justify-content:space-between;align-items:center">'
+        +'<div style="font-size:13px;color:var(--text3)">'+c.method+(c.facturas&&c.facturas.length?' · '+c.facturas.length+' factura(s)':'')+'</div>'
+        +(c.aFavor>0?'<div style="font-size:13px;color:var(--green);font-weight:600">$'+c.aFavor.toFixed(0)+' a favor</div>':'')
+        +'</div>'
+        +'</div>'
+      ).join('')+'</div></div>';
+    return;
+  }
   if(tab==='pagos') {
     if(!invs.length) { cont.innerHTML='<div class="empty"><div class="ei">💰</div><h3>Sin facturas</h3></div>'; return; }
     cont.innerHTML = '<div class="card"><div style="padding:0">'+invs.map((inv,i)=>{
@@ -3066,6 +3115,20 @@ function pagocliConfirm() {
     const cli = S.clients.find(c => c.id === pagocliSelected.id);
     if (cli) cli.credito = (cli.credito || 0) + restante;
   }
+
+  // Registrar cobranza global
+  const method = document.getElementById('pagocli-method') ? document.getElementById('pagocli-method').value : 'efectivo';
+  if(!S.cobranzas) S.cobranzas = [];
+  S.cobranzas.push({
+    id: 'COB-'+Date.now(),
+    clientId: pagocliSelected.id,
+    clientName: pagocliSelected.name,
+    monto: monto,
+    method: method,
+    date: new Date().toISOString().split('T')[0],
+    facturas: pendientes.slice(0, facturasAct).map(i=>i.id),
+    aFavor: restante > 0 ? restante : 0
+  });
 
   save();
   renderInvs();
