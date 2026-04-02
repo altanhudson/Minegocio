@@ -297,7 +297,7 @@ select option{background:var(--surface2)}
     <div style="padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0">
       <button onclick="cerrarNuevaFac()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 12px;font-size:16px;cursor:pointer">←</button>
       <div style="flex:1;position:relative">
-        <input type="text" id="i-cli-search" placeholder="Buscar cliente..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="cliSearchInput(this.value)" onfocus="cliSearchInput(this.value)" onblur="setTimeout(function(){var l=document.getElementById('i-cli-aclist');if(l)l.style.display='none'},250)" style="width:100%;font-size:15px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:Inter,sans-serif;outline:none">
+        <input type="text" id="i-cli-search" placeholder="Buscar cliente..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="cliSearchInput(this.value)" onfocus="cliSearchInput(this.value)" onblur="setTimeout(function(){var l=document.getElementById('i-cli-aclist');if(l)l.style.display='none'},400)" style="width:100%;font-size:15px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:Inter,sans-serif;outline:none">
         <input type="hidden" id="i-cli" value="">
         <div id="i-cli-aclist" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:10px;max-height:200px;overflow-y:auto;z-index:100;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,.1)"></div>
       </div>
@@ -1676,11 +1676,11 @@ function cartRenderList(q) {
       +'<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;align-items:flex-end">'
       +'<input id="cqty-'+p.id+'" data-pid="'+p.id+'" data-price="'+itemPrice+'" type="number" inputmode="numeric" placeholder="0" value="'+(hasQty?qty:'')+'" min="0"'
       +' onfocus="this.select()"'
-      +' onchange="cartQtyChange(this)"'
+      +' oninput="cartQtyChange(this)"'
       +' style="width:72px;height:48px;text-align:center;font-size:20px;font-weight:700;border:2px solid '+(hasQty?'var(--accent)':'var(--border)')+';border-radius:12px;background:'+(hasQty?'#fff':'var(--surface)')+';color:'+(hasQty?'var(--accent)':'var(--text)')+';font-family:Inter,sans-serif;outline:none">'
       +'<input id="cpreciou-'+p.id+'" data-pid="'+p.id+'" type="number" inputmode="decimal" placeholder="$Precio" value="'+(hasQty?itemPrice:'')+'" min="0"'
       +' onfocus="this.select()"'
-      +' onchange="cartPriceChange(this)"'
+      +' oninput="cartPriceChange(this)"'
       +' style="width:90px;height:32px;text-align:center;font-size:14px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text3);font-family:Inter,sans-serif;outline:none;display:'+(hasQty?'block':'none')+'">'
       +'</div>'
       +'</div>';
