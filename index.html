@@ -279,7 +279,14 @@ select option{background:var(--surface2)}
       </div>
       <div id="dash-metricas"></div>
     </div>
-    <div class="card" style="cursor:pointer" onclick="abrirReparto()"><div class="card-header"><span class="card-title">🚚 Reparto del día</span></div><div style="padding:16px;text-align:center;color:var(--text3);font-size:15px">Gestioná las entregas del día</div></div>
+    <div class="card" style="cursor:pointer" onclick="abrirReparto()"><div class="card-header"><span class="card-title">🚚 Gestionar entregas del día</span></div></div>
+    <div class="card" style="cursor:pointer">
+      <div class="card-header"><span class="card-title">🛒 Tienda online</span><span style="font-size:12px;background:#dcfce7;color:#166534;padding:2px 8px;border-radius:20px;font-weight:600">ACTIVA</span></div>
+      <div style="padding:10px 14px;display:flex;gap:10px">
+        <button onclick="tiendaCompartirLink()" style="flex:1;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">📤 Compartir link</button>
+        <button onclick="tiendaVerPedidos()" style="flex:1;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">📋 Ver pedidos</button>
+      </div>
+    </div>
   </div>
 
   <div class="page" id="page-facturas">
@@ -288,6 +295,7 @@ select option{background:var(--surface2)}
       <div class="tab" onclick="filterInv('pendiente',this)">Pendientes</div>
       <div class="tab" onclick="filterInv('pagada',this)">Pagadas</div>
       <div class="tab" onclick="filterInv('presupuesto',this)">Presup.</div>
+      <div class="tab" onclick="filterInv('tienda',this)">🛒 Tienda</div>
     </div>
     <div id="inv-list"></div>
   </div>
@@ -646,6 +654,7 @@ select option{background:var(--surface2)}
         <div style="font-size:13px;color:var(--text3);margin-top:4px">Tocá para seleccionar/deseleccionar</div>
       </div>
       <div class="form-group"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="p-vis" checked style="width:20px;height:20px"><span style="font-size:14px">Visible en tienda online</span></label></div>
+      <div class="form-group"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="p-oferta" style="width:20px;height:20px"><span style="font-size:14px">🔥 En oferta</span></label></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" style="flex:1" onclick="closeM('mprod')">Cancelar</button>
@@ -850,7 +859,7 @@ select option{background:var(--surface2)}
 </div>
 <script>
 // ===== CONFIGURACIÓN TIENDA =====
-const WA_NUM = '5492235000000'; // ← Cambiar por tu número (código país + número, sin +)
+const WA_NUM = '5492235898567'; // ← Cambiar por tu número (código país + número, sin +)
 const TIENDA_NOMBRE = 'Surtimar';
 // =================================
 
@@ -1011,6 +1020,7 @@ function openProd(id) {
     document.getElementById('p-minst').value = p.minStock !== undefined ? p.minStock : 0;
     document.getElementById('p-desc').value = p.desc||'';
     document.getElementById('p-vis').checked = p.visible!==false;
+    document.getElementById('p-oferta').checked = !!p.oferta;
     document.getElementById('p-frac').value = p.fracMin||1;
     document.getElementById('p-grupo').value = p.grupoMay||'';
     S.photo = p.image||null;
@@ -1020,6 +1030,7 @@ function openProd(id) {
     flds.forEach(f => { const e=document.getElementById(f); if(e) e.value=''; });
     document.getElementById('p-minst').value = 0;
     document.getElementById('p-vis').checked = true;
+  document.getElementById('p-oferta').checked = false;
     document.getElementById('p-frac').value = 1;
     document.getElementById('p-grupo').value = '';
     resetPhoto('');
@@ -1043,14 +1054,26 @@ function saveProd() {
     minStock: parseInt(document.getElementById('p-minst').value)||0,
     desc: document.getElementById('p-desc').value,
     visible: document.getElementById('p-vis').checked,
+    oferta: document.getElementById('p-oferta').checked,
     marca: '',
     fracMin: parseInt(document.getElementById('p-frac').value)||1,
     grupoMay: document.getElementById('p-grupo').value.trim(),
     image: S.photo||null,
     sku: S.editId ? (S.products.find(p=>p.id===S.editId)||{}).sku : 'P'+Date.now()
   };
-  if(S.editId) { const i=S.products.findIndex(p=>p.id===S.editId); S.products[i]=prod; }
-  else S.products.push(prod);
+  // Guardar historial de precio si cambió
+  const newPrice = parseFloat(document.getElementById('p-price').value)||0;
+  if(S.editId) {
+    const prevProd = S.products.find(p=>p.id===S.editId);
+    if(prevProd && prevProd.price > 0 && prevProd.price !== newPrice) {
+      if(!prod.priceHistory) prod.priceHistory = prevProd.priceHistory||[];
+      prod.priceHistory.push({price: prevProd.price, date: new Date().toISOString()});
+      if(prod.priceHistory.length > 10) prod.priceHistory = prod.priceHistory.slice(-10);
+    } else if(prevProd) {
+      prod.priceHistory = prevProd.priceHistory||[];
+    }
+    const i=S.products.findIndex(p=>p.id===S.editId); S.products[i]=prod;
+  } else S.products.push(prod);
   try { renderProds(); } catch(e) {}
   try { updDash(); } catch(e) {}
   try { save(); } catch(e) {}
@@ -2289,10 +2312,17 @@ function saveInv() {
     const cli2 = S.clients.find(c=>c.id===cid);
     S.cobranzas.push({id:'COB-'+Date.now(), clientId:cid, clientName:cli2?cli2.name:'---', monto:pago, method:document.getElementById('i-pmethod').value, date:document.getElementById('i-date').value, facturas:[inv.id], aFavor:0});
   }
+  // Aplicar crédito a favor del cliente en facturas nuevas
+  const cliData = S.clients.find(c=>c.id===cid);
+  if(!S.editId && cliData) {
+    const credito = cliData.credito||0;
+    if(credito>0) { inv.pagos.push({monto:credito,method:'a favor',date:inv.date}); cliData.credito=0; }
+  }
   // Recalcular saldo con todos los pagos
   const totalPagadoFinal = inv.pagos.reduce((s,p)=>s+p.monto,0);
   inv.saldo = Math.max(0, inv.total - totalPagadoFinal);
   inv.aFavor = totalPagadoFinal > inv.total ? totalPagadoFinal - inv.total : 0;
+  if(cliData && inv.aFavor>0) cliData.credito = inv.aFavor;
   if(pago>0 || S.editId) inv.status = inv.saldo<=0 ? 'pagada' : status;
   if(S.editId){const i=S.invoices.findIndex(x=>x.id===S.editId);S.invoices[i]=inv;}else S.invoices.unshift(inv);
   try{renderInvs();}catch(e){} try{updDash();}catch(e){} try{save();}catch(e){} cerrarNuevaFac(); toast('Factura guardada');
@@ -2343,7 +2373,7 @@ function filterInv(f,el) {
 function renderInvs() {
   const el=document.getElementById('inv-list');
   let list=S.invoices;
-  if(S.invFilter!=='all') list=list.filter(i=>S.invFilter==='presupuesto'?i.type==='presupuesto':i.status===S.invFilter);
+  if(S.invFilter!=='all') list=list.filter(i=>S.invFilter==='presupuesto'?i.type==='presupuesto':S.invFilter==='tienda'?(i.notes&&i.notes.includes('tienda online')):i.status===S.invFilter);
   if(!list.length){el.innerHTML='<div class="empty"><div class="ei">&#129534;</div><h3>Sin facturas</h3><p>Crea tu primera factura</p></div>';return;}
   const sb={pendiente:'<span class="badge badge-orange">Pendiente</span>',pagada:'<span class="badge badge-green">Pagada</span>',cancelada:'<span class="badge badge-red">Cancelada</span>'};
   el.innerHTML='<div style="display:flex;flex-direction:column;gap:10px">'+list.map((inv,ii)=>{
@@ -2460,6 +2490,9 @@ function saveQPago() {
   inv.saldo = Math.max(0, inv.total - totalPagado);
   inv.aFavor = totalPagado > inv.total ? totalPagado - inv.total : 0;
   inv.status = inv.saldo <= 0 ? 'pagada' : 'pendiente';
+  // Guardar crédito en cliente si pagó de más
+  const cliQ = S.clients.find(c=>c.id===inv.clientId);
+  if(cliQ) cliQ.credito = inv.aFavor > 0 ? inv.aFavor : 0;
   // Registrar cobranza
   if(!S.cobranzas) S.cobranzas = [];
   S.cobranzas.push({
@@ -2541,6 +2574,7 @@ function verCliDetalle(id) {
 function showCliTab(tab) {
   cliDetTab = tab;
   const cont = document.getElementById('clidet-content');
+  const invs = S.invoices.filter(i=>i.clientId===cliDetId && i.type!=='presupuesto').sort((a,b)=>b.date.localeCompare(a.date));
   document.getElementById('clidet-btn-cob').className = 'btn '+(tab==='cobranzas'?'btn-primary':'btn-ghost');
   document.getElementById('clidet-btn-pagos').className = 'btn '+(tab==='pagos'?'btn-primary':'btn-ghost');
   document.getElementById('clidet-btn-prods').className = 'btn '+(tab==='productos'?'btn-primary':'btn-ghost');
@@ -2699,8 +2733,12 @@ function showProvTab(tab) {
 function _recalcInv(inv) {
   const totalPagado = (inv.pagos||[]).reduce((s,p)=>s+p.monto, 0);
   inv.saldo = Math.max(0, inv.total - totalPagado);
+  inv.aFavor = totalPagado > inv.total ? totalPagado - inv.total : 0;
   if(inv.saldo <= 0) inv.status = 'pagada';
   else if(inv.status === 'pagada') inv.status = 'pendiente';
+  // Guardar crédito en el cliente
+  const cli = S.clients.find(c=>c.id===inv.clientId);
+  if(cli) cli.credito = inv.aFavor > 0 ? inv.aFavor : (cli.credito||0);
 }
 function eliminarPago(invId, pi) {
   const inv = S.invoices.find(i=>i.id===invId);
@@ -3920,16 +3958,28 @@ function renderInvoiceHTML(inv) {
         ? '<div style="display:flex;justify-content:space-between;font-size:14px;color:#166534;margin-bottom:4px"><span>Descuento '+inv.descExtraPct+'%</span><span>-$'+(inv.descExtra).toFixed(2)+'</span></div>'
         : '')
       +'<div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1.5px solid #111;margin-top:4px">'
-        +'<span style="font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Total</span>'
+        +'<span style="font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Total factura</span>'
         +'<span style="font-size:26px;font-weight:900;font-family:Arial Black,Arial,sans-serif">$'+inv.total.toFixed(2)+'</span>'
       +'</div>'
-      +(()=>{ const deudaTotal = S.invoices.filter(i=>i.clientId===inv.clientId&&i.status!=='pagada'&&i.status!=='cancelada'&&i.type!=='presupuesto').reduce((s,i)=>s+(i.saldo||0),0); return deudaTotal>0 ? '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Deuda total</span><span style="font-size:18px;font-weight:900;color:#c05000">$'+deudaTotal.toFixed(2)+'</span></div>' : ''; })()
-      +((inv.aFavor||0)>0
-        ? '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #166534;border-radius:4px;display:flex;justify-content:space-between;align-items:center">'
-            +'<span style="font-size:14px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:.5px">A favor</span>'
-            +'<span style="font-size:18px;font-weight:900;color:#166534">$'+(inv.aFavor).toFixed(2)+'</span>'
-          +'</div>'
-        : '')
+      +(()=>{
+        const cli = S.clients.find(c=>c.id===inv.clientId);
+        const credito = cli && cli.credito > 0 ? cli.credito : 0;
+        // Deuda anterior: otras facturas pendientes excluyendo la actual
+        const deudaAnterior = S.invoices.filter(i=>i.clientId===inv.clientId&&i.id!==inv.id&&i.status!=='pagada'&&i.status!=='cancelada'&&i.type!=='presupuesto').reduce((s,i)=>s+(i.saldo||0),0);
+        let html2 = '';
+        if(credito > 0) {
+          const totalAPagar = Math.max(0, inv.total - credito);
+          html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #166534;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:.5px">Saldo a favor</span><span style="font-size:18px;font-weight:900;color:#166534">-$'+credito.toFixed(2)+'</span></div>';
+          html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Total a pagar</span><span style="font-size:18px;font-weight:900;color:#c05000">$'+totalAPagar.toFixed(2)+'</span></div>';
+        } else if(deudaAnterior > 0) {
+          const totalAPagar = inv.total + deudaAnterior;
+          html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Saldo anterior</span><span style="font-size:18px;font-weight:900;color:#c05000">+$'+deudaAnterior.toFixed(2)+'</span></div>';
+          html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Total a pagar</span><span style="font-size:18px;font-weight:900;color:#c05000">$'+totalAPagar.toFixed(2)+'</span></div>';
+        } else if((inv.saldo||0) > 0 && inv.status !== 'pagada') {
+          html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Total a pagar</span><span style="font-size:18px;font-weight:900;color:#c05000">$'+(inv.saldo).toFixed(2)+'</span></div>';
+        }
+        return html2;
+      })()
     +'</div>'
 
     // FOOTER
@@ -3955,6 +4005,11 @@ function renderInvoiceHTML(inv) {
     <div style="width:100%;max-width:340px">
       <div style="font-size:14px;color:#aaa;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">¿Cómo te llamás?</div>
       <input id="tienda-nombre-input" type="text" placeholder="Tu nombre..." autocomplete="name"
+        style="width:100%;padding:16px;font-size:16px;border-radius:14px;border:2px solid #333;background:#1a1a1a;color:#fff;box-sizing:border-box;outline:none;margin-bottom:12px"
+        onfocus="this.style.borderColor='#e8ff47'" onblur="this.style.borderColor='#333'">
+      <div style="font-size:14px;color:#aaa;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Tu celular</div>
+      <div style="font-size:12px;color:#666;margin-bottom:8px">Sin el 0 y sin el 15 · Ej: 2235123456</div>
+      <input id="tienda-phone-input" type="tel" placeholder="2235123456..." inputmode="numeric"
         style="width:100%;padding:16px;font-size:16px;border-radius:14px;border:2px solid #333;background:#1a1a1a;color:#fff;box-sizing:border-box;outline:none"
         onfocus="this.style.borderColor='#e8ff47'" onblur="this.style.borderColor='#333'"
         onkeydown="if(event.key==='Enter')tiendaEntrar()">
@@ -3977,6 +4032,7 @@ function renderInvoiceHTML(inv) {
           🛒<span id="tienda-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#e8ff47;color:#0f0f0f;font-size:12px;font-weight:700;padding:2px 5px;border-radius:10px;min-width:16px;text-align:center">0</span>
         </button>
       </div>
+      <div id="tienda-cats" style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:10px"></div>
       <input id="tienda-buscar" type="text" placeholder="Buscar producto..." oninput="tiendaRender()"
         style="width:100%;margin-top:12px;padding:12px;font-size:14px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#fff;box-sizing:border-box;outline:none">
     </div>
@@ -4014,8 +4070,24 @@ function renderInvoiceHTML(inv) {
 // ===== LÓGICA TIENDA =====
 let TC = {}; // carrito: {prodId: qty}
 let TN = ''; // nombre del cliente
+let TC_CLI = null; // cliente asociado
+let TC_PHONE = ''; // teléfono ingresado
 let T_VISTA = 'login'; // login | catalogo | carrito
 
+function tiendaCompartirLink() {
+  const url = 'https://altanhudson.github.io/Minegocio?tienda';
+  if(navigator.share) {
+    navigator.share({ title: 'Surtimar - Tienda online', text: 'Hacé tu pedido online 🛒', url });
+  } else {
+    navigator.clipboard && navigator.clipboard.writeText(url);
+    toast('Link copiado al portapapeles');
+  }
+}
+function tiendaVerPedidos() {
+  S.invFilter = 'tienda';
+  showPage('facturas');
+  renderInvs();
+}
 function tiendaInit() {
   if(!window.location.search.includes('tienda')) return;
   // Ocultar app principal - esperar DOMContentLoaded ya lo hizo
@@ -4038,46 +4110,117 @@ function tiendaInit() {
 
 function tiendaEntrar() {
   const n = document.getElementById('tienda-nombre-input').value.trim();
+  const ph = document.getElementById('tienda-phone-input').value.replace(/\D/g,'');
   if(!n) { document.getElementById('tienda-nombre-input').focus(); return; }
+  if(!ph || ph.length < 6) { document.getElementById('tienda-phone-input').focus(); return; }
   TN = n;
+  TC_PHONE = ph;
+  // Buscar cliente por últimos 6 dígitos
+  const last6 = ph.slice(-6);
+  TC_CLI = S.clients.find(c => {
+    const cp = (c.phone||'').replace(/\D/g,'');
+    return cp.length >= 6 && cp.slice(-6) === last6;
+  }) || null;
   document.getElementById('tienda-login').style.display='none';
   document.getElementById('tienda-catalogo').style.display='block';
-  document.getElementById('tienda-saludo').textContent = 'Hola, ' + n;
+  document.getElementById('tienda-saludo').textContent = TC_CLI ? 'Hola, ' + TC_CLI.name + ' 👋' : 'Hola, ' + n;
   document.getElementById('tienda-footer').style.display='block';
+  window.T_CAT = 'todas';
   tiendaRender();
   T_VISTA = 'catalogo';
 }
 
+function tiendaPriceArrow(p) {
+  if(!p.priceHistory || !p.priceHistory.length) return '';
+  const last = p.priceHistory[p.priceHistory.length-1];
+  const horasDiff = (Date.now() - new Date(last.date).getTime()) / 3600000;
+  if(horasDiff > 24) return '';
+  if(last.price < p.price) return '<span style="color:#ff4444;font-size:13px;font-weight:700">↑</span>';
+  if(last.price > p.price) return '<span style="color:#4ade80;font-size:13px;font-weight:700">↓</span>';
+  return '';
+}
+function tiendaProdCard(p) {
+  const qty = TC[p.id]||0;
+  const imgHtml = p.image
+    ? '<img src="'+p.image+'" style="width:72px;height:72px;border-radius:12px;object-fit:cover;flex-shrink:0">'
+    : '<div style="width:72px;height:72px;border-radius:12px;background:#222;display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0">'+(p.emoji||'📦')+'</div>';
+  const ctrl = qty===0
+    ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="background:#e8ff47;color:#0f0f0f;border:none;border-radius:10px;padding:10px 16px;font-weight:700;font-size:14px;cursor:pointer">+ Agregar</button>'
+    : '<div style="display:flex;align-items:center;gap:10px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#333;color:#fff;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">−</button><span style="font-size:16px;font-weight:700;min-width:20px;text-align:center">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#e8ff47;color:#0f0f0f;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button></div>';
+  const arrow = tiendaPriceArrow(p);
+  const precioHtml = p.wholesalePrice&&p.wholesaleQty&&TC_CLI
+    ? '<div style="font-size:13px;color:#888;margin-top:2px">Minorista: $'+p.price.toFixed(0)+' '+arrow+'</div><div style="font-size:16px;font-weight:700;color:#e8ff47;margin-top:2px">Mayor x'+p.wholesaleQty+': $'+p.wholesalePrice.toFixed(0)+' c/u</div>'
+    : '<div style="font-size:16px;font-weight:700;color:#e8ff47;margin-top:4px">$'+p.price.toFixed(0)+' '+arrow+'</div>';
+  return '<div style="background:#1a1a1a;border-radius:14px;padding:14px;display:flex;gap:12px;align-items:center;'+(qty>0?'border:1px solid #e8ff4750;':'')+'">'
+    +imgHtml
+    +'<div style="flex:1;min-width:0">'
+    +'<div style="font-size:14px;font-weight:600;margin-bottom:3px">'+p.name+'</div>'
+    +(p.desc?'<div style="font-size:13px;color:#666;margin-bottom:4px">'+p.desc+'</div>':'')
+    +(p.stock===0?'<span style="color:#ff6b6b;font-size:13px">Sin stock</span>':'')
+    +precioHtml
+    +'</div>'
+    +'<div style="flex-shrink:0">'+ctrl+'</div>'
+    +'</div>';
+}
 function tiendaRender() {
   const q = (document.getElementById('tienda-buscar').value||'').toLowerCase();
-  const prods = S.products.filter(p => p.visible !== false && p.price > 0 && (!q || p.name.toLowerCase().includes(q)));
+  const cat = window.T_CAT||'todas';
+  let prods = S.products.filter(p => p.visible !== false && p.price > 0);
+  if(q) prods = prods.filter(p => p.name.toLowerCase().includes(q)||(p.category||'').toLowerCase().includes(q));
+  if(cat === 'ofertas') prods = prods.filter(p => p.oferta);
+  else if(cat !== 'todas') prods = prods.filter(p => (p.category||'').toLowerCase() === cat.toLowerCase());
   const lista = document.getElementById('tienda-lista');
   if(!prods.length) {
     lista.innerHTML = '<div style="text-align:center;padding:40px;color:#555">Sin productos disponibles</div>';
+    tiendaRenderCats();
     return;
   }
-  lista.innerHTML = prods.map(p => {
-    const qty = TC[p.id]||0;
-    const imgHtml = p.image
-      ? '<img src="'+p.image+'" style="width:72px;height:72px;border-radius:12px;object-fit:cover;flex-shrink:0">'
-      : '<div style="width:72px;height:72px;border-radius:12px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0">'+(p.emoji||'📦')+'</div>';
-    const stockTxt = p.stock===0 ? '<span style="color:#ff6b6b;font-size:13px">Sin stock</span>' : '';
-    const ctrl = qty===0
-      ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="background:#e8ff47;color:#0f0f0f;border:none;border-radius:10px;padding:10px 16px;font-weight:700;font-size:14px;cursor:pointer">+ Agregar</button>'
-      : '<div style="display:flex;align-items:center;gap:10px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#333;color:#fff;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">−</button><span style="font-size:16px;font-weight:700;min-width:20px;text-align:center">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#e8ff47;color:#0f0f0f;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button></div>';
-    return '<div style="background:#1a1a1a;border-radius:14px;padding:14px;display:flex;gap:12px;align-items:center;'+(qty>0?'border:1px solid #e8ff4750;':'')+'">'
-      +imgHtml
-      +'<div style="flex:1;min-width:0">'
-      +'<div style="font-size:14px;font-weight:600;margin-bottom:3px">'+p.name+'</div>'
-      +(p.desc?'<div style="font-size:14px;color:#666;margin-bottom:4px">'+p.desc+'</div>':'')
-      +stockTxt
-      +'<div style="font-size:16px;font-weight:700;color:#e8ff47;margin-top:4px">$'+p.price.toFixed(2)+'</div>'
-      +'</div>'
-      +'<div style="flex-shrink:0">'+ctrl+'</div>'
-      +'</div>';
-  }).join('');
+  // Ordenar: precio cambiado últimas 24h primero, luego el resto
+  const now = Date.now();
+  prods.sort((a,b) => {
+    const aRecent = a.priceHistory&&a.priceHistory.length&&(now-new Date(a.priceHistory[a.priceHistory.length-1].date).getTime())<86400000?1:0;
+    const bRecent = b.priceHistory&&b.priceHistory.length&&(now-new Date(b.priceHistory[b.priceHistory.length-1].date).getTime())<86400000?1:0;
+    return bRecent - aRecent;
+  });
+  // Sección ofertas (solo si no hay filtro activo)
+  let html = '';
+  if(!q && cat==='todas') {
+    const ofertas = prods.filter(p=>p.oferta);
+    if(ofertas.length) {
+      html += '<div style="background:#1a1a1a;border-radius:14px;padding:14px;border:1px solid #333;margin-bottom:4px">';
+      html += '<div style="font-size:13px;font-weight:700;color:#ff4444;margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">&#128293; Ofertas del día</div>';
+      html += '<div style="display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch">';
+      ofertas.forEach(p => {
+        const prevPrice = p.priceHistory&&p.priceHistory.length ? p.priceHistory[p.priceHistory.length-1].price : null;
+        const qty = TC[p.id]||0;
+        html += '<div style="flex-shrink:0;width:130px;background:#222;border-radius:10px;padding:10px;text-align:center">';
+        html += '<div style="font-size:28px;margin-bottom:4px">'+(p.emoji||'📦')+'</div>';
+        html += '<div style="font-size:12px;font-weight:600;margin-bottom:4px;line-height:1.3">'+p.name+'</div>';
+        if(prevPrice && prevPrice !== p.price) html += '<div style="font-size:11px;color:#666;text-decoration:line-through">$'+prevPrice.toFixed(0)+'</div>';
+        html += '<div style="font-size:15px;font-weight:800;color:#e8ff47">$'+p.price.toFixed(0)+'</div>';
+        html += qty===0
+          ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="margin-top:8px;width:100%;background:#e8ff47;color:#0f0f0f;border:none;border-radius:8px;padding:6px;font-weight:700;font-size:13px;cursor:pointer">+ Agregar</button>'
+          : '<div style="margin-top:8px;display:flex;align-items:center;justify-content:center;gap:6px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#333;color:#fff;border:none;border-radius:6px;width:28px;height:28px;font-size:16px;cursor:pointer">−</button><span style="font-weight:700">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#e8ff47;color:#0f0f0f;border:none;border-radius:6px;width:28px;height:28px;font-size:16px;cursor:pointer">+</button></div>';
+        html += '</div>';
+      });
+      html += '</div></div>';
+    }
+  }
+  lista.innerHTML = html + prods.map(tiendaProdCard).join('');
+  tiendaRenderCats();
   tiendaActBadge();
   tiendaActTotal();
+}
+function tiendaRenderCats() {
+  const el = document.getElementById('tienda-cats');
+  if(!el) return;
+  const cats = [...new Set(S.products.filter(p=>p.visible!==false&&p.price>0&&p.category).map(p=>p.category))].sort();
+  const hasOfertas = S.products.some(p=>p.oferta&&p.visible!==false);
+  const cat = window.T_CAT||'todas';
+  const btnStyle = (active) => 'flex-shrink:0;padding:8px 16px;border-radius:20px;border:none;font-size:14px;font-weight:700;cursor:pointer;'+(active?'background:#e8ff47;color:#0f0f0f':'background:#1a1a1a;color:#aaa;border:1px solid #333');
+  el.innerHTML = '<button style="'+btnStyle(cat==='todas')+'" onclick="window.T_CAT=&quot;todas&quot;;tiendaRender()">Todas</button>'
+    +(hasOfertas?'<button style="'+btnStyle(cat==='ofertas')+'" onclick="window.T_CAT=&quot;ofertas&quot;;tiendaRender()">🔥 Ofertas</button>':'')
+    +cats.map(c=>'<button style="'+btnStyle(cat===c)+'" onclick="window.T_CAT=&quot;'+c+'&quot;;tiendaRender()">'+c+'</button>').join('');
 }
 
 function tiendaAdd(id) {
@@ -4152,22 +4295,50 @@ function tiendaConfirmar() {
     const p=S.products.find(x=>x.id===id);
     if(!p) return '';
     total+=p.price*qty;
-    return '• '+p.name+' x'+qty+' = $'+(p.price*qty).toFixed(2);
+    return '\u2022 '+p.name+' x'+qty+' = $'+(p.price*qty).toFixed(2);
   }).filter(Boolean).join('\n');
-  const msg = '🛒 *Pedido de '+TN+'*\n\n'+lineas+'\n\n*Total: $'+total.toFixed(2)+'*';
+  const msg = '\uD83D\uDED2 *Pedido de '+TN+'*\n\n'+lineas+'\n\n*Total: $'+total.toFixed(2)+'*';
   const url = 'https://wa.me/'+WA_NUM+'?text='+encodeURIComponent(msg);
   window.open(url,'_blank');
+  // Crear o usar cliente existente
+  let cli = TC_CLI;
+  if(!cli) {
+    // Crear cliente nuevo
+    const color = '#'+Math.floor(Math.random()*0xffffff).toString(16).padStart(6,'0');
+    cli = {id:'CLI-WEB-'+Date.now(), name: TN+' (web)', phone: TC_PHONE, email:'', type:'minorista', color, credito:0};
+    S.clients.push(cli);
+    S.nCli++;
+    try{renderClis();}catch(e){}
+  }
+  // Crear factura
+  const invItems = items.map(([id,qty])=>{
+    const p=S.products.find(x=>x.id===id);
+    if(!p) return null;
+    return {prodId:p.id, desc:p.name, qty, price:p.price, retailPrice:p.price, wholesalePrice:p.wholesalePrice||0, wholesaleQty:p.wholesaleQty||0};
+  }).filter(Boolean);
+  const invTotal = invItems.reduce((s,i)=>s+i.qty*i.price,0);
+  const inv = {
+    id:'FAC-'+String(S.nInv++).padStart(4,'0'),
+    type:'factura', status:'pendiente',
+    clientId:cli.id, clientName:cli.name,
+    date:new Date().toISOString().split('T')[0],
+    items:invItems, subtotal:invTotal,
+    descRetiro:0, descExtraPct:0, descExtra:0, total:invTotal,
+    pagos:[], saldo:invTotal, aFavor:0,
+    notes:'Pedido desde tienda online'
+  };
+  S.invoices.unshift(inv);
   // Descontar stock
   items.forEach(([id,qty])=>{
     const idx=S.products.findIndex(x=>x.id===id);
-    if(idx>=0 && S.products[idx].stock>=qty) S.products[idx].stock-=qty;
+    if(idx>=0) S.products[idx].stock=(S.products[idx].stock||0)-qty;
   });
-  save();
-  // Limpiar carrito y mostrar confirmación
+  try{renderInvs();}catch(e){} try{updDash();}catch(e){} save();
+  // Limpiar carrito
   TC={};
   tiendaRenderCarrito();
   tiendaActBadge();
-  document.getElementById('tienda-carrito').innerHTML='<div style="text-align:center;padding:80px 24px"><div style="font-size:60px;margin-bottom:20px">✅</div><div style="font-family:Inter,sans-serif;font-size:22px;font-weight:800;color:#e8ff47;margin-bottom:10px">¡Pedido enviado!</div><div style="color:#aaa;font-size:14px">Nos llega tu pedido por WhatsApp y te confirmamos.</div></div>';
+  document.getElementById('tienda-carrito').innerHTML='<div style="text-align:center;padding:80px 24px"><div style="font-size:60px;margin-bottom:20px">\u2705</div><div style="font-family:Inter,sans-serif;font-size:22px;font-weight:800;color:#e8ff47;margin-bottom:10px">\u00a1Pedido enviado!</div><div style="color:#aaa;font-size:14px">Nos llega tu pedido por WhatsApp y te confirmamos en breve.</div></div>';
 }
 
 // Iniciar tienda si la URL corresponde
