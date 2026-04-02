@@ -1596,7 +1596,7 @@ function cliSearchInput(q) {
   const res = ql ? S.clients.filter(c=>c.name.toLowerCase().includes(ql)).slice(0,10) : S.clients.slice(0,10);
   if(!res.length) { list.style.display='none'; return; }
   list.innerHTML = res.map(c=>
-    '<div onclick="cliSearchSelect('+JSON.stringify(c.id)+','+JSON.stringify(c.name)+')" style="padding:10px 14px;cursor:pointer;font-size:15px;border-bottom:1px solid var(--border)">'+c.name+'</div>'
+    '<div data-cid="'+c.id.replace(/"/g,"&quot;")+'" data-cname="'+c.name.replace(/"/g,"&quot;")+'" onmousedown="cliSearchSelect(this.dataset.cid,this.dataset.cname)" style="padding:10px 14px;cursor:pointer;font-size:15px;border-bottom:1px solid var(--border)">'+c.name+'</div>'
   ).join('');
   list.style.display='';
 }
@@ -1728,8 +1728,9 @@ function cartQtyChange(input) {
   if(!p) return;
   if(qty > 0) {
     const existing = S.invItems.findIndex(i=>i.prodId===pid);
-    if(existing>=0) { S.invItems[existing].qty=qty; chkW(existing); }
-    else { S.invItems.push({desc:p.name,qty,price:p.price,prodId:p.id,retailPrice:p.price,wholesalePrice:p.wholesalePrice||0,wholesaleQty:p.wholesaleQty||0}); chkW(S.invItems.length-1); }
+    const usePrice = parseFloat(input.dataset.price)||p.price||0;
+    if(existing>=0) { S.invItems[existing].qty=qty; if(!S.invItems[existing].price) S.invItems[existing].price=usePrice; chkW(existing); }
+    else { S.invItems.push({desc:p.name,qty,price:usePrice,prodId:p.id,retailPrice:usePrice,wholesalePrice:p.wholesalePrice||0,wholesaleQty:p.wholesaleQty||0}); chkW(S.invItems.length-1); }
   } else {
     const existing = S.invItems.findIndex(i=>i.prodId===pid);
     if(existing>=0) S.invItems.splice(existing,1);
@@ -1981,8 +1982,19 @@ function cartSetQty(pid, val) {
 }
 
 function nfUpdateFooter() {
-  const total = S.invItems.reduce((s,i)=>s+(i.qty*(i.price||0)),0);
-  const uds = S.invItems.reduce((s,i)=>s+i.qty,0);
+  // Read from DOM inputs directly as source of truth
+  let total = 0, uds = 0;
+  document.querySelectorAll('#nf-prod-list input[data-pid]').forEach(function(inp) {
+    if(!inp.id || !inp.id.startsWith('cqty-')) return;
+    const qty = parseInt(inp.value)||0;
+    const price = parseFloat(inp.dataset.price)||0;
+    if(qty > 0) { total += qty * price; uds += qty; }
+  });
+  // Also count from S.invItems for items not visible in current search
+  S.invItems.forEach(function(item) {
+    const el = document.getElementById('cqty-'+item.prodId);
+    if(!el) { total += item.qty*(item.price||0); uds += item.qty; }
+  });
   const fi = document.getElementById('nf-footer-items');
   const ft = document.getElementById('nf-footer-total');
   if(fi) fi.textContent = uds+' producto'+(uds!==1?'s':'');
@@ -2373,6 +2385,16 @@ function renderInvs() {
   const b=document.getElementById('nbadge');
   if(b){b.textContent=pend; b.style.display=pend?'':'none';}
 }
+// Event delegation for cart qty inputs
+document.addEventListener('input', function(e) {
+  if(e.target && e.target.id && e.target.id.startsWith('cqty-') && document.getElementById('page-nueva-factura').classList.contains('active')) {
+    cartQtyChange(e.target);
+  }
+  if(e.target && e.target.id && e.target.id.startsWith('cpreciou-') && document.getElementById('page-nueva-factura').classList.contains('active')) {
+    cartPriceChange(e.target);
+  }
+});
+
 document.getElementById('page-facturas').addEventListener('click', function(e){
   const btn = e.target.closest('[data-action]');
   if(!btn) return;
