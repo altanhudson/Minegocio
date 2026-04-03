@@ -282,9 +282,10 @@ select option{background:var(--surface2)}
     <div class="card" style="cursor:pointer" onclick="abrirReparto()"><div class="card-header"><span class="card-title">🚚 Gestionar entregas del día</span></div></div>
     <div class="card" style="cursor:pointer">
       <div class="card-header"><span class="card-title">🛒 Tienda online</span><span style="font-size:12px;background:#dcfce7;color:#166534;padding:2px 8px;border-radius:20px;font-weight:600">ACTIVA</span></div>
-      <div style="padding:10px 14px;display:flex;gap:10px">
+      <div style="padding:10px 14px;display:flex;gap:10px;flex-wrap:wrap">
         <button onclick="tiendaCompartirLink()" style="flex:1;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">📤 Compartir link</button>
         <button onclick="tiendaVerPedidos()" style="flex:1;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">📋 Ver pedidos</button>
+        <button onclick="tiendaAdminEntrar()" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">👁️ Ver tienda como admin</button>
       </div>
     </div>
   </div>
@@ -4003,11 +4004,7 @@ function renderInvoiceHTML(inv) {
     <div style="font-family:Inter,sans-serif;font-size:26px;font-weight:800;color:#e8ff47;margin-bottom:8px" id="tienda-titulo">Surtimar</div>
     <div style="color:#aaa;font-size:14px;margin-bottom:40px;text-align:center">Hacé tu pedido fácil y rápido</div>
     <div style="width:100%;max-width:340px">
-      <div style="font-size:14px;color:#aaa;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">¿Cómo te llamás?</div>
-      <input id="tienda-nombre-input" type="text" placeholder="Tu nombre..." autocomplete="name"
-        style="width:100%;padding:16px;font-size:16px;border-radius:14px;border:2px solid #333;background:#1a1a1a;color:#fff;box-sizing:border-box;outline:none;margin-bottom:12px"
-        onfocus="this.style.borderColor='#e8ff47'" onblur="this.style.borderColor='#333'">
-      <div style="font-size:14px;color:#aaa;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Tu celular</div>
+      <div style="font-size:14px;color:#aaa;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Tu número de celular</div>
       <div style="font-size:12px;color:#666;margin-bottom:8px">Sin el 0 y sin el 15 · Ej: 2235123456</div>
       <input id="tienda-phone-input" type="tel" placeholder="2235123456..." inputmode="numeric"
         style="width:100%;padding:16px;font-size:16px;border-radius:14px;border:2px solid #333;background:#1a1a1a;color:#fff;box-sizing:border-box;outline:none"
@@ -4079,6 +4076,11 @@ let TC_CLI = null; // cliente asociado
 let TC_PHONE = ''; // teléfono ingresado
 let T_VISTA = 'login'; // login | catalogo | carrito
 
+function tiendaAdminEntrar() {
+  TC_CLI = null; TC_PHONE = ''; TN = 'Admin';
+  TC = {};
+  window.open('https://altanhudson.github.io/Minegocio?tienda', '_blank');
+}
 function tiendaCompartirLink() {
   const url = 'https://altanhudson.github.io/Minegocio?tienda';
   if(navigator.share) {
@@ -4144,25 +4146,23 @@ function tiendaInit() {
 }
 
 function tiendaEntrar() {
-  const n = document.getElementById('tienda-nombre-input').value.trim();
   const ph = document.getElementById('tienda-phone-input').value.replace(/\D/g,'');
-  if(!n) { document.getElementById('tienda-nombre-input').focus(); return; }
   if(!ph || ph.length < 6) { document.getElementById('tienda-phone-input').focus(); return; }
-  TN = n;
   TC_PHONE = ph;
-  // Buscar cliente por últimos 6 dígitos
   const last6 = ph.slice(-6);
   TC_CLI = S.clients.find(c => {
     const cp = (c.phone||'').replace(/\D/g,'');
     return cp.length >= 6 && cp.slice(-6) === last6;
   }) || null;
+  TN = TC_CLI ? TC_CLI.name : 'Cliente '+last6;
   document.getElementById('tienda-login').style.display='none';
   document.getElementById('tienda-catalogo').style.display='block';
-  document.getElementById('tienda-saludo').textContent = TC_CLI ? 'Hola, ' + TC_CLI.name + ' 👋' : 'Hola, ' + n;
+  document.getElementById('tienda-saludo').textContent = TC_CLI ? 'Hola, ' + TC_CLI.name + ' 👋' : 'Hola 👋';
   document.getElementById('tienda-footer').style.display='block';
   window.T_CAT = 'todas';
   tiendaRender();
   T_VISTA = 'catalogo';
+  history.pushState({tienda:'catalogo'},'','');
 }
 
 function tiendaPriceArrow(p) {
@@ -4294,6 +4294,7 @@ function tiendaVerCarrito() {
   T_VISTA='carrito';
   document.getElementById('tienda-catalogo').style.display='none';
   document.getElementById('tienda-carrito').style.display='block';
+  document.getElementById('tienda-footer').style.display='block';
   tiendaRenderCarrito();
 }
 
@@ -4302,6 +4303,7 @@ function tiendaVolverCatalogo() {
   document.getElementById('tienda-carrito').style.display='none';
   document.getElementById('tienda-catalogo').style.display='block';
   tiendaRender();
+  history.pushState({tienda:'catalogo'},'','');
 }
 
 function tiendaRenderCarrito() {
@@ -4319,7 +4321,7 @@ function tiendaRenderCarrito() {
       +'<div style="font-size:15px;color:#e8ff47;margin-top:2px">$'+(p.price*qty).toFixed(2)+'</div></div>'
       +'<div style="display:flex;align-items:center;gap:10px">'
       +'<button data-tid="'+id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#333;color:#fff;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">−</button>'
-      +'<span style="font-size:16px;font-weight:700;min-width:20px;text-align:center">'+qty+'</span>'
+      +'<span style="font-size:16px;font-weight:700;min-width:20px;text-align:center;color:#fff">'+qty+'</span>'
       +'<button data-tid="'+id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#e8ff47;color:#0f0f0f;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>'
       +'</div></div>';
   }).join('');
@@ -4380,6 +4382,14 @@ function tiendaConfirmar() {
   document.getElementById('tienda-carrito').innerHTML='<div style="text-align:center;padding:80px 24px"><div style="font-size:60px;margin-bottom:20px">\u2705</div><div style="font-family:Inter,sans-serif;font-size:22px;font-weight:800;color:#e8ff47;margin-bottom:10px">\u00a1Pedido enviado!</div><div style="color:#aaa;font-size:14px">Nos llega tu pedido por WhatsApp y te confirmamos en breve.</div></div>';
 }
 
+// Manejar botón atrás en tienda
+window.addEventListener('popstate', function(e) {
+  if(T_VISTA === 'carrito') { tiendaVolverCatalogo(); }
+  else if(T_VISTA === 'catalogo' && document.getElementById('tienda-app').style.display !== 'none') {
+    // Permitir salir de la tienda
+    history.back();
+  }
+});
 // Iniciar tienda si la URL corresponde
 window.addEventListener('DOMContentLoaded', function(){
   tiendaInit();
