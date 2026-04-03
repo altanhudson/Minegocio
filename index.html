@@ -4077,9 +4077,40 @@ let TC_PHONE = ''; // teléfono ingresado
 let T_VISTA = 'login'; // login | catalogo | carrito
 
 function tiendaAdminEntrar() {
-  TC_CLI = null; TC_PHONE = ''; TN = 'Admin';
+  TC_CLI = null; TC_PHONE = 'admin'; TN = 'Admin';
   TC = {};
-  window.open('https://altanhudson.github.io/Minegocio?tienda', '_blank');
+  // Mostrar tienda directamente sin login
+  document.querySelectorAll('.page,.bottom-nav,.top-bar,.fab').forEach(e=>e.style.display='none');
+  const shell = document.getElementById('app-shell');
+  if(shell) shell.style.display='none';
+  document.getElementById('tienda-app').style.display='block';
+  document.getElementById('tienda-login').style.display='none';
+  document.getElementById('tienda-catalogo').style.display='block';
+  document.getElementById('tienda-saludo').textContent = 'Vista admin 👁️';
+  document.getElementById('tienda-footer').style.display='block';
+  document.getElementById('tienda-titulo').textContent = TIENDA_NOMBRE;
+  document.getElementById('tienda-cat-titulo').textContent = TIENDA_NOMBRE;
+  window.T_CAT = 'todas';
+  T_VISTA_TIPO = 'lista';
+  tiendaRender();
+  T_VISTA = 'catalogo';
+  // Botón para volver a la app
+  const backBar = document.createElement('div');
+  backBar.id = 'tienda-admin-bar';
+  backBar.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#e8ff47;color:#0f0f0f;padding:10px 16px;display:flex;align-items:center;gap:10px;z-index:99999;font-weight:700;font-size:14px';
+  backBar.innerHTML = '<button onclick="tiendaAdminVolver()" style="background:#0f0f0f;color:#e8ff47;border:none;border-radius:8px;padding:6px 14px;font-weight:700;font-size:14px;cursor:pointer">← Volver a la app</button><span>Modo administrador</span>';
+  document.body.appendChild(backBar);
+  document.getElementById('tienda-app').style.paddingTop = '48px';
+}
+function tiendaAdminVolver() {
+  document.getElementById('tienda-app').style.display='none';
+  document.getElementById('tienda-app').style.paddingTop='';
+  const bar = document.getElementById('tienda-admin-bar');
+  if(bar) bar.remove();
+  document.querySelectorAll('.page,.bottom-nav,.top-bar,.fab').forEach(e=>e.style.display='');
+  const shell = document.getElementById('app-shell');
+  if(shell) shell.style.display='';
+  showPage('dashboard');
 }
 function tiendaCompartirLink() {
   const url = 'https://altanhudson.github.io/Minegocio?tienda';
