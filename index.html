@@ -4013,7 +4013,7 @@ function renderInvoiceHTML(inv) {
         style="width:100%;padding:16px;font-size:16px;border-radius:14px;border:2px solid #333;background:#1a1a1a;color:#fff;box-sizing:border-box;outline:none"
         onfocus="this.style.borderColor='#e8ff47'" onblur="this.style.borderColor='#333'"
         onkeydown="if(event.key==='Enter')tiendaEntrar()">
-      <button onclick="tiendaEntrar()"
+      <button id="tienda-entrar-btn" onclick="tiendaEntrar()"
         style="width:100%;margin-top:14px;padding:16px;background:#e8ff47;color:#0f0f0f;border:none;border-radius:14px;font-size:16px;font-weight:700;font-family:Inter,sans-serif;cursor:pointer">
         Ver productos →
       </button>
@@ -4033,8 +4033,13 @@ function renderInvoiceHTML(inv) {
         </button>
       </div>
       <div id="tienda-cats" style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:10px"></div>
-      <input id="tienda-buscar" type="text" placeholder="Buscar producto..." oninput="tiendaRender()"
+      <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
+        <input id="tienda-buscar" type="text" placeholder="Buscar producto..." oninput="tiendaRender()"
         style="width:100%;margin-top:12px;padding:12px;font-size:14px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#fff;box-sizing:border-box;outline:none">
+    </div>
+    <div style="display:flex;justify-content:flex-end;padding:4px 16px 0;gap:6px">
+      <button onclick="tiendaSetVista('lista')" id="tienda-btn-lista" style="padding:8px 12px;border-radius:10px;border:none;background:#e8ff47;color:#0f0f0f;font-size:16px;cursor:pointer">☰</button>
+      <button onclick="tiendaSetVista('grilla')" id="tienda-btn-grilla" style="padding:8px 12px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#aaa;font-size:16px;cursor:pointer">⊞</button>
     </div>
     <div id="tienda-lista" style="padding:12px 16px;display:flex;flex-direction:column;gap:10px"></div>
   </div>
@@ -4088,6 +4093,31 @@ function tiendaVerPedidos() {
   showPage('facturas');
   renderInvs();
 }
+let T_VISTA_TIPO = 'lista';
+function tiendaSetVista(tipo) {
+  T_VISTA_TIPO = tipo;
+  const bl = document.getElementById('tienda-btn-lista');
+  const bg = document.getElementById('tienda-btn-grilla');
+  if(bl) { bl.style.background = tipo==='lista'?'#e8ff47':'#1a1a1a'; bl.style.color = tipo==='lista'?'#0f0f0f':'#aaa'; }
+  if(bg) { bg.style.background = tipo==='grilla'?'#e8ff47':'#1a1a1a'; bg.style.color = tipo==='grilla'?'#0f0f0f':'#aaa'; }
+  tiendaRender();
+}
+function tiendaProdCardGrid(p) {
+  const qty = TC[p.id]||0;
+  const arrow = tiendaPriceArrow(p);
+  const imgHtml = p.image
+    ? '<img src="'+p.image+'" style="width:100%;height:100px;border-radius:10px;object-fit:cover;margin-bottom:8px">'
+    : '<div style="width:100%;height:100px;border-radius:10px;background:#222;display:flex;align-items:center;justify-content:center;font-size:40px;margin-bottom:8px">'+(p.emoji||'📦')+'</div>';
+  const ctrl = qty===0
+    ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="width:100%;background:#e8ff47;color:#0f0f0f;border:none;border-radius:8px;padding:8px;font-weight:700;font-size:14px;cursor:pointer;margin-top:8px">+ Agregar</button>'
+    : '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#333;color:#fff;border:none;border-radius:6px;width:30px;height:30px;font-size:16px;cursor:pointer">−</button><span style="font-weight:700;font-size:16px">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#e8ff47;color:#0f0f0f;border:none;border-radius:6px;width:30px;height:30px;font-size:16px;cursor:pointer">+</button></div>';
+  return '<div style="background:#1a1a1a;border-radius:12px;padding:12px;'+(qty>0?'border:1px solid #e8ff4750;':'')+'">'
+    +imgHtml
+    +'<div style="font-size:13px;font-weight:600;margin-bottom:4px;line-height:1.3">'+p.name+'</div>'
+    +'<div style="font-size:15px;font-weight:800;color:#e8ff47">$'+p.price.toFixed(0)+' '+arrow+'</div>'
+    +ctrl
+    +'</div>';
+}
 function tiendaInit() {
   if(!window.location.search.includes('tienda')) return;
   // Ocultar app principal - esperar DOMContentLoaded ya lo hizo
@@ -4097,15 +4127,20 @@ function tiendaInit() {
   document.getElementById('tienda-app').style.display='block';
   document.getElementById('tienda-titulo').textContent = TIENDA_NOMBRE;
   document.getElementById('tienda-cat-titulo').textContent = TIENDA_NOMBRE;
-  // Cargar datos de Firebase
+  // Cargar datos de Firebase y habilitar botón cuando estén listos
+  const btn = document.getElementById('tienda-entrar-btn');
+  if(btn) { btn.disabled = true; btn.textContent = 'Cargando...'; }
   function tryLoad() {
     if(window._fbLoad) {
-      window._fbLoad().then(data => { if(data) Object.assign(S, data); });
+      window._fbLoad().then(data => {
+        if(data) Object.assign(S, data);
+        if(btn) { btn.disabled = false; btn.textContent = 'Ver productos →'; }
+      });
+    } else {
+      setTimeout(tryLoad, 500);
     }
   }
-  // Intentar enseguida y de nuevo después de que Firebase inicie
-  tryLoad();
-  setTimeout(tryLoad, 1500);
+  setTimeout(tryLoad, 800);
 }
 
 function tiendaEntrar() {
@@ -4165,7 +4200,7 @@ function tiendaProdCard(p) {
 function tiendaRender() {
   const q = (document.getElementById('tienda-buscar').value||'').toLowerCase();
   const cat = window.T_CAT||'todas';
-  let prods = S.products.filter(p => p.visible !== false && p.price > 0);
+  let prods = S.products.filter(p => p.visible !== false && p.price > 0 && p.name && p.name.trim());
   if(q) prods = prods.filter(p => p.name.toLowerCase().includes(q)||(p.category||'').toLowerCase().includes(q));
   if(cat === 'ofertas') prods = prods.filter(p => p.oferta);
   else if(cat !== 'todas') prods = prods.filter(p => (p.category||'').toLowerCase() === cat.toLowerCase());
@@ -4206,7 +4241,11 @@ function tiendaRender() {
       html += '</div></div>';
     }
   }
-  lista.innerHTML = html + prods.map(tiendaProdCard).join('');
+  if(T_VISTA_TIPO === 'grilla') {
+    lista.innerHTML = html + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+prods.map(tiendaProdCardGrid).join('')+'</div>';
+  } else {
+    lista.innerHTML = html + prods.map(tiendaProdCard).join('');
+  }
   tiendaRenderCats();
   tiendaActBadge();
   tiendaActTotal();
