@@ -4146,7 +4146,7 @@ function tiendaProdCardGrid(p) {
     : '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#333;color:#fff;border:none;border-radius:6px;width:30px;height:30px;font-size:16px;cursor:pointer">−</button><span style="font-weight:700;font-size:16px">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#e8ff47;color:#0f0f0f;border:none;border-radius:6px;width:30px;height:30px;font-size:16px;cursor:pointer">+</button></div>';
   return '<div style="background:#1a1a1a;border-radius:12px;padding:12px;'+(qty>0?'border:1px solid #e8ff4750;':'')+'">'
     +imgHtml
-    +'<div style="font-size:13px;font-weight:600;margin-bottom:4px;line-height:1.3">'+p.name+'</div>'
+    +'<div style="font-size:13px;font-weight:600;margin-bottom:4px;line-height:1.3;color:#fff">'+p.name+'</div>'
     +'<div style="font-size:15px;font-weight:800;color:#e8ff47">$'+p.price.toFixed(0)+' '+arrow+'</div>'
     +ctrl
     +'</div>';
@@ -4220,8 +4220,8 @@ function tiendaProdCard(p) {
   return '<div style="background:#1a1a1a;border-radius:14px;padding:14px;display:flex;gap:12px;align-items:center;'+(qty>0?'border:1px solid #e8ff4750;':'')+'">'
     +imgHtml
     +'<div style="flex:1;min-width:0">'
-    +'<div style="font-size:14px;font-weight:600;margin-bottom:3px">'+p.name+'</div>'
-    +(p.desc?'<div style="font-size:13px;color:#666;margin-bottom:4px">'+p.desc+'</div>':'')
+    +'<div style="font-size:14px;font-weight:600;margin-bottom:3px;color:#fff">'+p.name+'</div>'
+    +(p.desc?'<div style="font-size:13px;color:#999;margin-bottom:4px">'+p.desc+'</div>':'')
     +(p.stock===0?'<span style="color:#ff6b6b;font-size:13px">Sin stock</span>':'')
     +precioHtml
     +'</div>'
