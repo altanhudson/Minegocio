@@ -627,6 +627,7 @@ select option{background:var(--surface2)}
         <div class="photo-area" id="photo-area" onclick="document.getElementById('photo-input').click()">
           <div id="photo-preview"><div style="font-size:40px;margin-bottom:8px">&#128247;</div><div style="font-size:15px;color:var(--text3)">Toca para agregar foto</div></div>
         </div>
+        <button type="button" id="btn-borrar-foto" onclick="borrarFoto()" style="display:none;width:100%;margin-top:6px;padding:8px;background:rgba(220,38,38,.1);color:var(--accent3);border:1px solid var(--accent3);border-radius:10px;font-size:14px;font-weight:600;cursor:pointer">🗑️ Borrar foto</button>
         <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="onPhoto(this)">
       </div>
       <div class="form-group"><label class="fl">Nombre *</label><input type="text" id="p-name" placeholder="Nombre del producto"></div>
@@ -1017,10 +1018,22 @@ function onPhoto(input) {
 function onImgUrl(url) { if(url){ S.photo=url; showPhoto(url); } }
 function showPhoto(src) {
   document.getElementById('photo-preview').innerHTML = '<img src="'+src+'" style="width:100%;border-radius:var(--rs)">';
+  const btn = document.getElementById('btn-borrar-foto'); if(btn) btn.style.display='';
+}
+function borrarFoto() {
+  S.photo = null;
+  S.photoFile = null;
+  resetPhoto('');
+  // Si estamos editando, marcar imagen como borrada
+  if(S.editId) {
+    const p = S.products.find(x=>x.id===S.editId);
+    if(p) { p.image = null; save(); toast('Foto eliminada'); }
+  }
 }
 function resetPhoto(em) {
   S.photo = null;
   S.photoFile = null;
+  const btn = document.getElementById('btn-borrar-foto'); if(btn) btn.style.display='none';
   document.getElementById('photo-preview').innerHTML = '<div style="font-size:40px;margin-bottom:8px">'+(em||'&#128247;')+'</div><div style="font-size:15px;color:var(--text3)">Toca para agregar foto</div>';
   document.getElementById('photo-input').value = '';
 }
@@ -1046,7 +1059,7 @@ function openProd(id) {
     document.getElementById('p-frac').value = p.fracMin||1;
     document.getElementById('p-grupo').value = p.grupoMay||'';
     S.photo = p.image||null;
-    if(p.image) showPhoto(p.image); else resetPhoto('');
+    if(p.image) { showPhoto(p.image); } else resetPhoto('');
   } else {
     document.getElementById('mprod-title').textContent = 'Nuevo Producto';
     flds.forEach(f => { const e=document.getElementById(f); if(e) e.value=''; });
@@ -4037,37 +4050,37 @@ function renderInvoiceHTML(inv) {
 </script>
 
 <!-- ===== TIENDA ONLINE ===== -->
-<div id="tienda-app" style="display:none;position:fixed;inset:0;background:#0f0f0f;color:#fff;z-index:9999;overflow-y:auto;-webkit-overflow-scrolling:touch">
+<div id="tienda-app" style="display:none;position:fixed;inset:0;background:#ebebeb;color:#333;z-index:9999;overflow-y:auto;-webkit-overflow-scrolling:touch">
 
   <!-- Pantalla de bienvenida -->
-  <div id="tienda-login" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100dvh;padding:32px 24px">
+  <div id="tienda-login" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100dvh;padding:32px 24px;background:#ebebeb">
     <div style="font-size:48px;margin-bottom:16px">🛒</div>
-    <div style="font-family:Inter,sans-serif;font-size:26px;font-weight:800;color:#e8ff47;margin-bottom:8px" id="tienda-titulo">Surtimar</div>
-    <div style="color:#aaa;font-size:14px;margin-bottom:40px;text-align:center">Hacé tu pedido fácil y rápido</div>
+    <div style="font-family:Inter,sans-serif;font-size:26px;font-weight:800;color:#3483fa;margin-bottom:8px" id="tienda-titulo">Surtimar</div>
+    <div style="color:#666;font-size:14px;margin-bottom:40px;text-align:center">Hacé tu pedido fácil y rápido</div>
     <div style="width:100%;max-width:340px">
       <div style="font-size:14px;color:#aaa;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Tu número de celular</div>
       <div style="font-size:12px;color:#666;margin-bottom:8px">Sin el 0 y sin el 15 · Ej: 2235123456</div>
       <input id="tienda-phone-input" type="tel" placeholder="2235123456..." inputmode="numeric"
-        style="width:100%;padding:16px;font-size:16px;border-radius:14px;border:2px solid #333;background:#1a1a1a;color:#fff;box-sizing:border-box;outline:none"
+        style="width:100%;padding:16px;font-size:16px;border-radius:4px;border:1px solid #ccc;background:#fff;color:#333;box-sizing:border-box;outline:none"
         onfocus="this.style.borderColor='#e8ff47'" onblur="this.style.borderColor='#333'"
         onkeydown="if(event.key==='Enter')tiendaEntrar()">
       <button id="tienda-entrar-btn" onclick="tiendaEntrar()"
-        style="width:100%;margin-top:14px;padding:16px;background:#e8ff47;color:#0f0f0f;border:none;border-radius:14px;font-size:16px;font-weight:700;font-family:Inter,sans-serif;cursor:pointer">
+        style="width:100%;margin-top:14px;padding:16px;background:#3483fa;color:#fff;border:none;border-radius:4px;font-size:16px;font-weight:700;font-family:Inter,sans-serif;cursor:pointer">
         Ver productos →
       </button>
     </div>
   </div>
 
   <!-- Catálogo -->
-  <div id="tienda-catalogo" style="display:none;padding-bottom:120px">
+  <div id="tienda-catalogo" style="display:none;padding-bottom:120px;background:#ebebeb">
     <div style="position:sticky;top:0;z-index:10;background:#0f0f0f;padding:16px 16px 12px;border-bottom:1px solid #222">
       <div style="display:flex;align-items:center;justify-content:space-between">
         <div>
-          <div style="font-family:Inter,sans-serif;font-size:18px;font-weight:800;color:#e8ff47" id="tienda-cat-titulo">Surtimar</div>
-          <div style="font-size:14px;color:#666" id="tienda-saludo"></div>
+          <div style="font-family:Inter,sans-serif;font-size:18px;font-weight:800;color:#fff" id="tienda-cat-titulo">Surtimar</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.8)" id="tienda-saludo"></div>
         </div>
-        <button onclick="tiendaVerCarrito()" style="position:relative;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:12px;padding:10px 14px;font-size:20px;cursor:pointer">
-          🛒<span id="tienda-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#e8ff47;color:#0f0f0f;font-size:12px;font-weight:700;padding:2px 5px;border-radius:10px;min-width:16px;text-align:center">0</span>
+        <button onclick="tiendaVerCarrito()" style="position:relative;background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:10px 14px;font-size:20px;cursor:pointer">
+          🛒<span id="tienda-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#ffe600;color:#333;font-size:12px;font-weight:700;padding:2px 5px;border-radius:10px;min-width:16px;text-align:center">0</span>
         </button>
       </div>
       <div id="tienda-cats" style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:10px"></div>
@@ -4083,12 +4096,12 @@ function renderInvoiceHTML(inv) {
   </div>
 
   <!-- Carrito -->
-  <div id="tienda-carrito" style="display:none;padding-bottom:120px">
-    <div style="position:sticky;top:0;z-index:10;background:#0f0f0f;padding:16px;border-bottom:1px solid #222;display:flex;align-items:center;gap:12px">
-      <button onclick="tiendaVolverCatalogo()" style="background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:10px 14px;font-size:16px;cursor:pointer">←</button>
+  <div id="tienda-carrito" style="display:none;padding-bottom:120px;background:#ebebeb">
+    <div style="position:sticky;top:0;z-index:10;background:#3483fa;padding:16px;border-bottom:1px solid #2d6fd8;display:flex;align-items:center;gap:12px">
+      <button onclick="tiendaVolverCatalogo()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:8px;padding:10px 14px;font-size:16px;cursor:pointer">←</button>
       <div style="font-family:Inter,sans-serif;font-size:18px;font-weight:800;color:#fff">Tu pedido</div>
     </div>
-    <div id="tienda-carrito-items" style="padding:16px;display:flex;flex-direction:column;gap:10px"></div>
+    <div id="tienda-carrito-items" style="padding:12px 16px;display:flex;flex-direction:column;gap:8px"></div>
     <div id="tienda-carrito-empty" style="display:none;text-align:center;padding:60px 24px;color:#555">
       <div style="font-size:40px;margin-bottom:12px">🛒</div>
       <div>Tu carrito está vacío</div>
@@ -4096,13 +4109,13 @@ function renderInvoiceHTML(inv) {
   </div>
 
   <!-- Footer fijo con total y botón confirmar -->
-  <div id="tienda-footer" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#111;border-top:1px solid #222;padding:14px 16px;padding-bottom:calc(14px + env(safe-area-inset-bottom))">
+  <div id="tienda-footer" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:2px solid #e0e0e0;padding:14px 16px;padding-bottom:calc(14px + env(safe-area-inset-bottom))">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <span style="color:#aaa;font-size:15px">Total del pedido</span>
-      <span id="tienda-total" style="font-family:Inter,sans-serif;font-size:20px;font-weight:800;color:#e8ff47">$0.00</span>
+      <span style="color:#666;font-size:15px">Total del pedido</span>
+      <span id="tienda-total" style="font-family:Inter,sans-serif;font-size:20px;font-weight:800;color:#333">$0.00</span>
     </div>
     <button id="tienda-btn-confirmar" onclick="tiendaConfirmar()"
-      style="width:100%;padding:16px;background:#e8ff47;color:#0f0f0f;border:none;border-radius:14px;font-size:16px;font-weight:700;font-family:Inter,sans-serif;cursor:pointer">
+      style="width:100%;padding:16px;background:#3483fa;color:#fff;border:none;border-radius:4px;font-size:16px;font-weight:700;font-family:Inter,sans-serif;cursor:pointer">
       Confirmar pedido por WhatsApp 📲
     </button>
   </div>
@@ -4249,21 +4262,21 @@ function tiendaPriceArrow(p) {
 function tiendaProdCard(p) {
   const qty = TC[p.id]||0;
   const imgHtml = p.image
-    ? '<img src="'+p.image+'" style="width:72px;height:72px;border-radius:12px;object-fit:cover;flex-shrink:0">'
-    : '<div style="width:72px;height:72px;border-radius:12px;background:#222;display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0">'+(p.emoji||'📦')+'</div>';
+    ? '<img src="'+p.image+'" style="width:64px;height:64px;border-radius:4px;object-fit:cover;flex-shrink:0">'
+    : '<div style="width:64px;height:64px;border-radius:4px;background:#fef9e7;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">'+(p.emoji||'📦')+'</div>';
   const ctrl = qty===0
-    ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="background:#e8ff47;color:#0f0f0f;border:none;border-radius:8px;padding:7px 12px;font-weight:700;font-size:13px;cursor:pointer">+ Agregar</button>'
+    ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:4px;padding:7px 12px;font-weight:600;font-size:13px;cursor:pointer">+ Agregar</button>'
     : '<div style="display:flex;align-items:center;gap:10px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#333;color:#fff;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">−</button><span style="font-size:16px;font-weight:700;min-width:20px;text-align:center">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#e8ff47;color:#0f0f0f;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button></div>';
   const arrow = tiendaPriceArrow(p);
   const precioHtml = p.wholesalePrice&&p.wholesaleQty&&TC_CLI
-    ? '<div style="font-size:13px;color:#888;margin-top:2px">Minorista: $'+p.price.toFixed(0)+' '+arrow+'</div><div style="font-size:16px;font-weight:700;color:#e8ff47;margin-top:2px">Mayor x'+p.wholesaleQty+': $'+p.wholesalePrice.toFixed(0)+' c/u</div>'
-    : '<div style="font-size:16px;font-weight:700;color:#e8ff47;margin-top:4px">$'+p.price.toFixed(0)+' '+arrow+'</div>';
-  return '<div style="background:#1a1a1a;border-radius:14px;padding:14px;display:flex;gap:12px;align-items:center;'+(qty>0?'border:1px solid #e8ff4750;':'')+'">'
+    ? '<div style="font-size:12px;color:#999;margin-top:2px">Minorista: $'+p.price.toFixed(0)+' '+arrow+'</div><div style="font-size:16px;font-weight:700;color:#00a650;margin-top:2px">Mayor x'+p.wholesaleQty+': $'+p.wholesalePrice.toFixed(0)+' c/u</div>'
+    : '<div style="font-size:18px;font-weight:700;color:#333;margin-top:2px">$'+p.price.toFixed(0)+' '+arrow+'</div>';
+  return '<div style="background:'+(qty>0?'#fffde7':'#fff')+';border-radius:4px;padding:12px;display:flex;gap:12px;align-items:center;border:1px solid '+(qty>0?'#ffe066':'#e0e0e0')+';margin-bottom:8px">'
     +imgHtml
     +'<div style="flex:1;min-width:0">'
-    +'<div style="font-size:14px;font-weight:600;margin-bottom:3px;color:#fff">'+p.name+'</div>'
-    +(p.desc?'<div style="font-size:13px;color:#999;margin-bottom:4px">'+p.desc+'</div>':'')
-    +(p.stock===0?'<span style="color:#ff6b6b;font-size:13px">Sin stock</span>':'')
+    +'<div style="font-size:14px;font-weight:500;margin-bottom:3px;color:#333">'+p.name+'</div>'
+    +(p.desc?'<div style="font-size:12px;color:#999;margin-bottom:4px">'+p.desc+'</div>':'')
+    +(p.stock===0?'<span style="color:#e53e3e;font-size:12px">Sin stock</span>':'')
     +precioHtml
     +'</div>'
     +'<div style="flex-shrink:0">'+ctrl+'</div>'
@@ -4294,22 +4307,22 @@ function tiendaRender() {
   if(!q && cat==='todas') {
     const ofertas = prods.filter(p=>p.oferta);
     if(ofertas.length) {
-      html += '<div style="background:#1a1a1a;border-radius:14px;padding:14px;border:1px solid #333;margin-bottom:4px">';
-      html += '<div style="font-size:18px;font-weight:800;color:#ff4444;margin-bottom:12px">&#128293; Ofertas</div>';
+      html += '<div style="background:#fff;border-radius:4px;padding:14px;border:1px solid #e0e0e0;margin-bottom:8px;overflow:hidden">';
+      html += '<div style="font-size:14px;font-weight:800;color:#333;margin-bottom:12px;padding:8px 0;border-bottom:1px solid #e0e0e0">🔥 OFERTAS <span style="font-size:11px;color:#666;font-weight:400">Solo por hoy</span></div>';
       html += '<div style="display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch">';
       ofertas.forEach(p => {
         const prevPrice = p.priceHistory&&p.priceHistory.length ? p.priceHistory[p.priceHistory.length-1].price : null;
         const qty = TC[p.id]||0;
-        html += '<div style="flex-shrink:0;width:130px;background:#222;border-radius:10px;padding:10px;text-align:center">';
+        html += '<div style="flex-shrink:0;width:130px;background:#fffde7;border-radius:4px;padding:10px;text-align:center;border:1px solid #e0e0e0">';
         html += p.image
           ? '<img src="'+p.image+'" style="width:80px;height:80px;border-radius:10px;object-fit:cover;margin-bottom:4px">'
           : '<div style="font-size:28px;margin-bottom:4px">'+(p.emoji||'📦')+'</div>';
-        html += '<div style="font-size:12px;font-weight:600;margin-bottom:4px;line-height:1.3;color:#fff">'+p.name+'</div>';
-        if(prevPrice && prevPrice !== p.price) html += '<div style="font-size:11px;color:#666;text-decoration:line-through">$'+prevPrice.toFixed(0)+'</div>';
-        html += '<div style="font-size:15px;font-weight:800;color:#e8ff47">$'+p.price.toFixed(0)+'</div>';
+        html += '<div style="font-size:12px;font-weight:600;margin-bottom:4px;line-height:1.3;color:#333">'+p.name+'</div>';
+        if(prevPrice && prevPrice !== p.price) html += '<div style="font-size:11px;color:#999;text-decoration:line-through">$'+prevPrice.toFixed(0)+'</div>';
+        html += '<div style="font-size:16px;font-weight:800;color:#3483fa">$'+p.price.toFixed(0)+'</div>';
         html += qty===0
-          ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="margin-top:8px;width:100%;background:#e8ff47;color:#0f0f0f;border:none;border-radius:8px;padding:6px;font-weight:700;font-size:13px;cursor:pointer">+ Agregar</button>'
-          : '<div style="margin-top:8px;display:flex;align-items:center;justify-content:center;gap:6px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#333;color:#fff;border:none;border-radius:6px;width:28px;height:28px;font-size:16px;cursor:pointer">−</button><span style="font-weight:700;color:#fff">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#e8ff47;color:#0f0f0f;border:none;border-radius:6px;width:28px;height:28px;font-size:16px;cursor:pointer">+</button></div>';
+          ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="margin-top:8px;width:100%;background:#3483fa;color:#fff;border:none;border-radius:4px;padding:6px;font-weight:600;font-size:12px;cursor:pointer">Agregar</button>'
+          : '<div style="margin-top:8px;display:flex;align-items:center;justify-content:center;gap:6px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#e0e0e0;color:#333;border:none;border-radius:4px;width:28px;height:28px;font-size:16px;cursor:pointer">−</button><span style="font-weight:700;color:#333">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:4px;width:28px;height:28px;font-size:16px;cursor:pointer">+</button></div>';
         html += '</div>';
       });
       html += '</div></div>';
@@ -4330,7 +4343,7 @@ function tiendaRenderCats() {
   const cats = [...new Set(S.products.filter(p=>p.visible!==false&&p.price>0&&p.category).map(p=>p.category))].sort();
   const hasOfertas = S.products.some(p=>p.oferta&&p.visible!==false);
   const cat = window.T_CAT||'todas';
-  const btnStyle = (active) => 'flex-shrink:0;padding:8px 16px;border-radius:20px;border:none;font-size:14px;font-weight:700;cursor:pointer;'+(active?'background:#e8ff47;color:#0f0f0f':'background:#1a1a1a;color:#aaa;border:1px solid #333');
+  const btnStyle = (active) => 'flex-shrink:0;padding:6px 16px;border-radius:4px;border:none;font-size:13px;font-weight:600;cursor:pointer;'+(active?'background:#3483fa;color:#fff':'background:#fff;color:#555;border:1px solid #e0e0e0');
   el.innerHTML = '<button style="'+btnStyle(cat==='todas')+'" onclick="window.T_CAT=&quot;todas&quot;;tiendaRender()">Todas</button>'
     +(hasOfertas?'<button style="'+btnStyle(cat==='ofertas')+'" onclick="window.T_CAT=&quot;ofertas&quot;;tiendaRender()">🔥 Ofertas</button>':'')
     +cats.map(c=>'<button style="'+btnStyle(cat===c)+'" onclick="window.T_CAT=&quot;'+c+'&quot;;tiendaRender()">'+c+'</button>').join('');
@@ -4389,14 +4402,14 @@ function tiendaRenderCarrito() {
   cont.innerHTML = items.map(([id,qty])=>{
     const p=S.products.find(x=>x.id===id);
     if(!p) return '';
-    return '<div style="background:#1a1a1a;border-radius:14px;padding:14px;display:flex;align-items:center;gap:12px">'
+    return '<div style="background:#fffde7;border-radius:4px;padding:12px;display:flex;align-items:center;gap:12px;border:1px solid #e0e0e0">'
       +'<div style="font-size:28px">'+(p.emoji||'📦')+'</div>'
-      +'<div style="flex:1"><div style="font-size:14px;font-weight:600">'+p.name+'</div>'
-      +'<div style="font-size:15px;color:#e8ff47;margin-top:2px">$'+(p.price*qty).toFixed(2)+'</div></div>'
+      +'<div style="flex:1"><div style="font-size:14px;font-weight:500;color:#333">'+p.name+'</div>'
+      +'<div style="font-size:16px;font-weight:700;color:#333;margin-top:2px">$'+(p.price*qty).toFixed(0)+'</div></div>'
       +'<div style="display:flex;align-items:center;gap:10px">'
-      +'<button data-tid="'+id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#333;color:#fff;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">−</button>'
-      +'<span style="font-size:16px;font-weight:700;min-width:20px;text-align:center;color:#fff">'+qty+'</span>'
-      +'<button data-tid="'+id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#e8ff47;color:#0f0f0f;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>'
+      +'<button data-tid="'+id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#e0e0e0;color:#333;border:none;border-radius:4px;width:30px;height:30px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">−</button>'
+      +'<span style="font-size:16px;font-weight:700;min-width:20px;text-align:center;color:#333">'+qty+'</span>'
+      +'<button data-tid="'+id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:4px;width:30px;height:30px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>'
       +'</div></div>';
   }).join('');
   tiendaActTotal();
