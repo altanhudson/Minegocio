@@ -89,9 +89,9 @@
 </script>
 <style>
 :root {
-  --bg:#edf0ed; --surface:#f6f7f5; --surface2:#e4e8e3; --border:#cdd5cc;
-  --accent:#0d9488; --accent2:#0891b2; --accent3:#dc2626;
-  --text:#162018; --text2:#3a5042; --text3:#7a9485;
+  --bg:#f0f4ff; --surface:#ffffff; --surface2:#e8eef8; --border:#d0d9ee;
+  --accent:#1a3a6b; --accent2:#3483fa; --accent3:#dc2626;
+  --text:#1a2a4a; --text2:#2d4a7a; --text3:#7a8fa8;
   --green:#0d9488; --orange:#ea580c;
   --nav-h:74px; --top-h:60px; --r:14px; --rs:10px;
 }
@@ -130,7 +130,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .btn-xs{height:32px;padding:0 10px;font-size:14px}
 .btn-danger{background:rgba(255,107,107,.15);color:var(--accent3);border:1px solid rgba(255,107,107,.2)}
 .btn-full{width:100%}
-.fab{position:fixed;bottom:calc(var(--nav-h) + 16px);right:16px;z-index:20;width:56px;height:56px;border-radius:50%;background:var(--accent);color:#ffffff;border:none;font-size:26px;cursor:pointer;box-shadow:0 4px 20px rgba(232,255,71,.3);display:none;align-items:center;justify-content:center;transition:transform .15s}
+.fab{position:fixed;bottom:calc(var(--nav-h) + 16px);right:16px;z-index:20;width:56px;height:56px;border-radius:50%;background:var(--accent);color:#ffffff;border:none;font-size:26px;cursor:pointer;box-shadow:0 4px 20px rgba(26,58,107,.35);display:none;align-items:center;justify-content:center;transition:transform .15s}
 .fab:active{transform:scale(.93)}
 .form-group{margin-bottom:14px}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -230,7 +230,7 @@ select option{background:var(--surface2)}
 <body>
 <header class="topbar">
   <div class="topbar-title">Revendit</div>
-  <button class="btn btn-primary btn-sm" id="btn-add" onclick="handleAdd()">+ Nuevo</button>
+  <button class="btn btn-sm" id="btn-add" onclick="handleAdd()" style="background:#ffe600;color:#1a3a6b;border:none;font-weight:700">+ Nuevo</button>
 </header>
 <div class="pages">
 
@@ -4138,6 +4138,7 @@ function tiendaAdminEntrar() {
   const shell = document.getElementById('app-shell');
   if(shell) shell.style.display='none';
   document.getElementById('tienda-app').style.display='block';
+  document.body.style.background = '#ebebeb';
   document.getElementById('tienda-login').style.display='none';
   document.getElementById('tienda-catalogo').style.display='block';
   document.getElementById('tienda-saludo').textContent = 'Vista admin 👁️';
@@ -4158,6 +4159,7 @@ function tiendaAdminEntrar() {
 }
 function tiendaAdminVolver() {
   document.getElementById('tienda-app').style.display='none';
+  document.body.style.background = '';
   document.getElementById('tienda-app').style.paddingTop='';
   const bar = document.getElementById('tienda-admin-bar');
   if(bar) bar.remove();
@@ -4212,6 +4214,7 @@ function tiendaInit() {
   const shell = document.getElementById('app-shell');
   if(shell) shell.style.display='none';
   document.getElementById('tienda-app').style.display='block';
+  document.body.style.background = '#ebebeb';
   document.getElementById('tienda-titulo').textContent = TIENDA_NOMBRE;
   document.getElementById('tienda-cat-titulo').textContent = TIENDA_NOMBRE;
   // Cargar datos de Firebase y habilitar botón cuando estén listos
