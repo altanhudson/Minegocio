@@ -990,9 +990,29 @@ function handleAdd() {
 // === PHOTO ===
 function onPhoto(input) {
   if(!input.files[0]) return;
-  const r = new FileReader();
-  r.onload = e => { S.photo = e.target.result; showPhoto(e.target.result); };
-  r.readAsDataURL(input.files[0]);
+  const file = input.files[0];
+  // Comprimir imagen antes de mostrar/guardar
+  const img = new Image();
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    img.onload = function() {
+      const MAX = 400;
+      let w = img.width, h = img.height;
+      if(w > MAX || h > MAX) {
+        if(w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const compressed = canvas.toDataURL('image/jpeg', 0.7);
+      S.photo = compressed;
+      S.photoFile = file; // guardar archivo original para Storage
+      showPhoto(compressed);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
 }
 function onImgUrl(url) { if(url){ S.photo=url; showPhoto(url); } }
 function showPhoto(src) {
@@ -1000,6 +1020,7 @@ function showPhoto(src) {
 }
 function resetPhoto(em) {
   S.photo = null;
+  S.photoFile = null;
   document.getElementById('photo-preview').innerHTML = '<div style="font-size:40px;margin-bottom:8px">'+(em||'&#128247;')+'</div><div style="font-size:15px;color:var(--text3)">Toca para agregar foto</div>';
   document.getElementById('photo-input').value = '';
 }
@@ -1062,6 +1083,26 @@ function saveProd() {
     image: S.photo||null,
     sku: S.editId ? (S.products.find(p=>p.id===S.editId)||{}).sku : 'P'+Date.now()
   };
+  // Subir foto a Storage si hay foto nueva
+  if(S.photoFile && window._fbUploadPhoto) {
+    const prodId = prod.id;
+    toast('Subiendo foto...');
+    window._fbUploadPhoto(S.photoFile, prodId).then(function(url) {
+      prod.image = url;
+      S.photo = url;
+      S.photoFile = null;
+      // Actualizar producto en array con la URL real
+      const idx2 = S.products.findIndex(p=>p.id===prodId);
+      if(idx2>=0) S.products[idx2].image = url;
+      save();
+      try{renderProds();}catch(e){}
+      toast('Foto guardada ✓');
+    }).catch(function(e) {
+      console.error('Error subiendo foto:', e);
+      toast('Error al subir foto');
+    });
+    S.photoFile = null;
+  }
   // Guardar historial de precio si cambió
   const newPrice = parseFloat(document.getElementById('p-price').value)||0;
   if(S.editId) {
@@ -4211,7 +4252,7 @@ function tiendaProdCard(p) {
     ? '<img src="'+p.image+'" style="width:72px;height:72px;border-radius:12px;object-fit:cover;flex-shrink:0">'
     : '<div style="width:72px;height:72px;border-radius:12px;background:#222;display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0">'+(p.emoji||'📦')+'</div>';
   const ctrl = qty===0
-    ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="background:#e8ff47;color:#0f0f0f;border:none;border-radius:10px;padding:10px 16px;font-weight:700;font-size:14px;cursor:pointer">+ Agregar</button>'
+    ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="background:#e8ff47;color:#0f0f0f;border:none;border-radius:8px;padding:7px 12px;font-weight:700;font-size:13px;cursor:pointer">+ Agregar</button>'
     : '<div style="display:flex;align-items:center;gap:10px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#333;color:#fff;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">−</button><span style="font-size:16px;font-weight:700;min-width:20px;text-align:center">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#e8ff47;color:#0f0f0f;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button></div>';
   const arrow = tiendaPriceArrow(p);
   const precioHtml = p.wholesalePrice&&p.wholesaleQty&&TC_CLI
@@ -4254,13 +4295,15 @@ function tiendaRender() {
     const ofertas = prods.filter(p=>p.oferta);
     if(ofertas.length) {
       html += '<div style="background:#1a1a1a;border-radius:14px;padding:14px;border:1px solid #333;margin-bottom:4px">';
-      html += '<div style="font-size:13px;font-weight:700;color:#ff4444;margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">&#128293; Ofertas del día</div>';
+      html += '<div style="font-size:18px;font-weight:800;color:#ff4444;margin-bottom:12px">&#128293; Ofertas</div>';
       html += '<div style="display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch">';
       ofertas.forEach(p => {
         const prevPrice = p.priceHistory&&p.priceHistory.length ? p.priceHistory[p.priceHistory.length-1].price : null;
         const qty = TC[p.id]||0;
         html += '<div style="flex-shrink:0;width:130px;background:#222;border-radius:10px;padding:10px;text-align:center">';
-        html += '<div style="font-size:28px;margin-bottom:4px">'+(p.emoji||'📦')+'</div>';
+        html += p.image
+          ? '<img src="'+p.image+'" style="width:80px;height:80px;border-radius:10px;object-fit:cover;margin-bottom:4px">'
+          : '<div style="font-size:28px;margin-bottom:4px">'+(p.emoji||'📦')+'</div>';
         html += '<div style="font-size:12px;font-weight:600;margin-bottom:4px;line-height:1.3;color:#fff">'+p.name+'</div>';
         if(prevPrice && prevPrice !== p.price) html += '<div style="font-size:11px;color:#666;text-decoration:line-through">$'+prevPrice.toFixed(0)+'</div>';
         html += '<div style="font-size:15px;font-weight:800;color:#e8ff47">$'+p.price.toFixed(0)+'</div>';
