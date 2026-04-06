@@ -4096,7 +4096,7 @@ function renderInvoiceHTML(inv) {
   </div>
 
   <!-- Carrito -->
-  <div id="tienda-carrito" style="display:none;position:fixed;inset:0;background:#ebebeb;z-index:100;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:140px">
+  <div id="tienda-carrito" style="display:none;position:fixed;inset:0;background:#ebebeb;z-index:10001;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:140px">
     <div style="background:#3483fa;padding:16px;border-bottom:1px solid #2d6fd8;display:flex;align-items:center;gap:12px">
       <button onclick="tiendaVolverCatalogo()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:8px;padding:10px 14px;font-size:16px;cursor:pointer">←</button>
       <div style="font-family:Inter,sans-serif;font-size:18px;font-weight:800;color:#fff">Tu pedido</div>
@@ -4109,7 +4109,7 @@ function renderInvoiceHTML(inv) {
   </div>
 
   <!-- Footer fijo con total y botón confirmar -->
-  <div id="tienda-footer" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:2px solid #e0e0e0;padding:14px 16px;padding-bottom:calc(14px + env(safe-area-inset-bottom));z-index:101">
+  <div id="tienda-footer" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:2px solid #e0e0e0;padding:14px 16px;padding-bottom:calc(14px + env(safe-area-inset-bottom));z-index:10002">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
       <span style="color:#666;font-size:15px">Total del pedido</span>
       <span id="tienda-total" style="font-family:Inter,sans-serif;font-size:20px;font-weight:800;color:#333">$0.00</span>
@@ -4214,8 +4214,10 @@ function tiendaInit() {
   document.querySelectorAll('.page,.bottom-nav,.top-bar,.fab').forEach(e=>e.style.display='none');
   const shell = document.getElementById('app-shell');
   if(shell) shell.style.display='none';
-  document.getElementById('tienda-app').style.display='block';
   document.body.style.background = '#ebebeb';
+  document.body.style.overflow = 'hidden';
+  document.documentElement.style.background = '#ebebeb';
+  document.getElementById('tienda-app').style.display='block';
   document.getElementById('tienda-titulo').textContent = TIENDA_NOMBRE;
   document.getElementById('tienda-cat-titulo').textContent = TIENDA_NOMBRE;
   // Cargar datos de Firebase y habilitar botón cuando estén listos
