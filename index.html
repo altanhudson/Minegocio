@@ -4132,7 +4132,7 @@ let T_VISTA = 'login'; // login | catalogo | carrito
 
 function tiendaAdminEntrar() {
   TC_CLI = null; TC_PHONE = 'admin'; TN = 'Admin';
-  TC = {};
+  // No resetear TC para preservar carrito entre visitas admin
   // Mostrar tienda directamente sin login
   document.querySelectorAll('.page,.bottom-nav,.top-bar,.fab').forEach(e=>e.style.display='none');
   const shell = document.getElementById('app-shell');
@@ -4387,11 +4387,18 @@ function tiendaActTotal() {
 function tiendaVerCarrito() {
   T_VISTA='carrito';
   document.getElementById('tienda-catalogo').style.display='none';
-  document.getElementById('tienda-carrito').style.display='block';
-  document.getElementById('tienda-footer').style.display='block';
+  const car = document.getElementById('tienda-carrito');
+  const footer = document.getElementById('tienda-footer');
+  car.style.display='block';
+  footer.style.display='block';
   tiendaRenderCarrito();
-  document.getElementById('tienda-app').scrollTop = 0;
-  setTimeout(function(){ document.getElementById('tienda-footer').style.display='block'; }, 50);
+  tiendaActTotal();
+  // Force repaint
+  car.style.opacity='0.99';
+  setTimeout(function(){
+    car.style.opacity='1';
+    footer.style.display='block';
+  }, 30);
 }
 
 function tiendaVolverCatalogo() {
