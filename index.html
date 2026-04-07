@@ -4073,38 +4073,38 @@ function renderInvoiceHTML(inv) {
 
   <!-- Catálogo -->
   <div id="tienda-catalogo" style="display:none;padding-bottom:120px;background:#ebebeb">
-    <div style="position:sticky;top:0;z-index:10;background:#0f0f0f;padding:16px 16px 12px;border-bottom:1px solid #222">
+    <div style="position:sticky;top:0;z-index:10;background:#3483fa;padding:16px 16px 12px;border-bottom:1px solid #2d6fd8">
       <div style="display:flex;align-items:center;justify-content:space-between">
         <div>
           <div style="font-family:Inter,sans-serif;font-size:18px;font-weight:800;color:#fff" id="tienda-cat-titulo">Surtimar</div>
           <div style="font-size:13px;color:rgba(255,255,255,.8)" id="tienda-saludo"></div>
         </div>
-        <button onclick="tiendaVerCarrito()" style="position:relative;background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:10px 14px;font-size:20px;cursor:pointer">
+        <button onclick="tiendaVerCarrito()" style="position:relative;background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:10px 14px;font-size:20px;cursor:pointer" id="tienda-cart-btn">
           🛒<span id="tienda-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#ffe600;color:#333;font-size:12px;font-weight:700;padding:2px 5px;border-radius:10px;min-width:16px;text-align:center">0</span>
         </button>
       </div>
       <div id="tienda-cats" style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:10px"></div>
       <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
         <input id="tienda-buscar" type="text" placeholder="Buscar producto..." oninput="tiendaRender()"
-        style="width:100%;margin-top:12px;padding:12px;font-size:14px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#fff;box-sizing:border-box;outline:none">
+        style="width:100%;margin-top:12px;padding:12px;font-size:14px;border-radius:4px;border:1px solid #e0e0e0;background:#fff;color:#333;box-sizing:border-box;outline:none">
     </div>
     <div style="display:flex;justify-content:flex-end;padding:4px 16px 0;gap:6px">
-      <button onclick="tiendaSetVista('lista')" id="tienda-btn-lista" style="padding:8px 12px;border-radius:10px;border:none;background:#e8ff47;color:#0f0f0f;font-size:16px;cursor:pointer">☰</button>
-      <button onclick="tiendaSetVista('grilla')" id="tienda-btn-grilla" style="padding:8px 12px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#aaa;font-size:16px;cursor:pointer">⊞</button>
+      <button onclick="tiendaSetVista('lista')" id="tienda-btn-lista" style="padding:8px 12px;border-radius:4px;border:none;background:#ffe600;color:#333;font-size:16px;cursor:pointer">☰</button>
+      <button onclick="tiendaSetVista('grilla')" id="tienda-btn-grilla" style="padding:8px 12px;border-radius:4px;border:1px solid #e0e0e0;background:#fff;color:#aaa;font-size:16px;cursor:pointer">⊞</button>
     </div>
     <div id="tienda-lista" style="padding:12px 16px;display:flex;flex-direction:column;gap:10px"></div>
   </div>
 
-  <!-- Carrito -->
-  <div id="tienda-carrito" style="display:none;position:fixed;inset:0;background:#ebebeb;z-index:10001;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:140px">
-    <div style="background:#3483fa;padding:16px;border-bottom:1px solid #2d6fd8;display:flex;align-items:center;gap:12px">
-      <button onclick="tiendaVolverCatalogo()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:8px;padding:10px 14px;font-size:16px;cursor:pointer">←</button>
-      <div style="font-family:Inter,sans-serif;font-size:18px;font-weight:800;color:#fff">Tu pedido</div>
+  <!-- Carrito inline (al final del catálogo) -->
+  <div id="tienda-carrito" style="display:none;margin:0 0 16px;border-radius:8px;overflow:hidden;border:2px solid #3483fa">
+    <div style="background:#3483fa;padding:12px 16px;display:flex;align-items:center;justify-content:space-between">
+      <div style="font-family:Inter,sans-serif;font-size:15px;font-weight:800;color:#fff">🛒 Tu pedido</div>
+      <span id="tienda-carrito-count" style="font-size:13px;color:rgba(255,255,255,.8)"></span>
     </div>
-    <div id="tienda-carrito-items" style="padding:12px 16px 140px;display:flex;flex-direction:column;gap:8px"></div>
-    <div id="tienda-carrito-empty" style="display:none;text-align:center;padding:60px 24px;color:#555">
-      <div style="font-size:40px;margin-bottom:12px">🛒</div>
-      <div>Tu carrito está vacío</div>
+    <div id="tienda-carrito-items" style="background:#fff;padding:12px 16px;display:flex;flex-direction:column;gap:8px"></div>
+    <div id="tienda-carrito-empty" style="display:none;text-align:center;padding:30px 24px;color:#999;background:#fff">
+      <div style="font-size:32px;margin-bottom:8px">🛒</div>
+      <div style="font-size:14px">Tu carrito está vacío</div>
     </div>
   </div>
 
@@ -4360,12 +4360,12 @@ function tiendaAdd(id) {
   tiendaRender();
   if(T_VISTA==='carrito') tiendaRenderCarrito();
 }
-function tiendaInc(id) { TC[id]=(TC[id]||0)+1; tiendaRender(); if(T_VISTA==='carrito') tiendaRenderCarrito(); }
+function tiendaInc(id) { TC[id]=(TC[id]||0)+1; tiendaRender(); if(document.getElementById('tienda-carrito').style.display!=='none') tiendaRenderCarrito(); tiendaActTotal(); }
 function tiendaDec(id) {
   TC[id]=(TC[id]||1)-1;
   if(TC[id]<=0) delete TC[id];
   tiendaRender();
-  if(T_VISTA==='carrito') tiendaRenderCarrito();
+  if(document.getElementById('tienda-carrito').style.display!=='none') tiendaRenderCarrito();
 }
 
 function tiendaActBadge() {
@@ -4385,34 +4385,30 @@ function tiendaActTotal() {
 }
 
 function tiendaVerCarrito() {
-  T_VISTA='carrito';
-  document.getElementById('tienda-catalogo').style.display='none';
-  const car = document.getElementById('tienda-carrito');
-  const footer = document.getElementById('tienda-footer');
-  car.style.display='block';
-  footer.style.display='block';
+  T_VISTA = 'carrito';
   tiendaRenderCarrito();
   tiendaActTotal();
-  // Force repaint
-  car.style.opacity='0.99';
-  setTimeout(function(){
-    car.style.opacity='1';
-    footer.style.display='block';
-  }, 30);
+  const car = document.getElementById('tienda-carrito');
+  car.style.display = 'block';
+  const lista = document.getElementById('tienda-lista');
+  if(lista && lista.parentNode) {
+    lista.parentNode.insertBefore(car, lista.nextSibling);
+  }
+  setTimeout(function(){ car.scrollIntoView({behavior:'smooth', block:'start'}); }, 50);
 }
 
 function tiendaVolverCatalogo() {
   T_VISTA='catalogo';
   document.getElementById('tienda-carrito').style.display='none';
-  document.getElementById('tienda-catalogo').style.display='block';
-  tiendaRender();
-  history.pushState({tienda:'catalogo'},'','');
+  document.getElementById('tienda-app').scrollTo({top:0, behavior:'smooth'});
 }
 
 function tiendaRenderCarrito() {
   const items = Object.entries(TC).filter(([,q])=>q>0);
   const cont = document.getElementById('tienda-carrito-items');
   const empty = document.getElementById('tienda-carrito-empty');
+  const count = document.getElementById('tienda-carrito-count');
+  if(count) count.textContent = items.length + ' producto' + (items.length!==1?'s':'');
   if(!items.length){cont.innerHTML='';empty.style.display='block';tiendaActTotal();return;}
   empty.style.display='none';
   const rows = items.map(([id,qty])=>{
@@ -4490,10 +4486,13 @@ function tiendaConfirmar() {
 
 // Manejar botón atrás en tienda
 window.addEventListener('popstate', function(e) {
-  if(T_VISTA === 'carrito') { tiendaVolverCatalogo(); }
-  else if(T_VISTA === 'catalogo' && document.getElementById('tienda-app').style.display !== 'none') {
-    // Permitir salir de la tienda
-    history.back();
+  if(document.getElementById('tienda-app').style.display !== 'none') {
+    const car = document.getElementById('tienda-carrito');
+    if(car && car.style.display !== 'none') {
+      tiendaVolverCatalogo();
+    } else {
+      history.back();
+    }
   }
 });
 // Iniciar tienda si la URL corresponde
