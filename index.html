@@ -4079,7 +4079,7 @@ function renderInvoiceHTML(inv) {
           <div style="font-family:Inter,sans-serif;font-size:18px;font-weight:800;color:#fff" id="tienda-cat-titulo">Surtimar</div>
           <div style="font-size:13px;color:rgba(255,255,255,.8)" id="tienda-saludo"></div>
         </div>
-        <button onclick="tiendaVerCarrito()" style="position:relative;background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:10px 14px;font-size:20px;cursor:pointer" id="tienda-cart-btn">
+        <button onclick="tiendaVerCarrito()" style="position:relative;background:#fff;border:none;color:#3483fa;border-radius:8px;padding:8px 12px;font-size:20px;cursor:pointer;font-weight:700" id="tienda-cart-btn">
           🛒<span id="tienda-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#ffe600;color:#333;font-size:12px;font-weight:700;padding:2px 5px;border-radius:10px;min-width:16px;text-align:center">0</span>
         </button>
       </div>
@@ -4145,7 +4145,14 @@ function tiendaAdminEntrar() {
   document.getElementById('tienda-saludo').textContent = 'Vista admin 👁️';
   document.getElementById('tienda-footer').style.display='block';
   document.getElementById('tienda-titulo').textContent = TIENDA_NOMBRE;
+  document.getElementById('tienda-titulo').style.color = '#3483fa';
   document.getElementById('tienda-cat-titulo').textContent = TIENDA_NOMBRE;
+  // Fix login bg
+  const loginEl = document.getElementById('tienda-login');
+  if(loginEl) loginEl.style.background = '#ebebeb';
+  // Fix entrar btn
+  const btnEntrar = document.getElementById('tienda-entrar-btn');
+  if(btnEntrar) { btnEntrar.style.background = '#3483fa'; btnEntrar.style.color = '#fff'; }
   window.T_CAT = 'todas';
   T_VISTA_TIPO = 'lista';
   tiendaRender();
@@ -4210,16 +4217,25 @@ function tiendaProdCardGrid(p) {
 }
 function tiendaInit() {
   if(!window.location.search.includes('tienda')) return;
-  // Ocultar app principal - esperar DOMContentLoaded ya lo hizo
+  // Ocultar app principal
   document.querySelectorAll('.page,.bottom-nav,.top-bar,.fab').forEach(e=>e.style.display='none');
   const shell = document.getElementById('app-shell');
   if(shell) shell.style.display='none';
   document.body.style.background = '#ebebeb';
   document.body.style.overflow = 'hidden';
   document.documentElement.style.background = '#ebebeb';
+  // Override dark CSS variables for tienda
+  document.documentElement.style.setProperty('--bg','#ebebeb');
   document.getElementById('tienda-app').style.display='block';
   document.getElementById('tienda-titulo').textContent = TIENDA_NOMBRE;
+  document.getElementById('tienda-titulo').style.color = '#3483fa';
   document.getElementById('tienda-cat-titulo').textContent = TIENDA_NOMBRE;
+  // Fix login bg
+  const loginEl = document.getElementById('tienda-login');
+  if(loginEl) loginEl.style.background = '#ebebeb';
+  // Fix entrar btn
+  const btnEntrar = document.getElementById('tienda-entrar-btn');
+  if(btnEntrar) { btnEntrar.style.background = '#3483fa'; btnEntrar.style.color = '#fff'; }
   // Cargar datos de Firebase y habilitar botón cuando estén listos
   const btn = document.getElementById('tienda-entrar-btn');
   if(btn) { btn.disabled = true; btn.textContent = 'Cargando...'; }
