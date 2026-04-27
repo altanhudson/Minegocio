@@ -1939,7 +1939,7 @@ function ncRenderList(q) {
 
 function ncQtyChange(input) {
   const pid = input.dataset.ncpid;
-  const qty = parseInt(input.value)||0;
+  const qty = parseFloat(input.value)||0;
   if(!ncItems[pid]) {
     const costInput = input.parentElement && input.parentElement.querySelector('[data-field="cost"]');
     const costVal = costInput ? (parseFloat(costInput.value)||0) : 0;
