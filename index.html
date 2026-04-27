@@ -230,8 +230,12 @@ select option{background:var(--surface2)}
 <body>
 <header class="topbar">
   <div class="topbar-title">Revendit</div>
-  <button class="btn btn-sm" id="btn-add" onclick="handleAdd()" style="background:#ffe600;color:#1a3a6b;border:none;font-weight:700;display:none">+ Nuevo</button>
-  <button class="btn btn-sm" onclick="showPage('config')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:18px;padding:6px 12px">&#9881;&#65039;</button>
+  <div style="display:flex;align-items:center;gap:6px">
+    <button class="btn btn-sm" id="btn-add" onclick="handleAdd()" style="background:#ffe600;color:#1a3a6b;border:none;font-weight:700;display:none">+ Nuevo</button>
+    <div style="position:relative">
+      <button class="btn btn-sm" onclick="showPage('config')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:18px;padding:6px 12px">&#9881;&#65039;</button>
+    </div>
+  </div>
 </header>
 <div class="pages">
 
@@ -998,7 +1002,8 @@ function showPage(p) {
   document.getElementById('btn-add').textContent = L[p] !== undefined ? L[p] : '+ Nuevo';
   const btnAdd = document.getElementById('btn-add');
   const hideBtn = ['nueva-factura','resumen-factura','nueva-compra','resumen-compra','reparto','cobrar-reparto','config'].includes(p);
-  if(btnAdd) btnAdd.style.display = hideBtn ? 'none' : '';
+  const emptyBtn = (L[p]==='');
+  if(btnAdd) btnAdd.style.display = (hideBtn||emptyBtn) ? 'none' : '';
   const fab = document.querySelector('.fab');
   const showFab = !['stock','cli-detalle','prov-detalle','prod-historial','prod-historial','grupos','nueva-factura','resumen-factura','nueva-compra','resumen-compra','reparto','cobrar-reparto','config'].includes(p);
   if(fab) fab.style.display = showFab ? 'flex' : 'none';
@@ -2447,7 +2452,12 @@ function saveInv() {
   inv.saldo = Math.max(0, inv.total - totalPagadoFinal);
   inv.aFavor = totalPagadoFinal > inv.total ? totalPagadoFinal - inv.total : 0;
   if(cliData && inv.aFavor>0) cliData.credito = inv.aFavor;
-  if(pago>0 || S.editId) inv.status = inv.saldo<=0 ? 'pagada' : status;
+  // Siempre recalcular status al editar: si el total subió y los pagos no alcanzan → pendiente
+  if(S.editId) {
+    inv.status = inv.saldo<=0 ? 'pagada' : 'pendiente';
+  } else if(pago>0) {
+    inv.status = inv.saldo<=0 ? 'pagada' : status;
+  }
   if(S.editId){const i=S.invoices.findIndex(x=>x.id===S.editId);S.invoices[i]=inv;}else S.invoices.unshift(inv);
   try{renderInvs();}catch(e){} try{updDash();}catch(e){} try{save();}catch(e){} cerrarNuevaFac(); toast('Factura guardada');
 
@@ -2511,7 +2521,8 @@ function renderInvs() {
       +'<span style="font-weight:700;color:var(--accent);white-space:nowrap">$'+(item.qty*item.price).toFixed(0)+'</span>'
       +'</div>'
     ).join('');
-    return '<div class="card" style="overflow:hidden">'
+    const _bc = inv.status==='pagada'?'#16a34a':(inv.pagos&&inv.pagos.length&&inv.saldo>0)?'#eab308':'#dc2626';
+    return '<div class="card" style="overflow:hidden;border-left:4px solid '+_bc+'">' 
     +'<div data-action="toggleInv" data-id="'+inv.id+'" style="cursor:pointer">'
     +'<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:12px 14px 6px">'
     +'<div style="font-weight:900;font-size:18px;color:var(--text);flex:1;line-height:1.2">'+inv.clientName+'</div>'
