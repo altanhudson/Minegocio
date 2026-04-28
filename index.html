@@ -2645,11 +2645,16 @@ function renderInvs() {
     +'<div data-action="toggleInv" data-id="'+inv.id+'" style="cursor:pointer">'
     +'<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:12px 14px 6px">'
     +'<div style="font-weight:900;font-size:18px;color:var(--text);flex:1;line-height:1.2">'+inv.clientName+'</div>'
-    +'<div style="text-align:right;flex-shrink:0;padding-left:8px">'
-    +'<div style="font-weight:800;font-size:16px;color:var(--accent)">$'+inv.total.toFixed(0)+'</div>'
-    +(saldo>0?'<div style="font-size:13px;color:var(--accent3);font-weight:600">Debe: $'+saldo.toFixed(0)+'</div>':'')
-    +(inv.aFavor>0?'<div style="font-size:13px;color:var(--green)">A favor: $'+inv.aFavor.toFixed(0)+'</div>':'')
-    +'</div></div>'
+    +(()=>{
+      const deudaAnterior = S.invoices.filter(i=>i.clientId===inv.clientId&&i.id!==inv.id&&i.status!=='pagada'&&i.status!=='cancelada'&&i.type!=='presupuesto'&&i.type===inv.type).reduce((s,i)=>s+(i.saldo||0),0);
+      const totalDeuda = saldo + deudaAnterior;
+      return '<div style="text-align:right;flex-shrink:0;padding-left:8px">'
+        +'<div style="font-weight:800;font-size:16px;color:var(--accent)">$'+inv.total.toFixed(0)+'</div>'
+        +(deudaAnterior>0?'<div style="font-size:12px;color:var(--accent3);font-weight:600">Ant: $'+deudaAnterior.toFixed(0)+'</div>':'')
+        +(saldo>0?'<div style="font-size:13px;color:var(--accent3);font-weight:700">Total: $'+totalDeuda.toFixed(0)+'</div>':''
+        +(inv.aFavor>0?'<div style="font-size:13px;color:var(--green)">A favor: $'+inv.aFavor.toFixed(0)+'</div>':''))
+        +'</div></div>';
+    })()
     +'<div style="display:flex;align-items:center;gap:8px;padding:0 14px 10px">'
     +badge+(inv.type==='cigarrillos'?'<span class="badge" style="background:#1a2a4a;color:#fff;margin-left:0">🚬 Cigarrillos</span>':'')+'<span style="font-size:13px;color:var(--text2);font-weight:600">'+inv.date.split('-').reverse().join('/')+' · '+inv.items.length+' prod.</span>'
     +'<span style="margin-left:auto;font-size:14px;color:var(--text3)" id="inv-arrow-'+inv.id+'">▼</span>'
