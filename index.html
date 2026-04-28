@@ -301,6 +301,7 @@ select option{background:var(--surface2)}
       <div class="tab" onclick="filterInv('pendiente',this)">Pendientes</div>
       <div class="tab" onclick="filterInv('pagada',this)">Pagadas</div>
       <div class="tab" onclick="filterInv('presupuesto',this)">Presup.</div>
+      <div class="tab" onclick="filterInv('cigarrillos',this)">🚬 Cigarrillos</div>
       <div class="tab" onclick="filterInv('tienda',this)">🛒 Tienda</div>
     </div>
     <div id="inv-list"></div>
@@ -388,7 +389,7 @@ select option{background:var(--surface2)}
       <button onclick="invAgregarProducto()" style="width:100%;padding:10px;margin-bottom:12px;background:var(--surface2);border:2px dashed var(--border);border-radius:12px;font-size:14px;font-weight:600;color:var(--accent);cursor:pointer">➕ Agregar producto</button>
       <div style="margin-bottom:10px"><div style="font-size:12px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Fecha</div><input type="date" id="i-date-res" style="width:100%;font-size:15px;padding:8px;border:1px solid var(--border);border-radius:10px;background:var(--surface2)"></div>
       <div style="display:flex;gap:8px;margin-bottom:12px">
-        <div style="flex:1"><select id="i-type" style="width:100%;font-size:15px;padding:8px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:Inter,sans-serif"><option value="factura">Factura</option><option value="presupuesto">Presupuesto</option></select></div>
+        <div style="flex:1"><select id="i-type" style="width:100%;font-size:15px;padding:8px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:Inter,sans-serif"><option value="factura">Factura</option><option value="cigarrillos">Cigarrillos</option><option value="presupuesto">Presupuesto</option></select></div>
         <div style="flex:1"><select id="i-status" style="width:100%;font-size:15px;padding:8px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:Inter,sans-serif"><option value="pendiente">Pendiente</option><option value="pagada">Pagada</option></select></div>
       </div>
       <div class="totals-box" id="nf-totals">
@@ -529,10 +530,18 @@ select option{background:var(--surface2)}
   <div class="page" id="page-prod-historial">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
       <button onclick="showPage('productos')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:10px 14px;font-size:16px;cursor:pointer">←</button>
-      <div id="prodh-nombre" style="font-family:Inter,sans-serif;font-size:18px;font-weight:800;flex:1"></div>
+      <div style="flex:1">
+        <div id="prodh-nombre" style="font-family:Inter,sans-serif;font-size:18px;font-weight:800"></div>
+        <div id="prodh-stock-actual" style="font-size:13px;color:var(--text3)"></div>
+      </div>
       <button onclick="openProd(prodHistId)" style="background:var(--surface2);border:1px solid var(--border);color:var(--accent);border-radius:10px;padding:8px 14px;font-size:14px;font-weight:700;cursor:pointer">✏️ Editar</button>
     </div>
-    <div id="prodh-stats" style="display:flex;gap:0;background:var(--surface);border-radius:var(--r);border:1px solid var(--border);overflow:hidden;margin-bottom:14px"></div>
+    <div id="prodh-stats" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px"></div>
+    <div class="tabs" style="margin-bottom:12px">
+      <div class="tab active" id="prodh-tab-todos" onclick="prodHTab('todos',this)">📋 Todos</div>
+      <div class="tab" id="prodh-tab-compras" onclick="prodHTab('compras',this)">⬆️ Compras</div>
+      <div class="tab" id="prodh-tab-ventas" onclick="prodHTab('ventas',this)">⬇️ Ventas</div>
+    </div>
     <div id="prodh-content"></div>
   </div>
 
@@ -1688,57 +1697,87 @@ function renderInvPagos() {
     +'</div>';
 }
 let prodHistId = null;
+let prodHTabActivo = 'todos';
+function prodHTab(tab, el) {
+  prodHTabActivo = tab;
+  document.querySelectorAll('#page-prod-historial .tab').forEach(t=>t.classList.remove('active'));
+  if(el) el.classList.add('active');
+  renderProdMovimientos(prodHistId);
+}
 function verProdHistorial(id) {
   const p = S.products.find(x=>x.id===id);
   if(!p) return;
   prodHistId = id;
+  prodHTabActivo = 'todos';
+  document.querySelectorAll('#page-prod-historial .tab').forEach(t=>t.classList.remove('active'));
+  const tabTodos = document.getElementById('prodh-tab-todos');
+  if(tabTodos) tabTodos.classList.add('active');
   document.getElementById('prodh-nombre').textContent = (p.emoji||'📦')+' '+p.name;
-
-  // Buscar todas las ventas de este producto
+  const stockEl = document.getElementById('prodh-stock-actual');
+  if(stockEl) stockEl.textContent = 'Stock actual: '+(p.stock||0)+' uds';
+  renderProdMovimientos(id);
+  showPage('prod-historial');
+}
+function renderProdMovimientos(id) {
+  const p = S.products.find(x=>x.id===id);
+  if(!p) return;
+  // Ventas (salidas)
   const ventas = [];
   S.invoices.forEach(inv => {
     if(inv.type==='presupuesto') return;
     (inv.items||[]).forEach(item => {
       if(item.prodId === id || item.desc === p.name) {
-        ventas.push({ date: inv.date, invId: inv.id, clientName: inv.clientName, clientId: inv.clientId, qty: item.qty||1, price: item.price||0 });
+        ventas.push({ tipo:'venta', date: inv.date, ref: inv.id, desc: inv.clientName, qty: -(item.qty||1), price: item.price||0 });
       }
     });
   });
-  ventas.sort((a,b)=>b.date.localeCompare(a.date));
-
+  // Compras (entradas)
+  const compras = [];
+  S.compras.forEach(comp => {
+    if(comp.draft) return;
+    (comp.items||[]).forEach(item => {
+      if(item.prodId === id) {
+        compras.push({ tipo:'compra', date: comp.date, ref: comp.id, desc: comp.provName||'Proveedor', qty: item.qty||0, price: item.cost||0 });
+      }
+    });
+  });
+  // Todos juntos ordenados
+  let movs = [...ventas, ...compras].sort((a,b)=>b.date.localeCompare(a.date));
+  // Filtrar según tab
+  if(prodHTabActivo==='ventas') movs = ventas.sort((a,b)=>b.date.localeCompare(a.date));
+  else if(prodHTabActivo==='compras') movs = compras.sort((a,b)=>b.date.localeCompare(a.date));
   // Stats
-  const totalUds = ventas.reduce((s,v)=>s+v.qty,0);
-  const clientes = new Set(ventas.map(v=>v.clientId)).size;
-  const ultima = ventas.length ? ventas[0].date : '—';
+  const totalEntradas = compras.reduce((s,m)=>s+(m.qty||0),0);
+  const totalSalidas = ventas.reduce((s,m)=>s+Math.abs(m.qty||0),0);
   const statsEl = document.getElementById('prodh-stats');
-  const statStyle = 'flex:1;padding:10px 8px;text-align:center;border-right:1px solid var(--border)';
-  statsEl.innerHTML =
-    '<div style="'+statStyle+'"><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Vendido</div><div style="font-size:20px;font-weight:900;color:var(--accent)">'+totalUds+' uds</div></div>'
-    +'<div style="'+statStyle+'"><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Clientes</div><div style="font-size:20px;font-weight:900;color:var(--accent)">'+clientes+'</div></div>'
-    +'<div style="flex:1;padding:10px 8px;text-align:center"><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Última venta</div><div style="font-size:14px;font-weight:700;color:var(--text2)">'+ultima+'</div></div>';
-
+  const statCard = (label,val,color) => '<div style="background:var(--surface);border-radius:var(--rs);border:1px solid var(--border);padding:10px;text-align:center"><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">'+label+'</div><div style="font-size:20px;font-weight:900;color:'+color+'">'+val+'</div></div>';
+  statsEl.innerHTML = statCard('Entradas','+'+totalEntradas,'#16a34a') + statCard('Salidas','-'+totalSalidas,'#dc2626') + statCard('Balance','+'+(totalEntradas-totalSalidas),'var(--accent)');
   // Content
   const contEl = document.getElementById('prodh-content');
-  if(!ventas.length) {
-    contEl.innerHTML = '<div class="empty"><div class="ei">📋</div><h3>Sin ventas</h3><p>Este producto no tiene ventas registradas</p></div>';
-    showPage('prod-historial');
+  if(!movs.length) {
+    contEl.innerHTML = '<div class="empty"><div class="ei">📋</div><h3>Sin movimientos</h3><p>No hay registros para este filtro</p></div>';
     return;
   }
+  const fmtDate = d => d ? d.split('-').reverse().join('/') : '—';
   contEl.innerHTML = '<div class="card"><div style="padding:0">'
-    +ventas.map((v,i)=>
-      '<div style="display:flex;align-items:center;gap:10px;padding:11px 14px;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
-      +'<div style="flex:1;min-width:0">'
-      +'<div style="font-weight:700;font-size:15px">'+v.clientName+'</div>'
-      +'<div style="font-size:13px;color:var(--text3)">'+v.date+' · '+v.invId+'</div>'
-      +'</div>'
-      +'<div style="text-align:right;flex-shrink:0">'
-      +'<div style="font-weight:800;font-size:16px;color:var(--accent)">x'+v.qty+'</div>'
-      +'<div style="font-size:13px;color:var(--text3)">$'+v.price.toFixed(0)+' c/u</div>'
-      +'</div>'
-      +'</div>'
-    ).join('')
+    +movs.map((m,i)=>{
+      const esVenta = m.tipo==='venta';
+      const color = esVenta ? '#dc2626' : '#16a34a';
+      const signo = esVenta ? '-' : '+';
+      const abs = Math.abs(m.qty);
+      return '<div style="display:flex;align-items:center;gap:10px;padding:11px 14px;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
+        +'<div style="width:10px;height:10px;border-radius:50%;background:'+color+';flex-shrink:0"></div>'
+        +'<div style="flex:1;min-width:0">'
+        +'<div style="font-weight:700;font-size:14px;color:var(--text)">'+(esVenta?'Venta':'Compra')+' — '+m.ref+'</div>'
+        +'<div style="font-size:12px;color:var(--text3)">'+fmtDate(m.date)+' · '+m.desc+'</div>'
+        +'</div>'
+        +'<div style="text-align:right;flex-shrink:0">'
+        +'<div style="font-weight:800;font-size:16px;color:'+color+'">'+signo+abs+'</div>'
+        +'<div style="font-size:12px;color:var(--text3)">$'+m.price.toFixed(0)+' c/u</div>'
+        +'</div>'
+        +'</div>';
+    }).join('')
     +'</div></div>';
-  showPage('prod-historial');
 }
 function cliSearchInput(q) {
   const list = document.getElementById('i-cli-aclist');
@@ -2546,7 +2585,7 @@ function filterInv(f,el) {
 function renderInvs() {
   const el=document.getElementById('inv-list');
   let list=S.invoices;
-  if(S.invFilter!=='all') list=list.filter(i=>S.invFilter==='presupuesto'?i.type==='presupuesto':S.invFilter==='tienda'?(i.notes&&i.notes.includes('tienda online')):i.status===S.invFilter);
+  if(S.invFilter!=='all') list=list.filter(i=>S.invFilter==='presupuesto'?i.type==='presupuesto':S.invFilter==='cigarrillos'?i.type==='cigarrillos':S.invFilter==='tienda'?(i.notes&&i.notes.includes('tienda online')):i.status===S.invFilter);
   if(!list.length){el.innerHTML='<div class="empty"><div class="ei">&#129534;</div><h3>Sin facturas</h3><p>Crea tu primera factura</p></div>';return;}
   const sb={pendiente:'<span class="badge badge-orange">Pendiente</span>',pagada:'<span class="badge badge-green">Pagada</span>',cancelada:'<span class="badge badge-red">Cancelada</span>'};
   el.innerHTML='<div style="display:flex;flex-direction:column;gap:10px">'+list.map((inv,ii)=>{
@@ -2783,7 +2822,7 @@ function showCliTab(tab) {
     cont.innerHTML = '<div class="card"><div style="padding:0">'+invs.map((inv,i)=>{
       const pagos = (inv.pagos||[]);
       const totalPagado = pagos.reduce((s,p)=>s+p.monto,0);
-      const sc = inv.saldo>0?'badge-orange':inv.status==='pagada'?'badge-green':'badge-blue';
+      const sc = inv.type==='cigarrillos'?'badge-gray':inv.saldo>0?'badge-orange':inv.status==='pagada'?'badge-green':'badge-blue';
       return '<div onclick="verInv(\''+inv.id+'\')" style="padding:12px 14px;cursor:pointer;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
         +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
         +'<div><div style="font-weight:700;font-size:15px">'+inv.id+' — '+inv.date+'</div>'
@@ -3780,7 +3819,7 @@ function renderStockAjuste(q) {
   const sortEl = document.getElementById('stock-sort');
   const sort = sortEl ? sortEl.value : 'nombre';
   if(sort==='bajo') prods = [...prods].sort((a,b)=>(a.stock||0)-(b.stock||0));
-  else if(sort==='critico') prods = [...prods].sort((a,b)=>(a.stock||0)-(b.stock||0));
+  else if(sort==='critico') prods = [...prods].sort((a,b)=>(b.stock||0)-(a.stock||0));
   else prods = [...prods].sort((a,b)=>a.name.localeCompare(b.name));
   el.innerHTML = prods.map(p => {
     return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">'
@@ -4094,7 +4133,7 @@ function renderInvoiceHTML(inv) {
       // Logo/Name area - prepared for logo swap later
       +'<div>'
         +'<div id="inv-logo-area" style="font-size:26px;font-weight:900;letter-spacing:-1px;font-family:Arial Black,Arial,sans-serif;color:#111;line-height:1">SURTIMAR</div>'
-        +'<div style="font-size:12px;color:#666;margin-top:3px;letter-spacing:1px;text-transform:uppercase">Distribuidora</div>'
+        +'<div style="font-size:12px;color:#666;margin-top:3px;letter-spacing:1px;text-transform:uppercase">'+(inv.type==='cigarrillos'?'Distribuidora · Cigarrillos':'Distribuidora')+'</div>'
       +'</div>'
       // Invoice number + date + status
       +'<div style="text-align:right">'
@@ -4145,7 +4184,7 @@ function renderInvoiceHTML(inv) {
         const cli = S.clients.find(c=>c.id===inv.clientId);
         const credito = cli && cli.credito > 0 ? cli.credito : 0;
         // Deuda anterior: otras facturas pendientes excluyendo la actual
-        const deudaAnterior = S.invoices.filter(i=>i.clientId===inv.clientId&&i.id!==inv.id&&i.status!=='pagada'&&i.status!=='cancelada'&&i.type!=='presupuesto').reduce((s,i)=>s+(i.saldo||0),0);
+        const deudaAnterior = S.invoices.filter(i=>i.clientId===inv.clientId&&i.id!==inv.id&&i.status!=='pagada'&&i.status!=='cancelada'&&i.type!=='presupuesto'&&i.type===inv.type).reduce((s,i)=>s+(i.saldo||0),0);
         let html2 = '';
         if(credito > 0) {
           const totalAPagar = Math.max(0, inv.total - credito);
