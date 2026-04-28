@@ -2473,6 +2473,30 @@ function saveInv() {
   } else if(pago>0) {
     inv.status = inv.saldo<=0 ? 'pagada' : status;
   }
+  // Actualizar stock
+  if(!S.editId) {
+    // Factura nueva: descontar stock
+    inv.items.forEach(function(item) {
+      if(!item.prodId) return;
+      const p = S.products.find(x=>x.id===item.prodId);
+      if(p) p.stock = (p.stock||0) - (item.qty||0);
+    });
+  } else {
+    // Edición: revertir stock anterior y aplicar nuevo
+    const prevInv = S.invoices.find(x=>x.id===S.editId);
+    if(prevInv) {
+      prevInv.items.forEach(function(item) {
+        if(!item.prodId) return;
+        const p = S.products.find(x=>x.id===item.prodId);
+        if(p) p.stock = (p.stock||0) + (item.qty||0); // devolver
+      });
+    }
+    inv.items.forEach(function(item) {
+      if(!item.prodId) return;
+      const p = S.products.find(x=>x.id===item.prodId);
+      if(p) p.stock = (p.stock||0) - (item.qty||0); // descontar nuevo
+    });
+  }
   if(S.editId){const i=S.invoices.findIndex(x=>x.id===S.editId);S.invoices[i]=inv;}else S.invoices.unshift(inv);
   try{renderInvs();}catch(e){} try{updDash();}catch(e){} try{save();}catch(e){} cerrarNuevaFac(); toast('Factura guardada');
 
