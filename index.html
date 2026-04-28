@@ -1813,7 +1813,7 @@ function renderIItem(idx, item) {
     +'<div style="flex:1;min-width:0">'
     +'<div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+name+'</div>'
     +'<div style="display:flex;align-items:center;gap:6px;margin-top:4px">'
-    +'<input type="number" data-iidx="'+idx+'" value="'+(item.price||0)+'" min="0" inputmode="decimal" onfocus="this.select()" onchange="resumePriceChange(this)" style="width:80px;height:30px;text-align:center;font-size:14px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text3);font-family:Inter,sans-serif;outline:none">'
+    +'<input type="number" id="ip-'+idx+'" data-iidx="'+idx+'" value="'+(item.price||0)+'" min="0" inputmode="decimal" onfocus="this.select()" onchange="resumePriceChange(this)" style="width:80px;height:30px;text-align:center;font-size:14px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text3);font-family:Inter,sans-serif;outline:none">'
     +'<span style="font-size:14px;color:var(--text3)">c/u &nbsp;·&nbsp; <span style="color:var(--accent);font-weight:700">$'+subtotal.toFixed(0)+'</span></span>'
     +'</div>'
     +'<div id="wtag-'+idx+'" style="font-size:12px;color:var(--accent2);display:none">⭐ Precio mayorista</div>'
@@ -2226,6 +2226,20 @@ function addIItem() {
 }
 
 // Qty input event delegation - handles Enter/Tab/blur to jump to next item
+// Handler para eliminar items en resumen factura
+document.getElementById('inv-items').addEventListener('click', function(e) {
+  const btn = e.target.closest('.cart-del');
+  if(!btn) return;
+  const idx = parseInt(btn.dataset.ridx);
+  if(isNaN(idx)) return;
+  // Devolver stock antes de eliminar
+  const item = S.invItems[idx];
+  S.invItems.splice(idx, 1);
+  // Re-render todos los items
+  document.getElementById('inv-items').innerHTML = '';
+  S.invItems.forEach((_,i) => renderIItem(i, S.invItems[i]));
+  calcTotals();
+});
 document.getElementById('inv-items').addEventListener('keydown', function(e) {
   if((e.key==='Enter'||e.key==='Tab') && e.target.classList.contains('qty-input')) {
     e.preventDefault();
@@ -2324,7 +2338,9 @@ function chkW(idx) {
   const item = S.invItems[idx];
   if(!item) return;
   const prod = item.prodId ? S.products.find(x=>x.id===item.prodId) : null;
-  const q = parseFloat(document.getElementById('iq-'+idx).value)||1;
+  const inp = document.getElementById('iq-'+idx);
+  const q = inp ? (parseFloat(inp.value)||0) : (item.qty||0);
+  item.qty = q; // sync
 
   // Lógica de grupo mayorista
   const grupo = prod && prod.grupoMay ? prod.grupoMay.toLowerCase().trim() : null;
