@@ -729,6 +729,7 @@ select option{background:var(--surface2)}
       <div class="form-group"><label class="fl">Direccion</label><input type="text" id="c-addr" placeholder="Calle, Ciudad"></div>
       <div class="form-group"><label class="fl">CUIT / ID Fiscal</label><input type="text" id="c-tax" placeholder="Opcional"></div>
       <div class="form-group"><label class="fl">Notas</label><textarea id="c-notes" placeholder="Notas..."></textarea></div>
+      <div class="form-group"><label class="fl">Mensaje al enviar factura</label><input type="text" id="c-invmsg" placeholder="Gracias por su compra 🙏"></div>
       <div class="form-group"><label class="fl">Compras previas (historial externo)</label><input type="number" id="c-prevCompras" placeholder="0" inputmode="numeric" min="0"></div>
     </div>
     <div class="modal-footer">
@@ -1491,10 +1492,11 @@ function openCli(id) {
     document.getElementById('c-addr').value = c.addr||'';
     document.getElementById('c-tax').value = c.tax||'';
     document.getElementById('c-notes').value = c.notes||'';
+    document.getElementById('c-invmsg').value = c.invmsg||'';
     document.getElementById('c-prevCompras').value = c.prevCompras||'';
   } else {
     document.getElementById('mcli-title').textContent = 'Nuevo Cliente';
-    ['c-name','c-phone','c-email','c-addr','c-tax','c-notes','c-prevCompras'].forEach(f=>document.getElementById(f).value='');
+    ['c-name','c-phone','c-email','c-addr','c-tax','c-notes','c-prevCompras','c-invmsg'].forEach(f=>document.getElementById(f).value='');
     document.getElementById('c-type').value='persona';
   }
   document.getElementById('mcli').classList.add('open');
@@ -1511,6 +1513,7 @@ function saveCli() {
     tax:document.getElementById('c-tax').value,
     notes:document.getElementById('c-notes').value,
     prevCompras:parseInt(document.getElementById('c-prevCompras').value)||0,
+    invmsg:document.getElementById('c-invmsg').value.trim(),
     color: S.editId?(S.clients.find(x=>x.id===S.editId)||{}).color||CCOLS[0]:CCOLS[S.clients.length%CCOLS.length]
   };
   if(S.editId){const i=S.clients.findIndex(x=>x.id===S.editId);S.clients[i]=c;}else S.clients.push(c);
@@ -4105,6 +4108,7 @@ function shareInvoiceImg(dest) {
         const file = new File([blob], filename, {type: 'image/png'});
         const cli = S.clients.find(function(c){return c.id===inv.clientId;});
         const phone = cli && cli.phone ? cli.phone.replace(/\D/g,'') : '';
+        const cliMsg = cli && cli.invmsg ? cli.invmsg : '';
 
         if(dest === 'download') {
           const url = URL.createObjectURL(blob);
@@ -4134,11 +4138,11 @@ function shareInvoiceImg(dest) {
             URL.revokeObjectURL(url);
             if(dest === 'whatsapp') {
               const waUrl = phone
-                ? 'https://wa.me/54' + phone + '?text=' + encodeURIComponent('Factura ' + inv.id + ' - ' + inv.clientName)
-                : 'https://wa.me/?text=' + encodeURIComponent('Factura ' + inv.id + ' - ' + inv.clientName);
+                ? 'https://wa.me/54' + phone + '?text=' + encodeURIComponent((cliMsg||'Factura ' + inv.id + ' - ' + inv.clientName))
+                : 'https://wa.me/?text=' + encodeURIComponent((cliMsg||'Factura ' + inv.id + ' - ' + inv.clientName));
               window.open(waUrl, '_blank');
             } else if(dest === 'telegram') {
-              window.open('https://t.me/share/url?url=&text=' + encodeURIComponent('Factura ' + inv.id + ' - ' + inv.clientName), '_blank');
+              window.open('https://t.me/share/url?url=&text=' + encodeURIComponent(cliMsg||'Factura ' + inv.id + ' - ' + inv.clientName), '_blank');
             }
           }, 800);
           toast('Imagen guardada - abriendo app...');
@@ -4167,6 +4171,8 @@ function shareInvoiceImg(dest) {
 function shareInvoiceText() {
   const inv = S.invoices.find(i=>i.id===S.shareInvId);
   if(!inv) return;
+  const cliT = S.clients.find(c=>c.id===inv.clientId);
+  const cliMsgT = cliT && cliT.invmsg ? '\n\n'+cliT.invmsg : '';
   let txt = '*'+inv.id+'* - '+inv.date+'\n';
   txt += 'Cliente: '+inv.clientName+'\n\n';
   inv.items.forEach(function(item){
@@ -4176,6 +4182,7 @@ function shareInvoiceText() {
   if(inv.saldo>0) txt += '\nSaldo pendiente: $'+inv.saldo.toFixed(2);
   const cli = S.clients.find(function(c){return c.id===inv.clientId;});
   const phone = cli && cli.phone ? cli.phone.replace(/\D/g,'') : '';
+  if(cli && cli.invmsg) txt += '\n\n'+cli.invmsg;
   const encoded = encodeURIComponent(txt);
   const url = phone ? 'https://wa.me/54'+phone+'?text='+encoded : 'https://wa.me/?text='+encoded;
   window.open(url, '_blank');
