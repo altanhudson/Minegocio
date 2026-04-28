@@ -1847,7 +1847,7 @@ function cartRenderList(q) {
   const el = document.getElementById('nf-prod-list');
   if(!el) return;
   const ql = (q||'').trim().toLowerCase();
-  let prods = S.products.filter(p=>p.visible!==false);
+  let prods = S.products.filter(p=>p.name&&p.name.trim());
   if(ql) prods = prods.filter(p=>p.name.toLowerCase().includes(ql));
   if(!prods.length) {
     el.innerHTML='<div style="text-align:center;padding:40px;color:var(--text3)">Sin resultados</div>'
@@ -1975,7 +1975,7 @@ function ncRenderList(q) {
   const el = document.getElementById('nc-prod-list');
   if(!el) return;
   const ql = (q||'').trim().toLowerCase();
-  let prods = S.products.filter(p=>p.visible!==false);
+  let prods = S.products.filter(p=>p.name&&p.name.trim());
   if(ql) prods = prods.filter(p=>p.name.toLowerCase().includes(ql));
   if(!prods.length) { el.innerHTML='<div style="text-align:center;padding:40px;color:var(--text3)">Sin resultados</div><div style="padding:0 16px 16px"><button onclick="ncNuevoProd()" style="background:var(--surface);border:2px dashed var(--border);border-radius:12px;padding:12px 20px;font-size:14px;font-weight:600;color:var(--accent2);cursor:pointer;width:100%">+ Producto nuevo</button></div>'; return; }
   el.innerHTML = prods.map((p,i) => {
@@ -2651,7 +2651,7 @@ function renderInvs() {
     +(inv.aFavor>0?'<div style="font-size:13px;color:var(--green)">A favor: $'+inv.aFavor.toFixed(0)+'</div>':'')
     +'</div></div>'
     +'<div style="display:flex;align-items:center;gap:8px;padding:0 14px 10px">'
-    +badge+'<span style="font-size:13px;color:var(--text2);font-weight:600">'+inv.date.split('-').reverse().join('/')+' · '+inv.items.length+' prod.</span>'
+    +badge+(inv.type==='cigarrillos'?'<span class="badge" style="background:#1a2a4a;color:#fff;margin-left:0">🚬 Cigarrillos</span>':'')+'<span style="font-size:13px;color:var(--text2);font-weight:600">'+inv.date.split('-').reverse().join('/')+' · '+inv.items.length+' prod.</span>'
     +'<span style="margin-left:auto;font-size:14px;color:var(--text3)" id="inv-arrow-'+inv.id+'">▼</span>'
     +'</div>'
     +'</div>'
