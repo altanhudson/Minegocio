@@ -2532,7 +2532,7 @@ function renderInvs() {
     +(inv.aFavor>0?'<div style="font-size:13px;color:var(--green)">A favor: $'+inv.aFavor.toFixed(0)+'</div>':'')
     +'</div></div>'
     +'<div style="display:flex;align-items:center;gap:8px;padding:0 14px 10px">'
-    +badge+'<span style="font-size:13px;color:var(--text3)">'+inv.date+' · '+inv.items.length+' prod.</span>'
+    +badge+'<span style="font-size:13px;color:var(--text2);font-weight:600">'+inv.date.split('-').reverse().join('/')+' · '+inv.items.length+' prod.</span>'
     +'<span style="margin-left:auto;font-size:14px;color:var(--text3)" id="inv-arrow-'+inv.id+'">▼</span>'
     +'</div>'
     +'</div>'
@@ -4111,7 +4111,13 @@ function renderInvoiceHTML(inv) {
           html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Saldo anterior</span><span style="font-size:18px;font-weight:900;color:#c05000">+$'+deudaAnterior.toFixed(2)+'</span></div>';
           html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Total a pagar</span><span style="font-size:18px;font-weight:900;color:#c05000">$'+totalAPagar.toFixed(2)+'</span></div>';
         } else if((inv.saldo||0) > 0 && inv.status !== 'pagada') {
-          html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Total a pagar</span><span style="font-size:18px;font-weight:900;color:#c05000">$'+(inv.saldo).toFixed(2)+'</span></div>';
+          // Mostrar pagos parciales si los hay
+          const pagosReales = (inv.pagos||[]).filter(p=>p.method!=='a favor');
+          if(pagosReales.length > 0) {
+            const totalPagado = pagosReales.reduce((s,p)=>s+p.monto,0);
+            html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #166534;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:.5px">Pagos anteriores</span><span style="font-size:18px;font-weight:900;color:#166534">-$'+totalPagado.toFixed(2)+'</span></div>';
+          }
+          html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Saldo pendiente</span><span style="font-size:18px;font-weight:900;color:#c05000">$'+(inv.saldo).toFixed(2)+'</span></div>';
         }
         return html2;
       })()
