@@ -2063,32 +2063,55 @@ function ncSaveComp() {
   const provId = ncProvId || document.getElementById('nc-prov').value;
   if(!provId) { toast('Falta seleccionar el proveedor'); return; }
   const prov = S.proveedores.find(p=>p.id===provId);
+  const isDraft = document.getElementById('nc-draft').checked;
+  const compItems = items.map(([pid,item])=>({prodId:pid, name:(S.products.find(x=>x.id===pid)||{}).name||pid, qty:item.qty, cost:item.cost||0}));
+  const total = items.reduce((s,[pid,item])=>s+item.qty*(item.cost||0),0);
+
+  // Determinar ID
+  const compId = S.editId || ('COMP-'+String(S.nComp).padStart(4,'0'));
+  if(!S.editId) S.nComp++; // solo incrementar si es nueva
+
   const comp = {
-    id: 'COMP-'+String(S.nComp++).padStart(4,'0'),
+    id: compId,
     provId, provName: prov?prov.name:'',
     date: document.getElementById('nc-date').value,
     notes: document.getElementById('nc-notes').value,
-    draft: document.getElementById('nc-draft').checked,
-    items: items.map(([pid,item])=>({prodId:pid, name:(S.products.find(x=>x.id===pid)||{}).name||pid, qty:item.qty, cost:item.cost||0})),
-    total: items.reduce((s,[pid,item])=>s+item.qty*(item.cost||0),0)
+    draft: isDraft,
+    items: compItems,
+    total: total
   };
-  // Update stock and costs if not draft
-  if(!comp.draft) {
-    comp.items.forEach(item=>{
+
+  // Actualizar stock
+  if(!isDraft) {
+    if(S.editId) {
+      // Revertir stock de la compra anterior
+      const prev = S.compras.find(x=>x.id===S.editId);
+      if(prev && !prev.draft) {
+        (prev.items||[]).forEach(item=>{
+          const p = S.products.find(x=>x.id===item.prodId);
+          if(p) p.stock = Math.max(0,(p.stock||0)-item.qty);
+        });
+      }
+    }
+    // Aplicar nuevo stock
+    compItems.forEach(item=>{
       const p = S.products.find(x=>x.id===item.prodId);
       if(!p) return;
       p.stock = (p.stock||0) + item.qty;
       if(item.cost>0) p.cost = item.cost;
     });
-    renderProds();
+    try{renderProds();}catch(e){}
   }
+
+  // Guardar compra
   if(S.editId) {
     const i = S.compras.findIndex(x=>x.id===S.editId);
-    if(i>=0) { comp.id = S.editId; S.compras[i]=comp; }
+    if(i>=0) S.compras[i]=comp;
     else S.compras.push(comp);
   } else {
     S.compras.push(comp);
   }
+
   S.editId = null;
   ncItems = {};
   ncProvId = null;
