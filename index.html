@@ -1609,6 +1609,7 @@ document.getElementById('page-clientes').addEventListener('click', function(e){
 // === INVOICES ===
 function openInv(id, defaultType) {
   S.editId=id||null; S.invItems=[];
+  if(!id) S.editClientId = null; // limpiar al crear nueva factura
   document.getElementById('i-date').value=new Date().toISOString().split('T')[0];
   const sel=document.getElementById('i-cli');
   sel.innerHTML='<option value="">-- Elegir cliente --</option>';
