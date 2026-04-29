@@ -382,7 +382,10 @@ select option{background:var(--surface2)}
   <div class="page" id="page-resumen-factura" style="padding:0;flex-direction:column;height:100%">
     <div style="padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0">
       <button onclick="S.editId?showPage('facturas'):showPage('nueva-factura')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 14px;font-size:16px;cursor:pointer">←</button>
-      <div style="font-family:Inter,sans-serif;font-size:17px;font-weight:800;flex:1">Resumen</div>
+      <div style="flex:1">
+        <div style="font-family:Inter,sans-serif;font-size:17px;font-weight:800">Resumen</div>
+        <div id="resumen-cli-nombre" style="font-size:13px;color:var(--accent);font-weight:600"></div>
+      </div>
       <button onclick="saveInv()" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer">Guardar</button>
     </div>
     <div style="flex:1;overflow-y:auto;padding:12px 16px">
@@ -1647,6 +1650,8 @@ function verInv(id) {
   if(!inv) return;
   S.editId = id;
   S.invItems = [...inv.items];
+  S.editClientId = inv.clientId; // guardar clientId para usarlo al guardar
+  document.getElementById('i-cli').value = inv.clientId;
   document.getElementById('i-type').value = inv.type;
   document.getElementById('i-status').value = inv.status;
   document.getElementById('i-date').value = inv.date;
@@ -1657,6 +1662,9 @@ function verInv(id) {
   document.getElementById('pago-info').style.display = 'none';
   document.getElementById('inv-items').innerHTML = '';
   inv.items.forEach((_,i) => renderIItem(i, S.invItems[i]));
+  // Mostrar nombre cliente en resumen
+  const nombreEl = document.getElementById('resumen-cli-nombre');
+  if(nombreEl) nombreEl.textContent = inv.clientName || '';
   // Cargar fecha en campo de resumen
   const dateRes = document.getElementById('i-date-res');
   if(dateRes) dateRes.value = inv.date;
@@ -2491,13 +2499,10 @@ function calcPago() {
 
 function saveInv() {
   let cid=document.getElementById('i-cli').value;
-  // Si estamos editando y i-cli está vacío, usar el clientId de la factura original
+  // Si estamos editando y i-cli está vacío, usar el clientId guardado al abrir
   if(!cid && S.editId) {
-    const origInv = S.invoices.find(x=>x.id===S.editId);
-    if(origInv) {
-      cid = origInv.clientId;
-      document.getElementById('i-cli').value = cid;
-    }
+    cid = S.editClientId || '';
+    if(cid) document.getElementById('i-cli').value = cid;
   }
   if(!cid){toast('Elegi un cliente');return;}
   // Sync date from resumen field if editing
@@ -2587,7 +2592,18 @@ function saveInv() {
       if(p) p.stock = (p.stock||0) - (item.qty||0); // descontar nuevo
     });
   }
-  if(S.editId){const i=S.invoices.findIndex(x=>x.id===S.editId);S.invoices[i]=inv;}else S.invoices.unshift(inv);
+  // Guardar factura — verificar índice válido antes de reemplazar
+  if(S.editId) {
+    const idx = S.invoices.findIndex(x=>x.id===S.editId);
+    if(idx>=0) {
+      S.invoices[idx]=inv;
+    } else {
+      // No encontró la factura original — agregar como nueva
+      S.invoices.unshift(inv);
+    }
+  } else {
+    S.invoices.unshift(inv);
+  }
   try{renderInvs();}catch(e){} try{updDash();}catch(e){} try{save();}catch(e){} cerrarNuevaFac(); toast('Factura guardada');
 
   // Detectar productos nuevos (sin prodId) y ofrecer darlos de alta
