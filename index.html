@@ -2660,7 +2660,7 @@ function filterInv(f,el) {
 
 function renderInvs() {
   const el=document.getElementById('inv-list');
-  let list=S.invoices;
+  let list=[...S.invoices].sort((a,b)=>b.date.localeCompare(a.date));
   if(S.invFilter!=='all') list=list.filter(i=>S.invFilter==='presupuesto'?i.type==='presupuesto':S.invFilter==='cigarrillos'?i.type==='cigarrillos':S.invFilter==='tienda'?(i.notes&&i.notes.includes('tienda online')):i.status===S.invFilter);
   // Aplicar búsqueda
   const sq = (document.getElementById('inv-search')||{}).value||'';
@@ -3450,7 +3450,7 @@ function pagocliSelectClient(cliId) {
     const saldo = inv.total - pagado;
     return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">'
       + '<div><div style="font-size:15px;font-weight:600">' + inv.id + '</div>'
-      + '<div style="font-size:13px;color:var(--text3)">' + inv.date + '</div></div>'
+      + '<div style="font-size:13px;color:var(--text3)">' + (inv.date?inv.date.split('-').reverse().join('/'):inv.date) + '</div></div>'
       + '<div style="font-family:Inter,sans-serif;font-weight:700;color:#fb923c;font-size:14px">$' + saldo.toFixed(0) + '</div>'
       + '</div>';
   }).join('')
@@ -4198,7 +4198,8 @@ function shareInvoiceText() {
   if(!inv) return;
   const cliT = S.clients.find(c=>c.id===inv.clientId);
   const cliMsgT = cliT && cliT.invmsg ? '\n\n'+cliT.invmsg : '';
-  let txt = '*'+inv.id+'* - '+inv.date+'\n';
+  const fmtD = d => d?d.split('-').reverse().join('/'):''; 
+  let txt = '*'+inv.id+'* - '+fmtD(inv.date)+'\n';
   txt += 'Cliente: '+inv.clientName+'\n\n';
   inv.items.forEach(function(item){
     if(item.desc||item.prodId) txt += '\u2022 '+(item.desc||item.name||'Producto')+' x'+item.qty+' = $'+(item.qty*item.price).toFixed(2)+'\n';
@@ -4240,7 +4241,7 @@ function renderInvoiceHTML(inv) {
       +'</div>'
       // Invoice number + date + status
       +'<div style="text-align:right">'
-        +'<div style="font-size:17px;font-weight:800;color:#111">'+inv.date+'</div>'
+        +'<div style="font-size:17px;font-weight:800;color:#111">'+(inv.date?inv.date.split('-').reverse().join('/'):inv.date)+'</div>'
         +'<div style="font-size:12px;color:#aaa;margin-top:2px">'+inv.id+'</div>'
         +'<div style="margin-top:5px;display:inline-block;border:1.5px solid '+statusColor+';color:'+statusColor+';font-size:12px;font-weight:700;padding:2px 8px;border-radius:3px;letter-spacing:.5px">'+statusLabel+'</div>'
       +'</div>'
