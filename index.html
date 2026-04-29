@@ -1609,7 +1609,7 @@ document.getElementById('page-clientes').addEventListener('click', function(e){
 // === INVOICES ===
 function openInv(id, defaultType) {
   S.editId=id||null; S.invItems=[];
-  if(!id) S.editClientId = null; // limpiar al crear nueva factura
+  S.editClientId = id ? null : null; // siempre limpiar, se setea solo en verInv
   document.getElementById('i-date').value=new Date().toISOString().split('T')[0];
   const sel=document.getElementById('i-cli');
   sel.innerHTML='<option value="">-- Elegir cliente --</option>';
@@ -1634,6 +1634,7 @@ function openInv(id, defaultType) {
     document.getElementById('i-status').value='pendiente';
     document.getElementById('i-cli').value='';
     document.getElementById('i-cli-search').value='';
+    S.editClientId = null;
     document.getElementById('i-notes').value='';
     document.getElementById('i-desc-ret').checked=false;
     document.getElementById('i-desc-ext').value=0;
@@ -1875,7 +1876,7 @@ function cartRenderList(q) {
       +'<div style="flex:1;min-width:0">'
       +'<div style="font-weight:600;font-size:14px">'+p.name+'</div>'
       +'<div style="font-size:14px;color:var(--text3);margin-top:2px" id="cprice-'+p.id+'">$'+itemPrice.toFixed(2)+(hasQty?' &nbsp;·&nbsp; <span style="color:var(--accent);font-weight:700">$'+(qty*itemPrice).toFixed(0)+'</span>':'')+'</div>'
-      +(p.stock!==undefined?'<div id="cstock-disp-'+p.id+'" style="font-size:12px;margin-top:2px;color:'+(hasQty&&qty>(p.stock||0)?'var(--accent3)':'var(--text3)')+'">Stock: '+(p.stock||0)+(hasQty?' → '+(Math.max(0,(p.stock||0)-qty)):'')+' uds</div>':'')
+      +(p.stock!==undefined?'<div id="cstock-disp-'+p.id+'" style="font-size:12px;margin-top:2px;color:'+(hasQty&&qty>(p.stock||0)?'var(--accent3)':'var(--text3)')+'">Stock: '+(p.stock||0)+(hasQty?' → '+((p.stock||0)-qty):'')+' uds</div>':'')
       +'</div>'
       +'<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;align-items:flex-end">'
       +'<input id="cqty-'+p.id+'" data-pid="'+p.id+'" data-price="'+itemPrice+'" type="number" inputmode="numeric" placeholder="0" value="'+(hasQty?qty:'')+'" min="0"'
@@ -1956,7 +1957,7 @@ function cartQtyChange(input) {
   const stockDisp = document.getElementById('cstock-disp-'+pid);
   if(stockDisp && p) {
     const stockLeft = (p.stock||0) - qty;
-    stockDisp.textContent = 'Stock: '+(p.stock||0)+' → '+Math.max(0,stockLeft)+' uds';
+    stockDisp.textContent = 'Stock: '+(p.stock||0)+' → '+stockLeft+' uds';
     stockDisp.style.color = stockLeft < 0 ? 'var(--accent3)' : 'var(--text3)';
   }
   // Show/hide price input
