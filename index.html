@@ -181,7 +181,7 @@ select option{background:var(--surface2)}
 .inv-item-box .rm{background:none;border:none;color:var(--accent3);font-size:20px;cursor:pointer;padding:2px;line-height:1;flex-shrink:0}
 .totals-box{background:var(--surface2);border-radius:var(--rs);padding:14px;margin-top:8px}
 .tot-row{display:flex;justify-content:space-between;align-items:center;font-size:14px;padding:5px 0}
-.tot-grand{font-family:'Inter',sans-serif;font-size:20px;font-weight:800;color:var(--accent);border-top:1px solid var(--border);padding-top:10px;margin-top:6px}
+.tot-grand{font-family:Inter,sans-serif;font-size:24px;font-weight:900;color:var(--accent);border-top:2px solid var(--border);padding-top:12px;margin-top:8px}
 .pago-box{background:var(--surface2);border-radius:var(--rs);padding:14px;margin-top:10px}
 .pago-info-row{display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--border);font-size:15px}
 .tabs{display:flex;background:var(--surface2);border-radius:var(--rs);padding:3px;margin-bottom:14px;gap:2px;overflow-x:auto;scrollbar-width:none}
@@ -606,8 +606,10 @@ select option{background:var(--surface2)}
           <option value="critico">Crítico ↓</option>
         </select>
       </div>
-      <div id="stock-ajuste-list"></div>
-      <button class="btn btn-primary btn-full" style="margin-top:12px" onclick="saveStockAjuste()">💾 Guardar ajuste</button>
+      <div id="stock-ajuste-list" style="padding-bottom:70px"></div>
+      <div style="position:sticky;bottom:0;left:0;right:0;background:var(--bg);padding:10px 0 4px;margin-top:4px">
+        <button class="btn btn-primary btn-full" onclick="saveStockAjuste()">💾 Guardar ajuste</button>
+      </div>
     </div>
 
     <!-- TAB LISTA DE COMPRAS -->
@@ -643,6 +645,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:12px">Versión <strong style="color:var(--text2)">1.0.3</strong> · 29/04/2026</div>
       </div>
     </div>
   </div>
@@ -1828,7 +1831,7 @@ function renderIItem(idx, item) {
     +'<div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+name+'</div>'
     +'<div style="display:flex;align-items:center;gap:6px;margin-top:4px">'
     +'<input type="number" id="ip-'+idx+'" data-iidx="'+idx+'" value="'+(item.price||0)+'" min="0" inputmode="decimal" onfocus="this.select()" onchange="resumePriceChange(this)" style="width:80px;height:30px;text-align:center;font-size:14px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text3);font-family:Inter,sans-serif;outline:none">'
-    +'<span style="font-size:14px;color:var(--text3)">c/u &nbsp;·&nbsp; <span style="color:var(--accent);font-weight:700">$'+subtotal.toFixed(0)+'</span></span>'
+    +'<span style="font-size:12px;color:var(--text3)">c/u &nbsp;·&nbsp; <span style="color:var(--accent);font-weight:600">$'+subtotal.toFixed(0)+'</span></span>'
     +'</div>'
     +'<div id="wtag-'+idx+'" style="font-size:12px;color:var(--accent2);display:none">⭐ Precio mayorista</div>'
     +'</div>'
@@ -2499,7 +2502,11 @@ function calcPago() {
   else{pend.style.display='flex';fav.style.display='none';document.getElementById('pi-pend-amt').textContent='$0.00';}
 }
 
+let _savingInv = false;
 function saveInv() {
+  if(_savingInv) return;
+  _savingInv = true;
+  setTimeout(function(){ _savingInv = false; }, 2000);
   let cid=document.getElementById('i-cli').value;
   // Si estamos editando y i-cli está vacío, usar el clientId guardado al abrir
   if(!cid && S.editId) {
@@ -2671,7 +2678,7 @@ function renderInvs() {
     let sep = '';
     if(inv.date !== lastDate) {
       lastDate = inv.date;
-      sep = '<div style="display:flex;align-items:center;gap:8px;margin-top:'+(ii>0?'6':'0')+'px;margin-bottom:-2px"><div style="flex:1;height:1px;background:var(--border)"></div><span style="font-size:12px;font-weight:700;color:var(--text3);white-space:nowrap">'+fmtDay(inv.date)+'</span><div style="flex:1;height:1px;background:var(--border)"></div></div>';
+      sep = '<div style="display:flex;align-items:center;gap:8px;margin-top:'+(ii>0?'14':'0')+'px;margin-bottom:4px"><div style="flex:1;height:1px;background:var(--border)"></div><span style="font-size:13px;font-weight:800;color:var(--text2);white-space:nowrap;background:var(--surface2);padding:3px 12px;border-radius:20px;border:1px solid var(--border)">'+fmtDay(inv.date)+'</span><div style="flex:1;height:1px;background:var(--border)"></div></div>';
     }
     const cardHtml = (()=>{
     const saldo = inv.status==='pagada' ? 0 : (inv.saldo||0);
