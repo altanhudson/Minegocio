@@ -384,7 +384,7 @@ select option{background:var(--surface2)}
       <button onclick="S.editId?showPage('facturas'):showPage('nueva-factura')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 14px;font-size:16px;cursor:pointer">←</button>
       <div style="flex:1">
         <div style="font-family:Inter,sans-serif;font-size:17px;font-weight:800">Resumen</div>
-        <div id="resumen-cli-nombre" style="font-size:13px;color:var(--accent);font-weight:600"></div>
+        <div id="resumen-cli-nombre" style="font-size:13px;color:var(--accent);font-weight:600;cursor:pointer" onclick="resumenCambiarCliente()">✏️ <span id="resumen-cli-label">—</span></div>
       </div>
       <button onclick="saveInv()" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer">Guardar</button>
     </div>
@@ -1694,6 +1694,13 @@ function openInv(id, defaultType) {
   showPage('nueva-factura');
 }
 
+function resumenCambiarCliente() {
+  // Mostrar el autocompletado de cliente
+  const searchEl = document.getElementById('i-cli-search');
+  if(!searchEl) return;
+  showPage('nueva-factura');
+  setTimeout(function(){ searchEl.focus(); searchEl.select(); }, 200);
+}
 function verInv(id) {
   const inv = S.invoices.find(x=>x.id===id);
   if(!inv) return;
@@ -1712,8 +1719,8 @@ function verInv(id) {
   document.getElementById('inv-items').innerHTML = '';
   inv.items.forEach((_,i) => renderIItem(i, S.invItems[i]));
   // Mostrar nombre cliente en resumen
-  const nombreEl = document.getElementById('resumen-cli-nombre');
-  if(nombreEl) nombreEl.textContent = inv.clientName || '';
+  const nombreEl = document.getElementById('resumen-cli-label');
+  if(nombreEl) nombreEl.textContent = inv.clientName || '—';
   // Cargar fecha en campo de resumen
   const dateRes = document.getElementById('i-date-res');
   if(dateRes) dateRes.value = inv.date;
@@ -1802,8 +1809,15 @@ function renderProdMovimientos(id) {
       }
     });
   });
+  // Ajustes manuales
+  const ajustes = [];
+  (S.ajustes||[]).forEach(aj=>{
+    (aj.items||[]).forEach(item=>{
+      if(item.prodId===id) ajustes.push({tipo:'ajuste', date:aj.date, ref:aj.id, desc:'Ajuste manual', qty:item.diff||0, price:0});
+    });
+  });
   // Todos juntos ordenados
-  let movs = [...ventas, ...compras].sort((a,b)=>b.date.localeCompare(a.date));
+  let movs = [...ventas, ...compras, ...ajustes].sort((a,b)=>b.date.localeCompare(a.date));
   // Filtrar según tab
   if(prodHTabActivo==='ventas') movs = ventas.sort((a,b)=>b.date.localeCompare(a.date));
   else if(prodHTabActivo==='compras') movs = compras.sort((a,b)=>b.date.localeCompare(a.date));
@@ -1823,13 +1837,14 @@ function renderProdMovimientos(id) {
   contEl.innerHTML = '<div class="card"><div style="padding:0">'
     +movs.map((m,i)=>{
       const esVenta = m.tipo==='venta';
-      const color = esVenta ? '#dc2626' : '#16a34a';
-      const signo = esVenta ? '-' : '+';
+      const esAjuste = m.tipo==='ajuste';
+      const color = esAjuste ? '#d97706' : esVenta ? '#dc2626' : '#16a34a';
+      const signo = esAjuste ? (m.qty>=0?'+':'') : esVenta ? '-' : '+';
       const abs = Math.abs(m.qty);
       return '<div style="display:flex;align-items:center;gap:10px;padding:11px 14px;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
         +'<div style="width:10px;height:10px;border-radius:50%;background:'+color+';flex-shrink:0"></div>'
         +'<div style="flex:1;min-width:0">'
-        +'<div style="font-weight:700;font-size:14px;color:var(--text)">'+(esVenta?'Venta':'Compra')+' — '+m.ref+'</div>'
+        +'<div style="font-weight:700;font-size:14px;color:var(--text)">'+(esAjuste?'Ajuste manual':esVenta?'Venta':'Compra')+(m.ref?' — '+m.ref:'')+'</div>'
         +'<div style="font-size:12px;color:var(--text3)">'+fmtDate(m.date)+' · '+m.desc+'</div>'
         +'</div>'
         +'<div style="text-align:right;flex-shrink:0">'
@@ -2044,7 +2059,8 @@ function ncRenderList(q) {
     return '<div style="display:flex;align-items:center;padding:11px 16px;background:'+(hasQty?'#f0f8ff':'var(--surface)')+';'+(i>0?'border-top:1px solid var(--border)':'')+'">'
       +'<div style="flex:1;min-width:0">'
       +'<div style="font-weight:600;font-size:14px">'+p.name+'</div>'
-      +'<div style="font-size:14px;color:var(--text3);margin-top:2px">Costo actual: $'+(p.cost||0)+'</div>'
+      +'<div style="font-size:13px;color:var(--text3);margin-top:2px">Costo actual: $'+(p.cost||0)+(p.stock!==undefined?' &nbsp;·&nbsp; Stock: <span style="color:'+(p.stock<0?'var(--accent3)':p.stock===0?'var(--text3)':'var(--green)')+'">'+p.stock+'</span>':'')+'</div>'
+      +(hasQty?'<div id="nc-tot-'+p.id+'" style="font-size:13px;font-weight:700;color:var(--accent2);margin-top:2px">$'+(item.qty*(item.cost||p.cost||0)).toFixed(0)+'</div>':'<div id="nc-tot-'+p.id+'" style="display:none"></div>')
       +'</div>'
       +'<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;align-items:flex-end">'
       +'<input data-ncpid="'+p.id+'" data-field="qty" type="number" inputmode="decimal" step="0.1" placeholder="Cant." value="'+(hasQty?item.qty:'')+'" min="0" onfocus="this.select()" oninput="ncQtyChange(this)" onchange="ncQtyChange(this)" style="width:72px;height:40px;text-align:center;font-size:17px;font-weight:700;caret-color:var(--accent2);border:2px solid '+(hasQty?'var(--accent2)':'var(--border)')+';border-radius:10px;background:'+(hasQty?'#fff':'var(--surface)')+';color:'+(hasQty?'var(--accent2)':'var(--text)')+';font-family:Inter,sans-serif;outline:none">'
@@ -2068,6 +2084,13 @@ function ncQtyChange(input) {
   }
   ncItems[pid].qty = qty;
   ncUpdateFooter();
+  // Actualizar total del producto en tiempo real
+  const totEl = document.getElementById('nc-tot-'+pid);
+  if(totEl) {
+    const cost = ncItems[pid].cost || (S.products.find(x=>x.id===pid)||{}).cost || 0;
+    if(qty>0) { totEl.style.display=''; totEl.textContent='$'+(qty*cost).toFixed(0); }
+    else { totEl.style.display='none'; }
+  }
   const row = input.closest('div[style*="display:flex"]');
   if(row) { row.style.background = qty>0?'#f0f8ff':'var(--surface)'; row.style.borderLeft = qty>0?'3px solid var(--accent2)':''; input.style.borderColor = qty>0?'var(--accent2)':'var(--border)'; input.style.color = qty>0?'var(--accent2)':'var(--text)'; input.style.background = qty>0?'#fff':'var(--surface)'; }
 }
@@ -2092,6 +2115,31 @@ function ncUpdateFooter() {
   if(ft) ft.textContent = '$'+total.toFixed(0);
 }
 
+function ncAgregarMas() { ncRenderList(''); }
+function ncVolverAEditar() {
+  if(S.editId) { showPage('compras'); return; }
+  // Mostrar solo los productos ya agregados
+  const el = document.getElementById('nc-prod-list');
+  if(el) {
+    const agregados = Object.keys(ncItems).filter(pid=>ncItems[pid].qty>0);
+    if(!agregados.length) { showPage('nueva-compra'); return; }
+    const prods = agregados.map(pid=>S.products.find(x=>x.id===pid)).filter(Boolean);
+    el.innerHTML = prods.map((p,i)=>{
+      const item = ncItems[p.id];
+      return '<div style="display:flex;align-items:center;padding:11px 16px;background:#f0f8ff;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
+        +'<div style="flex:1;min-width:0">'
+        +'<div style="font-weight:600;font-size:14px">'+p.name+'</div>'
+        +'<div style="font-size:13px;color:var(--text3);margin-top:2px">Stock: '+(p.stock||0)+'</div>'
+        +'</div>'
+        +'<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;align-items:flex-end">'
+        +'<input data-ncpid="'+p.id+'" data-field="qty" type="number" inputmode="decimal" step="0.1" value="'+item.qty+'" min="0" onfocus="this.select()" oninput="ncQtyChange(this)" onchange="ncQtyChange(this)" style="width:72px;height:40px;text-align:center;font-size:17px;font-weight:700;caret-color:var(--accent2);border:2px solid var(--accent2);border-radius:10px;background:#fff;color:var(--accent2);font-family:Inter,sans-serif;outline:none">'
+        +'<input data-ncpid="'+p.id+'" data-field="cost" type="number" inputmode="decimal" placeholder="$Costo" value="'+(item.cost||'')+'" min="0" onfocus="this.select()" onchange="ncCostChange(this)" style="width:80px;height:36px;text-align:center;font-size:15px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-family:Inter,sans-serif;outline:none;color:var(--text3)">'
+        +'</div></div>';
+    }).join('')
+    + '<div style="padding:12px 16px"><button onclick="ncAgregarMas()" style="background:var(--surface);border:2px dashed var(--border);border-radius:12px;padding:10px 16px;font-size:14px;font-weight:600;color:var(--accent2);cursor:pointer;width:100%">+ Agregar m&#225;s productos</button></div>';
+  }
+  showPage('nueva-compra');
+}
 function ncVerResumen() {
   const items = Object.entries(ncItems).filter(([pid,item])=>item.qty>0);
   if(!items.length) { toast('Agregá al menos un producto'); return; }
@@ -4006,21 +4054,24 @@ function renderStockAjuste(q) {
 function saveStockAjuste() {
   const inputs = document.querySelectorAll('#stock-ajuste-list input[data-prodid]');
   let changed = 0;
+  const ajusteItems = [];
   inputs.forEach(inp => {
     const val = inp.value.trim();
     if (val === '') return;
     const n = parseInt(val);
     if (isNaN(n) || n < 0) return;
     const p = S.products.find(x => x.id === inp.dataset.prodid);
-    if (p && p.stock !== n) { p.stock = n; changed++; }
+    if (p && p.stock !== n) { ajusteItems.push({prodId:p.id, name:p.name, stockAnterior:p.stock, stockNuevo:n, diff:n-p.stock}); p.stock = n; changed++; }
   });
   if (changed === 0) { toast('No hay cambios para guardar'); return; }
+  // Registrar ajuste en movimientos
+  if(!S.ajustes) S.ajustes = [];
+  S.ajustes.push({ id:'AJU-'+Date.now(), date: new Date().toISOString().split('T')[0], items: ajusteItems, tipo:'ajuste' });
   try{renderProds();}catch(e){}
   try{updDash();}catch(e){}
   try{save();}catch(e){}
   renderStockAlertas();
   toast(changed + ' producto' + (changed>1?'s':'') + ' actualizados');
-  // Limpiar inputs
   document.querySelectorAll('#stock-ajuste-list input').forEach(i => i.value = '');
 }
 
@@ -4225,7 +4276,7 @@ function shareInvoiceImg(dest) {
           navigator.share({
             files: [file],
             title: 'Factura ' + inv.id,
-            text: inv.clientName
+            text: cliMsg || inv.clientName
           }).catch(function(e){ if(e.name !== 'AbortError') toast('No se pudo compartir'); });
         } else {
           // Fallback: descargar imagen y abrir WhatsApp/Telegram
