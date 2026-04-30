@@ -656,7 +656,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:12px">Versión <strong style="color:var(--text2)">1.0.3</strong> · 29/04/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:12px">Versión <strong style="color:var(--text2)">1.1.0</strong> · 30/04/2026</div>
       </div>
     </div>
   </div>
@@ -983,6 +983,11 @@ async function loadFromFirebase() {
     Object.assign(S, d);
     // Actualizar localStorage con datos de Firebase
     try { localStorage.setItem(SK, JSON.stringify(d)); } catch(e) {}
+    // Refrescar UI con datos reales
+    try{renderProds();}catch(e){} 
+    try{renderClis();}catch(e){} 
+    try{renderInvs();}catch(e){} 
+    try{updDash();}catch(e){}
     return true;
   } catch(e) { return false; }
 }
