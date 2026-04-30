@@ -2714,8 +2714,10 @@ function renderInvs() {
   }
   if(!list.length){el.innerHTML='<div class="empty"><div class="ei">&#129534;</div><h3>Sin facturas</h3><p>Crea tu primera factura</p></div>';return;}
   const sb={pendiente:'<span class="badge badge-orange">Pendiente</span>',pagada:'<span class="badge badge-green">Pagada</span>',cancelada:'<span class="badge badge-red">Cancelada</span>'};
-  const today = new Date().toISOString().split('T')[0];
-  const yesterday = new Date(Date.now()-86400000).toISOString().split('T')[0];
+  const _now = new Date();
+  const today = _now.getFullYear()+'-'+String(_now.getMonth()+1).padStart(2,'0')+'-'+String(_now.getDate()).padStart(2,'0');
+  const _yest = new Date(_now); _yest.setDate(_yest.getDate()-1);
+  const yesterday = _yest.getFullYear()+'-'+String(_yest.getMonth()+1).padStart(2,'0')+'-'+String(_yest.getDate()).padStart(2,'0');
   const fmtDay = d => { if(d===today) return 'Hoy'; if(d===yesterday) return 'Ayer'; if(d>today) return '📅 '+d.split('-').reverse().join('/'); return d.split('-').reverse().join('/'); };
   let lastDate = null;
   el.innerHTML='<div style="display:flex;flex-direction:column;gap:10px">'+list.map((inv,ii)=>{
