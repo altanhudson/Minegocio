@@ -656,7 +656,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:12px">Versión <strong style="color:var(--text2)">1.1.0</strong> · 30/04/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:12px">Versión <strong style="color:var(--text2)">1.2.0</strong> · 30/04/2026</div>
       </div>
     </div>
   </div>
@@ -1706,6 +1706,13 @@ function resumenCambiarCliente() {
   showPage('nueva-factura');
   setTimeout(function(){ searchEl.focus(); searchEl.select(); }, 200);
 }
+function resumenCambiarCliente() {
+  showPage('nueva-factura');
+  setTimeout(function(){
+    const s = document.getElementById('i-cli-search');
+    if(s) { s.focus(); s.select(); }
+  }, 200);
+}
 function verInv(id) {
   const inv = S.invoices.find(x=>x.id===id);
   if(!inv) return;
@@ -2089,7 +2096,6 @@ function ncQtyChange(input) {
   }
   ncItems[pid].qty = qty;
   ncUpdateFooter();
-  // Actualizar total del producto en tiempo real
   const totEl = document.getElementById('nc-tot-'+pid);
   if(totEl) {
     const cost = ncItems[pid].cost || (S.products.find(x=>x.id===pid)||{}).cost || 0;
@@ -2124,6 +2130,30 @@ function ncAgregarMas() { ncRenderList(''); }
 function ncVolverAEditar() {
   if(S.editId) { showPage('compras'); return; }
   // Mostrar solo los productos ya agregados
+  const el = document.getElementById('nc-prod-list');
+  if(el) {
+    const agregados = Object.keys(ncItems).filter(pid=>ncItems[pid].qty>0);
+    if(!agregados.length) { showPage('nueva-compra'); return; }
+    const prods = agregados.map(pid=>S.products.find(x=>x.id===pid)).filter(Boolean);
+    el.innerHTML = prods.map((p,i)=>{
+      const item = ncItems[p.id];
+      return '<div style="display:flex;align-items:center;padding:11px 16px;background:#f0f8ff;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
+        +'<div style="flex:1;min-width:0">'
+        +'<div style="font-weight:600;font-size:14px">'+p.name+'</div>'
+        +'<div style="font-size:13px;color:var(--text3);margin-top:2px">Stock: '+(p.stock||0)+'</div>'
+        +'</div>'
+        +'<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;align-items:flex-end">'
+        +'<input data-ncpid="'+p.id+'" data-field="qty" type="number" inputmode="decimal" step="0.1" value="'+item.qty+'" min="0" onfocus="this.select()" oninput="ncQtyChange(this)" onchange="ncQtyChange(this)" style="width:72px;height:40px;text-align:center;font-size:17px;font-weight:700;caret-color:var(--accent2);border:2px solid var(--accent2);border-radius:10px;background:#fff;color:var(--accent2);font-family:Inter,sans-serif;outline:none">'
+        +'<input data-ncpid="'+p.id+'" data-field="cost" type="number" inputmode="decimal" placeholder="$Costo" value="'+(item.cost||'')+'" min="0" onfocus="this.select()" onchange="ncCostChange(this)" style="width:80px;height:36px;text-align:center;font-size:15px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-family:Inter,sans-serif;outline:none;color:var(--text3)">'
+        +'</div></div>';
+    }).join('')
+    + '<div style="padding:12px 16px"><button onclick="ncAgregarMas()" style="background:var(--surface);border:2px dashed var(--border);border-radius:12px;padding:10px 16px;font-size:14px;font-weight:600;color:var(--accent2);cursor:pointer;width:100%">+ Agregar m&#225;s productos</button></div>';
+  }
+  showPage('nueva-compra');
+}
+function ncAgregarMas() { ncRenderList(''); showPage('nueva-compra'); }
+function ncVolverAEditar() {
+  if(S.editId) { showPage('compras'); return; }
   const el = document.getElementById('nc-prod-list');
   if(el) {
     const agregados = Object.keys(ncItems).filter(pid=>ncItems[pid].qty>0);
