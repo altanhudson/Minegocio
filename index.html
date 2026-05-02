@@ -634,11 +634,8 @@ select option{background:var(--surface2)}
     <!-- TAB MOVIMIENTOS -->
     <div id="stock-tab-movimientos" style="display:none">
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
-        <div class="search-bar" style="flex:1;margin-bottom:0">
-          <span style="color:var(--text3)">&#128269;</span>
-          <input type="text" id="stock-mov-search" placeholder="Buscar producto..." autocomplete="off" oninput="renderStockMovimientos(this.value)">
-        </div>
-        <select id="stock-mov-sort" onchange="renderStockMovimientos(document.getElementById('stock-mov-search').value)" style="font-size:13px;padding:4px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface2)">
+        <input type="search" id="stock-mov-search" placeholder="🔍 Buscar producto..." autocomplete="off" oninput="renderStockMovimientos(this.value)" style="flex:1;font-size:14px;padding:8px 12px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface);outline:none;color:var(--text)">
+        <select id="stock-mov-sort" onchange="renderStockMovimientos(document.getElementById('stock-mov-search').value)" style="font-size:13px;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--surface2)">
           <option value="nombre">A-Z</option>
           <option value="bajo">Stock ↑</option>
           <option value="critico">Stock ↓</option>
@@ -1927,6 +1924,12 @@ function cerrarNuevaFac() {
   showPage('facturas');
 }
 
+function iItemQtyInput(el, idx) {
+  var v = el.value;
+  if(v === '' || v.slice(-1) === '.') return; // typing decimal, wait
+  var n = parseFloat(v);
+  if(!isNaN(n)) { S.invItems[idx].qty = n; chkW(idx); calcTotals(); }
+}
 function renderIItem(idx, item) {
   item = item || {desc:'',qty:1,price:0,prodId:null};
   const existing = document.getElementById('irow-'+idx);
@@ -1946,7 +1949,7 @@ function renderIItem(idx, item) {
     +'<div id="wtag-'+idx+'" style="font-size:12px;color:var(--accent2);display:none">⭐ Precio mayorista</div>'
     +'</div>'
     +'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
-    +'<input type="number" id="iq-'+idx+'" value="'+(item.qty||1)+'" min="0" step="0.1" inputmode="decimal" data-qidx="'+idx+'" class="qty-input" onfocus="this.select()" style="width:56px;text-align:center;font-size:16px;font-weight:700;border:1.5px solid var(--border);border-radius:8px;padding:6px 0;background:var(--surface)" oninput="S.invItems['+idx+'].qty=parseFloat(this.value)||0;chkW('+idx+');calcTotals()" onchange="S.invItems['+idx+'].qty=parseFloat(this.value)||1;chkW('+idx+');calcTotals();renderIItem('+idx+',S.invItems['+idx+'])">'
+    +'<input type="number" id="iq-'+idx+'" value="'+(item.qty||1)+'" min="0" step="any" inputmode="decimal" data-qidx="'+idx+'" class="qty-input" onfocus="this.select()" style="width:56px;text-align:center;font-size:16px;font-weight:700;border:1.5px solid var(--border);border-radius:8px;padding:6px 0;background:var(--surface)" oninput="iItemQtyInput(this,'+idx+')" onchange="S.invItems['+idx+'].qty=parseFloat(this.value)||1;chkW('+idx+');calcTotals();renderIItem('+idx+',S.invItems['+idx+'])">'
     +'<button data-ridx="'+idx+'" class="cart-del" style="width:30px;height:30px;border-radius:8px;border:none;background:rgba(220,38,38,.1);color:var(--accent3);font-size:14px;cursor:pointer">✕</button>'
     +'</div>'
     +'</div>';
