@@ -3454,13 +3454,24 @@ function saveComp(){
   const prov=S.proveedores.find(p=>p.id===pid);
   const total=items.reduce((s,i)=>s+(i.qty*i.cost),0);
   const isDraft=document.getElementById('cp-draft').checked;
-  const comp={id:S.editId||'COMP-'+String(S.nComp++).padStart(4,'0'),provId:pid,provName:prov?prov.name:'---',date:document.getElementById('cp-date').value,ref:'',notes:document.getElementById('cp-notes').value,items:[...items],total,draft:isDraft};
-  if(!isDraft){items.forEach(item=>{if(!item.prodId)return;const p=S.products.find(x=>x.id===item.prodId);if(!p)return;p.stock=(p.stock||0)+item.qty;if(item.cost>0)p.cost=item.cost;});}
+  const compId = S.editId || 'COMP-'+String(S.nComp).padStart(4,'0');
+  if(!S.editId) S.nComp++;
+  const comp={id:compId,provId:pid,provName:prov?prov.name:'---',date:document.getElementById('cp-date').value,ref:'',notes:document.getElementById('cp-notes').value,items:[...items],total,draft:isDraft};
+  if(!isDraft){
+    // Revertir stock anterior si es edición
+    if(S.editId){
+      const prev=S.compras.find(x=>x.id===S.editId);
+      if(prev&&!prev.draft){
+        prev.items.forEach(item=>{if(!item.prodId)return;const p=S.products.find(x=>x.id===item.prodId);if(p)p.stock=(p.stock||0)-item.qty;});
+      }
+    }
+    items.forEach(item=>{if(!item.prodId)return;const p=S.products.find(x=>x.id===item.prodId);if(!p)return;p.stock=(p.stock||0)+item.qty;if(item.cost>0)p.cost=item.cost;});
+  }
   if(S.editId){const i=S.compras.findIndex(x=>x.id===S.editId);if(i>=0)S.compras[i]=comp;}
   else S.compras.unshift(comp);
-  try{renderComps();}catch(e){} try{renderProds();}catch(e){} try{renderProvs();}catch(e){} try{updDash();}catch(e){} try{save();}catch(e){}
+  try{renderComps();}catch(e){} try{renderProds();}catch(e){} try{renderProvs();}catch(e){} try{renderStockAlertas();}catch(e){} try{renderStockMovimientos('');}catch(e){} try{updDash();}catch(e){} try{save();}catch(e){}
   closeM('mcomp');
-  toast(isDraft?'Borrador guardado':'Compra confirmada - Stock actualizado');
+  toast(isDraft?'Borrador guardado':'Compra guardada ✓');
 }
 
 function confirmComp(id){if(!confirm('Confirmar esta compra? Se va a actualizar el stock.'))return;const comp=S.compras.find(x=>x.id===id);if(!comp||!comp.draft)return;comp.draft=false;comp.items.forEach(item=>{if(!item.prodId)return;const p=S.products.find(x=>x.id===item.prodId);if(!p)return;p.stock=(p.stock||0)+item.qty;if(item.cost>0)p.cost=item.cost;});renderComps();renderProds();renderProvs();updDash();save();toast('Compra confirmada - Stock actualizado');}
