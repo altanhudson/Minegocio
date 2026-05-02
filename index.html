@@ -5086,8 +5086,10 @@ window.addEventListener('DOMContentLoaded', function(){
     function swActualizar() {
       if(window._swWaiting) {
         window._swWaiting.postMessage({type:'SKIP_WAITING'});
+        // Forzar recarga después de 500ms por si el controllerchange no dispara
+        setTimeout(function(){ window.location.reload(true); }, 500);
       } else {
-        window.location.reload();
+        window.location.reload(true);
       }
     }
 
