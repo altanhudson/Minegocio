@@ -1,11 +1,10 @@
-const CACHE_NAME = 'revendit-v8';
+const CACHE_NAME = 'revendit-v9';
 const urlsToCache = [
   '/Minegocio/',
   '/Minegocio/index.html'
 ];
 
 self.addEventListener('install', event => {
-  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
   );
@@ -19,9 +18,14 @@ self.addEventListener('activate', event => {
   );
 });
 
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener('fetch', event => {
   if (event.request.url.includes('index.html') || event.request.url.endsWith('/Minegocio/')) {
-    // Network first para el index
     event.respondWith(
       fetch(event.request).catch(() => caches.match(event.request))
     );
