@@ -316,6 +316,7 @@ select option{background:var(--surface2)}
         <input type="text" id="i-cli-search" placeholder="Buscar cliente..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="cliSearchInput(this.value)" onfocus="cliSearchInput(this.value)" onblur="setTimeout(function(){var l=document.getElementById('i-cli-aclist');if(l)l.style.display='none'},400)" style="width:100%;font-size:15px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:Inter,sans-serif;outline:none">
         <input type="hidden" id="i-cli" value="">
         <div id="i-cli-aclist" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:10px;max-height:200px;overflow-y:auto;z-index:100;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,.1)"></div>
+      <div id="cli-deuda-aviso" style="display:none;margin-top:8px;padding:8px 12px;border-radius:8px;background:#fff5e0;border:1px solid #ea580c;font-size:13px;font-weight:600;color:#c2410c"></div>
       </div>
       <input type="date" id="i-date" style="font-size:14px;padding:7px 6px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);width:118px">
     </div>
@@ -1890,8 +1891,21 @@ function cliSearchInput(q) {
 function cliSearchSelect(id, name) {
   document.getElementById('i-cli').value = id;
   document.getElementById('i-cli-search').value = name;
+  const rnEl = document.getElementById('resumen-cli-nombre'); if(rnEl) rnEl.textContent = name;
   const list = document.getElementById('i-cli-aclist');
   if(list) list.style.display='none';
+  // Mostrar deuda pendiente del cliente
+  const aviso = document.getElementById('cli-deuda-aviso');
+  if(aviso) {
+    const pendientes = S.invoices.filter(i=>i.clientId===id&&i.status!=='pagada'&&i.status!=='cancelada'&&i.type!=='presupuesto'&&i.type!=='cigarrillos');
+    const deuda = pendientes.reduce((s,i)=>s+(i.saldo||0),0);
+    if(deuda>0) {
+      aviso.style.display='';
+      aviso.textContent='⚠️ '+pendientes.length+' factura'+(pendientes.length>1?'s':'')+" pendiente"+(pendientes.length>1?'s':'')+' · Debe $'+deuda.toFixed(0);
+    } else {
+      aviso.style.display='none';
+    }
+  }
 }
 function cerrarNuevaFac() {
   showPage('facturas');
