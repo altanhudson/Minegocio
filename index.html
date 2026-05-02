@@ -2267,6 +2267,9 @@ function ncSaveComp() {
   S.editId = null;
   ncItems = {};
   ncProvId = null;
+  // Forzar cierre de ambas pantallas de compra
+  try{document.getElementById('page-resumen-compra').classList.remove('active');}catch(e){}
+  try{document.getElementById('page-nueva-compra').classList.remove('active');}catch(e){}
   try{renderComps();}catch(e){}
   try{renderProds();}catch(e){}
   try{renderStockAlertas();}catch(e){}
