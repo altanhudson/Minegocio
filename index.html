@@ -3934,8 +3934,17 @@ async function initApp() {
     _fbListenerActive = true;
     let firstCall = true;
     window._fbListen((fbData) => {
-      // Ignorar el primer disparo (son los datos que acabamos de cargar)
-      if (firstCall) { firstCall = false; return; }
+      // Solo ignorar el primer disparo si ya tenemos datos locales
+      if (firstCall) { 
+        firstCall = false; 
+        if(hasLocalData) return; // tenemos datos locales, ignorar duplicado
+        // Sin datos locales: usar los datos de Firebase directamente
+        Object.assign(S, fbData);
+        try { localStorage.setItem(SK, JSON.stringify(fbData)); } catch(e) {}
+        renderProds(); renderInvs(); renderClis(); renderProvs(); renderComps(); updDash();
+        try{updateStockBadge();}catch(e){}
+        return;
+      }
       // Actualizar estado con datos remotos
       Object.assign(S, fbData);
       try { localStorage.setItem(SK, JSON.stringify(fbData)); } catch(e) {}
