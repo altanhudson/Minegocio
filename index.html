@@ -616,9 +616,16 @@ select option{background:var(--surface2)}
 
     <!-- TAB MOVIMIENTOS -->
     <div id="stock-tab-movimientos" style="display:none">
-      <div class="search-bar" style="margin-bottom:10px">
-        <span style="color:var(--text3)">&#128269;</span>
-        <input type="text" id="stock-mov-search" placeholder="Buscar producto..." autocomplete="off" oninput="renderStockMovimientos(this.value)">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+        <div class="search-bar" style="flex:1;margin-bottom:0">
+          <span style="color:var(--text3)">&#128269;</span>
+          <input type="text" id="stock-mov-search" placeholder="Buscar producto..." autocomplete="off" oninput="renderStockMovimientos(this.value)">
+        </div>
+        <select id="stock-mov-sort" onchange="renderStockMovimientos(document.getElementById('stock-mov-search').value)" style="font-size:13px;padding:4px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface2)">
+          <option value="nombre">A-Z</option>
+          <option value="bajo">Stock ↑</option>
+          <option value="critico">Stock ↓</option>
+        </select>
       </div>
       <div id="stock-mov-list"></div>
     </div>
@@ -656,7 +663,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:12px">Versión <strong style="color:var(--text2)">1.2.0</strong> · 30/04/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:12px">Versión <strong style="color:var(--text2)">1.2.1</strong> · 01/05/2026</div>
       </div>
     </div>
   </div>
@@ -3988,7 +3995,10 @@ function renderStockMovimientos(q) {
   const ql = (q||'').toLowerCase();
   let prods = S.products.filter(p=>p.name&&p.name.trim());
   if(ql) prods = prods.filter(p=>p.name.toLowerCase().includes(ql));
-  prods.sort((a,b)=>a.name.localeCompare(b.name,'es'));
+  const sortMov = (document.getElementById('stock-mov-sort')||{}).value||'nombre';
+  if(sortMov==='bajo') prods = [...prods].sort((a,b)=>(a.stock||0)-(b.stock||0));
+  else if(sortMov==='critico') prods = [...prods].sort((a,b)=>(b.stock||0)-(a.stock||0));
+  else prods = [...prods].sort((a,b)=>a.name.localeCompare(b.name,'es'));
   if(!prods.length) { el.innerHTML='<div class="empty"><div class="ei">📦</div><h3>Sin resultados</h3></div>'; return; }
   el.innerHTML = '<div class="card"><div style="padding:0">'
     + prods.map((p,i)=>{
