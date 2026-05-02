@@ -2241,7 +2241,7 @@ function ncSaveComp() {
       if(prev && !prev.draft) {
         (prev.items||[]).forEach(item=>{
           const p = S.products.find(x=>x.id===item.prodId);
-          if(p) p.stock = Math.max(0,(p.stock||0)-item.qty);
+          if(p) p.stock = (p.stock||0) - item.qty;
         });
       }
     }
