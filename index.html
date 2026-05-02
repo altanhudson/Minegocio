@@ -2125,6 +2125,16 @@ function ncQtyChange(input) {
     if(qty>0) { totEl.style.display=''; totEl.textContent='$'+(qty*cost).toFixed(0); }
     else { totEl.style.display='none'; }
   }
+  // Actualizar stock en tiempo real
+  const stockDisp = document.getElementById('cstock-disp-'+pid);
+  if(stockDisp) {
+    const p = S.products.find(x=>x.id===pid);
+    if(p) {
+      const nuevoStock = (p.stock||0) + qty;
+      stockDisp.textContent = 'Stock: '+(p.stock||0)+' → '+nuevoStock+' uds';
+      stockDisp.style.color = nuevoStock < 0 ? 'var(--accent3)' : nuevoStock === 0 ? 'var(--text3)' : 'var(--green)';
+    }
+  }
   const row = input.closest('div[style*="display:flex"]');
   if(row) { row.style.background = qty>0?'#f0f8ff':'var(--surface)'; row.style.borderLeft = qty>0?'3px solid var(--accent2)':''; input.style.borderColor = qty>0?'var(--accent2)':'var(--border)'; input.style.color = qty>0?'var(--accent2)':'var(--text)'; input.style.background = qty>0?'#fff':'var(--surface)'; }
 }
