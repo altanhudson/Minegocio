@@ -2266,6 +2266,9 @@ function ncSaveComp() {
   ncItems = {};
   ncProvId = null;
   try{renderComps();}catch(e){}
+  try{renderProds();}catch(e){}
+  try{renderStockAlertas();}catch(e){}
+  try{renderStockMovimientos('');}catch(e){}
   try{updDash();}catch(e){}
   try{save();}catch(e){}
   showPage('compras');
