@@ -237,6 +237,12 @@ select option{background:var(--surface2)}
     </div>
   </div>
 </header>
+<!-- Banner actualización disponible -->
+<div id="sw-update-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9998;background:#1a3a6b;color:#fff;padding:10px 16px;display:none;align-items:center;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,.3)">
+  <div style="flex:1;font-size:14px;font-weight:600">🔄 Hay una versión nueva disponible</div>
+  <button onclick="swActualizar()" style="background:#ffe600;color:#1a3a6b;border:none;border-radius:8px;padding:6px 14px;font-size:13px;font-weight:800;cursor:pointer">Actualizar</button>
+  <button onclick="document.getElementById('sw-update-banner').style.display='none'" style="background:transparent;border:none;color:rgba(255,255,255,.6);font-size:18px;cursor:pointer;padding:0 4px">✕</button>
+</div>
 <div class="pages">
 
   <div class="page active" id="page-dashboard">
@@ -674,7 +680,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:12px">Versión <strong style="color:var(--text2)">1.2.2</strong> · 01/05/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:12px">Versión <strong style="color:var(--text2)">1.2.3</strong> · 02/05/2026</div>
       </div>
     </div>
   </div>
@@ -2126,7 +2132,7 @@ function ncRenderList(q) {
     return '<div style="display:flex;align-items:center;padding:11px 16px;background:'+(hasQty?'#f0f8ff':'var(--surface)')+';'+(i>0?'border-top:1px solid var(--border)':'')+'">'
       +'<div style="flex:1;min-width:0">'
       +'<div style="font-weight:600;font-size:14px">'+p.name+'</div>'
-      +'<div style="font-size:13px;color:var(--text3);margin-top:2px">Costo actual: $'+(p.cost||0)+(p.stock!==undefined?' &nbsp;·&nbsp; Stock: <span style="color:'+(p.stock<0?'var(--accent3)':p.stock===0?'var(--text3)':'var(--green)')+'">'+p.stock+'</span>':'')+'</div>'
+      +'<div style="font-size:13px;color:var(--text3);margin-top:2px">Costo actual: $'+(p.cost||0)+(p.stock!==undefined?' &nbsp;·&nbsp; <span id="cstock-disp-'+p.id+'" style="color:'+(p.stock<0?'var(--accent3)':p.stock===0?'var(--text3)':'var(--green)')+'">Stock: '+p.stock+'</span>':'')+'</div>'
       +(hasQty?'<div id="nc-tot-'+p.id+'" style="font-size:13px;font-weight:700;color:var(--accent2);margin-top:2px">$'+(item.qty*(item.cost||p.cost||0)).toFixed(0)+'</div>':'<div id="nc-tot-'+p.id+'" style="display:none"></div>')
       +'</div>'
       +'<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;align-items:flex-end">'
@@ -5051,9 +5057,38 @@ window.addEventListener('DOMContentLoaded', function(){
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/Minegocio/sw.js')
-          .then(reg => console.log('SW registrado:', reg.scope))
+          .then(reg => {
+            console.log('SW registrado:', reg.scope);
+            // Detectar cuando hay una nueva versión esperando
+            reg.addEventListener('updatefound', () => {
+              const newWorker = reg.installing;
+              newWorker.addEventListener('statechange', () => {
+                if(newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  // Hay una nueva versión instalada y lista
+                  window._swWaiting = newWorker;
+                  document.getElementById('sw-update-banner').style.display = 'flex';
+                }
+              });
+            });
+            // Verificar si ya hay una actualización esperando
+            if(reg.waiting) {
+              window._swWaiting = reg.waiting;
+              document.getElementById('sw-update-banner').style.display = 'flex';
+            }
+          })
           .catch(err => console.log('SW error:', err));
       });
+      // Cuando el SW toma control, recargar
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload();
+      });
+    }
+    function swActualizar() {
+      if(window._swWaiting) {
+        window._swWaiting.postMessage({type:'SKIP_WAITING'});
+      } else {
+        window.location.reload();
+      }
     }
 
     // Banner de instalación PWA
