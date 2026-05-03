@@ -1082,7 +1082,7 @@ function showPage(p) {
 
 function mostrarRecordatorioBackup() {
   const lastBackup = localStorage.getItem('lastBackupDate');
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateStr();
   if(lastBackup === today) return;
   const dias = lastBackup ? Math.floor((new Date()-new Date(lastBackup))/(1000*60*60*24)) : 999;
   if(dias < 3) return;
@@ -1092,8 +1092,12 @@ function mostrarRecordatorioBackup() {
     }
   }, 2000);
 }
+function localDateStr() {
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
 function backupData() {
-  localStorage.setItem('lastBackupDate', new Date().toISOString().split('T')[0]);
+  localStorage.setItem('lastBackupDate', localDateStr());
   const backup = {
     version: 1,
     date: new Date().toISOString(),
@@ -1105,7 +1109,7 @@ function backupData() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'revendit-backup-' + new Date().toISOString().split('T')[0] + '.json';
+  a.download = 'revendit-backup-' + localDateStr() + '.json';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
   toast('Backup descargado ✓');
@@ -1683,7 +1687,7 @@ document.getElementById('page-clientes').addEventListener('click', function(e){
 function openInv(id, defaultType) {
   S.editId=id||null; S.invItems=[];
   S.editClientId = id ? null : null; // siempre limpiar, se setea solo en verInv
-  document.getElementById('i-date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('i-date').value=localDateStr();
   const sel=document.getElementById('i-cli');
   sel.innerHTML='<option value="">-- Elegir cliente --</option>';
   S.clients.forEach(c=>sel.innerHTML+='<option value="'+c.id+'">'+c.name+'</option>');
@@ -2112,7 +2116,7 @@ var ncProvId = ''; // pid -> {qty, cost}
 
 function openNuevaCompra(id) {
   ncItems = {};
-  document.getElementById('nc-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('nc-date').value = localDateStr();
   document.getElementById('nc-notes').value = '';
   document.getElementById('nc-draft').checked = false;
   const sel = document.getElementById('nc-prov');
@@ -3006,7 +3010,7 @@ function saveQPago() {
   if(!monto) { toast('Ingresá un monto'); return; }
   const method = document.getElementById('qp-method').value;
   if(!inv.pagos) inv.pagos = [];
-  inv.pagos.push({monto, method, date: new Date().toISOString().split('T')[0]});
+  inv.pagos.push({monto, method, date: localDateStr()});
   const totalPagado = inv.pagos.reduce((s,p)=>s+p.monto,0);
   inv.saldo = Math.max(0, inv.total - totalPagado);
   inv.aFavor = totalPagado > inv.total ? totalPagado - inv.total : 0;
@@ -3022,7 +3026,7 @@ function saveQPago() {
     clientName: inv.clientName,
     monto: monto,
     method: method,
-    date: new Date().toISOString().split('T')[0],
+    date: localDateStr(),
     facturas: [inv.id],
     aFavor: inv.aFavor||0
   });
@@ -3282,7 +3286,7 @@ function editarPago(invId, pi) {
   _recalcInv(inv);
   save(); renderInvs(); showCliTab('pagos'); toast('Pago actualizado');
 }
-function cycleInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv||inv.type==='presupuesto')return;const estados={pendiente:'Pagada',pagada:'Cancelada',cancelada:'Pendiente'};const next=estados[inv.status];if(!confirm('Cambiar estado a '+next+'?'))return;const c={pendiente:'pagada',pagada:'cancelada',cancelada:'pendiente'};inv.status=c[inv.status];if(inv.status==='pagada'){if(!inv.pagos)inv.pagos=[];const totalPagado=inv.pagos.reduce((s,p)=>s+p.monto,0);if(totalPagado===0){inv.pagos.push({monto:inv.total,method:'efectivo',date:new Date().toISOString().split('T')[0]});}inv.saldo=0;inv.aFavor=0;}renderInvs();updDash();save();toast('Estado: '+inv.status);}
+function cycleInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv||inv.type==='presupuesto')return;const estados={pendiente:'Pagada',pagada:'Cancelada',cancelada:'Pendiente'};const next=estados[inv.status];if(!confirm('Cambiar estado a '+next+'?'))return;const c={pendiente:'pagada',pagada:'cancelada',cancelada:'pendiente'};inv.status=c[inv.status];if(inv.status==='pagada'){if(!inv.pagos)inv.pagos=[];const totalPagado=inv.pagos.reduce((s,p)=>s+p.monto,0);if(totalPagado===0){inv.pagos.push({monto:inv.total,method:'efectivo',date:localDateStr()});}inv.saldo=0;inv.aFavor=0;}renderInvs();updDash();save();toast('Estado: '+inv.status);}
 function cancelInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv)return;if(inv.status==='cancelada'){toast('Ya esta cancelada');return;}if(!confirm('Cancelar la factura '+id+'? Quedara en el historial sin modificar el stock.'))return;inv.status='cancelada';renderInvs();updDash();save();toast('Factura cancelada');}
 function delInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv)return;const hasPago=inv.pagos&&inv.pagos.reduce((s,p)=>s+p.monto,0)>0;if(!confirm('Eliminar la factura '+id+(hasPago?' (tiene pagos registrados)':'')+' y devolver el stock?'))return;inv.items.forEach(item=>{if(!item.prodId)return;const p=S.products.find(x=>x.id===item.prodId);if(p)p.stock=(p.stock||0)+(item.qty||0);});S.invoices=S.invoices.filter(i=>i.id!==id);renderInvs();renderProds();updDash();save();toast('Factura eliminada y stock restaurado');}
 
@@ -3416,7 +3420,7 @@ document.getElementById('page-proveedores').addEventListener('click', function(e
 });
 
 // === COMPRAS ===
-function openComp(id){S.editId=id||null;S.compItems=[];document.getElementById('cp-date').value=new Date().toISOString().split('T')[0];document.getElementById('cp-notes').value='';document.getElementById('comp-items').innerHTML='';const sel=document.getElementById('cp-prov');if(!S.proveedores.length){closeM('mcomp');toast('Primero agrega un proveedor');openProv();return;}sel.innerHTML=S.proveedores.map(pv=>'<option value="'+pv.id+'">'+pv.name+'</option>').join('');if(id){const c=S.compras.find(x=>x.id===id);document.getElementById('mcomp-title').textContent=c.draft?'Ver Borrador':'Ver Compra';sel.value=c.provId;document.getElementById('cp-date').value=c.date;document.getElementById('cp-notes').value=c.notes||'';document.getElementById('cp-draft').checked=!!c.draft;S.compItems=[...c.items];c.items.forEach((_,i)=>renderCItem(i,S.compItems[i]));}else{document.getElementById('mcomp-title').textContent='Nueva Compra';document.getElementById('cp-draft').checked=false;addCItem();}calcCTotal();document.getElementById('mcomp').classList.add('open');}
+function openComp(id){S.editId=id||null;S.compItems=[];document.getElementById('cp-date').value=localDateStr();document.getElementById('cp-notes').value='';document.getElementById('comp-items').innerHTML='';const sel=document.getElementById('cp-prov');if(!S.proveedores.length){closeM('mcomp');toast('Primero agrega un proveedor');openProv();return;}sel.innerHTML=S.proveedores.map(pv=>'<option value="'+pv.id+'">'+pv.name+'</option>').join('');if(id){const c=S.compras.find(x=>x.id===id);document.getElementById('mcomp-title').textContent=c.draft?'Ver Borrador':'Ver Compra';sel.value=c.provId;document.getElementById('cp-date').value=c.date;document.getElementById('cp-notes').value=c.notes||'';document.getElementById('cp-draft').checked=!!c.draft;S.compItems=[...c.items];c.items.forEach((_,i)=>renderCItem(i,S.compItems[i]));}else{document.getElementById('mcomp-title').textContent='Nueva Compra';document.getElementById('cp-draft').checked=false;addCItem();}calcCTotal();document.getElementById('mcomp').classList.add('open');}
 function renderCItem(idx,item){
   item=item||{prodId:null,name:'',qty:1,cost:0};
   const wrap=document.createElement('div');
@@ -3499,11 +3503,12 @@ function saveComp(){
   if(!S.editId) S.nComp++;
   const comp={id:compId,provId:pid,provName:prov?prov.name:'---',date:document.getElementById('cp-date').value,ref:'',notes:document.getElementById('cp-notes').value,items:[...items],total,draft:isDraft};
   if(!isDraft){
-    // Revertir stock anterior si es edición
+    // Revertir stock anterior si es edición — copiar items antes de modificar
     if(S.editId){
-      const prev=S.compras.find(x=>x.id===S.editId);
-      if(prev&&!prev.draft){
-        prev.items.forEach(item=>{if(!item.prodId)return;const p=S.products.find(x=>x.id===item.prodId);if(p)p.stock=(p.stock||0)-item.qty;});
+      const prevIdx = S.compras.findIndex(x=>x.id===S.editId);
+      if(prevIdx>=0 && !S.compras[prevIdx].draft){
+        const prevItems = S.compras[prevIdx].items.map(x=>({...x})); // copia real
+        prevItems.forEach(item=>{if(!item.prodId)return;const p=S.products.find(x=>x.id===item.prodId);if(p)p.stock=(p.stock||0)-item.qty;});
       }
     }
     items.forEach(item=>{if(!item.prodId)return;const p=S.products.find(x=>x.id===item.prodId);if(!p)return;p.stock=(p.stock||0)+item.qty;if(item.cost>0)p.cost=item.cost;});
@@ -3511,9 +3516,13 @@ function saveComp(){
   if(S.editId){const i=S.compras.findIndex(x=>x.id===S.editId);if(i>=0)S.compras[i]=comp;}
   else S.compras.unshift(comp);
   try{renderComps();}catch(e){} try{renderProds();}catch(e){} try{renderProvs();}catch(e){} try{renderStockAlertas();}catch(e){} try{renderStockMovimientos('');}catch(e){} try{updDash();}catch(e){} try{save();}catch(e){}
-  try{closeM('mcomp');}catch(e){ document.getElementById('mcomp').classList.remove('open'); }
+  // Cerrar modal directamente sin depender de closeM
+  const mcomp = document.getElementById('mcomp');
+  if(mcomp) { mcomp.classList.remove('open'); mcomp.style.display='none'; }
   S.editId = null;
   toast(isDraft?'Borrador guardado':'Compra guardada ✓');
+  // Restaurar display después de un tick para no romper el modal
+  setTimeout(function(){ if(mcomp) mcomp.style.display=''; }, 300);
 }
 
 function confirmComp(id){if(!confirm('Confirmar esta compra? Se va a actualizar el stock.'))return;const comp=S.compras.find(x=>x.id===id);if(!comp||!comp.draft)return;comp.draft=false;comp.items.forEach(item=>{if(!item.prodId)return;const p=S.products.find(x=>x.id===item.prodId);if(!p)return;p.stock=(p.stock||0)+item.qty;if(item.cost>0)p.cost=item.cost;});renderComps();renderProds();renderProvs();updDash();save();toast('Compra confirmada - Stock actualizado');}
@@ -3734,7 +3743,7 @@ function pagocliConfirm() {
 
     const aplicar = Math.min(restante, saldo);
     if (!inv.pagos) inv.pagos = [];
-    inv.pagos.push({ monto: aplicar, forma: 'efectivo', fecha: new Date().toISOString().split('T')[0] });
+    inv.pagos.push({ monto: aplicar, forma: 'efectivo', fecha: localDateStr() });
     restante -= aplicar;
 
     const nuevoPagado = (inv.pagos).reduce((a, p) => a + p.monto, 0);
@@ -3757,7 +3766,7 @@ function pagocliConfirm() {
     clientName: pagocliSelected.name,
     monto: monto,
     method: method,
-    date: new Date().toISOString().split('T')[0],
+    date: localDateStr(),
     facturas: pendientes.slice(0, facturasAct).map(i=>i.id),
     aFavor: restante > 0 ? restante : 0
   });
@@ -3942,7 +3951,7 @@ function confirmarCobroReparto(rutaIdx) {
   const method = document.getElementById('cobrar-rep-method').value;
   // Register payment
   if(!inv.pagos) inv.pagos = [];
-  inv.pagos.push({date:new Date().toISOString().split('T')[0], monto, method});
+  inv.pagos.push({date:localDateStr(), monto, method});
   const totalPagado = inv.pagos.reduce((s,p)=>s+p.monto,0);
   inv.saldo = Math.max(0, inv.total - totalPagado);
   if(inv.saldo <= 0) inv.status = 'pagada';
@@ -4205,7 +4214,7 @@ function saveStockAjuste() {
   if (changed === 0) { toast('No hay cambios para guardar'); return; }
   // Registrar ajuste en movimientos
   if(!S.ajustes) S.ajustes = [];
-  S.ajustes.push({ id:'AJU-'+Date.now(), date: new Date().toISOString().split('T')[0], items: ajusteItems, tipo:'ajuste' });
+  S.ajustes.push({ id:'AJU-'+Date.now(), date: localDateStr(), items: ajusteItems, tipo:'ajuste' });
   try{renderProds();}catch(e){}
   try{updDash();}catch(e){}
   try{save();}catch(e){}
@@ -5019,7 +5028,7 @@ function tiendaConfirmar() {
     id:'FAC-'+String(S.nInv++).padStart(4,'0'),
     type:'factura', status:'pendiente',
     clientId:cli.id, clientName:cli.name,
-    date:new Date().toISOString().split('T')[0],
+    date:localDateStr(),
     items:invItems, subtotal:invTotal,
     descRetiro:0, descExtraPct:0, descExtra:0, total:invTotal,
     pagos:[], saldo:invTotal, aFavor:0,
