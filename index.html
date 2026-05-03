@@ -3492,37 +3492,59 @@ function addCItem(){const idx=S.compItems.length;S.compItems.push({prodId:null,n
 function remCItem(idx){S.compItems.splice(idx,1);document.getElementById('comp-items').innerHTML='';S.compItems.forEach((_,i)=>renderCItem(i,S.compItems[i]));calcCTotal();}
 function calcCTotal(){const t=S.compItems.reduce((s,i)=>s+(i.qty*i.cost),0);document.getElementById('cp-total').textContent='$'+t.toFixed(2);}
 function saveComp(){
-  const pid=document.getElementById('cp-prov').value;
-  if(!pid){toast('Elegi un proveedor');return;}
-  const items=S.compItems.filter(i=>(i.prodId||i.name.trim()) && i.qty>0);
-  if(!items.length){toast('Agrega al menos un producto');return;}
-  const prov=S.proveedores.find(p=>p.id===pid);
-  const total=items.reduce((s,i)=>s+(i.qty*i.cost),0);
-  const isDraft=document.getElementById('cp-draft').checked;
-  const compId = S.editId || 'COMP-'+String(S.nComp).padStart(4,'0');
-  if(!S.editId) S.nComp++;
-  const comp={id:compId,provId:pid,provName:prov?prov.name:'---',date:document.getElementById('cp-date').value,ref:'',notes:document.getElementById('cp-notes').value,items:[...items],total,draft:isDraft};
-  if(!isDraft){
-    // Revertir stock anterior si es edición — copiar items antes de modificar
-    if(S.editId){
-      const prevIdx = S.compras.findIndex(x=>x.id===S.editId);
-      if(prevIdx>=0 && !S.compras[prevIdx].draft){
-        const prevItems = S.compras[prevIdx].items.map(x=>({...x})); // copia real
-        prevItems.forEach(item=>{if(!item.prodId)return;const p=S.products.find(x=>x.id===item.prodId);if(p)p.stock=(p.stock||0)-item.qty;});
+  try {
+    const pid=document.getElementById('cp-prov').value;
+    if(!pid){toast('Elegi un proveedor');return;}
+    const items=S.compItems.filter(i=>(i.prodId||i.name.trim()) && i.qty>0);
+    if(!items.length){toast('Agrega al menos un producto');return;}
+    const prov=S.proveedores.find(p=>p.id===pid);
+    const total=items.reduce((s,i)=>s+(i.qty*i.cost),0);
+    const isDraft=document.getElementById('cp-draft').checked;
+    const compId = S.editId || 'COMP-'+String(S.nComp).padStart(4,'0');
+    if(!S.editId) S.nComp++;
+    const comp={id:compId,provId:pid,provName:prov?prov.name:'---',date:document.getElementById('cp-date').value,ref:'',notes:document.getElementById('cp-notes').value,items:[...items],total,draft:isDraft};
+    if(!isDraft){
+      if(S.editId){
+        const prevIdx=S.compras.findIndex(x=>x.id===S.editId);
+        if(prevIdx>=0&&!S.compras[prevIdx].draft){
+          S.compras[prevIdx].items.map(x=>({...x})).forEach(item=>{
+            if(!item.prodId)return;
+            const p=S.products.find(x=>x.id===item.prodId);
+            if(p) p.stock=(p.stock||0)-item.qty;
+          });
+        }
       }
+      items.forEach(item=>{
+        if(!item.prodId)return;
+        const p=S.products.find(x=>x.id===item.prodId);
+        if(!p)return;
+        p.stock=(p.stock||0)+item.qty;
+        if(item.cost>0)p.cost=item.cost;
+      });
     }
-    items.forEach(item=>{if(!item.prodId)return;const p=S.products.find(x=>x.id===item.prodId);if(!p)return;p.stock=(p.stock||0)+item.qty;if(item.cost>0)p.cost=item.cost;});
+    if(S.editId){const i=S.compras.findIndex(x=>x.id===S.editId);if(i>=0)S.compras[i]=comp;}
+    else S.compras.unshift(comp);
+    S.editId=null;
+    // Cerrar modal PRIMERO
+    const mcomp=document.getElementById('mcomp');
+    if(mcomp){mcomp.classList.remove('open');mcomp.style.display='none';}
+    setTimeout(function(){if(mcomp)mcomp.style.display='';},200);
+    // Luego guardar y re-renderizar
+    try{save();}catch(e){}
+    try{renderComps();}catch(e){}
+    try{renderProds();}catch(e){}
+    try{renderStockAlertas();}catch(e){}
+    try{renderStockMovimientos('');}catch(e){}
+    try{updDash();}catch(e){}
+    toast(isDraft?'Borrador guardado':'Compra guardada ✓');
+  } catch(err) {
+    console.error('saveComp error:', err);
+    // Cerrar modal igual aunque haya error
+    const mcomp=document.getElementById('mcomp');
+    if(mcomp){mcomp.classList.remove('open');mcomp.style.display='none';}
+    setTimeout(function(){if(mcomp)mcomp.style.display='';},200);
+    toast('Error al guardar: '+err.message);
   }
-  if(S.editId){const i=S.compras.findIndex(x=>x.id===S.editId);if(i>=0)S.compras[i]=comp;}
-  else S.compras.unshift(comp);
-  try{renderComps();}catch(e){} try{renderProds();}catch(e){} try{renderProvs();}catch(e){} try{renderStockAlertas();}catch(e){} try{renderStockMovimientos('');}catch(e){} try{updDash();}catch(e){} try{save();}catch(e){}
-  // Cerrar modal directamente sin depender de closeM
-  const mcomp = document.getElementById('mcomp');
-  if(mcomp) { mcomp.classList.remove('open'); mcomp.style.display='none'; }
-  S.editId = null;
-  toast(isDraft?'Borrador guardado':'Compra guardada ✓');
-  // Restaurar display después de un tick para no romper el modal
-  setTimeout(function(){ if(mcomp) mcomp.style.display=''; }, 300);
 }
 
 function confirmComp(id){if(!confirm('Confirmar esta compra? Se va a actualizar el stock.'))return;const comp=S.compras.find(x=>x.id===id);if(!comp||!comp.draft)return;comp.draft=false;comp.items.forEach(item=>{if(!item.prodId)return;const p=S.products.find(x=>x.id===item.prodId);if(!p)return;p.stock=(p.stock||0)+item.qty;if(item.cost>0)p.cost=item.cost;});renderComps();renderProds();renderProvs();updDash();save();toast('Compra confirmada - Stock actualizado');}
