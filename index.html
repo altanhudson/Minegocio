@@ -489,9 +489,11 @@ select option{background:var(--surface2)}
 
   <div class="page" id="page-productos">
     <div class="search-bar"><span style="color:var(--text3)">&#128269;</span><input type="text" id="prod-search" placeholder="Buscar producto..." oninput="renderProds(this.value)"></div>
-    <div class="filter-chips" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <div class="chip active" onclick="setPF('all',this)">Todos</div>
-      <div class="chip" onclick="setPF('noprice',this)">Sin precio</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:0">
+      <div id="prod-cat-chips" style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex:1;padding:2px 0">
+        <div class="chip active" id="chip-all" onclick="setPF('all',this)">Todos</div>
+        <div class="chip" id="chip-noprice" onclick="setPF('noprice',this)">Sin precio</div>
+      </div>
       <select id="prod-sort" onchange="renderProds(document.getElementById('prod-search').value)" style="margin-left:auto;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:20px;padding:6px 12px;font-size:14px;font-family:inherit;cursor:pointer;outline:none">
         <option value="vendidos">Más vendidos</option>
         <option value="az">A-Z</option>
@@ -501,6 +503,7 @@ select option{background:var(--surface2)}
       </select>
       <button id="prod-view-btn" onclick="toggleProdView()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text3);border-radius:20px;padding:6px 10px;font-size:16px;cursor:pointer;line-height:1" title="Cambiar vista">☰</button>
       <button id="prod-view-btn-fixed" onclick="toggleProdView()" style="display:none;position:fixed;bottom:calc(var(--nav-h) + 80px);right:16px;z-index:20;width:44px;height:44px;border-radius:50%;background:var(--surface);border:2px solid var(--border);color:var(--text3);font-size:18px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.3)">☰</button>
+    </div>
     </div>
     <div class="prod-grid" id="prod-grid"></div>
   </div>
@@ -1223,6 +1226,7 @@ function restoreData(input) {
       save();
       try{renderProds();}catch(ex){} try{renderClis();}catch(ex){} try{renderInvs();}catch(ex){} try{updDash();}catch(ex){}
   try{mostrarRecordatorioBackup();}catch(ex){}
+  try{renderProdCatChips();}catch(ex){}
       toast('Backup restaurado ✓');
     } catch(ex) { toast('Error al leer el archivo'); }
   };
@@ -1339,7 +1343,7 @@ function saveProd() {
     desc: document.getElementById('p-desc').value,
     visible: document.getElementById('p-vis').checked,
     oferta: document.getElementById('p-oferta').checked,
-    enFlyer: prevProd ? (prevProd.enFlyer||false) : false,
+    enFlyer: S.editId ? ((S.products.find(p=>p.id===S.editId)||{}).enFlyer||false) : false,
     marca: '',
     fracMin: parseInt(document.getElementById('p-frac').value)||1,
     grupoMay: document.getElementById('p-grupo').value.trim(),
@@ -1438,9 +1442,24 @@ function toggleProdView() {
 }
 function setPF(f,el) {
   pf=f;
-  document.querySelectorAll('.filter-chips .chip').forEach(c=>c.classList.remove('active'));
-  el.classList.add('active');
+  document.querySelectorAll('#prod-cat-chips .chip').forEach(c=>c.classList.remove('active'));
+  if(el) el.classList.add('active');
   renderProds(document.getElementById('prod-search').value);
+}
+function renderProdCatChips() {
+  const container = document.getElementById('prod-cat-chips');
+  if(!container) return;
+  const cats = [...new Set(S.products.filter(p=>p.category&&p.category.trim()).map(p=>p.category.trim()))].sort((a,b)=>a.localeCompare(b,'es'));
+  // Remove old cat chips (keep Todos and Sin precio)
+  container.querySelectorAll('[data-cat]').forEach(c=>c.remove());
+  cats.forEach(cat => {
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.dataset.cat = cat;
+    chip.textContent = cat;
+    chip.onclick = function(){ setPF('cat:'+cat, this); };
+    container.appendChild(chip);
+  });
 }
 
 function renderProds(q) {
@@ -1449,6 +1468,7 @@ function renderProds(q) {
   let list = [...S.products];
   if(q) list = list.filter(p => p.name.toLowerCase().includes(q)||(p.category||'').toLowerCase().includes(q)||(p.marca||'').toLowerCase().includes(q));
   if(pf==='noprice') list = list.filter(p=>!p.price);
+  else if(pf && pf.startsWith('cat:')) { const cat=pf.slice(4); list=list.filter(p=>(p.category||'').trim()===cat); }
   // Ordenar
   const sortEl = document.getElementById('prod-sort');
   const sort = sortEl ? sortEl.value : 'az';
