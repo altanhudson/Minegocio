@@ -349,7 +349,7 @@ select option{background:var(--surface2)}
   <!-- PÁGINA NUEVA COMPRA (mismo sistema) -->
   <div class="page" id="page-nueva-compra" style="padding:0;flex-direction:column;height:100%">
     <div style="padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0">
-      <button onclick="showPage('compras')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 12px;font-size:16px;cursor:pointer">←</button>
+      <button onclick="if(S.editId){S.editId=null;ncItems={};showPage('compras');}else{showPage('compras');}" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 12px;font-size:16px;cursor:pointer">←</button>
       <div style="flex:1">
         <div style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Proveedor</div>
         <select id="nc-prov" style="width:100%;font-size:15px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:Inter,sans-serif"></select>
@@ -2206,32 +2206,7 @@ function ncUpdateFooter() {
 
 function ncAgregarMas() { ncRenderList(''); }
 function ncVolverAEditar() {
-  if(S.editId) { showPage('compras'); return; }
-  // Mostrar solo los productos ya agregados
-  const el = document.getElementById('nc-prod-list');
-  if(el) {
-    const agregados = Object.keys(ncItems).filter(pid=>ncItems[pid].qty>0);
-    if(!agregados.length) { showPage('nueva-compra'); return; }
-    const prods = agregados.map(pid=>S.products.find(x=>x.id===pid)).filter(Boolean);
-    el.innerHTML = prods.map((p,i)=>{
-      const item = ncItems[p.id];
-      return '<div style="display:flex;align-items:center;padding:11px 16px;background:#f0f8ff;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
-        +'<div style="flex:1;min-width:0">'
-        +'<div style="font-weight:600;font-size:14px">'+p.name+'</div>'
-        +'<div style="font-size:13px;color:var(--text3);margin-top:2px">Stock: '+(p.stock||0)+'</div>'
-        +'</div>'
-        +'<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;align-items:flex-end">'
-        +'<input data-ncpid="'+p.id+'" data-field="qty" type="number" inputmode="decimal" step="0.1" value="'+item.qty+'" min="0" onfocus="this.select()" oninput="ncQtyChange(this)" onchange="ncQtyChange(this)" style="width:72px;height:40px;text-align:center;font-size:17px;font-weight:700;caret-color:var(--accent2);border:2px solid var(--accent2);border-radius:10px;background:#fff;color:var(--accent2);font-family:Inter,sans-serif;outline:none">'
-        +'<input data-ncpid="'+p.id+'" data-field="cost" type="number" inputmode="decimal" placeholder="$Costo" value="'+(item.cost||'')+'" min="0" onfocus="this.select()" onchange="ncCostChange(this)" style="width:80px;height:36px;text-align:center;font-size:15px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-family:Inter,sans-serif;outline:none;color:var(--text3)">'
-        +'</div></div>';
-    }).join('')
-    + '<div style="padding:12px 16px"><button onclick="ncAgregarMas()" style="background:var(--surface);border:2px dashed var(--border);border-radius:12px;padding:10px 16px;font-size:14px;font-weight:600;color:var(--accent2);cursor:pointer;width:100%">+ Agregar m&#225;s productos</button></div>';
-  }
-  showPage('nueva-compra');
-}
-function ncAgregarMas() { ncRenderList(''); showPage('nueva-compra'); }
-function ncVolverAEditar() {
-  if(S.editId) { showPage('compras'); return; }
+  if(S.editId) { showPage('compras'); S.editId=null; ncItems={}; return; }
   const el = document.getElementById('nc-prod-list');
   if(el) {
     const agregados = Object.keys(ncItems).filter(pid=>ncItems[pid].qty>0);
@@ -3420,7 +3395,35 @@ document.getElementById('page-proveedores').addEventListener('click', function(e
 });
 
 // === COMPRAS ===
-function openComp(id){S.editId=id||null;S.compItems=[];document.getElementById('cp-date').value=localDateStr();document.getElementById('cp-notes').value='';document.getElementById('comp-items').innerHTML='';const sel=document.getElementById('cp-prov');if(!S.proveedores.length){closeM('mcomp');toast('Primero agrega un proveedor');openProv();return;}sel.innerHTML=S.proveedores.map(pv=>'<option value="'+pv.id+'">'+pv.name+'</option>').join('');if(id){const c=S.compras.find(x=>x.id===id);document.getElementById('mcomp-title').textContent=c.draft?'Ver Borrador':'Ver Compra';sel.value=c.provId;document.getElementById('cp-date').value=c.date;document.getElementById('cp-notes').value=c.notes||'';document.getElementById('cp-draft').checked=!!c.draft;S.compItems=[...c.items];c.items.forEach((_,i)=>renderCItem(i,S.compItems[i]));}else{document.getElementById('mcomp-title').textContent='Nueva Compra';document.getElementById('cp-draft').checked=false;addCItem();}calcCTotal();document.getElementById('mcomp').classList.add('open');}
+function openComp(id) {
+  // Usar page-nueva-compra para editar, igual que para nueva
+  S.editId = id || null;
+  ncItems = {};
+  ncProvId = null;
+  // Cargar proveedores
+  const sel = document.getElementById('nc-prov');
+  if(!S.proveedores.length){ toast('Primero agrega un proveedor'); return; }
+  sel.innerHTML = S.proveedores.map(pv=>'<option value="'+pv.id+'">'+pv.name+'</option>').join('');
+  document.getElementById('nc-date').value = localDateStr();
+  document.getElementById('nc-notes').value = '';
+  document.getElementById('nc-draft').checked = false;
+  if(id) {
+    const c = S.compras.find(x=>x.id===id);
+    if(!c) return;
+    sel.value = c.provId;
+    ncProvId = c.provId;
+    document.getElementById('nc-date').value = c.date || localDateStr();
+    document.getElementById('nc-notes').value = c.notes || '';
+    document.getElementById('nc-draft').checked = !!c.draft;
+    // Cargar items en ncItems
+    c.items.forEach(item => {
+      if(item.prodId) ncItems[item.prodId] = { qty: item.qty||0, cost: item.cost||0 };
+    });
+  }
+  showPage('nueva-compra');
+  ncRenderList('');
+  ncUpdateFooter();
+}
 function renderCItem(idx,item){
   item=item||{prodId:null,name:'',qty:1,cost:0};
   const wrap=document.createElement('div');
@@ -3502,7 +3505,7 @@ function saveComp(){
   try {
     const pid=document.getElementById('cp-prov').value;
     if(!pid){toast('Elegi un proveedor');return;}
-    const items=S.compItems.filter(i=>(i.prodId||i.name.trim()) && i.qty>0);
+    const items=S.compItems.filter(i=>(i.prodId||( i.name&&i.name.trim())) && parseFloat(i.qty)>0);
     if(!items.length){toast('Agrega al menos un producto');return;}
     const prov=S.proveedores.find(p=>p.id===pid);
     const total=items.reduce((s,i)=>s+(i.qty*i.cost),0);
