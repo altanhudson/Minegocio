@@ -655,7 +655,19 @@ select option{background:var(--surface2)}
       <div id="stock-mov-list"></div>
     </div>
 
-    <!-- TAB LISTA DE COMPRAS -->
+    <!-- Modal selector flyer -->
+<div class="modal-overlay" id="mflyer">
+  <div class="modal" style="padding:20px">
+    <div class="modal-header"><span class="modal-title">Generar flyer</span><button class="close-btn" onclick="document.getElementById('mflyer').classList.remove('open')">x</button></div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:13px;color:var(--text3);margin-bottom:8px">Seleccioná qué querés incluir:</div>
+      <div id="flyer-cat-options" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+    <button onclick="confirmarGenerarFlyer()" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:12px;font-size:15px;font-weight:700;cursor:pointer">📢 Generar</button>
+  </div>
+</div>
+
+<!-- TAB LISTA DE COMPRAS -->
     <div id="stock-tab-compras" style="display:none">
       <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
         <div style="font-size:14px;color:var(--text3);flex:1">Productos con stock negativo (salió más de lo que había)</div>
@@ -1094,12 +1106,40 @@ function showPage(p) {
 
 
 function generarFlyer() {
-  const prods = S.products.filter(p=>p.enFlyer && p.price>0 && p.name);
-  if(!prods.length) {
+  const todosProds = S.products.filter(p=>p.enFlyer && p.price>0 && p.name);
+  if(!todosProds.length) {
     toast('Marcá productos con 📢 para incluirlos en el flyer');
     showPage('productos');
     return;
   }
+  // Construir opciones: Todos los marcados + por categoría
+  const cats = [...new Set(todosProds.map(p=>(p.category||p.marca||'').trim()).filter(c=>c))].sort((a,b)=>a.localeCompare(b,'es'));
+  const optContainer = document.getElementById('flyer-cat-options');
+  optContainer.innerHTML = '';
+  // Opción "Todos"
+  const allOpt = document.createElement('label');
+  allOpt.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:10px;cursor:pointer';
+  allOpt.innerHTML = '<input type="radio" name="flyer-cat" value="" checked style="width:18px;height:18px;accent-color:var(--accent)"><span style="font-size:14px;font-weight:600">📢 Todos los marcados <span style="color:var(--text3);font-weight:400">('+todosProds.length+' productos)</span></span>';
+  optContainer.appendChild(allOpt);
+  // Opciones por categoría
+  cats.forEach(cat => {
+    const count = todosProds.filter(p=>(p.category||p.marca||'').trim()===cat).length;
+    if(!count) return;
+    const opt = document.createElement('label');
+    opt.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:10px;cursor:pointer';
+    opt.innerHTML = '<input type="radio" name="flyer-cat" value="'+cat+'" style="width:18px;height:18px;accent-color:var(--accent)"><span style="font-size:14px;font-weight:600">'+cat+' <span style="color:var(--text3);font-weight:400">('+count+' productos)</span></span>';
+    optContainer.appendChild(opt);
+  });
+  document.getElementById('mflyer').classList.add('open');
+}
+
+function confirmarGenerarFlyer() {
+  document.getElementById('mflyer').classList.remove('open');
+  const sel = document.querySelector('input[name="flyer-cat"]:checked');
+  const catFiltro = sel ? sel.value : '';
+  const todosProds = S.products.filter(p=>p.enFlyer && p.price>0 && p.name);
+  const prods = catFiltro ? todosProds.filter(p=>(p.category||p.marca||'').trim()===catFiltro) : todosProds;
+  if(!prods.length) { toast('No hay productos en esa categoría marcados con 📢'); return; }
   // Paginar de a 18
   const pages = [];
   for(let i=0; i<prods.length; i+=18) pages.push(prods.slice(i,i+18));
@@ -1107,8 +1147,12 @@ function generarFlyer() {
   function generarPagina(pg) {
     const items = pages[pg];
     const today = localDateStr().split('-').reverse().join('/');
-    const cols = 3;
+    // Cuadrícula adaptativa
+    const cols = items.length <= 4 ? 2 : 3;
     const rows = Math.ceil(items.length/cols);
+    const cardSize = items.length <= 4 ? '80px' : items.length <= 9 ? '70px' : '60px';
+    const fontSize = items.length <= 4 ? '40px' : items.length <= 9 ? '34px' : '30px';
+    const priceFontSize = items.length <= 4 ? '18px' : '15px';
     // Construir HTML del flyer
     const flyerHtml = [
       '<div id="flyer-render" style="width:390px;background:#ebebeb;font-family:Inter,sans-serif;overflow:hidden;border-radius:20px">',
@@ -1128,16 +1172,16 @@ function generarFlyer() {
       ...items.map((p,i) => {
         const isOferta = p.oferta && p.wholesalePrice && p.wholesalePrice < p.price;
         const prevPrice = p.priceHistory && p.priceHistory.length ? p.priceHistory[p.priceHistory.length-1].price : null;
-        const imgHtml = p.image ? '<img src="'+p.image+'" crossorigin="anonymous" style="width:60px;height:60px;object-fit:cover;border-radius:8px;margin-bottom:5px">' 
-                                : '<div style="font-size:36px;margin-bottom:5px">'+(p.emoji||'📦')+'</div>';
+        const imgHtml = p.image ? '<img src="'+p.image+'" crossorigin="anonymous" style="width:'+cardSize+';height:'+cardSize+';object-fit:cover;border-radius:8px;margin-bottom:5px">'
+                                : '<div style="font-size:'+fontSize+';margin-bottom:5px">'+(p.emoji||'📦')+'</div>';
         const mayorHtml = p.wholesalePrice&&p.wholesaleQty ? '<div style="background:#e8f5e9;color:#2e7d32;border-radius:6px;padding:2px 4px;font-size:9px;font-weight:700;margin-top:3px">x'+p.wholesaleQty+': $'+p.wholesalePrice.toFixed(0)+' c/u</div>' : '';
         return [
           '<div style="background:'+(isOferta?'#fffde7':'#fff')+';border-radius:14px;padding:11px 7px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.08);'+(isOferta?'border:2px solid #e53e3e;':'')+'position:relative">',
             (isOferta?'<div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#e53e3e;color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:20px;white-space:nowrap">OFERTA</div>':''),
             imgHtml,
             '<div style="font-size:10px;color:#555;line-height:1.3;margin-bottom:6px;font-weight:600;min-height:26px">'+p.name+'</div>',
-            (prevPrice&&prevPrice!==p.price?'<div style="font-size:9px;color:#bbb;text-decoration:line-through">$'+prevPrice.toFixed(0)+'</div>':''),
-            '<div style="background:#3483fa;color:#fff;border-radius:8px;padding:3px 6px;font-size:15px;font-weight:900">$'+p.price.toFixed(0)+'</div>',
+            (prevPrice&&prevPrice!==p.price ? '<div style="font-size:9px;color:'+(p.price>prevPrice?'#dc2626':'#16a34a')+';font-weight:700">'+(p.price>prevPrice?'↑':'↓')+' antes $'+prevPrice.toFixed(0)+'</div>' : ''),
+            '<div style="background:#3483fa;color:#fff;border-radius:8px;padding:3px 6px;font-size:'+priceFontSize+';font-weight:900">$'+p.price.toFixed(0)+'</div>',
             mayorHtml,
           '</div>'
         ].join('');
@@ -1187,7 +1231,7 @@ function generarFlyer() {
     }); // end Promise.all imgLoads
   }
   generarPagina(0);
-}
+} // end confirmarGenerarFlyer
 
 function mostrarRecordatorioBackup() {
   const lastBackup = localStorage.getItem('lastBackupDate');
