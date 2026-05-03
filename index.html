@@ -1152,9 +1152,9 @@ function confirmarGenerarFlyer() {
     // Cuadrícula adaptativa
     const cols = items.length <= 4 ? 2 : 3;
     const rows = Math.ceil(items.length/cols);
-    const cardSize = items.length <= 4 ? '80px' : items.length <= 9 ? '70px' : '60px';
-    const fontSize = items.length <= 4 ? '40px' : items.length <= 9 ? '34px' : '30px';
-    const priceFontSize = items.length <= 4 ? '18px' : '15px';
+    const cardSize = items.length <= 4 ? '100px' : items.length <= 9 ? '90px' : '75px';
+    const fontSize = items.length <= 4 ? '48px' : items.length <= 9 ? '42px' : '38px';
+    const priceFontSize = items.length <= 4 ? '22px' : items.length <= 9 ? '20px' : '18px';
     // Construir HTML del flyer
     const flyerHtml = [
       '<div id="flyer-render" style="width:390px;background:#ebebeb;font-family:Inter,sans-serif;overflow:hidden;border-radius:20px">',
@@ -1178,7 +1178,7 @@ function confirmarGenerarFlyer() {
                                 : '<div style="font-size:'+fontSize+';margin-bottom:5px">'+(p.emoji||'📦')+'</div>';
         const mayorHtml = p.wholesalePrice&&p.wholesaleQty ? '<div style="background:#e8f5e9;color:#2e7d32;border-radius:6px;padding:2px 4px;font-size:9px;font-weight:700;margin-top:3px">x'+p.wholesaleQty+': $'+p.wholesalePrice.toFixed(0)+' c/u</div>' : '';
         return [
-          '<div style="background:'+(isOferta?'#fffde7':'#fff')+';border-radius:14px;padding:11px 7px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.08);'+(isOferta?'border:2px solid #e53e3e;':'')+'position:relative">',
+          '<div style="background:'+(isOferta?'#fffde7':'#fff')+';border-radius:14px;padding:12px 8px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.08);'+(isOferta?'border:2px solid #e53e3e;':'')+'position:relative">',
             (isOferta?'<div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#e53e3e;color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:20px;white-space:nowrap">OFERTA</div>':''),
             imgHtml,
             '<div style="font-size:10px;color:#555;line-height:1.3;margin-bottom:6px;font-weight:600;min-height:26px">'+p.name+'</div>',
