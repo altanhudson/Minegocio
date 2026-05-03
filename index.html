@@ -295,7 +295,7 @@ select option{background:var(--surface2)}
       <div class="card-header"><span class="card-title">🛒 Tienda online</span><span style="font-size:12px;background:#dcfce7;color:#166534;padding:2px 8px;border-radius:20px;font-weight:600">ACTIVA</span></div>
       <div style="padding:10px 14px;display:flex;gap:10px;flex-wrap:wrap">
         <button onclick="tiendaCompartirLink()" style="flex:1;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">📤 Compartir link</button>
-        <button onclick="tiendaVerPedidos()" style="flex:1;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">📋 Ver pedidos</button>
+        <button onclick="generarFlyer()" style="flex:1;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">📢 Generar flyer</button>
         <button onclick="tiendaAdminEntrar()" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">👁️ Ver tienda como admin</button>
       </div>
     </div>
@@ -677,7 +677,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:12px">Versión <strong style="color:var(--text2)">1.2.3</strong> · 02/05/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:12px">Versión <strong style="color:var(--text2)">1.3.0</strong> · 02/05/2026</div>
       </div>
     </div>
   </div>
@@ -1080,6 +1080,104 @@ function showPage(p) {
   if(p==='dashboard') updDash();
 }
 
+
+function generarFlyer() {
+  const prods = S.products.filter(p=>p.enFlyer && p.price>0 && p.name);
+  if(!prods.length) {
+    toast('Marcá productos con 📢 para incluirlos en el flyer');
+    showPage('productos');
+    return;
+  }
+  // Paginar de a 18
+  const pages = [];
+  for(let i=0; i<prods.length; i+=18) pages.push(prods.slice(i,i+18));
+  let pageIdx = 0;
+  function generarPagina(pg) {
+    const items = pages[pg];
+    const today = localDateStr().split('-').reverse().join('/');
+    const cols = 3;
+    const rows = Math.ceil(items.length/cols);
+    // Construir HTML del flyer
+    const flyerHtml = [
+      '<div id="flyer-render" style="width:390px;background:#ebebeb;font-family:Inter,sans-serif;overflow:hidden;border-radius:20px">',
+      // Header
+      '<div style="background:#3483fa;padding:16px 20px;display:flex;align-items:center;justify-content:space-between">',
+        '<div>',
+          '<div style="font-size:26px;font-weight:900;color:#fff;letter-spacing:-1px">'+TIENDA_NOMBRE+'</div>',
+          '<div style="font-size:11px;color:rgba(255,255,255,.8);letter-spacing:1px">DISTRIBUIDORA MAYORISTA</div>',
+        '</div>',
+        '<div style="text-align:right">',
+          (pages.length>1?'<div style="background:#ffe600;color:#333;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:800">'+(pg+1)+'/'+pages.length+'</div>':'<div style="background:rgba(255,255,255,.2);color:#fff;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:800">LISTA</div>'),
+          '<div style="font-size:10px;color:rgba(255,255,255,.7);margin-top:5px">'+today+'</div>',
+        '</div>',
+      '</div>',
+      // Grid
+      '<div style="padding:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px">',
+      ...items.map((p,i) => {
+        const isOferta = p.oferta && p.wholesalePrice && p.wholesalePrice < p.price;
+        const prevPrice = p.priceHistory && p.priceHistory.length ? p.priceHistory[p.priceHistory.length-1].price : null;
+        const imgHtml = p.image ? '<img src="'+p.image+'" style="width:60px;height:60px;object-fit:cover;border-radius:8px;margin-bottom:5px">' 
+                                : '<div style="font-size:36px;margin-bottom:5px">'+(p.emoji||'📦')+'</div>';
+        const mayorHtml = p.wholesalePrice&&p.wholesaleQty ? '<div style="background:#e8f5e9;color:#2e7d32;border-radius:6px;padding:2px 4px;font-size:9px;font-weight:700;margin-top:3px">x'+p.wholesaleQty+': $'+p.wholesalePrice.toFixed(0)+' c/u</div>' : '';
+        return [
+          '<div style="background:'+(isOferta?'#fffde7':'#fff')+';border-radius:14px;padding:11px 7px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.08);'+(isOferta?'border:2px solid #e53e3e;':'')+'position:relative">',
+            (isOferta?'<div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#e53e3e;color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:20px;white-space:nowrap">OFERTA</div>':''),
+            imgHtml,
+            '<div style="font-size:10px;color:#555;line-height:1.3;margin-bottom:6px;font-weight:600;min-height:26px">'+p.name+'</div>',
+            (prevPrice&&prevPrice!==p.price?'<div style="font-size:9px;color:#bbb;text-decoration:line-through">$'+prevPrice.toFixed(0)+'</div>':''),
+            '<div style="background:#3483fa;color:#fff;border-radius:8px;padding:3px 6px;font-size:15px;font-weight:900">$'+p.price.toFixed(0)+'</div>',
+            mayorHtml,
+          '</div>'
+        ].join('');
+      }),
+      '</div>',
+      // Footer
+      '<div style="background:#3483fa;padding:12px 20px;display:flex;justify-content:space-between;align-items:center">',
+        '<div>',
+          '<div style="color:rgba(255,255,255,.8);font-size:10px;text-transform:uppercase;letter-spacing:1px">Pedidos por WhatsApp</div>',
+          '<div style="color:#ffe600;font-size:14px;font-weight:800">📲 '+WA_NUM+'</div>',
+        '</div>',
+        '<div style="color:rgba(255,255,255,.6);font-size:10px;text-align:right">Precios sujetos<br>a cambios</div>',
+      '</div>',
+      '</div>'
+    ].join('');
+    // Insertar en DOM temporalmente y capturar
+    const tmp = document.createElement('div');
+    tmp.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1';
+    tmp.innerHTML = flyerHtml;
+    document.body.appendChild(tmp);
+    const el = tmp.querySelector('#flyer-render');
+    if(typeof html2canvas === 'undefined') {
+      document.body.removeChild(tmp);
+      toast('Cargando generador de imágenes...');
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+      script.onload = function() { document.body.appendChild(tmp); generarFlyer(); };
+      document.head.appendChild(script);
+      return;
+    }
+    toast('Generando flyer...');
+    html2canvas(el, {scale:2, useCORS:true, backgroundColor:'#ebebeb'}).then(canvas=>{
+      document.body.removeChild(tmp);
+      canvas.toBlob(function(blob){
+        const file = new File([blob], 'flyer-surtimar-'+(pg+1)+'.png', {type:'image/png'});
+        if(navigator.canShare && navigator.canShare({files:[file]})) {
+          navigator.share({files:[file], title:'Surtimar - Lista de precios'})
+            .then(()=>{ if(pg+1<pages.length) setTimeout(()=>generarPagina(pg+1),500); })
+            .catch(()=>{});
+        } else {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href=url; a.download='flyer-surtimar-'+(pg+1)+'.png';
+          a.click();
+          if(pg+1<pages.length) setTimeout(()=>generarPagina(pg+1),800);
+        }
+      },'image/png');
+    }).catch(()=>{ document.body.removeChild(tmp); toast('Error al generar flyer'); });
+  }
+  generarPagina(0);
+}
+
 function mostrarRecordatorioBackup() {
   const lastBackup = localStorage.getItem('lastBackupDate');
   const today = localDateStr();
@@ -1242,6 +1340,7 @@ function saveProd() {
     desc: document.getElementById('p-desc').value,
     visible: document.getElementById('p-vis').checked,
     oferta: document.getElementById('p-oferta').checked,
+    enFlyer: p ? (p.enFlyer||false) : false,
     marca: '',
     fracMin: parseInt(document.getElementById('p-frac').value)||1,
     grupoMay: document.getElementById('p-grupo').value.trim(),
@@ -1463,7 +1562,11 @@ function renderProds(q) {
         + '<span style="font-size:13px;color:'+stColor+'">'+stTxt+'</span>'
         + (p.cost>0?'<span style="font-size:13px;color:var(--text3)">Costo: $'+p.cost.toFixed(0)+'</span>':'')
         + '</div></div>'
-        + '<div style="display:flex;gap:6px;flex-shrink:0">'
+        + '<div style="display:flex;gap:4px;flex-shrink:0;align-items:center">'
+        + '<div style="display:flex;flex-direction:column;gap:3px;margin-right:2px">'
+        + '<button class="btn btn-sm" data-action="togOferta" data-id="'+pid+'" style="padding:4px 7px;font-size:11px;font-weight:700;background:'+(p.oferta?'#fef2f2':'#f5f5f5')+';color:'+(p.oferta?'#dc2626':'#ccc')+';border:1px solid '+(p.oferta?'#fca5a5':'#e0e0e0')+'">🔥</button>'
+        + '<button class="btn btn-sm" data-action="togFlyer" data-id="'+pid+'" style="padding:4px 7px;font-size:11px;font-weight:700;background:'+(p.enFlyer?'#eff6ff':'#f5f5f5')+';color:'+(p.enFlyer?'#3483fa':'#ccc')+';border:1px solid '+(p.enFlyer?'#93c5fd':'#e0e0e0')+'">📢</button>'
+        + '</div>'
         + '<button class="btn btn-ghost btn-sm" data-action="verProdHist" data-id="'+pid+'" style="padding:8px 10px">📋</button>'
         + '<button class="btn btn-ghost btn-sm" data-action="openProd" data-id="'+pid+'" style="padding:8px 10px">✏️</button>'
         + '<button class="btn btn-danger btn-sm" data-action="delProd" data-id="'+pid+'" style="padding:8px 10px">🗑️</button>'
@@ -1524,9 +1627,25 @@ document.getElementById('page-productos').addEventListener('click', function(e) 
   else if(action==='togQE') togQE(id);
   else if(action==='saveQE') saveQE(id);
   else if(action==='delProd') delProd(id);
+  else if(action==='togOferta') togOferta(id);
+  else if(action==='togFlyer') togFlyer(id);
   else if(action==='openImg') { e.stopPropagation(); openImg(el.src, e); }
 });
 
+function togOferta(id) {
+  const p = S.products.find(x=>x.id===id);
+  if(!p) return;
+  p.oferta = !p.oferta;
+  save();
+  renderProds(document.getElementById('prod-search').value);
+}
+function togFlyer(id) {
+  const p = S.products.find(x=>x.id===id);
+  if(!p) return;
+  p.enFlyer = !p.enFlyer;
+  save();
+  renderProds(document.getElementById('prod-search').value);
+}
 function togQE(id) {
   const p = document.getElementById('qe-'+id);
   const b = document.getElementById('qbtn-'+id);
