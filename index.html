@@ -2205,8 +2205,8 @@ function ncUpdateFooter() {
 }
 
 function ncAgregarMas() { ncRenderList(''); }
-function ncVolverAEditar() {
-  if(S.editId) { showPage('compras'); S.editId=null; ncItems={}; return; }
+function ncVolverAEditar(fromOpen) {
+  if(S.editId && !fromOpen) { showPage('compras'); S.editId=null; ncItems={}; return; }
   const el = document.getElementById('nc-prod-list');
   if(el) {
     const agregados = Object.keys(ncItems).filter(pid=>ncItems[pid].qty>0);
@@ -3422,7 +3422,7 @@ function openComp(id) {
   }
   showPage('nueva-compra');
   if(id) {
-    ncVolverAEditar(); // mostrar productos ya cargados
+    ncVolverAEditar(true); // mostrar productos ya cargados
   } else {
     ncRenderList('');
   }
