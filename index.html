@@ -3421,7 +3421,11 @@ function openComp(id) {
     });
   }
   showPage('nueva-compra');
-  ncRenderList('');
+  if(id) {
+    ncVolverAEditar(); // mostrar productos ya cargados
+  } else {
+    ncRenderList('');
+  }
   ncUpdateFooter();
 }
 function renderCItem(idx,item){
