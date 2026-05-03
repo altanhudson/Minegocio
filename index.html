@@ -495,7 +495,7 @@ select option{background:var(--surface2)}
       <select id="prod-sort" onchange="renderProds(document.getElementById('prod-search').value)" style="margin-left:auto;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:20px;padding:6px 12px;font-size:14px;font-family:inherit;cursor:pointer;outline:none">
         <option value="vendidos">Más vendidos</option>
         <option value="az">A-Z</option>
-        <option value="marca">Marca</option>
+        <option value="categoria">Categoría</option>
         <option value="margen-asc">Margen ↑ (menor)</option>
         <option value="margen-desc">Margen ↓ (mayor)</option>
       </select>
@@ -1339,7 +1339,7 @@ function saveProd() {
     desc: document.getElementById('p-desc').value,
     visible: document.getElementById('p-vis').checked,
     oferta: document.getElementById('p-oferta').checked,
-    enFlyer: p ? (p.enFlyer||false) : false,
+    enFlyer: prevProd ? (prevProd.enFlyer||false) : false,
     marca: '',
     fracMin: parseInt(document.getElementById('p-frac').value)||1,
     grupoMay: document.getElementById('p-grupo').value.trim(),
@@ -1379,10 +1379,13 @@ function saveProd() {
     }
     const i=S.products.findIndex(p=>p.id===S.editId); S.products[i]=prod;
   } else S.products.push(prod);
+  // Cerrar modal primero
+  const mprod = document.getElementById('mprod');
+  if(mprod){ mprod.classList.remove('open'); mprod.style.display='none'; }
+  setTimeout(function(){ if(mprod) mprod.style.display=''; }, 200);
   try { renderProds(); } catch(e) {}
   try { updDash(); } catch(e) {}
   try { save(); } catch(e) {}
-  closeM('mprod');
   toast('Producto guardado');
   if(window._returnAfterProd) {
     const pg = window._returnAfterProd;
@@ -1451,18 +1454,11 @@ function renderProds(q) {
   const sort = sortEl ? sortEl.value : 'az';
   if(sort==='az') {
     list.sort((a,b)=>a.name.localeCompare(b.name,'es'));
-  } else if(sort==='marca') {
-    list.sort((a,b)=>{
-      const ma=(a.marca||a.name).toLowerCase();
-      const mb=(b.marca||b.name).toLowerCase();
-      if(ma!==mb) return ma.localeCompare(mb,'es');
-      return a.name.localeCompare(b.name,'es');
-    });
   } else if(sort==='categoria') {
     list.sort((a,b)=>{
-      const ca=(a.category||'zzz').toLowerCase();
-      const cb=(b.category||'zzz').toLowerCase();
-      if(ca!==cb) return ca.localeCompare(cb,'es');
+      const ma=(a.category||a.name).toLowerCase();
+      const mb=(b.category||b.name).toLowerCase();
+      if(ma!==mb) return ma.localeCompare(mb,'es');
       return a.name.localeCompare(b.name,'es');
     });
   } else if(sort==='margen-asc') {
@@ -1563,8 +1559,8 @@ function renderProds(q) {
         + '</div></div>'
         + '<div style="display:flex;gap:4px;flex-shrink:0;align-items:center">'
         + '<div style="display:flex;flex-direction:column;gap:3px;margin-right:2px">'
-        + '<button class="btn btn-sm" data-action="togOferta" data-id="'+pid+'" style="padding:4px 7px;font-size:11px;font-weight:700;background:'+(p.oferta?'#fef2f2':'#f5f5f5')+';color:'+(p.oferta?'#dc2626':'#ccc')+';border:1px solid '+(p.oferta?'#fca5a5':'#e0e0e0')+'">🔥</button>'
-        + '<button class="btn btn-sm" data-action="togFlyer" data-id="'+pid+'" style="padding:4px 7px;font-size:11px;font-weight:700;background:'+(p.enFlyer?'#eff6ff':'#f5f5f5')+';color:'+(p.enFlyer?'#3483fa':'#ccc')+';border:1px solid '+(p.enFlyer?'#93c5fd':'#e0e0e0')+'">📢</button>'
+        + '<button class="btn btn-sm" data-action="togOferta" data-id="'+pid+'" style="padding:6px 10px;font-size:16px;border-radius:8px;background:'+(p.oferta?'#dc2626':'#efefef')+';color:'+(p.oferta?'#fff':'#ccc')+';border:none">🔥</button>'
+        + '<button class="btn btn-sm" data-action="togFlyer" data-id="'+pid+'" style="padding:6px 10px;font-size:16px;border-radius:8px;background:'+(p.enFlyer?'#3483fa':'#efefef')+';color:'+(p.enFlyer?'#fff':'#ccc')+';border:none">📢</button>'
         + '</div>'
         + '<button class="btn btn-ghost btn-sm" data-action="verProdHist" data-id="'+pid+'" style="padding:8px 10px">📋</button>'
         + '<button class="btn btn-ghost btn-sm" data-action="openProd" data-id="'+pid+'" style="padding:8px 10px">✏️</button>'
