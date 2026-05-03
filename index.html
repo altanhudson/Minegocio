@@ -3477,14 +3477,7 @@ document.getElementById('comp-items').addEventListener('keydown', function(e){
   }
 });
 document.getElementById('comp-items').addEventListener('blur', function(e){
-  if(e.target.classList.contains('cqty-input')){
-    // No avanzar si el foco va al botón guardar o cancelar
-    setTimeout(function(){
-      const focused = document.activeElement;
-      if(focused && (focused.tagName==='BUTTON' || focused.id==='cp-prov' || focused.id==='cp-date')) return;
-      cAutoNext(parseInt(e.target.dataset.cidx));
-    }, 150);
-  }
+  // cAutoNext desactivado — causaba problemas con S.editId y apertura del buscador
 }, true);
 function cAutoNext(idx){
   const item=S.compItems[idx];
