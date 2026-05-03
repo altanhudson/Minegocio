@@ -1144,7 +1144,7 @@ function confirmarGenerarFlyer() {
   if(!prods.length) { toast('No hay productos en esa categoría marcados con 📢'); return; }
   // Paginar de a 18
   const pages = [];
-  for(let i=0; i<prods.length; i+=18) pages.push(prods.slice(i,i+18));
+  for(let i=0; i<prods.length; i+=12) pages.push(prods.slice(i,i+12));
   let pageIdx = 0;
   function generarPagina(pg) {
     const items = pages[pg];
