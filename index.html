@@ -986,7 +986,9 @@ const S = {
 const SK = 'mneg_v2';
 
 let _saveTimeout = null;
+let _lastSaveTime = 0;
 function save() {
+  _lastSaveTime = Date.now();
   // Guardar en localStorage como respaldo inmediato
   try {
     localStorage.setItem(SK, JSON.stringify({
@@ -1388,7 +1390,7 @@ function saveProd() {
     id: S.editId || 'PROD-'+String(S.nProd++).padStart(3,'0'),
     name,
     emoji: '📦',
-    category: document.getElementById('p-cat').value,
+    category: (document.getElementById('p-cat').value||'').trim().replace(/^\w/, c=>c.toUpperCase()),
     price: parseFloat(document.getElementById('p-price').value)||0,
     wholesalePrice: parseFloat(document.getElementById('p-wprice').value)||0,
     wholesaleQty: parseInt(document.getElementById('p-wqty').value)||0,
@@ -1514,7 +1516,7 @@ function renderProdCatChips() {
   const sel = document.getElementById('prod-cat-filter');
   if(!sel) return;
   const cats = [...new Set(S.products
-    .map(p=>(p.category||p.marca||'').trim())
+    .map(p=>(p.category||p.marca||'').trim().replace(/^\w/, c=>c.toUpperCase()))
     .filter(c=>c)
   )].sort((a,b)=>a.localeCompare(b,'es'));
   const current = sel.value;
@@ -4248,6 +4250,8 @@ async function initApp() {
         return;
       }
       // Actualizar estado con datos remotos
+      // Ignorar si acabamos de guardar nosotros (evita sobreescribir cambios propios)
+      if(Date.now() - _lastSaveTime < 4000) return;
       Object.assign(S, fbData);
       try { localStorage.setItem(SK, JSON.stringify(fbData)); } catch(e) {}
       renderProds(); renderInvs(); renderClis(); renderProvs(); renderComps(); updDash();
