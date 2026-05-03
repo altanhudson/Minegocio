@@ -488,7 +488,16 @@ select option{background:var(--surface2)}
   </div>
 
   <div class="page" id="page-productos">
-    <div class="search-bar"><span style="color:var(--text3)">&#128269;</span><input type="text" id="prod-search" placeholder="Buscar producto..." oninput="renderProds(this.value)"></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div class="search-bar" style="flex:1;position:relative">
+        <span style="color:var(--text3)">&#128269;</span>
+        <input type="text" id="prod-search" placeholder="Buscar producto..." oninput="renderProds(this.value);document.getElementById('prod-search-x').style.display=this.value?'flex':'none'">
+        <button id="prod-search-x" onclick="document.getElementById('prod-search').value='';renderProds('');this.style.display='none'" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:var(--text3);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer;align-items:center;justify-content:center;line-height:1">✕</button>
+      </div>
+      <select id="prod-cat-filter" onchange="setPFCat(this.value)" style="font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:20px;background:var(--surface2);color:var(--text);outline:none;max-width:130px">
+        <option value="">Categoría...</option>
+      </select>
+    </div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:0">
       <div id="prod-cat-chips" style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex:1;padding:2px 0">
         <div class="chip active" id="chip-all" onclick="setPF('all',this)">Todos</div>
@@ -1011,6 +1020,7 @@ async function loadFromFirebase() {
     try{renderClis();}catch(e){} 
     try{renderInvs();}catch(e){} 
     try{updDash();}catch(e){}
+    try{renderProdCatChips();}catch(e){}
     return true;
   } catch(e) { return false; }
 }
@@ -1445,29 +1455,33 @@ function setPF(f,el) {
   if(el) el.classList.add('active');
   renderProds(document.getElementById('prod-search').value);
 }
+function setPFCat(cat) {
+  pf = cat ? 'cat:'+cat : 'all';
+  // Reset chip active states
+  document.querySelectorAll('#prod-cat-chips .chip').forEach(c=>c.classList.remove('active'));
+  if(!cat) document.getElementById('chip-all').classList.add('active');
+  renderProds(document.getElementById('prod-search').value);
+}
 function renderProdCatChips() {
-  const container = document.getElementById('prod-cat-chips');
-  if(!container) return;
-  const cats = [...new Set(S.products.filter(p=>p.category&&p.category.trim()).map(p=>p.category.trim()))].sort((a,b)=>a.localeCompare(b,'es'));
-  // Remove old cat chips (keep Todos and Sin precio)
-  container.querySelectorAll('[data-cat]').forEach(c=>c.remove());
-  cats.forEach(cat => {
-    const chip = document.createElement('div');
-    chip.className = 'chip';
-    chip.dataset.cat = cat;
-    chip.textContent = cat;
-    chip.onclick = function(){ setPF('cat:'+cat, this); };
-    container.appendChild(chip);
-  });
+  // Populate dropdown with categories from products (also checks marca field)
+  const sel = document.getElementById('prod-cat-filter');
+  if(!sel) return;
+  const cats = [...new Set(S.products
+    .map(p=>(p.category||p.marca||'').trim())
+    .filter(c=>c)
+  )].sort((a,b)=>a.localeCompare(b,'es'));
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Categoría...</option>' + cats.map(c=>'<option value="'+c+'"'+(c===current?' selected':'')+'>'+c+'</option>').join('');
 }
 
 function renderProds(q) {
   q = (q||'').toLowerCase();
   const grid = document.getElementById('prod-grid');
   let list = [...S.products];
+  try{renderProdCatChips();}catch(e){}
   if(q) list = list.filter(p => p.name.toLowerCase().includes(q)||(p.category||'').toLowerCase().includes(q)||(p.marca||'').toLowerCase().includes(q));
   if(pf==='noprice') list = list.filter(p=>!p.price);
-  else if(pf && pf.startsWith('cat:')) { const cat=pf.slice(4); list=list.filter(p=>(p.category||'').trim()===cat); }
+  else if(pf && pf.startsWith('cat:')) { const cat=pf.slice(4); list=list.filter(p=>(p.category||p.marca||'').trim()===cat); }
   // Ordenar
   const sortEl = document.getElementById('prod-sort');
   const sort = sortEl ? sortEl.value : 'az';
@@ -4191,6 +4205,7 @@ async function initApp() {
       try { localStorage.setItem(SK, JSON.stringify(fbData)); } catch(e) {}
       renderProds(); renderInvs(); renderClis(); renderProvs(); renderComps(); updDash();
       try{updateStockBadge();}catch(e){}
+      try{renderProdCatChips();}catch(e){}
       toast('🔄 Sincronizado');
     });
   }
