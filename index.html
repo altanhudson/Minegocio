@@ -1143,21 +1143,12 @@ function generarFlyer() {
     ].join('');
     // Insertar en DOM temporalmente y capturar
     const tmp = document.createElement('div');
-    tmp.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1';
+    tmp.style.cssText = 'position:fixed;left:0;top:0;z-index:-1;opacity:0;pointer-events:none';
     tmp.innerHTML = flyerHtml;
     document.body.appendChild(tmp);
     const el = tmp.querySelector('#flyer-render');
-    if(typeof html2canvas === 'undefined') {
-      document.body.removeChild(tmp);
-      toast('Cargando generador de imágenes...');
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-      script.onload = function() { document.body.appendChild(tmp); generarFlyer(); };
-      document.head.appendChild(script);
-      return;
-    }
     toast('Generando flyer...');
-    html2canvas(el, {scale:2, useCORS:true, backgroundColor:'#ebebeb'}).then(canvas=>{
+    html2canvas(el, {scale:2, useCORS:true, allowTaint:true, backgroundColor:'#ebebeb', logging:false}).then(canvas=>{
       document.body.removeChild(tmp);
       canvas.toBlob(function(blob){
         const file = new File([blob], 'flyer-surtimar-'+(pg+1)+'.png', {type:'image/png'});
