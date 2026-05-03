@@ -766,6 +766,7 @@ select option{background:var(--surface2)}
       </div>
       <div class="form-group"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="p-vis" checked style="width:20px;height:20px"><span style="font-size:14px">Visible en tienda online</span></label></div>
       <div class="form-group"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="p-oferta" style="width:20px;height:20px"><span style="font-size:14px">🔥 En oferta</span></label></div>
+      <div class="form-group"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="p-soloflyer" style="width:20px;height:20px"><span style="font-size:14px">📢 Solo flyer (no aparece al facturar)</span></label></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" style="flex:1" onclick="closeM('mprod')">Cancelar</button>
@@ -1361,6 +1362,7 @@ function openProd(id) {
     document.getElementById('p-desc').value = p.desc||'';
     document.getElementById('p-vis').checked = p.visible!==false;
     document.getElementById('p-oferta').checked = !!p.oferta;
+    document.getElementById('p-soloflyer').checked = !!p.soloFlyer;
     document.getElementById('p-frac').value = p.fracMin||1;
     document.getElementById('p-grupo').value = p.grupoMay||'';
     S.photo = p.image||null;
@@ -1371,6 +1373,7 @@ function openProd(id) {
     document.getElementById('p-minst').value = 0;
     document.getElementById('p-vis').checked = true;
   document.getElementById('p-oferta').checked = false;
+  document.getElementById('p-soloflyer').checked = false;
     document.getElementById('p-frac').value = 1;
     document.getElementById('p-grupo').value = '';
     resetPhoto('');
@@ -1395,6 +1398,7 @@ function saveProd() {
     desc: document.getElementById('p-desc').value,
     visible: document.getElementById('p-vis').checked,
     oferta: document.getElementById('p-oferta').checked,
+    soloFlyer: document.getElementById('p-soloflyer').checked,
     enFlyer: S.editId ? ((S.products.find(p=>p.id===S.editId)||{}).enFlyer||false) : false,
     marca: '',
     fracMin: parseInt(document.getElementById('p-frac').value)||1,
@@ -2192,7 +2196,7 @@ function cartRenderList(q) {
   const el = document.getElementById('nf-prod-list');
   if(!el) return;
   const ql = (q||'').trim().toLowerCase();
-  let prods = S.products.filter(p=>p.name&&p.name.trim());
+  let prods = S.products.filter(p=>p.name&&p.name.trim()&&!p.soloFlyer);
   if(ql) prods = prods.filter(p=>p.name.toLowerCase().includes(ql));
   if(!prods.length) {
     el.innerHTML='<div style="text-align:center;padding:40px;color:var(--text3)">Sin resultados</div>'
@@ -2320,7 +2324,7 @@ function ncRenderList(q) {
   const el = document.getElementById('nc-prod-list');
   if(!el) return;
   const ql = (q||'').trim().toLowerCase();
-  let prods = S.products.filter(p=>p.name&&p.name.trim());
+  let prods = S.products.filter(p=>p.name&&p.name.trim()&&!p.soloFlyer);
   if(ql) prods = prods.filter(p=>p.name.toLowerCase().includes(ql));
   if(!prods.length) { el.innerHTML='<div style="text-align:center;padding:40px;color:var(--text3)">Sin resultados</div><div style="padding:0 16px 16px"><button onclick="ncNuevoProd()" style="background:var(--surface);border:2px dashed var(--border);border-radius:12px;padding:12px 20px;font-size:14px;font-weight:600;color:var(--accent2);cursor:pointer;width:100%">+ Producto nuevo</button></div>'; return; }
   el.innerHTML = prods.map((p,i) => {
@@ -4323,7 +4327,7 @@ function renderStockMovimientos(q) {
   const el = document.getElementById('stock-mov-list');
   if(!el) return;
   const ql = (q||'').toLowerCase();
-  let prods = S.products.filter(p=>p.name&&p.name.trim());
+  let prods = S.products.filter(p=>p.name&&p.name.trim()&&!p.soloFlyer);
   if(ql) prods = prods.filter(p=>p.name.toLowerCase().includes(ql));
   const sortMov = (document.getElementById('stock-mov-sort')||{}).value||'nombre';
   if(sortMov==='bajo') prods = [...prods].sort((a,b)=>(a.stock||0)-(b.stock||0));
