@@ -1209,34 +1209,40 @@ function confirmarGenerarFlyer() {
     tmp.innerHTML = flyerHtml;
     document.body.appendChild(tmp);
     const el = tmp.querySelector('#flyer-render');
-    toast('Generando flyer...');
     // Esperar que todas las imágenes carguen
     const imgs = Array.from(el.querySelectorAll('img'));
     const imgLoads = imgs.map(img => new Promise(res => {
       if(img.complete && img.naturalWidth > 0) res();
       else { img.onload = res; img.onerror = res; setTimeout(res, 3000); }
     }));
-    Promise.all(imgLoads).then(() => {
-    html2canvas(el, {scale:2, useCORS:true, allowTaint:true, backgroundColor:'#ebebeb', logging:false}).then(canvas=>{
-      document.body.removeChild(tmp);
-      canvas.toBlob(function(blob){
-        const file = new File([blob], 'flyer-surtimar-'+(pg+1)+'.png', {type:'image/png'});
-        if(navigator.canShare && navigator.canShare({files:[file]})) {
-          navigator.share({files:[file], title:'Surtimar - Lista de precios'})
-            .then(()=>{ if(pg+1<pages.length) setTimeout(()=>generarPagina(pg+1),500); })
-            .catch(()=>{});
-        } else {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href=url; a.download='flyer-surtimar-'+(pg+1)+'.png';
-          a.click();
-          if(pg+1<pages.length) setTimeout(()=>generarPagina(pg+1),800);
-        }
-      },'image/png');
-    }).catch(()=>{ document.body.removeChild(tmp); toast('Error al generar flyer'); });
-    }); // end Promise.all imgLoads
+    return Promise.all(imgLoads).then(() =>
+      html2canvas(el, {scale:2, useCORS:true, allowTaint:true, backgroundColor:'#ebebeb', logging:false})
+        .then(canvas => new Promise(res => canvas.toBlob(res, 'image/png')))
+        .then(blob => { document.body.removeChild(tmp); return blob; })
+        .catch(() => { document.body.removeChild(tmp); return null; })
+    );
   }
-  generarPagina(0);
+
+  toast('Generando flyer' + (pages.length > 1 ? ' ('+pages.length+' páginas)...' : '...'));
+
+  // Generar todas las páginas en paralelo
+  Promise.all(pages.map((_, pg) => generarPagina(pg))).then(blobs => {
+    const validBlobs = blobs.filter(Boolean);
+    if(!validBlobs.length) { toast('Error al generar flyer'); return; }
+    const files = validBlobs.map((blob, i) => new File([blob], 'flyer-surtimar-'+(i+1)+'.png', {type:'image/png'}));
+    if(navigator.canShare && navigator.canShare({files})) {
+      navigator.share({files, title:'Surtimar - Lista de precios'}).catch(()=>{});
+    } else {
+      files.forEach((file, i) => {
+        setTimeout(() => {
+          const url = URL.createObjectURL(file);
+          const a = document.createElement('a');
+          a.href = url; a.download = file.name;
+          a.click();
+        }, i * 500);
+      });
+    }
+  });
 } // end confirmarGenerarFlyer
 
 function mostrarRecordatorioBackup() {
