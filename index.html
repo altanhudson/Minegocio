@@ -1116,7 +1116,7 @@ function generarFlyer() {
     return;
   }
   // Construir opciones: Todos los marcados + por categoría
-  const cats = [...new Set(todosProds.map(p=>(p.category||p.marca||'').trim()).filter(c=>c))].sort((a,b)=>a.localeCompare(b,'es'));
+  const cats = [...new Set(todosProds.map(p=>(p.category||p.marca||'').trim().replace(/^\w/,c=>c.toUpperCase())).filter(c=>c))].sort((a,b)=>a.localeCompare(b,'es'));
   const optContainer = document.getElementById('flyer-cat-options');
   optContainer.innerHTML = '';
   // Opción "Todos"
@@ -1141,7 +1141,7 @@ function confirmarGenerarFlyer() {
   const sel = document.querySelector('input[name="flyer-cat"]:checked');
   const catFiltro = sel ? sel.value : '';
   const todosProds = S.products.filter(p=>p.enFlyer && p.price>0 && p.name);
-  const prods = catFiltro ? todosProds.filter(p=>(p.category||p.marca||'').trim()===catFiltro) : todosProds;
+  const prods = catFiltro ? todosProds.filter(p=>(p.category||p.marca||'').trim().replace(/^\w/,c=>c.toUpperCase())===catFiltro) : todosProds;
   if(!prods.length) { toast('No hay productos en esa categoría marcados con 📢'); return; }
   // Paginar de a 18
   const pages = [];
