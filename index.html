@@ -672,6 +672,7 @@ select option{background:var(--surface2)}
       <div style="padding:14px 16px">
         <div style="font-size:14px;color:var(--text3);margin-bottom:12px">Descargá una copia de todos tus datos como archivo JSON en tu celu.</div>
         <button onclick="backupData()" class="btn btn-primary btn-full">&#11015;&#65039; Descargar backup</button>
+        <button onclick="normalizarCategorias()" class="btn btn-full" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);margin-top:8px">🔤 Normalizar categorías (mayúsculas)</button>
       </div>
     </div>
     <div class="card" style="margin-bottom:12px">
@@ -1250,6 +1251,18 @@ function mostrarRecordatorioBackup() {
 function localDateStr() {
   const d = new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function normalizarCategorias() {
+  let changed = 0;
+  S.products.forEach(p => {
+    if(p.category && p.category.trim()) {
+      const norm = p.category.trim().replace(/^\w/, c=>c.toUpperCase());
+      if(norm !== p.category) { p.category = norm; changed++; }
+    }
+  });
+  if(changed === 0) { toast('Todas las categorías ya están normalizadas'); return; }
+  save();
+  toast(changed + ' categorías normalizadas ✓');
 }
 function backupData() {
   localStorage.setItem('lastBackupDate', localDateStr());
