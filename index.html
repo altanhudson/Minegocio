@@ -1144,7 +1144,7 @@ function confirmarGenerarFlyer() {
   if(!prods.length) { toast('No hay productos en esa categoría marcados con 📢'); return; }
   // Paginar de a 18
   const pages = [];
-  for(let i=0; i<prods.length; i+=12) pages.push(prods.slice(i,i+12));
+  for(let i=0; i<prods.length; i+=9) pages.push(prods.slice(i,i+9));
   let pageIdx = 0;
   function generarPagina(pg) {
     const items = pages[pg];
@@ -1181,7 +1181,7 @@ function confirmarGenerarFlyer() {
           '<div style="background:'+(isOferta?'#fffde7':'#fff')+';border-radius:10px;padding:8px 6px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.07);'+(isOferta?'border:2px solid #e53e3e;':'')+'position:relative">',
             (isOferta?'<div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#e53e3e;color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:20px;white-space:nowrap">OFERTA</div>':''),
             imgHtml,
-            '<div style="font-size:10px;color:#555;line-height:1.2;margin-bottom:4px;font-weight:600;min-height:24px">'+p.name+'</div>',
+            '<div style="font-size:10px;color:#555;line-height:1.2;margin-bottom:4px;font-weight:600">'+p.name+'</div>',
             (prevPrice&&prevPrice!==p.price ? '<div style="font-size:9px;color:'+(p.price>prevPrice?'#dc2626':'#16a34a')+';font-weight:700">'+(p.price>prevPrice?'↑':'↓')+' antes $'+prevPrice.toFixed(0)+'</div>' : ''),
             '<div style="background:#3483fa;color:#fff;border-radius:8px;padding:3px 6px;font-size:'+priceFontSize+';font-weight:900">$'+p.price.toFixed(0)+'</div>',
             mayorHtml,
