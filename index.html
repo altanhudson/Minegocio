@@ -2101,7 +2101,11 @@ function renderProdMovimientos(id) {
         +'</div>'
         +'</div>';
     }).join('')
-    +'</div></div>';
+    +'</div></div>'
+    +'<div style="margin-top:12px;background:var(--surface);border:2px solid '+(p.stock<0?'var(--accent3)':p.stock===0?'var(--border)':'var(--green)')+';border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center">'
+    +'<span style="font-size:14px;font-weight:600;color:var(--text)">Stock actual</span>'
+    +'<span style="font-size:22px;font-weight:900;color:'+(p.stock<0?'var(--accent3)':p.stock===0?'var(--text3)':'var(--green)')+'">'+( p.stock||0)+' uds</span>'
+    +'</div>';
 }
 function cliSearchInput(q) {
   const list = document.getElementById('i-cli-aclist');
@@ -4442,7 +4446,7 @@ function renderStockAjuste(q) {
   el.innerHTML = prods.map(p => {
     return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">'
       + '<div style="flex:1;font-size:15px;font-weight:500;line-height:1.3">' + p.name + '<br><span style="font-size:13px;color:var(--text3)">Actual: ' + (p.stock||0) + '</span></div>'
-      + '<input type="number" min="0" inputmode="numeric" placeholder="' + (p.stock||0) + '" data-prodid="' + p.id + '" style="width:70px;text-align:center;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-size:14px;font-weight:600">'
+      + '<input type="number" inputmode="decimal" placeholder="' + (p.stock||0) + '" data-prodid="' + p.id + '" style="width:70px;text-align:center;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-size:14px;font-weight:600">'
       + '</div>';
   }).join('');
 }
@@ -4454,8 +4458,8 @@ function saveStockAjuste() {
   inputs.forEach(inp => {
     const val = inp.value.trim();
     if (val === '') return;
-    const n = parseInt(val);
-    if (isNaN(n) || n < 0) return;
+    const n = parseFloat(val);
+    if (isNaN(n)) return;
     const p = S.products.find(x => x.id === inp.dataset.prodid);
     if (p && p.stock !== n) { ajusteItems.push({prodId:p.id, name:p.name, stockAnterior:p.stock, stockNuevo:n, diff:n-p.stock}); p.stock = n; changed++; }
   });
