@@ -567,7 +567,10 @@ select option{background:var(--surface2)}
         <div id="prodh-nombre" style="font-family:Inter,sans-serif;font-size:18px;font-weight:800"></div>
         <div id="prodh-stock-actual" style="font-size:13px;color:var(--text3)"></div>
       </div>
-      <button onclick="openProd(prodHistId)" style="background:var(--surface2);border:1px solid var(--border);color:var(--accent);border-radius:10px;padding:8px 14px;font-size:14px;font-weight:700;cursor:pointer">✏️ Editar</button>
+      <div id="prodh-stock-badge" style="text-align:center;background:var(--surface2);border-radius:10px;padding:8px 14px;border:2px solid var(--border)">
+        <div style="font-size:11px;color:var(--text3);font-weight:600">STOCK</div>
+        <div id="prodh-stock-num" style="font-size:20px;font-weight:900">0</div>
+      </div>
     </div>
     <div id="prodh-stats" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px"></div>
     <div class="tabs" style="margin-bottom:12px">
@@ -2030,7 +2033,18 @@ function verProdHistorial(id, origen) {
   if(tabTodos) tabTodos.classList.add('active');
   document.getElementById('prodh-nombre').textContent = (p.emoji||'📦')+' '+p.name;
   const stockEl = document.getElementById('prodh-stock-actual');
-  if(stockEl) stockEl.textContent = 'Stock actual: '+(p.stock||0)+' uds';
+  if(stockEl) stockEl.textContent = '';
+  // Stock badge
+  const stockNum = document.getElementById('prodh-stock-num');
+  const stockBadge = document.getElementById('prodh-stock-badge');
+  if(stockNum && stockBadge) {
+    const s = p.stock||0;
+    const color = s < 0 ? 'var(--accent3)' : s === 0 ? 'var(--text3)' : 'var(--green)';
+    const borderColor = s < 0 ? '#fca5a5' : s === 0 ? 'var(--border)' : '#6ee7b7';
+    stockNum.textContent = s;
+    stockNum.style.color = color;
+    stockBadge.style.borderColor = borderColor;
+  }
   renderProdMovimientos(id);
   showPage('prod-historial');
 }
@@ -2101,11 +2115,7 @@ function renderProdMovimientos(id) {
         +'</div>'
         +'</div>';
     }).join('')
-    +'</div></div>'
-    +'<div style="margin-top:12px;background:var(--surface);border:2px solid '+(p.stock<0?'var(--accent3)':p.stock===0?'var(--border)':'var(--green)')+';border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center">'
-    +'<span style="font-size:14px;font-weight:600;color:var(--text)">Stock actual</span>'
-    +'<span style="font-size:22px;font-weight:900;color:'+(p.stock<0?'var(--accent3)':p.stock===0?'var(--text3)':'var(--green)')+'">'+( p.stock||0)+' uds</span>'
-    +'</div>';
+    +'</div></div>';
 }
 function cliSearchInput(q) {
   const list = document.getElementById('i-cli-aclist');
