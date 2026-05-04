@@ -1180,7 +1180,7 @@ function confirmarGenerarFlyer() {
         const prevPrice = p.priceHistory && p.priceHistory.length ? p.priceHistory[p.priceHistory.length-1].price : null;
         const imgHtml = p.image ? '<img src="'+p.image+'" crossorigin="anonymous" style="width:'+cardSize+';height:'+cardSize+';object-fit:cover;border-radius:8px;margin-bottom:4px">'
                                 : '<div style="font-size:'+fontSize+';margin-bottom:4px">'+(p.emoji||'📦')+'</div>';
-        const mayorHtml = p.wholesalePrice&&p.wholesaleQty ? '<div style="background:#e8f5e9;color:#2e7d32;border-radius:6px;padding:2px 4px;font-size:9px;font-weight:700;margin-top:2px">x'+p.wholesaleQty+': $'+p.wholesalePrice.toFixed(0)+' c/u</div>' : '';
+        const mayorHtml = p.wholesalePrice&&p.wholesaleQty ? '<div style="background:#e8f5e9;color:#2e7d32;border-radius:6px;padding:3px 6px;font-size:11px;font-weight:800;margin-top:2px">x'+p.wholesaleQty+': $'+p.wholesalePrice.toFixed(0)+' c/u</div>' : '';
         return [
           '<div style="background:'+(isOferta?'#fffde7':'#fff')+';border-radius:10px;padding:8px 6px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.07);'+(isOferta?'border:2px solid #e53e3e;':'')+'position:relative">',
             (isOferta?'<div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#e53e3e;color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:20px;white-space:nowrap">OFERTA</div>':''),
