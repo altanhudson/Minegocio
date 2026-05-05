@@ -730,6 +730,18 @@ select option{background:var(--surface2)}
   </div>
 </div>
 
+<div class="modal-overlay" id="mprice-confirm">
+  <div class="modal" style="padding:20px">
+    <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px">⚠️ Cambio de precio</div>
+    <div id="mprice-confirm-msg" style="font-size:14px;color:var(--text2);margin-bottom:20px;line-height:1.5"></div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button id="mprice-btn-solo" style="background:var(--accent2);color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">Solo esta factura</button>
+      <button id="mprice-btn-prod" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">Actualizar precio del producto</button>
+      <button id="mprice-btn-cancel" style="background:transparent;color:var(--text3);border:none;border-radius:10px;padding:10px;font-size:14px;cursor:pointer">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="mprod">
   <div class="modal">
     <div class="modal-handle"></div>
@@ -2192,25 +2204,51 @@ function resumePriceChange(input) {
   if(!S.invItems[idx]) return;
   const prodId = S.invItems[idx].prodId;
   const p = prodId ? S.products.find(x=>x.id===prodId) : null;
-  // Solo mostrar aviso si el precio del producto cambia
-  if(p && p.price !== newPrice) {
-    const oldPrice = p.price;
-    const nombre = p.name;
-    if(!confirm('⚠️ Vas a cambiar el precio de "'+nombre+'" de $'+oldPrice+' a $'+newPrice+'.\n\nEsto actualiza el precio del producto de forma permanente.\n¿Confirmás?')) {
-      // Revertir el input al precio original
-      input.value = oldPrice;
-      S.invItems[idx].price = oldPrice;
-      S.invItems[idx].retailPrice = oldPrice;
-      calcTotals();
-      return;
-    }
+
+  // Si el precio no cambió o no tiene producto, aplicar directo
+  if(!p || p.price === newPrice) {
+    S.invItems[idx].price = newPrice;
+    S.invItems[idx].retailPrice = newPrice;
+    calcTotals();
+    return;
+  }
+
+  const oldPrice = p.price;
+  // Mostrar modal con 3 opciones
+  document.getElementById('mprice-confirm-msg').textContent =
+    'Cambiando "'+p.name+'" de $'+oldPrice+' a $'+newPrice+'.';
+
+  const modal = document.getElementById('mprice-confirm');
+  modal.classList.add('open');
+
+  // Solo esta factura
+  document.getElementById('mprice-btn-solo').onclick = function() {
+    modal.classList.remove('open');
+    S.invItems[idx].price = newPrice;
+    S.invItems[idx].retailPrice = newPrice;
+    calcTotals();
+    renderIItem(idx, S.invItems[idx]);
+  };
+
+  // Actualizar producto
+  document.getElementById('mprice-btn-prod').onclick = function() {
+    modal.classList.remove('open');
+    S.invItems[idx].price = newPrice;
+    S.invItems[idx].retailPrice = newPrice;
     p.price = newPrice;
     save();
-  }
-  S.invItems[idx].price = newPrice;
-  S.invItems[idx].retailPrice = newPrice;
-  calcTotals();
-  renderIItem(idx, S.invItems[idx]);
+    calcTotals();
+    renderIItem(idx, S.invItems[idx]);
+  };
+
+  // Cancelar
+  document.getElementById('mprice-btn-cancel').onclick = function() {
+    modal.classList.remove('open');
+    input.value = oldPrice;
+    S.invItems[idx].price = oldPrice;
+    S.invItems[idx].retailPrice = oldPrice;
+    calcTotals();
+  };
 }
 
 function cartAplicarATodos() {
