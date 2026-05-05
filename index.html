@@ -2187,16 +2187,27 @@ function renderIItem(idx, item) {
 
 function resumePriceChange(input) {
   const idx = parseInt(input.dataset.iidx);
-  const price = parseFloat(input.value)||0;
+  const newPrice = parseFloat(input.value)||0;
   if(!S.invItems[idx]) return;
-  S.invItems[idx].price = price;
-  S.invItems[idx].retailPrice = price;
-  // Save to product too
   const prodId = S.invItems[idx].prodId;
-  if(prodId) {
-    const p = S.products.find(x=>x.id===prodId);
-    if(p) { p.price = price; save(); }
+  const p = prodId ? S.products.find(x=>x.id===prodId) : null;
+  // Solo mostrar aviso si el precio del producto cambia
+  if(p && p.price !== newPrice) {
+    const oldPrice = p.price;
+    const nombre = p.name;
+    if(!confirm('⚠️ Vas a cambiar el precio de "'+nombre+'" de $'+oldPrice+' a $'+newPrice+'.\n\nEsto actualiza el precio del producto de forma permanente.\n¿Confirmás?')) {
+      // Revertir el input al precio original
+      input.value = oldPrice;
+      S.invItems[idx].price = oldPrice;
+      S.invItems[idx].retailPrice = oldPrice;
+      calcTotals();
+      return;
+    }
+    p.price = newPrice;
+    save();
   }
+  S.invItems[idx].price = newPrice;
+  S.invItems[idx].retailPrice = newPrice;
   calcTotals();
   renderIItem(idx, S.invItems[idx]);
 }
