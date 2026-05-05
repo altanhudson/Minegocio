@@ -1186,7 +1186,7 @@ function confirmarGenerarFlyer() {
         '</div>',
       '</div>',
       // Grid
-      '<div style="padding:8px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px">',
+      '<div style="padding:8px;display:grid;grid-template-columns:repeat('+cols+',1fr);gap:6px">',
       ...items.map((p,i) => {
         const isOferta = p.oferta && p.wholesalePrice && p.wholesalePrice < p.price;
         const prevPrice = p.priceHistory && p.priceHistory.length ? p.priceHistory[p.priceHistory.length-1].price : null;
