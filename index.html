@@ -1158,6 +1158,8 @@ function confirmarGenerarFlyer() {
   const todosProds = S.products.filter(p=>p.enFlyer && p.price>0 && p.name);
   const prods = catFiltro ? todosProds.filter(p=>(p.category||p.marca||'').trim().replace(/^\w/,c=>c.toUpperCase())===catFiltro) : todosProds;
   if(!prods.length) { toast('No hay productos en esa categoría marcados con 📢'); return; }
+  // Ordenar alfabéticamente
+  prods.sort((a,b)=>a.name.localeCompare(b.name,'es'));
   // Paginar de a 18
   const pages = [];
   for(let i=0; i<prods.length; i+=9) pages.push(prods.slice(i,i+9));
