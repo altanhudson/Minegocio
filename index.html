@@ -1190,7 +1190,7 @@ function confirmarGenerarFlyer() {
       ...items.map((p,i) => {
         const isOferta = p.oferta && p.wholesalePrice && p.wholesalePrice < p.price;
         const prevPrice = p.priceHistory && p.priceHistory.length ? p.priceHistory[p.priceHistory.length-1].price : null;
-        const imgHtml = p.image ? '<img src="'+p.image+'" crossorigin="anonymous" style="width:'+cardSize+';height:'+cardSize+';object-fit:cover;border-radius:8px;margin-bottom:4px">'
+        const imgHtml = p.image ? '<img src="'+p.image+'" crossorigin="anonymous" style="width:'+cardSize+';height:'+cardSize+';object-fit:contain;object-position:center;border-radius:8px;margin-bottom:4px">'
                                 : '<div style="font-size:'+fontSize+';margin-bottom:4px">'+(p.emoji||'📦')+'</div>';
         const mayorHtml = p.wholesalePrice&&p.wholesaleQty 
           ? '<div style="display:flex;align-items:center;justify-content:center;gap:3px;margin-top:3px"><span style="color:#3483fa;font-size:12px;font-weight:800">$'+p.price.toFixed(0)+'</span><span style="color:#ccc;font-size:9px">·</span><span style="color:#2e7d32;font-size:12px;font-weight:800">x'+p.wholesaleQty+': $'+p.wholesalePrice.toFixed(0)+'</span></div>'
