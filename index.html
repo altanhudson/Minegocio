@@ -226,6 +226,7 @@ select option{background:var(--surface2)}
 .section-ttl{font-family:'Inter',sans-serif;font-size:14px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 <header class="topbar">
@@ -1189,30 +1190,22 @@ function confirmarGenerarFlyer(startPage, savedCatFiltro, savedProds) {
   const pages = allPages.slice(from, from + 1);
   const hasMore = from + 1 < allPages.length;
   let pageIdx = 0;
-  function generarPagina(pg) {
-    const items = pages[pg];
-    const today = localDateStr().split('-').reverse().join('/');
-    // Cuadrícula adaptativa
+  function buildFlyerHtml(items, pgNum, totalPages, today) {
     const cols = items.length <= 4 ? 2 : 3;
-    const rows = Math.ceil(items.length/cols);
-    const cardSize = items.length <= 4 ? '100px' : items.length <= 9 ? '90px' : '75px';
-    const fontSize = items.length <= 4 ? '48px' : items.length <= 9 ? '42px' : '38px';
-    const priceFontSize = items.length <= 4 ? '22px' : items.length <= 9 ? '20px' : '18px';
-    // Construir HTML del flyer
-    const flyerHtml = [
+    const cardSize = items.length <= 4 ? '100px' : '90px';
+    const fontSize = items.length <= 4 ? '48px' : '42px';
+    return [
       '<div id="flyer-render" style="width:390px;background:#ebebeb;font-family:Inter,sans-serif;overflow:hidden;border-radius:20px">',
-      // Header
       '<div style="background:#3483fa;padding:16px 20px;display:flex;align-items:center;justify-content:space-between">',
         '<div>',
           '<div style="font-size:26px;font-weight:900;color:#fff;letter-spacing:-1px">'+TIENDA_NOMBRE+'</div>',
           '<div style="font-size:11px;color:rgba(255,255,255,.8);letter-spacing:1px">DISTRIBUIDORA MAYORISTA</div>',
         '</div>',
         '<div style="text-align:right">',
-          (allPages.length>1?'<div style="background:#ffe600;color:#333;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:800">'+(from+pg+1)+'/'+allPages.length+'</div>':'<div style="background:rgba(255,255,255,.2);color:#fff;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:800">LISTA</div>'),
+          (totalPages>1?'<div style="background:#ffe600;color:#333;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:800">'+pgNum+'/'+totalPages+'</div>':'<div style="background:rgba(255,255,255,.2);color:#fff;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:800">LISTA</div>'),
           '<div style="font-size:10px;color:rgba(255,255,255,.7);margin-top:5px">'+today+'</div>',
         '</div>',
       '</div>',
-      // Grid — centrar última fila si no está completa
       '<div style="padding:8px;display:grid;grid-template-columns:repeat('+cols+',1fr);gap:6px">',
       ...items.map((p,i) => {
         const isOferta = !!p.oferta;
@@ -1220,18 +1213,13 @@ function confirmarGenerarFlyer(startPage, savedCatFiltro, savedProds) {
         const imgHtml = p.image ? '<img src="'+p.image+'" crossorigin="anonymous" style="width:'+cardSize+';height:'+cardSize+';object-fit:contain;object-position:center;border-radius:8px;margin-bottom:5px;background:#f0f0f0">'
                                 : '<div style="font-size:'+fontSize+';margin-bottom:5px;background:#f0f0f0;border-radius:8px;width:'+cardSize+';height:'+cardSize+';display:flex;align-items:center;justify-content:center;margin:0 auto 5px">'+(p.emoji||'📦')+'</div>';
         const hasMayor = p.wholesalePrice&&p.wholesaleQty;
-        const mayorHtml = hasMayor
-          ? '<div style="background:#e8f5e9;color:#2e7d32;border-radius:6px;padding:2px 5px;font-size:12px;font-weight:800;margin-top:3px">x'+p.wholesaleQty+': $'+p.wholesalePrice.toFixed(0)+'</div>'
-          : '<div style="height:20px"></div>';
-        // Calcular si es última fila incompleta y posición para centrar
+        const mayorHtml = hasMayor ? '<div style="background:#e8f5e9;color:#2e7d32;border-radius:6px;padding:2px 5px;font-size:12px;font-weight:800;margin-top:3px">x'+p.wholesaleQty+': $'+p.wholesalePrice.toFixed(0)+'</div>' : '<div style="height:20px"></div>';
         const remainder = items.length % cols;
         const isLastRow = remainder !== 0 && i >= items.length - remainder;
-        const posInLastRow = remainder !== 0 ? i - (items.length - remainder) : 0;
-        // Para centrar: si hay 1 solo → column-start 2; si hay 2 de 3 → column-start 1
         let colStart = '';
         if(isLastRow && remainder === 1 && cols === 3) colStart = ';grid-column:2';
         return [
-          '<div style="background:'+(isOferta?'#fffde7':'#fff')+';border-radius:14px;padding:8px 6px;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.12);'+(isOferta?'border:2px solid #e53e3e;':'')+'position:relative;display:flex;flex-direction:column;align-items:center'+colStart+'">' ,
+          '<div style="background:'+(isOferta?'#fffde7':'#fff')+';border-radius:14px;padding:8px 6px;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.12);'+(isOferta?'border:2px solid #e53e3e;':'')+'position:relative;display:flex;flex-direction:column;align-items:center'+colStart+'">',
             (isOferta?'<div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#e53e3e;color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:20px;white-space:nowrap">OFERTA</div>':''),
             imgHtml,
             '<div style="font-size:12px;color:#333;line-height:1.3;margin-bottom:4px;font-weight:700;width:100%">'+p.name+'</div>',
@@ -1242,19 +1230,22 @@ function confirmarGenerarFlyer(startPage, savedCatFiltro, savedProds) {
         ].join('');
       }),
       '</div>',
-      // Footer
       '<div style="background:#3483fa;padding:4px 16px;text-align:center">',
         '<div style="color:rgba(255,255,255,.4);font-size:8px;letter-spacing:.5px">Precios sujetos a cambios</div>',
       '</div>',
       '</div>'
     ].join('');
-    // Insertar en DOM temporalmente y capturar
+  }
+
+  function generarPagina(pg) {
+    const items = pages[pg];
+    const today = localDateStr().split('-').reverse().join('/');
+    const flyerHtml = buildFlyerHtml(items, from+pg+1, allPages.length, today);
     const tmp = document.createElement('div');
     tmp.style.cssText = 'position:fixed;left:0;top:0;z-index:-1;opacity:0;pointer-events:none';
     tmp.innerHTML = flyerHtml;
     document.body.appendChild(tmp);
     const el = tmp.querySelector('#flyer-render');
-    // Esperar que todas las imágenes carguen
     const imgs = Array.from(el.querySelectorAll('img'));
     const imgLoads = imgs.map(img => new Promise(res => {
       if(img.complete && img.naturalWidth > 0) res();
@@ -1268,51 +1259,56 @@ function confirmarGenerarFlyer(startPage, savedCatFiltro, savedProds) {
     );
   }
 
-  toast('Generando flyer ' + (from+1) + (allPages.length > 1 ? '/'+allPages.length : '') + '...');
+  toast('Generando PDF...');
 
-  // Generar página
-  const blobs = [];
-  function generarSiguiente(idx) {
-    if(idx >= pages.length) {
-      const validBlobs = blobs.filter(Boolean);
-      if(!validBlobs.length) { toast('Error al generar flyer'); return; }
-      const files = validBlobs.map((blob, i) => new File([blob], 'flyer-surtimar-'+(from+i+1)+'.png', {type:'image/png'}));
-      window._flyerFiles = files;
-      window._flyerProds = prods;
-      window._flyerCat = catFiltro;
-      window._flyerNext = hasMore ? from + 1 : null;
-      window._flyerTotal = allPages.length;
-      // Compartir
-      if(navigator.canShare && navigator.canShare({files})) {
-        navigator.share({files, title:'Surtimar - Lista de precios'}).catch(()=>{});
+  // Generar todas las páginas y crear PDF
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: [390, 700] });
+  let firstPage = true;
+
+  function generarPaginaPDF(pg) {
+    if(pg >= allPages.length) {
+      // PDF completo — compartir
+      const pdfBlob = pdf.output('blob');
+      const pdfFile = new File([pdfBlob], 'flyer-surtimar.pdf', {type:'application/pdf'});
+      if(navigator.canShare && navigator.canShare({files:[pdfFile]})) {
+        navigator.share({files:[pdfFile], title:'Surtimar - Lista de precios'}).catch(()=>{});
       } else {
-        const url = URL.createObjectURL(files[0]);
+        const url = URL.createObjectURL(pdfBlob);
         const a = document.createElement('a');
-        a.href = url; a.download = files[0].name; a.click();
+        a.href = url; a.download = 'flyer-surtimar.pdf'; a.click();
       }
-      // Mostrar botón fijo "Siguiente" que persiste aunque se abra el share
-      const btn = document.getElementById('flyer-next-fab');
-      if(btn) {
-        if(hasMore) {
-          btn.textContent = 'Siguiente página '+(from+2)+'/'+allPages.length+' →';
-          btn.style.display = 'block';
-          btn.onclick = function() {
-            btn.style.display = 'none';
-            confirmarGenerarFlyer(window._flyerNext, window._flyerCat, window._flyerProds);
-          };
-        } else {
-          btn.style.display = 'none';
-          toast('🎉 Flyer completo — todas las páginas generadas');
-        }
-      }
+      toast('✅ PDF generado');
       return;
     }
-    generarPagina(idx).then(blob => {
-      blobs.push(blob);
-      generarSiguiente(idx + 1);
+    // Renderizar página pg
+    const items = allPages[pg];
+    const flyerHtml = buildFlyerHtml(items, pg, allPages.length, localDateStr().split('-').reverse().join('/'));
+    const tmp = document.createElement('div');
+    tmp.style.cssText = 'position:fixed;left:0;top:0;z-index:-1;opacity:0;pointer-events:none;width:390px';
+    tmp.innerHTML = flyerHtml;
+    document.body.appendChild(tmp);
+    const el = tmp.querySelector('#flyer-render');
+    const imgs = Array.from(el.querySelectorAll('img'));
+    const imgLoads = imgs.map(img => new Promise(res => {
+      if(img.complete && img.naturalWidth > 0) res();
+      else { img.onload = res; img.onerror = res; setTimeout(res, 3000); }
+    }));
+    Promise.all(imgLoads).then(() => {
+      html2canvas(el, {scale:1.5, useCORS:true, allowTaint:true, backgroundColor:'#ebebeb', logging:false})
+        .then(canvas => {
+          document.body.removeChild(tmp);
+          const imgData = canvas.toDataURL('image/jpeg', 0.85);
+          const h = (canvas.height * 390) / canvas.width;
+          if(!firstPage) pdf.addPage([390, h]);
+          else { firstPage = false; pdf.internal.pageSize.height = h; }
+          pdf.addImage(imgData, 'JPEG', 0, 0, 390, h);
+          generarPaginaPDF(pg + 1);
+        })
+        .catch(() => { document.body.removeChild(tmp); generarPaginaPDF(pg + 1); });
     });
   }
-  generarSiguiente(0);
+  generarPaginaPDF(0);
 } // end confirmarGenerarFlyer
 
 function mostrarRecordatorioBackup() {
