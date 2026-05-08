@@ -1194,23 +1194,27 @@ function confirmarGenerarFlyer() {
           '<div style="font-size:10px;color:rgba(255,255,255,.7);margin-top:5px">'+today+'</div>',
         '</div>',
       '</div>',
-      // Grid
-      '<div style="padding:8px;display:grid;grid-template-columns:repeat('+cols+',1fr);gap:6px;align-items:start">',
+      // Grid — centrar última fila si no está completa
+      '<div style="padding:8px;display:grid;grid-template-columns:repeat('+cols+',1fr);gap:6px">',
       ...items.map((p,i) => {
         const isOferta = !!p.oferta;
         const prevPrice = p.priceHistory && p.priceHistory.length ? p.priceHistory[p.priceHistory.length-1].price : null;
-        const imgHtml = p.image ? '<img src="'+p.image+'" crossorigin="anonymous" style="width:'+cardSize+';height:'+cardSize+';object-fit:contain;object-position:center;border-radius:8px;margin-bottom:5px;background:#f5f5f5">'
-                                : '<div style="font-size:'+fontSize+';margin-bottom:5px;background:#f5f5f5;border-radius:8px;width:'+cardSize+';height:'+cardSize+';display:flex;align-items:center;justify-content:center;margin:0 auto 5px">'+(p.emoji||'📦')+'</div>';
-        const mayorHtml = p.wholesalePrice&&p.wholesaleQty 
-          ? '<div style="background:#e8f5e9;color:#2e7d32;border-radius:6px;padding:2px 5px;font-size:13px;font-weight:800;margin-top:3px">x'+p.wholesaleQty+': $'+p.wholesalePrice.toFixed(0)+' c/u</div>'
-          : '';
+        const imgHtml = p.image ? '<img src="'+p.image+'" crossorigin="anonymous" style="width:'+cardSize+';height:'+cardSize+';object-fit:contain;object-position:center;border-radius:8px;margin-bottom:5px;background:#f0f0f0">'
+                                : '<div style="font-size:'+fontSize+';margin-bottom:5px;background:#f0f0f0;border-radius:8px;width:'+cardSize+';height:'+cardSize+';display:flex;align-items:center;justify-content:center;margin:0 auto 5px">'+(p.emoji||'📦')+'</div>';
+        const hasMayor = p.wholesalePrice&&p.wholesaleQty;
+        const mayorHtml = hasMayor
+          ? '<div style="background:#e8f5e9;color:#2e7d32;border-radius:6px;padding:2px 5px;font-size:12px;font-weight:800;margin-top:3px">x'+p.wholesaleQty+': $'+p.wholesalePrice.toFixed(0)+'</div>'
+          : '<div style="height:20px"></div>'; // espacio para igualar altura
+        // Última fila incompleta — centrar
+        const lastRowStart = items.length - (items.length % cols || cols);
+        const isLastRow = i >= lastRowStart && items.length % cols !== 0;
         return [
-          '<div style="background:'+(isOferta?'#fffde7':'#fff')+';border-radius:14px;padding:8px 6px;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.12);'+(isOferta?'border:2px solid #e53e3e;':'')+'position:relative">',
+          '<div style="background:'+(isOferta?'#fffde7':'#fff')+';border-radius:14px;padding:8px 6px;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.12);'+(isOferta?'border:2px solid #e53e3e;':'')+'position:relative;display:flex;flex-direction:column;align-items:center'+(isLastRow?';grid-column:auto':'')+'">' ,
             (isOferta?'<div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#e53e3e;color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:20px;white-space:nowrap">OFERTA</div>':''),
             imgHtml,
-            '<div style="font-size:12px;color:#333;line-height:1.3;margin-bottom:4px;font-weight:700">'+p.name+'</div>',
-            (prevPrice&&prevPrice!==p.price ? '<div style="font-size:9px;color:'+(p.price>prevPrice?'#dc2626':'#16a34a')+';font-weight:700">'+(p.price>prevPrice?'↑':'↓')+' antes $'+prevPrice.toFixed(0)+'</div>' : ''),
-            '<div style="color:#3483fa;font-size:13px;font-weight:900;margin-top:2px">$'+p.price.toFixed(0)+(p.wholesalePrice&&p.wholesaleQty?' c/u':'')+'</div>',
+            '<div style="font-size:12px;color:#333;line-height:1.3;margin-bottom:4px;font-weight:700;width:100%">'+p.name+'</div>',
+            (prevPrice&&prevPrice!==p.price ? '<div style="font-size:9px;color:'+(p.price>prevPrice?'#dc2626':'#16a34a')+';font-weight:700">'+(p.price>prevPrice?'↑':'↓')+' antes $'+prevPrice.toFixed(0)+'</div>' : '<div style="height:13px"></div>'),
+            '<div style="color:#3483fa;font-size:13px;font-weight:900;margin-top:2px">$'+p.price.toFixed(0)+(hasMayor?' <span style="font-size:9px;color:#888;font-weight:600">c/u</span>':'')+'</div>',
             mayorHtml,
           '</div>'
         ].join('');
