@@ -1176,10 +1176,10 @@ function confirmarGenerarFlyer(startPage, savedCatFiltro, savedProds) {
   const allPages = [];
   for(let i=0; i<prods.length; i+=9) allPages.push(prods.slice(i,i+9));
   // Tomar solo 3 páginas por vez
-  const BATCH = 3;
+  // Una página por vez
   const from = startPage || 0;
-  const pages = allPages.slice(from, from + BATCH);
-  const hasMore = from + BATCH < allPages.length;
+  const pages = allPages.slice(from, from + 1);
+  const hasMore = from + 1 < allPages.length;
   let pageIdx = 0;
   function generarPagina(pg) {
     const items = pages[pg];
@@ -1260,7 +1260,7 @@ function confirmarGenerarFlyer(startPage, savedCatFiltro, savedProds) {
     );
   }
 
-  toast('Generando flyer' + (allPages.length > 1 ? ' ('+pages.length+' de '+allPages.length+' páginas)...' : '...'));
+  toast('Generando flyer ' + (from+1) + (allPages.length > 1 ? '/'+allPages.length : '') + '...');
 
   // Generar páginas de a una
   const blobs = [];
@@ -1273,8 +1273,8 @@ function confirmarGenerarFlyer(startPage, savedCatFiltro, savedProds) {
         navigator.share({files, title:'Surtimar - Lista de precios'}).then(()=>{
           if(hasMore) {
             setTimeout(()=>{
-              if(confirm('✅ Páginas '+(from+1)+' a '+(from+pages.length)+' compartidas.\n\n¿Continuar con las siguientes '+ Math.min(BATCH, allPages.length-(from+BATCH))+' páginas?')) {
-                confirmarGenerarFlyer(from + BATCH, catFiltro, prods);
+              if(confirm('✅ Página '+(from+1)+' de '+allPages.length+' compartida.\n\n¿Generar la siguiente?')) {
+                confirmarGenerarFlyer(from + 1, catFiltro, prods);
               }
             }, 500);
           }
@@ -1290,8 +1290,8 @@ function confirmarGenerarFlyer(startPage, savedCatFiltro, savedProds) {
         });
         if(hasMore) {
           setTimeout(()=>{
-            if(confirm('¿Continuar con las siguientes páginas?')) {
-              confirmarGenerarFlyer(from + BATCH, catFiltro, prods);
+            if(confirm('¿Generar la siguiente página?')) {
+              confirmarGenerarFlyer(from + 1, catFiltro, prods);
             }
           }, pages.length * 600);
         }
