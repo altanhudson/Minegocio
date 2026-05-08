@@ -1932,6 +1932,7 @@ document.getElementById('page-clientes').addEventListener('click', function(e){
 function openInv(id, defaultType) {
   S.editId=id||null; S.invItems=[];
   S.editClientId = id ? null : null; // siempre limpiar, se setea solo en verInv
+  S._editOrigItems = null;
   document.getElementById('i-date').value=localDateStr();
   const sel=document.getElementById('i-cli');
   sel.innerHTML='<option value="">-- Elegir cliente --</option>';
@@ -1987,6 +1988,7 @@ function verInv(id) {
   const inv = S.invoices.find(x=>x.id===id);
   if(!inv) return;
   S.editId = id;
+  S._editOrigItems = inv.items.map(x=>({...x})); // copia profunda de items originales
   S.invItems = [...inv.items];
   S.editClientId = inv.clientId; // guardar clientId para usarlo al guardar
   document.getElementById('i-cli').value = inv.clientId;
@@ -3066,14 +3068,13 @@ function saveInv() {
     });
   } else {
     // Edición: revertir stock anterior y aplicar nuevo
-    const prevInv = S.invoices.find(x=>x.id===S.editId);
-    if(prevInv) {
-      prevInv.items.forEach(function(item) {
-        if(!item.prodId) return;
-        const p = S.products.find(x=>x.id===item.prodId);
-        if(p) p.stock = (p.stock||0) + (item.qty||0); // devolver
-      });
-    }
+    const prevItems = S._editOrigItems || ((S.invoices.find(x=>x.id===S.editId)||{}).items||[]);
+    prevItems.forEach(function(item) {
+      if(!item.prodId) return;
+      const p = S.products.find(x=>x.id===item.prodId);
+      if(p) p.stock = (p.stock||0) + (item.qty||0); // devolver
+    });
+    S._editOrigItems = null;
     inv.items.forEach(function(item) {
       if(!item.prodId) return;
       const p = S.products.find(x=>x.id===item.prodId);
