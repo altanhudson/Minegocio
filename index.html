@@ -1158,7 +1158,7 @@ function generarFlyer() {
   document.getElementById('mflyer').classList.add('open');
 }
 
-function confirmarGenerarFlyer() {
+function confirmarGenerarFlyer(startPage) {
   document.getElementById('mflyer').classList.remove('open');
   const sel = document.querySelector('input[name="flyer-cat"]:checked');
   const catFiltro = sel ? sel.value : '';
@@ -1167,9 +1167,14 @@ function confirmarGenerarFlyer() {
   if(!prods.length) { toast('No hay productos en esa categoría marcados con 📢'); return; }
   // Ordenar alfabéticamente
   prods.sort((a,b)=>a.name.localeCompare(b.name,'es'));
-  // Paginar de a 18
-  const pages = [];
-  for(let i=0; i<prods.length; i+=9) pages.push(prods.slice(i,i+9));
+  // Paginar de a 9
+  const allPages = [];
+  for(let i=0; i<prods.length; i+=9) allPages.push(prods.slice(i,i+9));
+  // Tomar solo 3 páginas por vez
+  const BATCH = 3;
+  const from = startPage || 0;
+  const pages = allPages.slice(from, from + BATCH);
+  const hasMore = from + BATCH < allPages.length;
   let pageIdx = 0;
   function generarPagina(pg) {
     const items = pages[pg];
@@ -1190,7 +1195,7 @@ function confirmarGenerarFlyer() {
           '<div style="font-size:11px;color:rgba(255,255,255,.8);letter-spacing:1px">DISTRIBUIDORA MAYORISTA</div>',
         '</div>',
         '<div style="text-align:right">',
-          (pages.length>1?'<div style="background:#ffe600;color:#333;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:800">'+(pg+1)+'/'+pages.length+'</div>':'<div style="background:rgba(255,255,255,.2);color:#fff;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:800">LISTA</div>'),
+          (allPages.length>1?'<div style="background:#ffe600;color:#333;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:800">'+(from+pg+1)+'/'+allPages.length+'</div>':'<div style="background:rgba(255,255,255,.2);color:#fff;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:800">LISTA</div>'),
           '<div style="font-size:10px;color:rgba(255,255,255,.7);margin-top:5px">'+today+'</div>',
         '</div>',
       '</div>',
@@ -1250,17 +1255,25 @@ function confirmarGenerarFlyer() {
     );
   }
 
-  toast('Generando flyer' + (pages.length > 1 ? ' ('+pages.length+' páginas)...' : '...'));
+  toast('Generando flyer' + (allPages.length > 1 ? ' ('+pages.length+' de '+allPages.length+' páginas)...' : '...'));
 
-  // Generar páginas de a una (html2canvas no funciona bien en paralelo)
+  // Generar páginas de a una
   const blobs = [];
   function generarSiguiente(idx) {
     if(idx >= pages.length) {
       const validBlobs = blobs.filter(Boolean);
       if(!validBlobs.length) { toast('Error al generar flyer'); return; }
-      const files = validBlobs.map((blob, i) => new File([blob], 'flyer-surtimar-'+(i+1)+'.png', {type:'image/png'}));
+      const files = validBlobs.map((blob, i) => new File([blob], 'flyer-surtimar-'+(from+i+1)+'.png', {type:'image/png'}));
       if(navigator.canShare && navigator.canShare({files})) {
-        navigator.share({files, title:'Surtimar - Lista de precios'}).catch(()=>{});
+        navigator.share({files, title:'Surtimar - Lista de precios'}).then(()=>{
+          if(hasMore) {
+            setTimeout(()=>{
+              if(confirm('✅ Páginas '+(from+1)+' a '+(from+pages.length)+' compartidas.\n\n¿Continuar con las siguientes '+ Math.min(BATCH, allPages.length-(from+BATCH))+' páginas?')) {
+                confirmarGenerarFlyer(from + BATCH);
+              }
+            }, 500);
+          }
+        }).catch(()=>{});
       } else {
         files.forEach((file, i) => {
           setTimeout(() => {
@@ -1270,6 +1283,13 @@ function confirmarGenerarFlyer() {
             a.click();
           }, i * 500);
         });
+        if(hasMore) {
+          setTimeout(()=>{
+            if(confirm('¿Continuar con las siguientes páginas?')) {
+              confirmarGenerarFlyer(from + BATCH);
+            }
+          }, pages.length * 600);
+        }
       }
       return;
     }
