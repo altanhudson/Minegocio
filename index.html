@@ -1248,24 +1248,33 @@ function confirmarGenerarFlyer() {
 
   toast('Generando flyer' + (pages.length > 1 ? ' ('+pages.length+' páginas)...' : '...'));
 
-  // Generar todas las páginas en paralelo
-  Promise.all(pages.map((_, pg) => generarPagina(pg))).then(blobs => {
-    const validBlobs = blobs.filter(Boolean);
-    if(!validBlobs.length) { toast('Error al generar flyer'); return; }
-    const files = validBlobs.map((blob, i) => new File([blob], 'flyer-surtimar-'+(i+1)+'.png', {type:'image/png'}));
-    if(navigator.canShare && navigator.canShare({files})) {
-      navigator.share({files, title:'Surtimar - Lista de precios'}).catch(()=>{});
-    } else {
-      files.forEach((file, i) => {
-        setTimeout(() => {
-          const url = URL.createObjectURL(file);
-          const a = document.createElement('a');
-          a.href = url; a.download = file.name;
-          a.click();
-        }, i * 500);
-      });
+  // Generar páginas de a una (html2canvas no funciona bien en paralelo)
+  const blobs = [];
+  function generarSiguiente(idx) {
+    if(idx >= pages.length) {
+      const validBlobs = blobs.filter(Boolean);
+      if(!validBlobs.length) { toast('Error al generar flyer'); return; }
+      const files = validBlobs.map((blob, i) => new File([blob], 'flyer-surtimar-'+(i+1)+'.png', {type:'image/png'}));
+      if(navigator.canShare && navigator.canShare({files})) {
+        navigator.share({files, title:'Surtimar - Lista de precios'}).catch(()=>{});
+      } else {
+        files.forEach((file, i) => {
+          setTimeout(() => {
+            const url = URL.createObjectURL(file);
+            const a = document.createElement('a');
+            a.href = url; a.download = file.name;
+            a.click();
+          }, i * 500);
+        });
+      }
+      return;
     }
-  });
+    generarPagina(idx).then(blob => {
+      blobs.push(blob);
+      generarSiguiente(idx + 1);
+    });
+  }
+  generarSiguiente(0);
 } // end confirmarGenerarFlyer
 
 function mostrarRecordatorioBackup() {
