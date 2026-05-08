@@ -1158,15 +1158,20 @@ function generarFlyer() {
   document.getElementById('mflyer').classList.add('open');
 }
 
-function confirmarGenerarFlyer(startPage) {
+function confirmarGenerarFlyer(startPage, savedCatFiltro, savedProds) {
   document.getElementById('mflyer').classList.remove('open');
-  const sel = document.querySelector('input[name="flyer-cat"]:checked');
-  const catFiltro = sel ? sel.value : '';
-  const todosProds = S.products.filter(p=>p.enFlyer && p.price>0 && p.name);
-  const prods = catFiltro ? todosProds.filter(p=>(p.category||p.marca||'').trim().replace(/^\w/,c=>c.toUpperCase())===catFiltro) : todosProds;
-  if(!prods.length) { toast('No hay productos en esa categoría marcados con 📢'); return; }
-  // Ordenar alfabéticamente
-  prods.sort((a,b)=>a.name.localeCompare(b.name,'es'));
+  let catFiltro, prods;
+  if(savedProds) {
+    catFiltro = savedCatFiltro;
+    prods = savedProds;
+  } else {
+    const sel = document.querySelector('input[name="flyer-cat"]:checked');
+    catFiltro = sel ? sel.value : '';
+    const todosProds = S.products.filter(p=>p.enFlyer && p.price>0 && p.name);
+    prods = catFiltro ? todosProds.filter(p=>(p.category||p.marca||'').trim().replace(/^\w/,c=>c.toUpperCase())===catFiltro) : todosProds;
+    if(!prods.length) { toast('No hay productos en esa categoría marcados con 📢'); return; }
+    prods.sort((a,b)=>a.name.localeCompare(b.name,'es'));
+  }
   // Paginar de a 9
   const allPages = [];
   for(let i=0; i<prods.length; i+=9) allPages.push(prods.slice(i,i+9));
@@ -1269,7 +1274,7 @@ function confirmarGenerarFlyer(startPage) {
           if(hasMore) {
             setTimeout(()=>{
               if(confirm('✅ Páginas '+(from+1)+' a '+(from+pages.length)+' compartidas.\n\n¿Continuar con las siguientes '+ Math.min(BATCH, allPages.length-(from+BATCH))+' páginas?')) {
-                confirmarGenerarFlyer(from + BATCH);
+                confirmarGenerarFlyer(from + BATCH, catFiltro, prods);
               }
             }, 500);
           }
@@ -1286,7 +1291,7 @@ function confirmarGenerarFlyer(startPage) {
         if(hasMore) {
           setTimeout(()=>{
             if(confirm('¿Continuar con las siguientes páginas?')) {
-              confirmarGenerarFlyer(from + BATCH);
+              confirmarGenerarFlyer(from + BATCH, catFiltro, prods);
             }
           }, pages.length * 600);
         }
