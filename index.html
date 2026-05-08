@@ -1268,17 +1268,25 @@ function confirmarGenerarFlyer(startPage, savedCatFiltro, savedProds) {
 
   function generarPaginaPDF(pg) {
     if(pg >= allPages.length) {
-      // PDF completo — compartir
+      // PDF completo — compartir o descargar
       const pdfBlob = pdf.output('blob');
       const pdfFile = new File([pdfBlob], 'flyer-surtimar.pdf', {type:'application/pdf'});
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      // Intentar compartir
       if(navigator.canShare && navigator.canShare({files:[pdfFile]})) {
-        navigator.share({files:[pdfFile], title:'Surtimar - Lista de precios'}).catch(()=>{});
+        navigator.share({files:[pdfFile], title:'Surtimar - Lista de precios'}).catch(()=>{
+          // Si falla el share, descargar
+          const a = document.createElement('a');
+          a.href = pdfUrl; a.download = 'flyer-surtimar.pdf';
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        });
       } else {
-        const url = URL.createObjectURL(pdfBlob);
+        // Descargar directo
         const a = document.createElement('a');
-        a.href = url; a.download = 'flyer-surtimar.pdf'; a.click();
+        a.href = pdfUrl; a.download = 'flyer-surtimar.pdf';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        toast('PDF guardado en Descargas');
       }
-      toast('✅ PDF generado');
       return;
     }
     // Renderizar página pg
