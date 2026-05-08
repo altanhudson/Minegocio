@@ -1179,7 +1179,7 @@ function confirmarGenerarFlyer(startPage, savedCatFiltro, savedProds) {
     const todosProds = S.products.filter(p=>p.enFlyer && p.price>0 && p.name);
     prods = catFiltro ? todosProds.filter(p=>(p.category||p.marca||'').trim().replace(/^\w/,c=>c.toUpperCase())===catFiltro) : todosProds;
     if(!prods.length) { toast('No hay productos en esa categoría marcados con 📢'); return; }
-    prods.sort((a,b)=>a.name.localeCompare(b.name,'es'));
+    prods.sort((a,b)=>{const cA=(a.category||a.marca||'').trim();const cB=(b.category||b.marca||'').trim();const cc=cA.localeCompare(cB,'es');return cc!==0?cc:a.name.localeCompare(b.name,'es');});
   }
   // Paginar de a 9
   const allPages = [];
