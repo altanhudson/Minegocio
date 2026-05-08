@@ -1204,12 +1204,16 @@ function confirmarGenerarFlyer() {
         const hasMayor = p.wholesalePrice&&p.wholesaleQty;
         const mayorHtml = hasMayor
           ? '<div style="background:#e8f5e9;color:#2e7d32;border-radius:6px;padding:2px 5px;font-size:12px;font-weight:800;margin-top:3px">x'+p.wholesaleQty+': $'+p.wholesalePrice.toFixed(0)+'</div>'
-          : '<div style="height:20px"></div>'; // espacio para igualar altura
-        // Última fila incompleta — centrar
-        const lastRowStart = items.length - (items.length % cols || cols);
-        const isLastRow = i >= lastRowStart && items.length % cols !== 0;
+          : '<div style="height:20px"></div>';
+        // Calcular si es última fila incompleta y posición para centrar
+        const remainder = items.length % cols;
+        const isLastRow = remainder !== 0 && i >= items.length - remainder;
+        const posInLastRow = remainder !== 0 ? i - (items.length - remainder) : 0;
+        // Para centrar: si hay 1 solo → column-start 2; si hay 2 de 3 → column-start 1
+        let colStart = '';
+        if(isLastRow && remainder === 1 && cols === 3) colStart = ';grid-column:2';
         return [
-          '<div style="background:'+(isOferta?'#fffde7':'#fff')+';border-radius:14px;padding:8px 6px;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.12);'+(isOferta?'border:2px solid #e53e3e;':'')+'position:relative;display:flex;flex-direction:column;align-items:center'+(isLastRow?';grid-column:auto':'')+'">' ,
+          '<div style="background:'+(isOferta?'#fffde7':'#fff')+';border-radius:14px;padding:8px 6px;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.12);'+(isOferta?'border:2px solid #e53e3e;':'')+'position:relative;display:flex;flex-direction:column;align-items:center'+colStart+'">' ,
             (isOferta?'<div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#e53e3e;color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:20px;white-space:nowrap">OFERTA</div>':''),
             imgHtml,
             '<div style="font-size:12px;color:#333;line-height:1.3;margin-bottom:4px;font-weight:700;width:100%">'+p.name+'</div>',
