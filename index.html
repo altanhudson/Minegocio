@@ -1179,7 +1179,7 @@ function confirmarGenerarFlyer(startPage, savedCatFiltro, savedProds) {
     const todosProds = S.products.filter(p=>p.enFlyer && p.price>0 && p.name);
     prods = catFiltro ? todosProds.filter(p=>(p.category||p.marca||'').trim().replace(/^\w/,c=>c.toUpperCase())===catFiltro) : todosProds;
     if(!prods.length) { toast('No hay productos en esa categoría marcados con 📢'); return; }
-    prods.sort((a,b)=>{const cA=(a.category||a.marca||'').trim();const cB=(b.category||b.marca||'').trim();const cc=cA.localeCompare(cB,'es');return cc!==0?cc:a.name.localeCompare(b.name,'es');});
+    prods.sort((a,b)=>a.name.localeCompare(b.name,'es'));
   }
   // Paginar de a 9
   const allPages = [];
@@ -2263,7 +2263,7 @@ function renderIItem(idx, item) {
     +'<input type="number" id="ip-'+idx+'" data-iidx="'+idx+'" value="'+(item.price||0)+'" min="0" inputmode="decimal" onfocus="this.select()" onchange="resumePriceChange(this)" style="width:80px;height:30px;text-align:center;font-size:14px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text3);font-family:Inter,sans-serif;outline:none">'
     +'<span style="font-size:12px;color:var(--text3)">c/u &nbsp;·&nbsp; <span style="color:var(--accent);font-weight:600">$'+subtotal.toFixed(0)+'</span></span>'
     +'</div>'
-    +'<div id="wtag-'+idx+'" style="font-size:12px;color:var(--accent2);display:none">⭐ Precio mayorista</div>'
+    +'<div id="wtag-'+idx+'" style="font-size:12px;color:var(--text3);'+(item.wholesalePrice&&item.wholesaleQty?'':'display:none')+'">'+(item.wholesalePrice&&item.wholesaleQty?'Mayor: $'+item.wholesalePrice.toFixed(0)+' x'+item.wholesaleQty+' uds':'')+'</div>'
     +'</div>'
     +'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
     +'<input type="number" id="iq-'+idx+'" value="'+(item.qty||1)+'" min="0" step="any" inputmode="decimal" data-qidx="'+idx+'" class="qty-input" onfocus="this.select()" style="width:56px;text-align:center;font-size:16px;font-weight:700;border:1.5px solid var(--border);border-radius:8px;padding:6px 0;background:var(--surface)" oninput="iItemQtyInput(this,'+idx+')" onchange="S.invItems['+idx+'].qty=parseFloat(this.value)||1;chkW('+idx+');calcTotals();renderIItem('+idx+',S.invItems['+idx+'])">'
@@ -2946,7 +2946,7 @@ function chkW(idx) {
     const pe = document.getElementById('ip-'+idx);
     const te = document.getElementById('wtag-'+idx);
     if(pe) pe.value = pr.toFixed(2);
-    if(te) { te.textContent = isW ? 'Precio mayorista (grupo: '+grupo+')' : ''; te.style.display = isW ? '' : 'none'; }
+    if(te) { te.style.color = isW ? 'var(--accent2)' : 'var(--text3)'; te.textContent = isW ? '⭐ Precio mayorista (grupo: '+grupo+')' : 'Mayor: $'+item.wholesalePrice.toFixed(0)+' x'+item.wholesaleQty+' uds'; te.style.display = ''; }
     item.price = pr;
     // Actualizar precio en todos los items del mismo grupo
     S.invItems.forEach((it, i) => {
@@ -2958,7 +2958,7 @@ function chkW(idx) {
         const pe2 = document.getElementById('ip-'+i);
         const te2 = document.getElementById('wtag-'+i);
         if(pe2) pe2.value = pr2.toFixed(2);
-        if(te2) { te2.textContent = isW ? 'Precio mayorista (grupo: '+grupo+')' : ''; te2.style.display = isW ? '' : 'none'; }
+        if(te2) { te2.style.color = isW ? 'var(--accent2)' : 'var(--text3)'; te2.textContent = isW ? '⭐ Precio mayorista (grupo: '+grupo+')' : 'Mayor: $'+it.wholesalePrice.toFixed(0)+' x'+it.wholesaleQty+' uds'; te2.style.display = ''; }
       }
     });
   } else if(item.wholesalePrice && item.wholesaleQty) {
@@ -2968,7 +2968,7 @@ function chkW(idx) {
     const pe = document.getElementById('ip-'+idx);
     const te = document.getElementById('wtag-'+idx);
     if(pe) pe.value = pr.toFixed(2);
-    if(te) te.style.display = isW ? '' : 'none';
+    if(te) { te.style.color = isW ? 'var(--accent2)' : 'var(--text3)'; te.textContent = isW ? '⭐ Precio mayorista' : 'Mayor: $'+item.wholesalePrice.toFixed(0)+' x'+item.wholesaleQty+' uds'; te.style.display = ''; }
     item.price = pr;
   }
   // Warn si qty > stock
