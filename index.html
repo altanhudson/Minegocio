@@ -1153,18 +1153,24 @@ function generarFlyer() {
   // Opción "Todos"
   const allOpt = document.createElement('label');
   allOpt.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:10px;cursor:pointer';
-  allOpt.innerHTML = '<input type="radio" name="flyer-cat" value="" checked style="width:18px;height:18px;accent-color:var(--accent)"><span style="font-size:14px;font-weight:600">📢 Todos los marcados <span style="color:var(--text3);font-weight:400">('+todosProds.length+' productos)</span></span>';
+  allOpt.innerHTML = '<input type="checkbox" id="flyer-cat-all" checked style="width:18px;height:18px;accent-color:var(--accent)"><span style="font-size:14px;font-weight:600">📢 Todos los marcados <span style="color:var(--text3);font-weight:400">('+todosProds.length+' productos)</span></span>';
   optContainer.appendChild(allOpt);
+  allOpt.querySelector('#flyer-cat-all').addEventListener('change', function(){
+    if(this.checked) optContainer.querySelectorAll('.flyer-cat-cb').forEach(cb=>cb.checked=false);
+  });
   // Opciones por categoría
   cats.forEach(cat => {
     const count = todosProds.filter(p=>(p.category||p.marca||'').trim()===cat).length;
     if(!count) return;
     const opt = document.createElement('label');
     opt.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:10px;cursor:pointer';
-    opt.innerHTML = '<input type="radio" name="flyer-cat" value="'+cat+'" style="width:18px;height:18px;accent-color:var(--accent)"><span style="font-size:14px;font-weight:600">'+cat+' <span style="color:var(--text3);font-weight:400">('+count+' productos)</span></span>';
+    opt.innerHTML = '<input type="checkbox" class="flyer-cat-cb" value="'+cat+'" style="width:18px;height:18px;accent-color:var(--accent)"><span style="font-size:14px;font-weight:600">'+cat+' <span style="color:var(--text3);font-weight:400">('+count+' productos)</span></span>';
+    opt.querySelector('.flyer-cat-cb').addEventListener('change', function(){
+      if(this.checked) document.getElementById('flyer-cat-all').checked = false;
+      else if(!optContainer.querySelectorAll('.flyer-cat-cb:checked').length) document.getElementById('flyer-cat-all').checked = true;
+    });
     optContainer.appendChild(opt);
-  });
-  document.getElementById('mflyer').classList.add('open');
+  });  document.getElementById('mflyer').classList.add('open');
 }
 
 function confirmarGenerarFlyer(startPage, savedCatFiltro, savedProds) {
@@ -1174,10 +1180,11 @@ function confirmarGenerarFlyer(startPage, savedCatFiltro, savedProds) {
     catFiltro = savedCatFiltro;
     prods = savedProds;
   } else {
-    const sel = document.querySelector('input[name="flyer-cat"]:checked');
-    catFiltro = sel ? sel.value : '';
+    const allChecked = document.getElementById('flyer-cat-all')?.checked;
+    const selCats = allChecked ? [] : Array.from(document.querySelectorAll('.flyer-cat-cb:checked')).map(cb=>cb.value);
+    catFiltro = selCats.join(',');
     const todosProds = S.products.filter(p=>p.enFlyer && p.price>0 && p.name);
-    prods = catFiltro ? todosProds.filter(p=>(p.category||p.marca||'').trim().replace(/^\w/,c=>c.toUpperCase())===catFiltro) : todosProds;
+    prods = selCats.length ? todosProds.filter(p=>selCats.includes((p.category||p.marca||'').trim().replace(/^\w/,c=>c.toUpperCase()))) : todosProds;
     if(!prods.length) { toast('No hay productos en esa categoría marcados con 📢'); return; }
     prods.sort((a,b)=>{const cA=(a.category||a.marca||'').trim();const cB=(b.category||b.marca||'').trim();const cc=cA.localeCompare(cB,'es');return cc!==0?cc:a.name.localeCompare(b.name,'es');});
   }
