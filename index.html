@@ -1609,8 +1609,8 @@ let pf = 'all';
 let prodView = 'grid'; // 'grid' | 'list'
 
 function toggleProdView() {
-  prodView = prodView === 'grid' ? 'list' : 'grid';
-  const icon = prodView === 'grid' ? '☰' : '⊞';
+  prodView = prodView === 'grid' ? 'imglist' : prodView === 'imglist' ? 'list' : 'grid';
+  const icon = prodView === 'grid' ? '⊞' : prodView === 'imglist' ? '▤' : '☰';
   const btn = document.getElementById('prod-view-btn');
   const btnFixed = document.getElementById('prod-view-btn-fixed');
   if(btn) btn.textContent = icon;
@@ -1782,6 +1782,44 @@ function renderProds(q) {
   grid.innerHTML = list.map(p => {
     const low = p.stock<=p.minStock;
 
+    // MODO LISTA CON IMAGEN
+    if(prodView === 'imglist') {
+      const stColor = p.stock===0?'var(--accent3)':low?'var(--orange,#fb923c)':'var(--green)';
+      const stTxt = p.stock===0?'Sin stock':(p.stock+' uds');
+      return '<div class="list-item" style="padding:8px 10px;gap:8px;align-items:flex-start" id="pc-'+pid+'">'
+        + '<div style="flex-shrink:0;width:70px;height:70px;border-radius:10px;overflow:hidden;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:32px">'
+        + (p.image?'<img src="'+p.image+'" style="width:70px;height:70px;object-fit:cover">':'<span>'+(p.emoji||'📦')+'</span>')
+        + '</div>'
+        + '<div style="flex:1;min-width:0">'
+        + '<div style="font-weight:700;font-size:14px;margin-bottom:3px;line-height:1.2">'+p.name+'</div>'
+        + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px">'
+        + (p.price>0?'<span style="font-family:Inter,sans-serif;font-weight:700;color:var(--accent);font-size:14px">$'+p.price.toFixed(0)+'</span>':'<span style="font-size:12px;color:var(--accent3)">sin precio</span>')
+        + '<span style="font-size:12px;color:'+stColor+'">'+stTxt+'</span>'
+        + '</div>'
+        + '<div id="qe-'+pid+'" style="display:none">'
+        + '<div style="display:grid;grid-template-columns:auto 1fr;gap:4px 6px;align-items:center;margin-bottom:4px">'
+        + '<span style="font-size:11px;color:var(--text2)">Min</span><input type="number" id="qr-'+pid+'" value="'+(p.price||'')+'" placeholder="0" inputmode="decimal" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--surface2);color:var(--text);width:100%">'
+        + '<span style="font-size:11px;color:var(--accent2)">May</span><div style="display:flex;gap:4px"><input type="number" id="qw-'+pid+'" value="'+(p.wholesalePrice||'')+'" placeholder="0" inputmode="decimal" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--surface2);color:var(--text);flex:1"><input type="number" id="qq-'+pid+'" value="'+(p.wholesaleQty||'')+'" placeholder="uds" inputmode="numeric" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--surface2);color:var(--text);width:50px"></div>'
+        + '<span style="font-size:11px;color:var(--text3)">Costo</span><input type="number" id="qc-'+pid+'" value="'+(p.cost||'')+'" placeholder="0" inputmode="decimal" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--surface2);color:var(--text);width:100%">'
+        + '</div>'
+        + '<div style="display:flex;gap:6px"><button class="btn btn-primary btn-sm" style="flex:1;font-size:12px" data-action="saveQE" data-id="'+pid+'">Guardar</button><button class="btn btn-ghost btn-sm" style="font-size:12px" data-action="togQE" data-id="'+pid+'">✕</button></div>'
+        + '</div>'
+        + '</div>'
+        + '<div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">'
+        + '<div style="display:flex;gap:3px">'
+        + '<button class="btn btn-sm" data-action="togVis" data-id="'+pid+'" style="padding:5px 8px;font-size:14px;border-radius:8px;background:'+(p.visible!==false?'#16a34a':'#efefef')+';color:'+(p.visible!==false?'#fff':'#ccc')+';border:none">👁️</button>'
+        + '<button class="btn btn-sm" data-action="togOferta" data-id="'+pid+'" style="padding:5px 8px;font-size:14px;border-radius:8px;background:'+(p.oferta?'#dc2626':'#efefef')+';color:'+(p.oferta?'#fff':'#ccc')+';border:none">🔥</button>'
+        + '<button class="btn btn-sm" data-action="togFlyer" data-id="'+pid+'" style="padding:5px 8px;font-size:14px;border-radius:8px;background:'+(p.enFlyer?'#3483fa':'#efefef')+';color:'+(p.enFlyer?'#fff':'#ccc')+';border:none">📢</button>'
+        + '</div>'
+        + '<div style="display:flex;gap:3px">'
+        + '<button class="btn btn-primary btn-sm" data-action="togQE" data-id="'+pid+'" style="font-size:11px;padding:5px 8px;flex:1">💲</button>'
+        + '<button class="btn btn-ghost btn-sm" data-action="openProd" data-id="'+pid+'" style="padding:5px 8px">✏️</button>'
+        + '<button class="btn btn-danger btn-sm" data-action="delProd" data-id="'+pid+'" style="padding:5px 8px">🗑️</button>'
+        + '</div>'
+        + '</div>'
+        + '</div>';
+    }
+
     // MODO LISTA
     if(prodView === 'list') {
       const stColor = p.stock===0?'var(--accent3)':low?'var(--orange,#fb923c)':'var(--green)';
@@ -1827,21 +1865,7 @@ function renderProds(q) {
           (p.wholesalePrice&&p.wholesaleQty?'<div style="font-size:12px;color:var(--accent2)">Mayor: $'+p.wholesalePrice.toFixed(2)+' x'+p.wholesaleQty+'</div>':''),
           (p.cost>0?'<div style="font-size:12px;color:'+(p.price>0&&(((p.price-p.cost)/p.price)*100)<10?'var(--accent3)':'var(--text3)')+'">Margen: '+(p.price>0?(((p.price-p.cost)/p.price)*100).toFixed(0)+'%':'---')+'</div>':''),
         '</div>',
-        '<div class="qe-panel" id="qe-'+pid+'">',
-          '<div class="qe-row"><span class="qe-lbl" style="color:var(--text2)">Minorista</span>',
-            '<input type="number" id="qr-'+pid+'" value="'+(p.price||'')+'" placeholder="0.00" inputmode="decimal"></div>',
-          '<div class="qe-row"><span class="qe-lbl" style="color:var(--accent2)">Mayorista</span>',
-            '<input type="number" id="qw-'+pid+'" value="'+(p.wholesalePrice||'')+'" placeholder="0.00" inputmode="decimal">',
-            '<input type="number" class="sm" id="qq-'+pid+'" value="'+(p.wholesaleQty||'')+'" placeholder="uds" inputmode="numeric"></div>',
-          '<div class="qe-row"><span class="qe-lbl" style="color:var(--text3)">Costo</span>',
-            '<input type="number" id="qc-'+pid+'" value="'+(p.cost||'')+'" placeholder="0.00" inputmode="decimal"></div>',
-          '<div style="display:flex;gap:8px;margin-top:4px">',
-            '<button class="btn btn-primary btn-sm" style="flex:1" data-action="saveQE" data-id="'+pid+'">Guardar</button>',
-            '<button class="btn btn-ghost btn-sm" data-action="togQE" data-id="'+pid+'">x</button>',
-          '</div>',
-        '</div>',
         '<div class="prod-actions">',
-          '<button class="btn btn-primary btn-sm" data-action="togQE" data-id="'+pid+'" id="qbtn-'+pid+'">Precios</button>',
           '<button class="btn btn-ghost btn-sm" data-action="openProd" data-id="'+pid+'">&#9999;&#65039;</button>',
           '<button class="btn btn-danger btn-sm" data-action="delProd" data-id="'+pid+'">&#128465;&#65039;</button>',
         '</div>',
@@ -1898,11 +1922,18 @@ function togFlyer(id) {
 }
 function togQE(id) {
   const p = document.getElementById('qe-'+id);
+  if(!p) return;
+  // imglist mode usa display, grid mode usa clase open
+  if(p.style.display !== undefined && !p.classList.contains('qe-panel')) {
+    const isOpen = p.style.display === 'block';
+    p.style.display = isOpen ? 'none' : 'block';
+    if(!isOpen) setTimeout(()=>{ const el=document.getElementById('qr-'+id); if(el){el.focus();el.select();} },100);
+    return;
+  }
   const b = document.getElementById('qbtn-'+id);
   const o = p.classList.contains('open');
   p.classList.toggle('open',!o);
-  b.textContent = o ? 'Precios' : 'x Cerrar';
-  b.className = o ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm';
+  if(b) { b.textContent = o ? 'Precios' : 'x Cerrar'; b.className = o ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'; }
   if(!o) setTimeout(()=>{ const el=document.getElementById('qr-'+id); if(el){el.focus();el.select();} },100);
 }
 
