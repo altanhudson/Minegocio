@@ -1029,19 +1029,24 @@ function save() {
       nInv:S.nInv, nCli:S.nCli, nProd:S.nProd, nComp:S.nComp, nProv:S.nProv
     }));
   } catch(e) {}
-  // Sincronizar con Firebase (debounce 800ms para no saturar)
+  // Sincronizar con Firebase y retornar Promise
   if (_saveTimeout) clearTimeout(_saveTimeout);
-  _saveTimeout = setTimeout(async () => {
-    if (window._fbSave) {
-      await window._fbSave({
-        products:S.products, clients:S.clients, invoices:S.invoices,
-        compras:S.compras, proveedores:S.proveedores, gruposMay:S.gruposMay||[],
-        nInv:S.nInv, nCli:S.nCli, nProd:S.nProd, nComp:S.nComp, nProv:S.nProv, nGrupo:S.nGrupo,
-        listaCompras:S.listaCompras||null,
-        cobranzas:S.cobranzas||[]
-      });
-    }
-  }, 800);
+  return new Promise(resolve => {
+    _saveTimeout = setTimeout(async () => {
+      if (window._fbSave) {
+        try {
+          await window._fbSave({
+            products:S.products, clients:S.clients, invoices:S.invoices,
+            compras:S.compras, proveedores:S.proveedores, gruposMay:S.gruposMay||[],
+            nInv:S.nInv, nCli:S.nCli, nProd:S.nProd, nComp:S.nComp, nProv:S.nProv, nGrupo:S.nGrupo,
+            listaCompras:S.listaCompras||null,
+            cobranzas:S.cobranzas||[]
+          });
+        } catch(e) { console.error('Firebase save error:', e); }
+      }
+      resolve();
+    }, 300);
+  });
 }
 
 function load() {
@@ -2614,7 +2619,7 @@ function ncVerResumen() {
   showPage('resumen-compra');
 }
 
-function ncSaveComp() {
+async function ncSaveComp() {
   const items = Object.entries(ncItems).filter(([pid,item])=>item.qty>=0.01);
   if(!items.length) { toast('Sin productos'); return; }
   const provId = ncProvId || document.getElementById('nc-prov').value;
@@ -2680,9 +2685,10 @@ function ncSaveComp() {
   try{renderStockAlertas();}catch(e){}
   try{renderStockMovimientos('');}catch(e){}
   try{updDash();}catch(e){}
-  try{save();}catch(e){}
+  toast('Guardando...');
+  await save();
   showPage('compras');
-  toast('Compra guardada');
+  toast('Compra guardada ✓');
 }
 
 function cartPlus(e, pid) {
@@ -3273,10 +3279,13 @@ function renderInvs() {
     +(()=>{
       const deudaAnterior = S.invoices.filter(i=>i.clientId===inv.clientId&&i.id!==inv.id&&i.status!=='pagada'&&i.status!=='cancelada'&&i.type!=='presupuesto'&&i.type===inv.type).reduce((s,i)=>s+(i.saldo||0),0);
       const totalDeuda = saldo + deudaAnterior;
+      const creditoAplicado = inv.total - (inv.saldo||0) - ((inv.pagos||[]).filter(p=>p.method!=='a favor').reduce((s,p)=>s+p.monto,0));
+      const montoMostrar = (inv.saldo||0) < inv.total ? (inv.saldo||0) : inv.total;
       return '<div style="text-align:right;flex-shrink:0;padding-left:8px">'
-        +'<div style="font-weight:800;font-size:16px;color:var(--accent)">$'+inv.total.toFixed(0)+'</div>'
+        +'<div style="font-weight:800;font-size:16px;color:var(--accent)">$'+montoMostrar.toFixed(0)+'</div>'
+        +(montoMostrar < inv.total?'<div style="font-size:11px;color:var(--text3)">Total: $'+inv.total.toFixed(0)+'</div>':'')
         +(deudaAnterior>0?'<div style="font-size:12px;color:var(--accent3);font-weight:600">Ant: $'+deudaAnterior.toFixed(0)+'</div>':'')
-        +(saldo>0?'<div style="font-size:13px;color:var(--accent3);font-weight:700">Total: $'+totalDeuda.toFixed(0)+'</div>':''
+        +(saldo>0&&deudaAnterior>0?'<div style="font-size:13px;color:var(--accent3);font-weight:700">Total: $'+totalDeuda.toFixed(0)+'</div>':''
         +(inv.aFavor>0?'<div style="font-size:13px;color:var(--green)">A favor: $'+inv.aFavor.toFixed(0)+'</div>':''))
         +'</div></div>';
     })()
@@ -3908,7 +3917,7 @@ function remCItem(idx){
   S.editId = savedEditId; // restaurar editId
 }
 function calcCTotal(){const t=S.compItems.reduce((s,i)=>s+(i.qty*i.cost),0);document.getElementById('cp-total').textContent='$'+t.toFixed(2);}
-function saveComp(){
+async function saveComp(){
   try {
     const pid=document.getElementById('cp-prov').value;
     if(!pid){toast('Elegi un proveedor');return;}
@@ -3947,13 +3956,14 @@ function saveComp(){
     if(mcomp){mcomp.classList.remove('open');mcomp.style.display='none';}
     setTimeout(function(){if(mcomp)mcomp.style.display='';},200);
     // Luego guardar y re-renderizar
-    try{save();}catch(e){}
     try{renderComps();}catch(e){}
     try{renderProds();}catch(e){}
     try{renderStockAlertas();}catch(e){}
     try{renderStockMovimientos('');}catch(e){}
     try{updDash();}catch(e){}
-    toast(isDraft?'Borrador guardado':'Compra guardada ✓');
+    toast('Guardando...');
+    await save();
+    toast(isDraft?'Borrador guardado ✓':'Compra guardada ✓');
   } catch(err) {
     console.error('saveComp error:', err);
     // Cerrar modal igual aunque haya error
