@@ -1061,29 +1061,17 @@ function save() {
     }));
   } catch(e) {}
   _syncShow('saving');
-  if (_saveTimeout) clearTimeout(_saveTimeout);
-  return new Promise(resolve => {
-    _saveTimeout = setTimeout(async () => {
-      if (window._fbSave) {
-        try {
-          await window._fbSave({
-            products:S.products, clients:S.clients, invoices:S.invoices,
-            compras:S.compras, proveedores:S.proveedores, gruposMay:S.gruposMay||[],
-            nInv:S.nInv, nCli:S.nCli, nProd:S.nProd, nComp:S.nComp, nProv:S.nProv, nGrupo:S.nGrupo,
-            listaCompras:S.listaCompras||null,
-            cobranzas:S.cobranzas||[]
-          });
-          _syncShow('ok');
-        } catch(e) {
-          console.error('Firebase save error:', e);
-          _syncShow('error');
-        }
-      } else {
-        _syncShow('ok');
-      }
-      resolve();
-    }, 300);
-  });
+  if(window._fbSave) {
+    window._fbSave({
+      products:S.products, clients:S.clients, invoices:S.invoices,
+      compras:S.compras, proveedores:S.proveedores, gruposMay:S.gruposMay||[],
+      nInv:S.nInv, nCli:S.nCli, nProd:S.nProd, nComp:S.nComp, nProv:S.nProv, nGrupo:S.nGrupo,
+      listaCompras:S.listaCompras||null,
+      cobranzas:S.cobranzas||[]
+    }).then(()=>_syncShow('ok')).catch(e=>{ console.error('Firebase save error:',e); _syncShow('error'); });
+  } else {
+    _syncShow('ok');
+  }
 }
 
 function load() {
@@ -2675,7 +2663,7 @@ function ncCostChange(input) {
   ncItems[pid].cost = cost;
   // Actualizar costo del producto para próximas veces
   const prod = S.products.find(p=>p.id===pid);
-  if(prod && cost>0) { prod.cost = cost; _fbSave(); }
+  if(prod && cost>0) { prod.cost = cost; save(); }
   ncUpdateFooter();
 }
 
