@@ -513,6 +513,8 @@ select option{background:var(--surface2)}
       <div id="prod-cat-chips" style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex:1;padding:2px 0">
         <div class="chip active" id="chip-all" onclick="setPF('all',this)">Todos</div>
         <div class="chip" id="chip-noprice" onclick="setPF('noprice',this)">Sin precio</div>
+        <div class="chip" id="chip-flyer" onclick="setPF('flyer',this)">📢 Flyer</div>
+        <div class="chip" id="chip-tienda" onclick="setPF('tienda',this)">👁️ Tienda</div>
       </div>
       <select id="prod-sort" onchange="renderProds(document.getElementById('prod-search').value)" style="margin-left:auto;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:20px;padding:6px 12px;font-size:14px;font-family:inherit;cursor:pointer;outline:none">
         <option value="vendidos">Más vendidos</option>
@@ -1718,6 +1720,8 @@ function renderProds(q) {
   }
   if(q) list = list.filter(p => p.name.toLowerCase().includes(q)||(p.category||'').toLowerCase().includes(q)||(p.marca||'').toLowerCase().includes(q));
   if(pf==='noprice') list = list.filter(p=>!p.price);
+  else if(pf==='flyer') list = list.filter(p=>!!p.enFlyer);
+  else if(pf==='tienda') list = list.filter(p=>p.visible!==false);
   else if(pf && pf.startsWith('cat:')) { const cat=pf.slice(4); list=list.filter(p=>(p.category||p.marca||'').trim()===cat); }
   // Ordenar
   const sortEl = document.getElementById('prod-sort');
