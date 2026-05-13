@@ -363,7 +363,13 @@ select option{background:var(--surface2)}
       <button onclick="if(S.editId){S.editId=null;ncItems={};showPage('compras');}else{showPage('compras');}" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 12px;font-size:16px;cursor:pointer">←</button>
       <div style="flex:1">
         <div style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Proveedor</div>
-        <select id="nc-prov" style="width:100%;font-size:15px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:Inter,sans-serif"></select>
+        <div style="position:relative">
+          <input id="nc-prov-search" type="text" placeholder="Buscar proveedor..." autocomplete="off"
+            oninput="ncProvSearch(this.value)" onfocus="ncProvSearch(this.value)"
+            style="width:100%;font-size:15px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);color:var(--text);font-family:Inter,sans-serif;box-sizing:border-box">
+          <input type="hidden" id="nc-prov">
+          <div id="nc-prov-drop" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:10px;z-index:100;max-height:200px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,.2)"></div>
+        </div>
       </div>
       <input type="date" id="nc-date" style="font-size:14px;padding:7px 6px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);width:118px">
     </div>
@@ -2602,12 +2608,15 @@ var ncProvId = ''; // pid -> {qty, cost}
 
 function openNuevaCompra(id) {
   ncItems = {};
+  ncProvId = null;
   document.getElementById('nc-date').value = localDateStr();
   document.getElementById('nc-notes').value = '';
   document.getElementById('nc-draft').checked = false;
-  const sel = document.getElementById('nc-prov');
   if(!S.proveedores.length) { toast('Primero agrega un proveedor'); return; }
-  sel.innerHTML = '<option value="">-- Elegir proveedor --</option>'+S.proveedores.map(pv=>'<option value="'+pv.id+'">'+pv.name+'</option>').join('');
+  const searchEl = document.getElementById('nc-prov-search');
+  const hidEl = document.getElementById('nc-prov');
+  if(searchEl) searchEl.value = '';
+  if(hidEl) hidEl.value = '';
   ncRenderList('');
   showPage('nueva-compra');
 }
@@ -2717,8 +2726,9 @@ function ncVolverAEditar(fromOpen) {
 function ncVerResumen() {
   const items = Object.entries(ncItems).filter(([pid,item])=>item.qty>0);
   if(!items.length) { toast('Agregá al menos un producto'); return; }
-  ncProvId = document.getElementById('nc-prov').value;
+  ncProvId = ncProvId || document.getElementById('nc-prov').value;
   if(!ncProvId) { toast('Falta seleccionar el proveedor'); return; }
+  document.getElementById('nc-prov').value = ncProvId;
   const resEl = document.getElementById('nc-items-resumen');
   if(resEl) {
     const totalUds = items.reduce((s,[pid,item])=>s+item.qty,0);
@@ -2739,6 +2749,20 @@ function ncVerResumen() {
   showPage('resumen-compra');
 }
 
+function ncProvSearch(q) {
+  const drop = document.getElementById('nc-prov-drop');
+  if(!drop) return;
+  const provs = S.proveedores.filter(p=>!q||p.name.toLowerCase().includes(q.toLowerCase()));
+  if(!provs.length) { drop.style.display='none'; return; }
+  drop.innerHTML = provs.map(p=>'<div onclick="ncProvSelect(\''+p.id+'\',\''+p.name.replace(/'/g,'\\\'')+'\')" style="padding:10px 14px;cursor:pointer;font-size:14px;border-bottom:1px solid var(--border)">'+p.name+'</div>').join('');
+  drop.style.display = 'block';
+}
+function ncProvSelect(id, name) {
+  document.getElementById('nc-prov').value = id;
+  document.getElementById('nc-prov-search').value = name;
+  document.getElementById('nc-prov-drop').style.display = 'none';
+  ncProvId = id;
+}
 async function ncSaveComp() {
   const items = Object.entries(ncItems).filter(([pid,item])=>item.qty>=0.01);
   if(!items.length) { toast('Sin productos'); return; }
@@ -3973,20 +3997,23 @@ function openComp(id) {
   ncProvId = null;
   // Cargar proveedores
   const sel = document.getElementById('nc-prov');
+  const searchEl = document.getElementById('nc-prov-search');
   if(!S.proveedores.length){ toast('Primero agrega un proveedor'); return; }
-  sel.innerHTML = S.proveedores.map(pv=>'<option value="'+pv.id+'">'+pv.name+'</option>').join('');
+  if(sel) sel.value = '';
+  if(searchEl) searchEl.value = '';
   document.getElementById('nc-date').value = localDateStr();
   document.getElementById('nc-notes').value = '';
   document.getElementById('nc-draft').checked = false;
   if(id) {
     const c = S.compras.find(x=>x.id===id);
     if(!c) return;
-    sel.value = c.provId;
+    const prov = S.proveedores.find(p=>p.id===c.provId);
+    if(sel) sel.value = c.provId;
+    if(searchEl && prov) searchEl.value = prov.name;
     ncProvId = c.provId;
     document.getElementById('nc-date').value = c.date || localDateStr();
     document.getElementById('nc-notes').value = c.notes || '';
     document.getElementById('nc-draft').checked = !!c.draft;
-    // Cargar items en ncItems
     c.items.forEach(item => {
       if(item.prodId) ncItems[item.prodId] = { qty: item.qty||0, cost: item.cost||0 };
     });
