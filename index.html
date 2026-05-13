@@ -606,6 +606,7 @@ select option{background:var(--surface2)}
       <button onclick="showPage('clientes')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:10px 14px;font-size:16px;cursor:pointer">←</button>
       <div id="clidet-nombre" style="font-family:Inter,sans-serif;font-size:18px;font-weight:800;flex:1"></div>
       <button onclick="openCli(cliDetId)" style="background:var(--surface2);border:1px solid var(--border);color:var(--accent);border-radius:10px;padding:8px 14px;font-size:14px;font-weight:700;cursor:pointer">✏️ Editar</button>
+      <button onclick="ajustarSaldo(cliDetId)" style="background:var(--surface2);border:1px solid var(--border);color:var(--green);border-radius:10px;padding:8px 14px;font-size:14px;font-weight:700;cursor:pointer">💰 Saldo</button>
     </div>
     <div id="clidet-saldo" style="border-radius:var(--r);padding:16px;margin-bottom:14px;text-align:center"></div>
     <div id="clidet-metricas" style="margin-bottom:14px"></div>
@@ -920,7 +921,14 @@ select option{background:var(--surface2)}
         </div>
         <div id="pagocli-resultado" style="margin-top:10px"></div>
       </div>
-      <div id="pagocli-empty" style="display:none;text-align:center;padding:20px;color:var(--text3);font-size:15px">Este cliente no tiene facturas pendientes</div>
+      <div id="pagocli-empty" style="display:none">
+        <div style="text-align:center;padding:16px 0 8px;color:var(--text3);font-size:15px">Este cliente no tiene facturas pendientes</div>
+        <div class="form-group" style="margin-top:8px">
+          <label class="fl">💰 Acreditar a favor</label>
+          <input type="number" id="pagocli-afavor" placeholder="0.00" inputmode="decimal" min="0" step="0.01" oninput="pagocliAFavorCalc()">
+        </div>
+        <div id="pagocli-afavor-res" style="margin-top:8px"></div>
+      </div>
     </div>
     <div class="modal-footer">
       <div style="margin-bottom:10px">
@@ -3783,6 +3791,19 @@ function _recalcInv(inv) {
   const cli = S.clients.find(c=>c.id===inv.clientId);
   if(cli) cli.credito = inv.aFavor > 0 ? inv.aFavor : (cli.credito||0);
 }
+function ajustarSaldo(cliId) {
+  const cli = S.clients.find(c=>c.id===cliId);
+  if(!cli) return;
+  const actual = cli.credito||0;
+  const nuevo = prompt('Saldo a favor actual: $'+actual.toFixed(0)+'\n\nIngresá el nuevo saldo a favor (0 para eliminar):', actual.toFixed(0));
+  if(nuevo === null) return;
+  const val = parseFloat(nuevo);
+  if(isNaN(val) || val < 0) { toast('Monto inválido'); return; }
+  cli.credito = val;
+  save();
+  openCliDet(cliId);
+  toast('Saldo actualizado: $'+val.toFixed(0)+' a favor');
+}
 function eliminarPago(invId, pi) {
   const inv = S.invoices.find(i=>i.id===invId);
   if(!inv||!inv.pagos) return;
@@ -4242,6 +4263,8 @@ function pagocliSelectClient(cliId) {
   if (!pendientes.length) {
     document.getElementById('pagocli-facturas').style.display = 'none';
     document.getElementById('pagocli-empty').style.display = '';
+    document.getElementById('pagocli-afavor').value = '';
+    document.getElementById('pagocli-afavor-res').innerHTML = '';
     document.getElementById('pagocli-btn').disabled = true;
     return;
   }
@@ -4302,8 +4325,40 @@ function pagocliCalc() {
   }
 }
 
+function pagocliAFavorCalc() {
+  const monto = parseFloat(document.getElementById('pagocli-afavor').value) || 0;
+  const res = document.getElementById('pagocli-afavor-res');
+  const btn = document.getElementById('pagocli-btn');
+  if(monto > 0) {
+    res.innerHTML = '<div style="background:var(--surface2);border-radius:10px;padding:10px;text-align:center;color:var(--green);font-weight:700">$'+monto.toFixed(0)+' quedarán a favor del cliente</div>';
+    btn.disabled = false;
+  } else {
+    res.innerHTML = '';
+    btn.disabled = true;
+  }
+}
+
 function pagocliConfirm() {
   if (!pagocliSelected) return;
+
+  // Caso: sin facturas pendientes → acreditar a favor
+  const empty = document.getElementById('pagocli-empty');
+  if(empty && empty.style.display !== 'none') {
+    const monto = parseFloat(document.getElementById('pagocli-afavor').value) || 0;
+    if(monto <= 0) { toast('Ingresá un monto'); return; }
+    const cli = S.clients.find(c=>c.id===pagocliSelected.id);
+    if(cli) cli.credito = (cli.credito||0) + monto;
+    const method = (document.getElementById('pagocli-method')||{}).value||'efectivo';
+    if(!S.cobranzas) S.cobranzas = [];
+    S.cobranzas.push({id:'COB-'+Date.now(), clientId:pagocliSelected.id, clientName:pagocliSelected.name, monto, method, date:localDateStr(), facturas:[], aFavor:monto});
+    save();
+    try{renderClis();}catch(e){}
+    updDash();
+    closeM('mpagocli');
+    toast('$'+monto.toFixed(0)+' acreditados a favor de '+pagocliSelected.name);
+    return;
+  }
+
   const monto = parseFloat(document.getElementById('pagocli-monto').value) || 0;
   if (monto <= 0) { toast('Ingresá un monto'); return; }
 
