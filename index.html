@@ -4706,7 +4706,7 @@ async function initApp() {
       }
       // Actualizar estado con datos remotos
       // Ignorar si acabamos de guardar nosotros (evita sobreescribir cambios propios)
-      if(Date.now() - _lastSaveTime < 4000) return;
+      if(Date.now() - _lastSaveTime < 15000) return;
       Object.assign(S, fbData);
       try { localStorage.setItem(SK, JSON.stringify(fbData)); } catch(e) {}
       renderProds(); renderInvs(); renderClis(); renderProvs(); renderComps(); updDash();
