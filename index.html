@@ -509,14 +509,16 @@ select option{background:var(--surface2)}
         <option value="">Categoría...</option>
       </select>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:0">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
       <div id="prod-cat-chips" style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex:1;padding:2px 0">
         <div class="chip active" id="chip-all" onclick="setPF('all',this)">Todos</div>
         <div class="chip" id="chip-noprice" onclick="setPF('noprice',this)">Sin precio</div>
         <div class="chip" id="chip-flyer" onclick="setPF('flyer',this)">📢 Flyer</div>
         <div class="chip" id="chip-tienda" onclick="setPF('tienda',this)">👁️ Tienda</div>
       </div>
-      <select id="prod-sort" onchange="renderProds(document.getElementById('prod-search').value)" style="margin-left:auto;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:20px;padding:6px 12px;font-size:14px;font-family:inherit;cursor:pointer;outline:none">
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:0">
+      <select id="prod-sort" onchange="renderProds(document.getElementById('prod-search').value)" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:20px;padding:6px 12px;font-size:14px;font-family:inherit;cursor:pointer;outline:none">
         <option value="vendidos">Más vendidos</option>
         <option value="az">A-Z</option>
         <option value="categoria">Categoría</option>
