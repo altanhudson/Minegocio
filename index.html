@@ -1283,7 +1283,10 @@ function confirmarGenerarFlyer(startPage, savedCatFiltro, savedProds) {
             (isOferta?'<div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#e53e3e;color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:20px;white-space:nowrap">OFERTA</div>':''),
             imgHtml,
             '<div style="font-size:12px;color:#333;line-height:1.3;margin-bottom:4px;font-weight:700;width:100%">'+p.name+'</div>',
-            (prevPrice&&prevPrice!==p.price ? '<div style="font-size:9px;color:'+(p.price>prevPrice?'#dc2626':'#16a34a')+';font-weight:700">'+(p.price>prevPrice?'↑':'↓')+' antes $'+prevPrice.toFixed(0)+'</div>' : '<div style="height:13px"></div>'),
+            (()=>{
+              const ph = getPriceChangeHtml(p,'11px','#3483fa','text-align:center;margin-bottom:2px');
+              return ph || '<div style="height:13px"></div>';
+            })(),
             '<div style="color:#3483fa;font-size:15px;font-weight:900;margin-top:2px">$'+p.price.toFixed(0)+(hasMayor?' c/u':'')+'</div>',
             mayorHtml,
           '</div>'
@@ -5450,10 +5453,14 @@ function tiendaProdCardGrid(p) {
   const mayorHtml = p.wholesalePrice&&p.wholesaleQty
     ? '<div style="font-size:11px;color:#2e7d32;font-weight:700;margin-top:3px">$'+(+p.wholesalePrice).toFixed(0)+' a partir de '+p.wholesaleQty+' uds</div>'
     : '';
+  const priceChangeHtmlG = getPriceChangeHtml(p, '15px', '#3483fa', 'margin-bottom:2px');
+  const precioGridHtml = priceChangeHtmlG
+    ? priceChangeHtmlG
+    : '<div style="font-size:15px;font-weight:800;color:#3483fa">$'+(+p.price).toFixed(0)+' x unidad</div>';
   return '<div style="background:#fff;border-radius:16px;padding:12px;border:1px solid '+(qty>0?'#3483fa40':'#eef0f5')+';box-shadow:0 2px 10px rgba(0,0,0,.06);">'
     +imgHtml
     +'<div style="font-size:13px;font-weight:600;margin-bottom:4px;line-height:1.3;color:#1a1a2e">'+p.name+'</div>'
-    +'<div style="font-size:15px;font-weight:800;color:#3483fa">$'+(+p.price).toFixed(0)+' x unidad '+arrow+'</div>'
+    +precioGridHtml
     +mayorHtml
     +ctrl
     +'</div>';
@@ -5515,13 +5522,31 @@ function tiendaEntrar() {
   history.pushState({tienda:'catalogo'},'','');
 }
 
+function getPriceChangeHtml(p, fontSize, color, extraStyle) {
+  if(!p.priceHistory || !p.priceHistory.length) return null;
+  const last = p.priceHistory[p.priceHistory.length-1];
+  const horasDiff = (Date.now() - new Date(last.date).getTime()) / 3600000;
+  if(horasDiff > 24) return null;
+  if(last.price === p.price) return null;
+  const subio = p.price > last.price;
+  const arrow = subio ? '↑' : '↓';
+  const arrowColor = subio ? '#dc2626' : '#16a34a';
+  const fs = fontSize || '13px';
+  const col = color || '#3483fa';
+  const extra = extraStyle || '';
+  return '<div style="'+extra+'">'
+    +'<span style="font-size:'+(parseInt(fs)-2)+'px;color:#999;text-decoration:line-through;margin-right:4px">$'+(+last.price).toFixed(0)+'</span>'
+    +'<span style="font-size:'+fs+';font-weight:900;color:'+col+'">$'+(+p.price).toFixed(0)+'</span>'
+    +'<span style="font-size:'+fs+';font-weight:800;color:'+arrowColor+';margin-left:2px">'+arrow+'</span>'
+    +'</div>';
+}
 function tiendaPriceArrow(p) {
   if(!p.priceHistory || !p.priceHistory.length) return '';
   const last = p.priceHistory[p.priceHistory.length-1];
   const horasDiff = (Date.now() - new Date(last.date).getTime()) / 3600000;
   if(horasDiff > 24) return '';
-  if(last.price < p.price) return '<span style="color:#ff4444;font-size:13px;font-weight:700">↑</span>';
-  if(last.price > p.price) return '<span style="color:#4ade80;font-size:13px;font-weight:700">↓</span>';
+  if(last.price < p.price) return '<span style="color:#dc2626;font-size:13px;font-weight:700">↑</span>';
+  if(last.price > p.price) return '<span style="color:#16a34a;font-size:13px;font-weight:700">↓</span>';
   return '';
 }
 function tiendaProdCard(p) {
@@ -5533,9 +5558,12 @@ function tiendaProdCard(p) {
     ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:4px;padding:7px 12px;font-weight:600;font-size:13px;cursor:pointer">+ Agregar</button>'
     : '<div style="display:flex;align-items:center;gap:10px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#eef0f5;color:#3483fa;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">−</button><span style="font-size:16px;font-weight:700;min-width:20px;text-align:center">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">+</button></div>';
   const arrow = tiendaPriceArrow(p);
-  const precioHtml = p.wholesalePrice&&p.wholesaleQty
-    ? '<div style="font-size:16px;font-weight:800;color:#3483fa;margin-top:2px">$'+(+p.price).toFixed(0)+' x unidad '+arrow+'</div><div style="font-size:12px;color:#2e7d32;font-weight:700;margin-top:2px">$'+(+p.wholesalePrice).toFixed(0)+' a partir de '+p.wholesaleQty+' uds</div>'
-    : '<div style="font-size:16px;font-weight:800;color:#3483fa;margin-top:2px">$'+(+p.price).toFixed(0)+' '+arrow+'</div>';
+  const priceChangeHtml = getPriceChangeHtml(p, '16px', '#3483fa', 'margin-top:2px');
+  const precioHtml = priceChangeHtml
+    ? priceChangeHtml + (p.wholesalePrice&&p.wholesaleQty?'<div style="font-size:12px;color:#2e7d32;font-weight:700;margin-top:2px">$'+(+p.wholesalePrice).toFixed(0)+' a partir de '+p.wholesaleQty+' uds</div>':'')
+    : (p.wholesalePrice&&p.wholesaleQty
+      ? '<div style="font-size:16px;font-weight:800;color:#3483fa;margin-top:2px">$'+(+p.price).toFixed(0)+' x unidad</div><div style="font-size:12px;color:#2e7d32;font-weight:700;margin-top:2px">$'+(+p.wholesalePrice).toFixed(0)+' a partir de '+p.wholesaleQty+' uds</div>'
+      : '<div style="font-size:16px;font-weight:800;color:#3483fa;margin-top:2px">$'+(+p.price).toFixed(0)+'</div>');
   return '<div style="background:'+(qty>0?'#fffde7':'#fff')+';border-radius:4px;padding:12px;display:flex;gap:12px;align-items:center;border:1px solid '+(qty>0?'#ffe066':'#e0e0e0')+';margin-bottom:8px">'
     +imgHtml
     +'<div style="flex:1;min-width:0">'
