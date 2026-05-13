@@ -3507,12 +3507,31 @@ document.getElementById('page-facturas').addEventListener('click', function(e){
   else if(action==='qpago') openQPago(id);
 });
 
+let _cachedInvCanvas = null;
+let _cachedInvId = null;
+
 function openShareInvoice(id) {
   const inv = S.invoices.find(i=>i.id===id);
   if(!inv) return;
   S.shareInvId = id;
+  _cachedInvCanvas = null;
+  _cachedInvId = null;
   renderInvoiceHTML(inv);
   document.getElementById('mshare').classList.add('open');
+  // Pregenerar canvas en segundo plano
+  setTimeout(function() {
+    const invEl = document.getElementById('invoice-render');
+    if(!invEl || typeof html2canvas === 'undefined') return;
+    invEl.style.width = '480px';
+    invEl.style.minWidth = '480px';
+    html2canvas(invEl, {scale:2, backgroundColor:'#ffffff', useCORS:true, logging:false, width:480})
+      .then(function(canvas) {
+        invEl.style.width = '';
+        invEl.style.minWidth = '';
+        _cachedInvCanvas = canvas;
+        _cachedInvId = id;
+      }).catch(function(){ invEl.style.width=''; invEl.style.minWidth=''; });
+  }, 400);
 }
 
 function openQPago(id) {
@@ -5056,68 +5075,23 @@ function shareInvoiceImg(dest) {
   const inv = S.invoices.find(i=>i.id===S.shareInvId);
   if(!inv) return;
 
+  // Usar canvas precargado si está disponible para esta factura
+  if(_cachedInvCanvas && _cachedInvId === S.shareInvId) {
+    _doShareCanvas(_cachedInvCanvas, inv, dest);
+    return;
+  }
+
   toast('Generando imagen...');
 
   function doCapture() {
-    // Fijar ancho para captura consistente
     invEl.style.width = '480px';
     invEl.style.minWidth = '480px';
-
     html2canvas(invEl, {
-      scale: 2,
-      backgroundColor: '#ffffff',
-      useCORS: true,
-      logging: false,
-      width: 480
+      scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, width: 480
     }).then(function(canvas) {
       invEl.style.width = '';
       invEl.style.minWidth = '';
-
-      canvas.toBlob(function(blob) {
-        const filename = 'factura-' + inv.id + '.png';
-        const file = new File([blob], filename, {type: 'image/png'});
-        const cli = S.clients.find(function(c){return c.id===inv.clientId;});
-        const phone = cli && cli.phone ? cli.phone.replace(/\D/g,'') : '';
-        const cliMsg = cli && cli.invmsg ? cli.invmsg : '';
-
-        if(dest === 'download') {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url; a.download = filename;
-          document.body.appendChild(a); a.click();
-          document.body.removeChild(a);
-          setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-          return;
-        }
-
-        // Intentar Web Share API con archivo (Android Chrome 86+)
-        if(navigator.canShare && navigator.canShare({files: [file]})) {
-          navigator.share({
-            files: [file],
-            title: 'Factura ' + inv.id,
-            text: cliMsg || inv.clientName
-          }).catch(function(e){ if(e.name !== 'AbortError') toast('No se pudo compartir'); });
-        } else {
-          // Fallback: descargar imagen y abrir WhatsApp/Telegram
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url; a.download = filename;
-          document.body.appendChild(a); a.click();
-          document.body.removeChild(a);
-          setTimeout(function(){
-            URL.revokeObjectURL(url);
-            if(dest === 'whatsapp') {
-              const waUrl = phone
-                ? 'https://wa.me/54' + phone + '?text=' + encodeURIComponent((cliMsg||'Factura ' + inv.id + ' - ' + inv.clientName))
-                : 'https://wa.me/?text=' + encodeURIComponent((cliMsg||'Factura ' + inv.id + ' - ' + inv.clientName));
-              window.open(waUrl, '_blank');
-            } else if(dest === 'telegram') {
-              window.open('https://t.me/share/url?url=&text=' + encodeURIComponent(cliMsg||'Factura ' + inv.id + ' - ' + inv.clientName), '_blank');
-            }
-          }, 800);
-          toast('Imagen guardada - abriendo app...');
-        }
-      }, 'image/png');
+      _doShareCanvas(canvas, inv, dest);
     }).catch(function(err) {
       invEl.style.width = '';
       invEl.style.minWidth = '';
@@ -5126,7 +5100,6 @@ function shareInvoiceImg(dest) {
     });
   }
 
-  // Cargar html2canvas solo cuando se necesita (lazy load)
   if(typeof html2canvas === 'undefined') {
     const script = document.createElement('script');
     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
@@ -5136,6 +5109,52 @@ function shareInvoiceImg(dest) {
   } else {
     doCapture();
   }
+}
+
+function _doShareCanvas(canvas, inv, dest) {
+  canvas.toBlob(function(blob) {
+    const filename = 'factura-' + inv.id + '.png';
+    const file = new File([blob], filename, {type: 'image/png'});
+    const cli = S.clients.find(function(c){return c.id===inv.clientId;});
+    const phone = cli && cli.phone ? cli.phone.replace(/\D/g,'') : '';
+    const cliMsg = cli && cli.invmsg ? cli.invmsg : '';
+
+    if(dest === 'download') {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+      return;
+    }
+
+    if(navigator.canShare && navigator.canShare({files: [file]})) {
+      navigator.share({
+        files: [file],
+        title: 'Factura ' + inv.id,
+        text: cliMsg || inv.clientName
+      }).catch(function(e){ if(e.name !== 'AbortError') toast('No se pudo compartir'); });
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      setTimeout(function(){
+        URL.revokeObjectURL(url);
+        if(dest === 'whatsapp') {
+          const waUrl = phone
+            ? 'https://wa.me/54' + phone + '?text=' + encodeURIComponent((cliMsg||'Factura ' + inv.id + ' - ' + inv.clientName))
+            : 'https://wa.me/?text=' + encodeURIComponent((cliMsg||'Factura ' + inv.id + ' - ' + inv.clientName));
+          window.open(waUrl, '_blank');
+        } else if(dest === 'telegram') {
+          window.open('https://t.me/share/url?url=&text=' + encodeURIComponent(cliMsg||'Factura ' + inv.id + ' - ' + inv.clientName), '_blank');
+        }
+      }, 800);
+      toast('Imagen guardada - abriendo app...');
+    }
+  }, 'image/png');
 }
 
 function shareInvoiceText() {
