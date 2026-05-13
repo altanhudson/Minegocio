@@ -2118,8 +2118,12 @@ document.getElementById('page-clientes').addEventListener('click', function(e){
 // === INVOICES ===
 function openInv(id, defaultType) {
   S.editId=id||null; S.invItems=[];
-  S.editClientId = id ? null : null; // siempre limpiar, se setea solo en verInv
+  S.editClientId = id ? null : null;
   S._editOrigItems = null;
+  if(id) {
+    const _origInv = S.invoices.find(x=>x.id===id);
+    if(_origInv) S._editOrigItems = _origInv.items.map(x=>({...x}));
+  }
   document.getElementById('i-date').value=localDateStr();
   const sel=document.getElementById('i-cli');
   sel.innerHTML='<option value="">-- Elegir cliente --</option>';
@@ -3263,7 +3267,8 @@ function saveInv() {
     });
   } else {
     // Edición: revertir stock anterior y aplicar nuevo
-    const prevItems = S._editOrigItems || ((S.invoices.find(x=>x.id===S.editId)||{}).items||[]);
+    const prevItems = S._editOrigItems || [];
+    if(!prevItems.length) console.warn('saveInv edit: no _editOrigItems, stock no revertido');
     prevItems.forEach(function(item) {
       if(!item.prodId) return;
       const p = S.products.find(x=>x.id===item.prodId);
