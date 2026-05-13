@@ -15,7 +15,7 @@
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getFirestore, doc, setDoc, updateDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
   const firebaseConfig = {
@@ -37,7 +37,7 @@
     return JSON.parse(JSON.stringify(obj, function(k,v){ return v === undefined ? null : v; }));
   }
 
-  window._fbSave = async function(data) {
+  window._fbSave = async function(data, fields) {
     try {
       // PROTECCION: no guardar arrays vacios si Firebase ya tiene datos
       if(data.products !== undefined && data.products.length === 0) {
@@ -50,15 +50,26 @@
           }
         }
       }
-      // Backup local antes de guardar
+      // Backup local
       try {
         const bk = 'mneg_bk_' + Date.now();
         localStorage.setItem(bk, JSON.stringify(data));
         const keys = Object.keys(localStorage).filter(k=>k.startsWith('mneg_bk_')).sort();
         while(keys.length > 3) localStorage.removeItem(keys.shift());
       } catch(e) {}
-      await setDoc(DATA_DOC, cleanUndefined(data));
-    } catch(e) { console.error("Firebase save error:", e); }
+      if(fields && fields.length) {
+        // Escritura parcial: solo los campos que cambiaron
+        const partial = {};
+        fields.forEach(f => { if(data[f] !== undefined) partial[f] = cleanUndefined(data[f]); });
+        await updateDoc(DATA_DOC, partial);
+      } else {
+        // Escritura completa (fallback)
+        await setDoc(DATA_DOC, cleanUndefined(data));
+      }
+    } catch(e) {
+      // Si updateDoc falla porque el doc no existe, usar setDoc
+      try { await setDoc(DATA_DOC, cleanUndefined(data)); } catch(e2) { console.error("Firebase save error:", e2); }
+    }
   };
 
   window._fbLoad = async function() {
@@ -1067,7 +1078,7 @@ function _syncShow(state) {
     el._hideT = setTimeout(()=>{ el.style.opacity='0'; setTimeout(()=>el.style.display='none',300); }, 4000);
   }
 }
-function save() {
+function save(fields) {
   _lastSaveTime = Date.now();
   try {
     localStorage.setItem(SK, JSON.stringify({
@@ -1077,14 +1088,16 @@ function save() {
     }));
   } catch(e) {}
   _syncShow('saving');
+  const data = {
+    products:S.products, clients:S.clients, invoices:S.invoices,
+    compras:S.compras, proveedores:S.proveedores, gruposMay:S.gruposMay||[],
+    nInv:S.nInv, nCli:S.nCli, nProd:S.nProd, nComp:S.nComp, nProv:S.nProv, nGrupo:S.nGrupo,
+    listaCompras:S.listaCompras||null, cobranzas:S.cobranzas||[]
+  };
   if(window._fbSave) {
-    window._fbSave({
-      products:S.products, clients:S.clients, invoices:S.invoices,
-      compras:S.compras, proveedores:S.proveedores, gruposMay:S.gruposMay||[],
-      nInv:S.nInv, nCli:S.nCli, nProd:S.nProd, nComp:S.nComp, nProv:S.nProv, nGrupo:S.nGrupo,
-      listaCompras:S.listaCompras||null,
-      cobranzas:S.cobranzas||[]
-    }).then(()=>_syncShow('ok')).catch(e=>{ console.error('Firebase save error:',e); _syncShow('error'); });
+    window._fbSave(data, fields)
+      .then(()=>_syncShow('ok'))
+      .catch(e=>{ console.error('Firebase save error:',e); _syncShow('error'); });
   } else {
     _syncShow('ok');
   }
@@ -1408,7 +1421,7 @@ function normalizarCategorias() {
     }
   });
   if(changed === 0) { toast('Todas las categorías ya están normalizadas'); return; }
-  save();
+  save(['products']);
   toast(changed + ' categorías normalizadas ✓');
 }
 function backupData() {
@@ -1495,7 +1508,7 @@ function borrarFoto() {
   // Si estamos editando, marcar imagen como borrada
   if(S.editId) {
     const p = S.products.find(x=>x.id===S.editId);
-    if(p) { p.image = null; save(); toast('Foto eliminada'); }
+    if(p) { p.image = null; save(['products']); toast('Foto eliminada'); }
   }
 }
 function resetPhoto(em) {
@@ -1579,7 +1592,7 @@ function saveProd() {
       // Actualizar producto en array con la URL real
       const idx2 = S.products.findIndex(p=>p.id===prodId);
       if(idx2>=0) S.products[idx2].image = url;
-      save();
+      save(['products']);
       try{renderProds();}catch(e){}
       toast('Foto guardada ✓');
     }).catch(function(e) {
@@ -1607,7 +1620,7 @@ function saveProd() {
   setTimeout(function(){ if(mprod) mprod.style.display=''; }, 200);
   try { renderProds(); } catch(e) {}
   try { updDash(); } catch(e) {}
-  try { save(); } catch(e) {}
+  try { save(['products','nProd']); } catch(e) {}
   toast('Producto guardado');
   if(window._returnAfterProd) {
     const pg = window._returnAfterProd;
@@ -1641,7 +1654,7 @@ function applyMarcaUpdate(marca, prodIds) {
     if(cos > 0) p.cost = cos;
     updated++;
   });
-  try{save();}catch(e){}
+  try{save(['products']);}catch(e){}
   renderProds(document.getElementById('prod-search').value);
   toast(updated + ' productos actualizados');
 }
@@ -1686,7 +1699,7 @@ function prodBulkTog(field) {
   const prods = S.products.filter(p=>(p.category||p.marca||'').trim()===cat);
   const allOn = prods.every(p=>field==='visible'?p.visible!==false:!!p[field]);
   prods.forEach(p=>{ if(field==='visible') p.visible=allOn?false:true; else p[field]=!allOn; });
-  save();
+  save(['products']);
   renderProds(document.getElementById('prod-search').value);
   toast((allOn?'Desactivado':'Activado')+' para '+prods.length+' productos');
 }
@@ -1944,21 +1957,21 @@ function togVis(id) {
   const p = S.products.find(x=>x.id===id);
   if(!p) return;
   p.visible = p.visible===false ? true : false;
-  save();
+  save(['products']);
   renderProds(document.getElementById('prod-search').value);
 }
 function togOferta(id) {
   const p = S.products.find(x=>x.id===id);
   if(!p) return;
   p.oferta = !p.oferta;
-  save();
+  save(['products']);
   renderProds(document.getElementById('prod-search').value);
 }
 function togFlyer(id) {
   const p = S.products.find(x=>x.id===id);
   if(!p) return;
   p.enFlyer = !p.enFlyer;
-  save();
+  save(['products']);
   renderProds(document.getElementById('prod-search').value);
 }
 function togQE(id) {
@@ -1986,14 +1999,14 @@ function saveQE(id) {
   p.wholesaleQty = parseInt(document.getElementById('qq-'+id).value)||0;
   p.cost = parseFloat(document.getElementById('qc-'+id).value)||0;
   renderProds(document.getElementById('prod-search').value);
-  updDash(); save();
+  updDash(); save(['products']);
   toast(p.name.substring(0,20)+' guardado');
 }
 
 function delProd(id) {
   if(!confirm('Eliminar este producto?')) return;
   S.products = S.products.filter(p=>p.id!==id);
-  renderProds(); updDash(); save();
+  renderProds(); updDash(); save(['products']);
   toast('Eliminado');
 }
 
@@ -2038,7 +2051,7 @@ function saveCli() {
     color: S.editId?(S.clients.find(x=>x.id===S.editId)||{}).color||CCOLS[0]:CCOLS[S.clients.length%CCOLS.length]
   };
   if(S.editId){const i=S.clients.findIndex(x=>x.id===S.editId);S.clients[i]=c;}else S.clients.push(c);
-  renderClis(); updDash(); save(); closeM('mcli'); toast('Cliente guardado');
+  renderClis(); updDash(); save(['clients','nCli']); closeM('mcli'); toast('Cliente guardado');
 }
 function cliSaldo(cliId) {
   const invs = S.invoices.filter(i=>i.clientId===cliId && i.type!=='presupuesto' && i.status!=='cancelada');
@@ -2456,7 +2469,7 @@ function resumePriceChange(input) {
     S.invItems[idx].price = newPrice;
     S.invItems[idx].retailPrice = newPrice;
     p.price = newPrice;
-    save();
+    save(['products']);
     calcTotals();
     renderIItem(idx, S.invItems[idx]);
   };
@@ -2689,7 +2702,7 @@ function ncCostChange(input) {
   ncItems[pid].cost = cost;
   // Actualizar costo del producto para próximas veces
   const prod = S.products.find(p=>p.id===pid);
-  if(prod && cost>0) { prod.cost = cost; save(); }
+  if(prod && cost>0) { prod.cost = cost; save(['products']); }
   ncUpdateFooter();
 }
 
@@ -2834,7 +2847,7 @@ async function ncSaveComp() {
   try{updDash();}catch(e){}
   showPage('compras');
   toast('Compra guardada ✓');
-  save();
+  save(['compras','products','nComp']);
 }
 
 function cartPlus(e, pid) {
@@ -3320,7 +3333,7 @@ function saveInv() {
   } else {
     S.invoices.unshift(inv);
   }
-  try{renderInvs();}catch(e){} try{updDash();}catch(e){} try{save();}catch(e){} cerrarNuevaFac(); toast('Factura guardada');
+  try{renderInvs();}catch(e){} try{updDash();}catch(e){} try{save(['invoices','clients','products','nInv']);}catch(e){} cerrarNuevaFac(); toast('Factura guardada');
 
   // Detectar productos nuevos (sin prodId) y ofrecer darlos de alta
   const nuevos = inv.items.filter(i => !i.prodId && (i.desc||'').trim());
@@ -3351,7 +3364,7 @@ function saveInv() {
           };
           S.products.push(prod);
           try{renderProds();}catch(e){}
-          try{save();}catch(e){}
+          try{save(['products','nProd']);}catch(e){}
           toast('"' + nombre + '" dado de alta en productos');
         }
       });
@@ -3493,7 +3506,7 @@ document.getElementById('page-facturas').addEventListener('click', function(e){
     if(!inv) return;
     if(!inv.itemsArmados) inv.itemsArmados = {};
     inv.itemsArmados[idx] = !inv.itemsArmados[idx];
-    save();
+    save(['invoices']);
     // Actualizar visual sin re-renderizar toda la lista
     const armado = inv.itemsArmados[idx];
     btn.style.borderColor = armado ? 'var(--green)' : 'var(--border)';
@@ -3542,9 +3555,12 @@ function openQPago(id) {
   if(!inv) return;
   S.editId = id;
   document.getElementById('mqpago-title').textContent = 'Pago - '+id;
-  const debe = inv.saldo||0;
+  const cli = S.clients.find(c=>c.id===inv.clientId);
+  const credito = cli ? (cli.credito||0) : 0;
+  const debe = Math.max(0, (inv.saldo||0) - credito);
   document.getElementById('mqpago-info').innerHTML =
     '<div style="display:flex;justify-content:space-between"><span>Total factura</span><strong>$'+inv.total.toFixed(2)+'</strong></div>'
+    +(credito>0?'<div style="display:flex;justify-content:space-between"><span>Saldo a favor</span><strong style="color:var(--green)">-$'+credito.toFixed(2)+'</strong></div>':'')
     +'<div style="display:flex;justify-content:space-between"><span>Saldo pendiente</span><strong style="color:var(--accent3)">$'+debe.toFixed(2)+'</strong></div>';
   document.getElementById('qp-monto').value = debe > 0 ? debe.toFixed(2) : '';
   document.getElementById('qp-result').innerHTML = '';
@@ -3570,30 +3586,35 @@ function saveQPago() {
   const monto = parseFloat(document.getElementById('qp-monto').value)||0;
   if(!monto) { toast('Ingresá un monto'); return; }
   const method = document.getElementById('qp-method').value;
+  const cliQ = S.clients.find(c=>c.id===inv.clientId);
+  const creditoDisp = cliQ ? (cliQ.credito||0) : 0;
   if(!inv.pagos) inv.pagos = [];
+  // Aplicar crédito disponible como pago adicional
+  const montoTotal = monto + creditoDisp;
+  if(creditoDisp > 0) {
+    inv.pagos.push({monto: creditoDisp, method: 'a favor', date: localDateStr()});
+    if(cliQ) cliQ.credito = 0;
+  }
   inv.pagos.push({monto, method, date: localDateStr()});
   const totalPagado = inv.pagos.reduce((s,p)=>s+p.monto,0);
   inv.saldo = Math.max(0, inv.total - totalPagado);
   inv.aFavor = totalPagado > inv.total ? totalPagado - inv.total : 0;
   inv.status = inv.saldo <= 0 ? 'pagada' : 'pendiente';
-  // Guardar crédito en cliente si pagó de más
-  const cliQ = S.clients.find(c=>c.id===inv.clientId);
-  if(cliQ) cliQ.credito = inv.aFavor > 0 ? inv.aFavor : 0;
-  // Registrar cobranza
+  if(cliQ && inv.aFavor > 0) cliQ.credito = inv.aFavor;
   if(!S.cobranzas) S.cobranzas = [];
   S.cobranzas.push({
     id: 'COB-'+Date.now(),
     clientId: inv.clientId,
     clientName: inv.clientName,
-    monto: monto,
-    method: method,
+    monto: montoTotal,
+    method: method+(creditoDisp>0?' + a favor':''),
     date: localDateStr(),
     facturas: [inv.id],
     aFavor: inv.aFavor||0
   });
-  try{renderInvs();}catch(e){} try{renderClis();}catch(e){} try{updDash();}catch(e){} try{save();}catch(e){}
+  try{renderInvs();}catch(e){} try{renderClis();}catch(e){} try{updDash();}catch(e){} try{save(['invoices','clients','cobranzas']);}catch(e){}
   closeM('mqpago');
-  toast('Pago registrado');
+  toast('Pago registrado'+(creditoDisp>0?' (incluye $'+creditoDisp.toFixed(0)+' a favor)':''));
 }
 
 // === DETALLE CLIENTE ===
@@ -3853,7 +3874,7 @@ function ajustarSaldo(cliId) {
   const val = parseFloat(nuevo);
   if(isNaN(val) || val < 0) { toast('Monto inválido'); return; }
   cli.credito = val;
-  save();
+  save(['clients']);
   openCliDet(cliId);
   toast('Saldo actualizado: $'+val.toFixed(0)+' a favor');
 }
@@ -3864,7 +3885,7 @@ function eliminarPago(invId, pi) {
   if(!confirm('Eliminar pago de $'+p.monto.toFixed(0)+'?')) return;
   inv.pagos.splice(pi, 1);
   _recalcInv(inv);
-  save(); renderInvs(); showCliTab('cobranzas'); toast('Pago eliminado');
+  save(['invoices','clients','cobranzas']); renderInvs(); showCliTab('cobranzas'); toast('Pago eliminado');
 }
 function editarPago(invId, pi) {
   const inv = S.invoices.find(i=>i.id===invId);
@@ -3876,11 +3897,11 @@ function editarPago(invId, pi) {
   if(isNaN(val) || val < 0) { toast('Monto inválido'); return; }
   p.monto = val;
   _recalcInv(inv);
-  save(); renderInvs(); showCliTab('cobranzas'); toast('Pago actualizado');
+  save(['invoices','clients','cobranzas']); renderInvs(); showCliTab('cobranzas'); toast('Pago actualizado');
 }
-function cycleInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv||inv.type==='presupuesto')return;const estados={pendiente:'Pagada',pagada:'Cancelada',cancelada:'Pendiente'};const next=estados[inv.status];if(!confirm('Cambiar estado a '+next+'?'))return;const c={pendiente:'pagada',pagada:'cancelada',cancelada:'pendiente'};inv.status=c[inv.status];if(inv.status==='pagada'){if(!inv.pagos)inv.pagos=[];const totalPagado=inv.pagos.reduce((s,p)=>s+p.monto,0);if(totalPagado===0){inv.pagos.push({monto:inv.total,method:'efectivo',date:localDateStr()});}inv.saldo=0;inv.aFavor=0;}renderInvs();updDash();save();toast('Estado: '+inv.status);}
-function cancelInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv)return;if(inv.status==='cancelada'){toast('Ya esta cancelada');return;}if(!confirm('Cancelar la factura '+id+'? Quedara en el historial sin modificar el stock.'))return;inv.status='cancelada';renderInvs();updDash();save();toast('Factura cancelada');}
-function delInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv)return;const hasPago=inv.pagos&&inv.pagos.reduce((s,p)=>s+p.monto,0)>0;if(!confirm('Eliminar la factura '+id+(hasPago?' (tiene pagos registrados)':'')+' y devolver el stock?'))return;inv.items.forEach(item=>{if(!item.prodId)return;const p=S.products.find(x=>x.id===item.prodId);if(p)p.stock=(p.stock||0)+(item.qty||0);});S.invoices=S.invoices.filter(i=>i.id!==id);renderInvs();renderProds();updDash();save();toast('Factura eliminada y stock restaurado');}
+function cycleInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv||inv.type==='presupuesto')return;const estados={pendiente:'Pagada',pagada:'Cancelada',cancelada:'Pendiente'};const next=estados[inv.status];if(!confirm('Cambiar estado a '+next+'?'))return;const c={pendiente:'pagada',pagada:'cancelada',cancelada:'pendiente'};inv.status=c[inv.status];if(inv.status==='pagada'){if(!inv.pagos)inv.pagos=[];const totalPagado=inv.pagos.reduce((s,p)=>s+p.monto,0);if(totalPagado===0){inv.pagos.push({monto:inv.total,method:'efectivo',date:localDateStr()});}inv.saldo=0;inv.aFavor=0;}renderInvs();updDash();save(['invoices','clients']);toast('Estado: '+inv.status);}
+function cancelInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv)return;if(inv.status==='cancelada'){toast('Ya esta cancelada');return;}if(!confirm('Cancelar la factura '+id+'? Quedara en el historial sin modificar el stock.'))return;inv.status='cancelada';renderInvs();updDash();save(['invoices']);toast('Factura cancelada');}
+function delInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv)return;const hasPago=inv.pagos&&inv.pagos.reduce((s,p)=>s+p.monto,0)>0;if(!confirm('Eliminar la factura '+id+(hasPago?' (tiene pagos registrados)':'')+' y devolver el stock?'))return;inv.items.forEach(item=>{if(!item.prodId)return;const p=S.products.find(x=>x.id===item.prodId);if(p)p.stock=(p.stock||0)+(item.qty||0);});S.invoices=S.invoices.filter(i=>i.id!==id);renderInvs();renderProds();updDash();save(['invoices','products']);toast('Factura eliminada y stock restaurado');}
 
 // === DASHBOARD ===
 function updDash() {
@@ -3985,7 +4006,7 @@ function updDash() {
 // === PROVEEDORES ===
 const PCOLS=['#47c8ff','#4ade80','#fb923c','#c084fc'];
 function openProv(id){S.editId=id||null;if(id){const pv=S.proveedores.find(x=>x.id===id);document.getElementById('mprov-title').textContent='Editar Proveedor';document.getElementById('pv-name').value=pv.name;document.getElementById('pv-phone').value=pv.phone||'';document.getElementById('pv-days').value=pv.days||'';document.getElementById('pv-email').value=pv.email||'';document.getElementById('pv-tax').value=pv.tax||'';document.getElementById('pv-notes').value=pv.notes||'';}else{document.getElementById('mprov-title').textContent='Nuevo Proveedor';['pv-name','pv-phone','pv-days','pv-email','pv-tax','pv-notes'].forEach(f=>document.getElementById(f).value='');}document.getElementById('mprov').classList.add('open');}
-function saveProv(){const name=document.getElementById('pv-name').value.trim();if(!name){toast('Ingresa el nombre');return;}const pv={id:S.editId||'PROV-'+String(S.nProv++).padStart(3,'0'),name,phone:document.getElementById('pv-phone').value,days:document.getElementById('pv-days').value,email:document.getElementById('pv-email').value,tax:document.getElementById('pv-tax').value,notes:document.getElementById('pv-notes').value,color:S.editId?(S.proveedores.find(p=>p.id===S.editId)||{}).color||PCOLS[0]:PCOLS[S.proveedores.length%PCOLS.length]};if(S.editId){const i=S.proveedores.findIndex(p=>p.id===S.editId);S.proveedores[i]=pv;}else S.proveedores.push(pv);renderProvs();save();closeM('mprov');toast('Proveedor guardado');}
+function saveProv(){const name=document.getElementById('pv-name').value.trim();if(!name){toast('Ingresa el nombre');return;}const pv={id:S.editId||'PROV-'+String(S.nProv++).padStart(3,'0'),name,phone:document.getElementById('pv-phone').value,days:document.getElementById('pv-days').value,email:document.getElementById('pv-email').value,tax:document.getElementById('pv-tax').value,notes:document.getElementById('pv-notes').value,color:S.editId?(S.proveedores.find(p=>p.id===S.editId)||{}).color||PCOLS[0]:PCOLS[S.proveedores.length%PCOLS.length]};if(S.editId){const i=S.proveedores.findIndex(p=>p.id===S.editId);S.proveedores[i]=pv;}else S.proveedores.push(pv);renderProvs();save(['proveedores','nProv']);closeM('mprov');toast('Proveedor guardado');}
 function renderProvs(){
   const el=document.getElementById('prov-list');
   if(!S.proveedores.length){el.innerHTML='<div class="empty"><div class="ei">&#127981;</div><h3>Sin proveedores</h3><p>Agrega tus proveedores habituales</p></div>';return;}
@@ -4004,7 +4025,7 @@ function renderProvs(){
 function deleteProv(id){
   if(!confirm('¿Eliminar este proveedor?')) return;
   S.proveedores = S.proveedores.filter(p => p.id !== id);
-  renderProvs(); save(); toast('Proveedor eliminado');
+  renderProvs(); save(['proveedores']); toast('Proveedor eliminado');
 }
 document.getElementById('page-proveedores').addEventListener('click', function(e){
   const el=e.target.closest('[data-action="openProv"]');
@@ -4170,7 +4191,7 @@ async function saveComp(){
     try{renderStockMovimientos('');}catch(e){}
     try{updDash();}catch(e){}
     toast(isDraft?'Borrador guardado ✓':'Compra guardada ✓');
-    save();
+    save(['compras','products','nComp']);
   } catch(err) {
     console.error('saveComp error:', err);
     // Cerrar modal igual aunque haya error
@@ -4181,7 +4202,7 @@ async function saveComp(){
   }
 }
 
-function confirmComp(id){if(!confirm('Confirmar esta compra? Se va a actualizar el stock.'))return;const comp=S.compras.find(x=>x.id===id);if(!comp||!comp.draft)return;comp.draft=false;comp.items.forEach(item=>{if(!item.prodId)return;const p=S.products.find(x=>x.id===item.prodId);if(!p)return;p.stock=(p.stock||0)+item.qty;if(item.cost>0)p.cost=item.cost;});renderComps();renderProds();renderProvs();updDash();save();toast('Compra confirmada - Stock actualizado');}
+function confirmComp(id){if(!confirm('Confirmar esta compra? Se va a actualizar el stock.'))return;const comp=S.compras.find(x=>x.id===id);if(!comp||!comp.draft)return;comp.draft=false;comp.items.forEach(item=>{if(!item.prodId)return;const p=S.products.find(x=>x.id===item.prodId);if(!p)return;p.stock=(p.stock||0)+item.qty;if(item.cost>0)p.cost=item.cost;});renderComps();renderProds();renderProvs();updDash();save(['compras','products','nComp']);toast('Compra confirmada - Stock actualizado');}
 function renderComps(){
   const el=document.getElementById('comp-hist');
   if(!S.compras.length){el.innerHTML='<div class="empty"><div class="ei">&#128717;</div><h3>Sin compras</h3><p>Toca + para registrar</p></div>';return;}
@@ -4206,7 +4227,7 @@ function renderComps(){
 function deleteComp(id){
   if(!confirm('¿Eliminar esta compra?')) return;
   S.compras = S.compras.filter(c => c.id !== id);
-  save();
+  save(['compras','products']);
   renderComps();
   updDash();
   toast('Compra eliminada');
@@ -4226,7 +4247,7 @@ function fmtDate(s){if(!s)return'';const[y,m,d]=s.split('-');const ms=['Ene','Fe
 // === CSV ===
 function dlTemplate(){const h='nombre,precio,costo,stock,stock_minimo,categoria,precio_mayorista,cantidad_mayorista';const ex='Aceite girasol 1L,2500,1800,50,10,Aceites,2000,6';const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(h+'\n'+ex);a.download='plantilla.csv';a.click();}
 function prevCSV(input){if(!input.files[0])return;const r=new FileReader();r.onload=e=>{const ls=e.target.result.trim().split('\n').slice(0,5);const p=document.getElementById('csv-prev');p.innerHTML=ls.map((l,i)=>'<div style="'+(i===0?'color:var(--accent);font-weight:600':'')+';padding:2px 0;border-bottom:1px solid var(--border)">'+l+'</div>').join('');p.style.display='';};r.readAsText(input.files[0]);}
-function doImport(){const file=document.getElementById('csv-file').files[0];if(!file){toast('Elige un archivo');return;}const r=new FileReader();r.onload=e=>{const lines=e.target.result.trim().split('\n');if(lines.length<2){toast('Archivo vacio');return;}const hs=lines[0].split(',').map(h=>h.trim().toLowerCase().replace(/[\'"]/g,''));const idx=n=>hs.findIndex(h=>h===n||h.includes(n));const iN=idx('nombre'),iP=idx('precio'),iC=idx('costo'),iS=idx('stock'),iMS=idx('minimo'),iCat=idx('categori'),iWP=idx('mayorista'),iWQ=idx('cantidad');if(iN<0){toast('No se encontro columna nombre');return;}let cnt=0;for(let i=1;i<lines.length;i++){const cols=lines[i].split(',').map(c=>c.trim().replace(/^["\'"]|["\'"]$/g,''));const name=cols[iN];if(!name)continue;S.products.push({id:'PROD-'+String(S.nProd++).padStart(3,'0'),name,price:iP>=0?parseFloat(cols[iP])||0:0,cost:iC>=0?parseFloat(cols[iC])||0:0,stock:iS>=0?parseInt(cols[iS])||0:0,minStock:iMS>=0?parseInt(cols[iMS])||5:5,category:iCat>=0?cols[iCat]||'':'',wholesalePrice:iWP>=0?parseFloat(cols[iWP])||0:0,wholesaleQty:iWQ>=0?parseInt(cols[iWQ])||0:0,emoji:'',desc:'',visible:true,image:null,sku:'P'+Date.now()+i});cnt++;}renderProds();updDash();save();closeM('mimport');toast(cnt+' productos importados');};r.readAsText(file);}
+function doImport(){const file=document.getElementById('csv-file').files[0];if(!file){toast('Elige un archivo');return;}const r=new FileReader();r.onload=e=>{const lines=e.target.result.trim().split('\n');if(lines.length<2){toast('Archivo vacio');return;}const hs=lines[0].split(',').map(h=>h.trim().toLowerCase().replace(/[\'"]/g,''));const idx=n=>hs.findIndex(h=>h===n||h.includes(n));const iN=idx('nombre'),iP=idx('precio'),iC=idx('costo'),iS=idx('stock'),iMS=idx('minimo'),iCat=idx('categori'),iWP=idx('mayorista'),iWQ=idx('cantidad');if(iN<0){toast('No se encontro columna nombre');return;}let cnt=0;for(let i=1;i<lines.length;i++){const cols=lines[i].split(',').map(c=>c.trim().replace(/^["\'"]|["\'"]$/g,''));const name=cols[iN];if(!name)continue;S.products.push({id:'PROD-'+String(S.nProd++).padStart(3,'0'),name,price:iP>=0?parseFloat(cols[iP])||0:0,cost:iC>=0?parseFloat(cols[iC])||0:0,stock:iS>=0?parseInt(cols[iS])||0:0,minStock:iMS>=0?parseInt(cols[iMS])||5:5,category:iCat>=0?cols[iCat]||'':'',wholesalePrice:iWP>=0?parseFloat(cols[iWP])||0:0,wholesaleQty:iWQ>=0?parseInt(cols[iWQ])||0:0,emoji:'',desc:'',visible:true,image:null,sku:'P'+Date.now()+i});cnt++;}renderProds();updDash();save(['products','nProd']);closeM('mimport');toast(cnt+' productos importados');};r.readAsText(file);}
 
 
 // === ACTUALIZAR PRECIOS DESDE INVOICE MANAGER ===
@@ -4242,7 +4263,7 @@ function applyPriceMap() {
     if(data.wholesalePrice > 0) p.wholesalePrice = data.wholesalePrice;
     if(data.wholesaleQty > 0) p.wholesaleQty = data.wholesaleQty;
   });
-  save();
+  save(['products']);
   renderProds();
   updDash();
   document.getElementById('price-update-banner').style.display = 'none';
@@ -4262,7 +4283,7 @@ function checkPriceBanner() {
     if(data.wholesalePrice > 0) p.wholesalePrice = data.wholesalePrice;
     if(data.wholesaleQty > 0) p.wholesaleQty = data.wholesaleQty;
   });
-  save();
+  save(['products']);
   renderProds();
   updDash();
   localStorage.setItem('mneg_prices_applied', '1');
@@ -4407,7 +4428,7 @@ function pagocliConfirm() {
     const method = (document.getElementById('pagocli-method')||{}).value||'efectivo';
     if(!S.cobranzas) S.cobranzas = [];
     S.cobranzas.push({id:'COB-'+Date.now(), clientId:pagocliSelected.id, clientName:pagocliSelected.name, monto, method, date:localDateStr(), facturas:[], aFavor:monto});
-    save();
+    save(['clients','cobranzas']);
     try{renderClis();}catch(e){}
     updDash();
     closeM('mpagocli');
@@ -4461,7 +4482,7 @@ function pagocliConfirm() {
     aFavor: restante > 0 ? restante : 0
   });
 
-  save();
+  save(['invoices','clients','cobranzas']);
   renderInvs();
   try{renderClis();}catch(e){}
   updDash();
@@ -4648,7 +4669,7 @@ function confirmarCobroReparto(rutaIdx) {
   // Mark as delivered
   repartoRuta[rutaIdx].status = 'entregado';
   repartoRuta[rutaIdx].saldo = inv.saldo;
-  save();
+  save(['invoices','clients']);
   toast('Cobro registrado ✓');
   showPage('reparto');
   swRepartoTab('ruta', document.getElementById('rtab-ruta'));
@@ -4686,7 +4707,7 @@ async function initApp() {
         p.category = 'galletitas'; changed = true;
       }
     });
-    if (changed) { try { save(); } catch(e) {} }
+    if (changed) { try { save(['products']); } catch(e) {} }
   })();
 
   renderProds(); renderInvs(); renderClis(); renderProvs(); renderComps(); updDash();
@@ -4910,7 +4931,7 @@ function saveStockAjuste() {
   S.ajustes.push({ id:'AJU-'+Date.now(), date: localDateStr(), items: ajusteItems, tipo:'ajuste' });
   try{renderProds();}catch(e){}
   try{updDash();}catch(e){}
-  try{save();}catch(e){}
+  try{save(['products']);}catch(e){}
   renderStockAlertas();
   toast(changed + ' producto' + (changed>1?'s':'') + ' actualizados');
   document.querySelectorAll('#stock-ajuste-list input').forEach(i => i.value = '');
@@ -4927,7 +4948,7 @@ function generarListaCompras() {
   const items = {};
   faltantes.forEach(p => { items[p.id] = Math.abs(p.stock); });
   S.listaCompras = { generadoEn: Date.now(), items };
-  try{save();}catch(e){}
+  try{save(['listaCompras']);}catch(e){}
   renderListaCompras();
 }
 
@@ -4936,17 +4957,17 @@ function listaEditQty(prodId, val) {
   if(!S.listaCompras || !S.listaCompras.items) return;
   if(isNaN(qty) || qty <= 0) { delete S.listaCompras.items[prodId]; }
   else { S.listaCompras.items[prodId] = qty; }
-  save(); renderListaCompras();
+  save(['listaCompras']); renderListaCompras();
 }
 function listaDelItem(prodId) {
   if(!S.listaCompras) return;
   delete S.listaCompras.items[prodId];
-  save(); renderListaCompras();
+  save(['listaCompras']); renderListaCompras();
 }
 function listaEliminar() {
   if(!confirm('¿Eliminar la lista de compras?')) return;
   S.listaCompras = null;
-  save(); renderListaCompras();
+  save(['listaCompras']); renderListaCompras();
 }
 function listaCompartir() {
   if(!S.listaCompras || !S.listaCompras.items) return;
@@ -5045,7 +5066,7 @@ window.saveProd = function() {
   const prod = S.products.find(p => p.name === name);
   if (prod) {
     prod.suppliers = [...pSelectedSuppliers];
-    try{save();}catch(e){}
+    try{save(['products']);}catch(e){}
   }
 };
 
@@ -5777,7 +5798,7 @@ function tiendaConfirmar() {
     const idx=S.products.findIndex(x=>x.id===id);
     if(idx>=0) S.products[idx].stock=(S.products[idx].stock||0)-qty;
   });
-  try{renderInvs();}catch(e){} try{updDash();}catch(e){} save();
+  try{renderInvs();}catch(e){} try{updDash();}catch(e){} save(['invoices','clients','nInv']);
   // Limpiar carrito
   TC={};
   tiendaRenderCarrito();
