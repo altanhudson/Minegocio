@@ -5368,7 +5368,7 @@ function renderInvoiceHTML(inv) {
 </script>
 
 <!-- ===== TIENDA ONLINE ===== -->
-<div id="tienda-app" style="display:none;position:fixed;inset:0;background:#f0f4ff;color:#333;z-index:9999;overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:100vh;min-height:100dvh">
+<div id="tienda-app" style="display:none;position:fixed;inset:0;background:#fffbea;color:#333;z-index:9999;overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:100vh;min-height:100dvh">
 
   <!-- Pantalla de bienvenida -->
   <div id="tienda-login" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100dvh;padding:32px 24px;background:#fffbea">
@@ -5390,36 +5390,34 @@ function renderInvoiceHTML(inv) {
   </div>
 
   <!-- Catálogo -->
-  <div id="tienda-catalogo" style="display:none;padding-bottom:120px;background:#f0f4ff">
-    <!-- Header con gradiente y más carácter -->
-    <div style="position:sticky;top:0;z-index:10;background:linear-gradient(135deg,#1a56db 0%,#3483fa 60%,#56a0f5 100%);padding:16px 16px 0;box-shadow:0 4px 20px rgba(52,131,250,.4)">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+  <div id="tienda-catalogo" style="display:none;padding-bottom:120px;background:#fffbea">
+    <div style="position:sticky;top:0;z-index:10;background:#3483fa;padding:16px 16px 0;box-shadow:0 4px 16px rgba(52,131,250,.35)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div>
           <div style="font-family:Inter,sans-serif;font-size:22px;font-weight:900;color:#fff;letter-spacing:-0.5px" id="tienda-cat-titulo">Surtimar</div>
-          <div style="font-size:12px;color:rgba(255,255,255,.75);font-weight:500;letter-spacing:.3px" id="tienda-saludo"></div>
+          <div style="font-size:12px;color:rgba(255,255,255,.8);font-weight:500" id="tienda-saludo"></div>
         </div>
-        <button onclick="tiendaVerCarrito()" style="position:relative;background:rgba(255,255,255,.15);backdrop-filter:blur(8px);border:1.5px solid rgba(255,255,255,.3);color:#fff;border-radius:12px;padding:10px 14px;font-size:20px;cursor:pointer" id="tienda-cart-btn">
-          🛒<span id="tienda-badge" style="display:none;position:absolute;top:-8px;right:-8px;background:#ffe600;color:#333;font-size:11px;font-weight:800;padding:2px 6px;border-radius:10px;min-width:18px;text-align:center">0</span>
+        <button onclick="tiendaVerCarrito()" style="position:relative;background:#ffe600;border:none;color:#333;border-radius:12px;padding:10px 14px;font-size:20px;cursor:pointer;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.15)" id="tienda-cart-btn">
+          🛒<span id="tienda-badge" style="display:none;position:absolute;top:-8px;right:-8px;background:#e53e3e;color:#fff;font-size:11px;font-weight:800;padding:2px 6px;border-radius:10px;min-width:18px;text-align:center">0</span>
         </button>
       </div>
-      <!-- Buscador -->
-      <div style="background:rgba(255,255,255,.18);border-radius:12px;display:flex;align-items:center;padding:0 12px;margin-bottom:12px;border:1px solid rgba(255,255,255,.25)">
-        <span style="color:rgba(255,255,255,.7);font-size:16px;margin-right:8px">🔍</span>
+      <!-- Buscador blanco bien visible -->
+      <div style="background:#fff;border-radius:12px;display:flex;align-items:center;padding:0 12px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.1)">
+        <span style="color:#999;font-size:16px;margin-right:8px">🔍</span>
         <input id="tienda-buscar" type="text" placeholder="Buscar producto..." oninput="tiendaRender()"
-          style="flex:1;padding:11px 0;font-size:14px;background:transparent;border:none;color:#fff;outline:none;font-family:Inter,sans-serif"
-          onfocus="this.placeholder=''" onblur="this.placeholder='Buscar producto...'">
+          style="flex:1;padding:12px 0;font-size:14px;background:transparent;border:none;color:#333;outline:none;font-family:Inter,sans-serif">
       </div>
-      <!-- Categorías sobre fondo blanco -->
-      <div style="background:#fff;margin:0 -16px;padding:10px 16px;border-radius:16px 16px 0 0">
+      <!-- Categorías sobre fondo crema con borde redondeado -->
+      <div style="background:#fffbea;margin:0 -16px;padding:10px 16px 8px;border-radius:16px 16px 0 0">
         <div id="tienda-cats" style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch"></div>
       </div>
     </div>
     <!-- Vista toggle -->
-    <div style="display:flex;justify-content:flex-end;padding:10px 16px 0;gap:6px;background:#fff;border-bottom:1px solid #e8eaf0">
+    <div style="display:flex;justify-content:flex-end;padding:8px 16px;gap:6px">
       <button onclick="tiendaSetVista('lista')" id="tienda-btn-lista" style="padding:7px 12px;border-radius:8px;border:none;background:#3483fa;color:#fff;font-size:15px;cursor:pointer">☰</button>
       <button onclick="tiendaSetVista('grilla')" id="tienda-btn-grilla" style="padding:7px 12px;border-radius:8px;border:1px solid #e0e4f0;background:#f0f4ff;color:#3483fa;font-size:15px;cursor:pointer">⊞</button>
     </div>
-    <div id="tienda-lista" style="padding:12px 16px;display:flex;flex-direction:column;gap:8px"></div>
+    <div id="tienda-lista" style="padding:0 16px;display:flex;flex-direction:column;gap:8px"></div>
   </div>
 
   <!-- Carrito inline (al final del catálogo) -->
