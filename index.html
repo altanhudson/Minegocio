@@ -3537,16 +3537,26 @@ function openShareInvoice(id) {
   // Pregenerar canvas en segundo plano
   setTimeout(function() {
     const invEl = document.getElementById('invoice-render');
-    if(!invEl || typeof html2canvas === 'undefined') return;
-    invEl.style.width = '480px';
-    invEl.style.minWidth = '480px';
-    html2canvas(invEl, {scale:2, backgroundColor:'#ffffff', useCORS:true, logging:false, width:480})
-      .then(function(canvas) {
-        invEl.style.width = '';
-        invEl.style.minWidth = '';
-        _cachedInvCanvas = canvas;
-        _cachedInvId = id;
-      }).catch(function(){ invEl.style.width=''; invEl.style.minWidth=''; });
+    if(!invEl) return;
+    function doPreload() {
+      invEl.style.width = '480px';
+      invEl.style.minWidth = '480px';
+      html2canvas(invEl, {scale:2, backgroundColor:'#ffffff', useCORS:true, logging:false, width:480})
+        .then(function(canvas) {
+          invEl.style.width = '';
+          invEl.style.minWidth = '';
+          _cachedInvCanvas = canvas;
+          _cachedInvId = id;
+        }).catch(function(){ invEl.style.width=''; invEl.style.minWidth=''; });
+    }
+    if(typeof html2canvas === 'undefined') {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+      script.onload = doPreload;
+      document.head.appendChild(script);
+    } else {
+      doPreload();
+    }
   }, 400);
 }
 
@@ -5464,12 +5474,12 @@ function tiendaSetVista(tipo) {
 }
 function tiendaProdCardGrid(p) {
   const qty = TC[p.id]||0;
-  const arrow = tiendaPriceArrow(p);
+  const step = p.wholesaleQty && p.wholesaleQty > 1 ? p.wholesaleQty : 1;
   const imgHtml = p.image
     ? '<img src="'+p.image+'" style="width:100%;height:110px;border-radius:10px;object-fit:contain;display:block;background:#f7f8fc;margin-bottom:8px">'
     : '<div style="width:100%;height:100px;border-radius:10px;background:#f7f8fc;display:flex;align-items:center;justify-content:center;font-size:40px;margin-bottom:8px">'+(p.emoji||'📦')+'</div>';
   const ctrl = qty===0
-    ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="width:100%;background:#3483fa;color:#fff;border:none;border-radius:10px;padding:9px;font-weight:800;font-size:14px;cursor:pointer;margin-top:8px">+ Agregar</button>'
+    ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="width:100%;background:#3483fa;color:#fff;border:none;border-radius:10px;padding:9px;font-weight:800;font-size:14px;cursor:pointer;margin-top:8px">+ Agregar'+(step>1?' x'+step:'')+'</button>'
     : '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#eef0f5;color:#3483fa;border:none;border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;font-weight:700">−</button><span style="font-weight:800;font-size:16px;color:#1a1a2e">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;font-weight:700">+</button></div>';
   const mayorHtml = p.wholesalePrice&&p.wholesaleQty
     ? '<div style="font-size:11px;color:#2e7d32;font-weight:700;margin-top:3px">$'+(+p.wholesalePrice).toFixed(0)+' a partir de '+p.wholesaleQty+' uds</div>'
@@ -5478,7 +5488,9 @@ function tiendaProdCardGrid(p) {
   const precioGridHtml = priceChangeHtmlG
     ? priceChangeHtmlG
     : '<div style="font-size:15px;font-weight:800;color:#3483fa">$'+(+p.price).toFixed(0)+' x unidad</div>';
-  return '<div style="background:#fff;border-radius:16px;padding:12px;border:1px solid '+(qty>0?'#3483fa40':'#eef0f5')+';box-shadow:0 2px 10px rgba(0,0,0,.06);">'
+  const ofertaBadge = p.oferta ? '<div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#e53e3e;color:#fff;font-size:9px;font-weight:800;padding:2px 10px;border-radius:20px;white-space:nowrap">OFERTA</div>' : '';
+  return '<div style="background:#fff;border-radius:16px;padding:12px;border:1px solid '+(p.oferta?'#e53e3e50':qty>0?'#3483fa40':'#eef0f5')+';box-shadow:0 2px 10px rgba(0,0,0,.06);position:relative">'
+    +ofertaBadge
     +imgHtml
     +'<div style="font-size:13px;font-weight:600;margin-bottom:4px;line-height:1.3;color:#1a1a2e">'+p.name+'</div>'
     +precioGridHtml
@@ -5572,24 +5584,24 @@ function tiendaPriceArrow(p) {
 }
 function tiendaProdCard(p) {
   const qty = TC[p.id]||0;
+  const step = p.wholesaleQty && p.wholesaleQty > 1 ? p.wholesaleQty : 1;
   const imgHtml = p.image
     ? '<img src="'+p.image+'" style="width:64px;height:64px;border-radius:4px;object-fit:cover;flex-shrink:0">'
     : '<div style="width:64px;height:64px;border-radius:4px;background:#fef9e7;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">'+(p.emoji||'📦')+'</div>';
   const ctrl = qty===0
-    ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:4px;padding:7px 12px;font-weight:600;font-size:13px;cursor:pointer">+ Agregar</button>'
+    ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:4px;padding:7px 12px;font-weight:600;font-size:13px;cursor:pointer">+ Agregar'+(step>1?' x'+step:'')+'</button>'
     : '<div style="display:flex;align-items:center;gap:10px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#eef0f5;color:#3483fa;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">−</button><span style="font-size:16px;font-weight:700;min-width:20px;text-align:center">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">+</button></div>';
-  const arrow = tiendaPriceArrow(p);
   const priceChangeHtml = getPriceChangeHtml(p, '16px', '#3483fa', 'margin-top:2px');
   const precioHtml = priceChangeHtml
     ? priceChangeHtml + (p.wholesalePrice&&p.wholesaleQty?'<div style="font-size:12px;color:#2e7d32;font-weight:700;margin-top:2px">$'+(+p.wholesalePrice).toFixed(0)+' a partir de '+p.wholesaleQty+' uds</div>':'')
     : (p.wholesalePrice&&p.wholesaleQty
       ? '<div style="font-size:16px;font-weight:800;color:#3483fa;margin-top:2px">$'+(+p.price).toFixed(0)+' x unidad</div><div style="font-size:12px;color:#2e7d32;font-weight:700;margin-top:2px">$'+(+p.wholesalePrice).toFixed(0)+' a partir de '+p.wholesaleQty+' uds</div>'
       : '<div style="font-size:16px;font-weight:800;color:#3483fa;margin-top:2px">$'+(+p.price).toFixed(0)+'</div>');
-  return '<div style="background:'+(qty>0?'#fffde7':'#fff')+';border-radius:4px;padding:12px;display:flex;gap:12px;align-items:center;border:1px solid '+(qty>0?'#ffe066':'#e0e0e0')+';margin-bottom:8px">'
+  return '<div style="background:'+(qty>0?'#f0f7ff':'#fff')+';border-radius:14px;padding:12px;display:flex;gap:12px;align-items:center;border:1px solid '+(p.oferta?'#e53e3e50':qty>0?'#3483fa40':'#eef0f5')+';margin-bottom:8px;box-shadow:0 1px 6px rgba(0,0,0,.04);position:relative">'
+    +(p.oferta?'<div style="position:absolute;top:-7px;left:12px;background:#e53e3e;color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:20px">OFERTA</div>':'')
     +imgHtml
     +'<div style="flex:1;min-width:0">'
-    +'<div style="font-size:14px;font-weight:500;margin-bottom:3px;color:#333">'+p.name+'</div>'
-    +(p.desc?'<div style="font-size:12px;color:#999;margin-bottom:4px">'+p.desc+'</div>':'')
+    +'<div style="font-size:14px;font-weight:600;margin-bottom:3px;color:#1a1a2e">'+p.name+'</div>'
     +(p.stock===0?'<span style="color:#e53e3e;font-size:12px">Sin stock</span>':'')
     +precioHtml
     +'</div>'
@@ -5678,16 +5690,29 @@ function tiendaRenderCats() {
 }
 
 function tiendaAdd(id) {
-  TC[id] = (TC[id]||0)+1;
+  const p = S.products.find(x=>x.id===id);
+  const step = p&&p.wholesaleQty&&p.wholesaleQty>1 ? p.wholesaleQty : 1;
+  TC[id] = (TC[id]||0) + step;
   tiendaRender();
   if(T_VISTA==='carrito') tiendaRenderCarrito();
+  tiendaActTotal();
 }
-function tiendaInc(id) { TC[id]=(TC[id]||0)+1; tiendaRender(); if(document.getElementById('tienda-carrito').style.display!=='none') tiendaRenderCarrito(); tiendaActTotal(); }
+function tiendaInc(id) {
+  const p = S.products.find(x=>x.id===id);
+  const step = p&&p.wholesaleQty&&p.wholesaleQty>1 ? p.wholesaleQty : 1;
+  TC[id]=(TC[id]||0)+step;
+  tiendaRender();
+  if(document.getElementById('tienda-carrito').style.display!=='none') tiendaRenderCarrito();
+  tiendaActTotal();
+}
 function tiendaDec(id) {
-  TC[id]=(TC[id]||1)-1;
+  const p = S.products.find(x=>x.id===id);
+  const step = p&&p.wholesaleQty&&p.wholesaleQty>1 ? p.wholesaleQty : 1;
+  TC[id]=(TC[id]||step)-step;
   if(TC[id]<=0) delete TC[id];
   tiendaRender();
   if(document.getElementById('tienda-carrito').style.display!=='none') tiendaRenderCarrito();
+  tiendaActTotal();
 }
 
 function tiendaActBadge() {
