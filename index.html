@@ -5547,7 +5547,7 @@ function tiendaEntrar() {
   TN = TC_CLI ? TC_CLI.name : 'Cliente '+last6;
   document.getElementById('tienda-login').style.display='none';
   document.getElementById('tienda-catalogo').style.display='block';
-  document.getElementById('tienda-saludo').textContent = TC_CLI ? 'Hola, ' + TC_CLI.name + ' 👋' : 'Hola 👋';
+  document.getElementById('tienda-saludo').textContent = TC_CLI ? 'Hola, ' + TC_CLI.name + '! ¿Qué vas a comprar hoy? 🛒' : 'Hola! ¿Qué vas a comprar hoy? 🛒';
   document.getElementById('tienda-footer').style.display='block';
   window.T_CAT = 'todas';
   tiendaSetVista('grilla');
