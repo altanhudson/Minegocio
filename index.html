@@ -5751,10 +5751,25 @@ function tiendaRenderCats() {
   const cats = [...new Set(S.products.filter(p=>p.visible!==false&&p.price>0&&p.category).map(p=>p.category))].sort();
   const hasOfertas = S.products.some(p=>p.oferta&&p.visible!==false);
   const cat = window.T_CAT||'todas';
-  const btnStyle = (active) => 'flex-shrink:0;padding:6px 16px;border-radius:4px;border:none;font-size:13px;font-weight:600;cursor:pointer;'+(active?'background:#3483fa;color:#fff':'background:#fff;color:#555;border:1px solid #e0e0e0');
-  el.innerHTML = '<button style="'+btnStyle(cat==='todas')+'" onclick="window.T_CAT=&quot;todas&quot;;tiendaRender()">Todas</button>'
+  const CAT_EMOJI = {
+    'aceites':'🫙','bebidas':'🥤','galletitas':'🍪','golosinas':'🍬','snacks':'🍿',
+    'limpieza':'🧹','higiene':'🧴','lácteos':'🥛','lacteos':'🥛','harinas':'🌾',
+    'conservas':'🥫','condimentos':'🧂','azúcar':'🍚','azucar':'🍚','arroz':'🍚',
+    'fideos':'🍝','pasta':'🍝','aceite':'🫙','yerba':'🧉','café':'☕','cafe':'☕',
+    'té':'🍵','te':'🍵','infusiones':'🍵','carnes':'🥩','fiambres':'🥩',
+    'congelados':'❄️','verduras':'🥦','frutas':'🍎','panadería':'🥖','panaderia':'🥖',
+    'cigarrillos':'🚬','tabaco':'🚬','kiosco':'🛍️','varios':'📦','despensa':'🛒',
+    'desayuno':'🥐','cerveza':'🍺','vinos':'🍷','licores':'🥃','gaseosas':'🥤',
+    'agua':'💧','jugos':'🧃','lácteo':'🥛','lacteo':'🥛','quesos':'🧀'
+  };
+  const getEmoji = (c) => {
+    const key = c.toLowerCase().trim();
+    return CAT_EMOJI[key] || '📦';
+  };
+  const btnStyle = (active) => 'flex-shrink:0;padding:6px 14px;border-radius:20px;border:none;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;'+(active?'background:#3483fa;color:#fff':'background:#f0f4ff;color:#3483fa;border:1.5px solid #3483fa20');
+  el.innerHTML = '<button style="'+btnStyle(cat==='todas')+'" onclick="window.T_CAT=&quot;todas&quot;;tiendaRender()">🏪 Todas</button>'
     +(hasOfertas?'<button style="'+btnStyle(cat==='ofertas')+'" onclick="window.T_CAT=&quot;ofertas&quot;;tiendaRender()">🔥 Ofertas</button>':'')
-    +cats.map(c=>'<button style="'+btnStyle(cat===c)+'" onclick="window.T_CAT=&quot;'+c+'&quot;;tiendaRender()">'+c+'</button>').join('');
+    +cats.map(c=>'<button style="'+btnStyle(cat===c)+'" onclick="window.T_CAT=&quot;'+c+'&quot;;tiendaRender()">'+getEmoji(c)+' '+c+'</button>').join('');
 }
 
 function tiendaAdd(id) {
