@@ -5673,6 +5673,8 @@ function tiendaRender() {
     const bRecent = b.priceHistory&&b.priceHistory.length&&(now-new Date(b.priceHistory[b.priceHistory.length-1].date).getTime())<86400000?1:0;
     return bRecent - aRecent;
   });
+  // Sección ofertas y banners
+  let html = '';
   // Banner de aumentos (últimas 48hs, solo si no hay filtro)
   if(!q && cat==='todas') {
     const aumentos = prods.filter(p => {
@@ -5699,6 +5701,7 @@ function tiendaRender() {
       html += '</div></div>';
     }
   }
+  if(!q && cat==='todas') {
     const ofertas = prods.filter(p=>p.oferta);
     if(ofertas.length) {
       html += '<div style="background:#fff;border-radius:16px;padding:14px;border:1px solid #eef0f5;margin-bottom:10px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.05)">';
