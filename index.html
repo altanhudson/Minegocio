@@ -346,6 +346,9 @@ select option{background:var(--surface2)}
       </div>
       <div id="dash-metricas"></div>
     </div>
+    <div class="card" style="cursor:pointer" onclick="showPage('estadisticas')">
+      <div class="card-header"><span class="card-title">📊 Estadísticas</span><span style="font-size:12px;color:var(--text3)">Ver métricas detalladas →</span></div>
+    </div>
     <div class="card" style="cursor:pointer" onclick="abrirReparto()"><div class="card-header"><span class="card-title">🚚 Gestionar entregas del día</span></div></div>
     <div class="card" style="cursor:pointer">
       <div class="card-header"><span class="card-title">🛒 Tienda online</span><span style="font-size:12px;background:#dcfce7;color:#166534;padding:2px 8px;border-radius:20px;font-weight:600">ACTIVA</span></div>
@@ -355,6 +358,28 @@ select option{background:var(--surface2)}
         <button onclick="tiendaAdminEntrar()" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">👁️ Ver tienda como admin</button>
       </div>
     </div>
+  </div>
+
+  <div class="page" id="page-estadisticas">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <button onclick="showPage('dashboard')" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:16px;cursor:pointer">←</button>
+      <h2 style="font-size:18px;font-weight:800;margin:0">📊 Estadísticas</h2>
+      <select id="est-periodo" onchange="renderEstadisticas()" style="margin-left:auto;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 10px;font-size:14px;font-family:inherit;cursor:pointer;outline:none">
+        <option value="semana">Esta semana</option>
+        <option value="mes" selected>Este mes</option>
+        <option value="trim">Este trimestre</option>
+        <option value="año">Este año</option>
+        <option value="todo">Todo</option>
+      </select>
+    </div>
+    <!-- Tabs -->
+    <div style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-bottom:14px;padding-bottom:2px">
+      <button class="chip active" id="est-tab-ventas" onclick="setEstTab('ventas',this)">💰 Ventas</button>
+      <button class="chip" id="est-tab-compras" onclick="setEstTab('compras',this)">🛒 Compras</button>
+      <button class="chip" id="est-tab-clientes" onclick="setEstTab('clientes',this)">👥 Clientes</button>
+      <button class="chip" id="est-tab-productos" onclick="setEstTab('productos',this)">📦 Productos</button>
+    </div>
+    <div id="est-content"></div>
   </div>
 
   <div class="page" id="page-facturas">
@@ -1230,8 +1255,237 @@ function showPage(p) {
   const nav = document.querySelector('.bottom-nav');
   if(nav) nav.style.display = ['nueva-factura','resumen-factura','nueva-compra','resumen-compra','reparto','cobrar-reparto'].includes(p) ? 'none' : '';
   if(p==='dashboard') updDash();
+  if(p==='estadisticas') { estTab='ventas'; renderEstadisticas(); }
 }
 
+
+// === ESTADÍSTICAS ===
+let estTab = 'ventas';
+
+function setEstTab(tab, el) {
+  estTab = tab;
+  document.querySelectorAll('[id^="est-tab-"]').forEach(b=>b.classList.remove('active'));
+  if(el) el.classList.add('active');
+  renderEstadisticas();
+}
+
+function getEstPeriodo() {
+  const sel = document.getElementById('est-periodo');
+  const val = sel ? sel.value : 'mes';
+  const now = new Date();
+  let desde;
+  if(val==='semana') { desde = new Date(now); desde.setDate(now.getDate()-7); }
+  else if(val==='mes') { desde = new Date(now.getFullYear(), now.getMonth(), 1); }
+  else if(val==='trim') { desde = new Date(now); desde.setMonth(now.getMonth()-3); }
+  else if(val==='año') { desde = new Date(now.getFullYear(), 0, 1); }
+  else { desde = new Date('2000-01-01'); }
+  return desde;
+}
+
+function estFiltrarInvs(desde) {
+  return S.invoices.filter(i => {
+    if(i.type==='presupuesto') return false;
+    const d = new Date(i.date.split('/').reverse().join('-'));
+    return d >= desde;
+  });
+}
+
+function fmtM(n) { return '$'+Math.round(n).toLocaleString('es-AR'); }
+
+function renderEstadisticas() {
+  const cont = document.getElementById('est-content');
+  if(!cont) return;
+  const desde = getEstPeriodo();
+  const invs = estFiltrarInvs(desde);
+  const compras = (S.compras||[]).filter(c => {
+    if(c.draft) return false;
+    const d = new Date((c.date||'').split('/').reverse().join('-'));
+    return d >= desde;
+  });
+
+  if(estTab==='ventas') renderEstVentas(cont, invs, compras);
+  else if(estTab==='compras') renderEstCompras(cont, compras);
+  else if(estTab==='clientes') renderEstClientes(cont, invs);
+  else if(estTab==='productos') renderEstProductos(cont, invs);
+}
+
+function renderEstVentas(cont, invs, compras) {
+  const totalVentas = invs.reduce((s,i)=>s+i.total,0);
+  const totalCobrado = invs.reduce((s,i)=>s+(i.total-(i.saldo||0)),0);
+  const totalPendiente = invs.reduce((s,i)=>s+(i.saldo||0),0);
+  const totalCosto = invs.reduce((s,inv)=>{
+    return s + (inv.items||[]).reduce((ss,it)=>{
+      const p = S.products.find(x=>x.id===it.prodId);
+      return ss + (p&&p.cost ? p.cost*it.qty : 0);
+    },0);
+  },0);
+  const ganancia = totalVentas - totalCosto;
+  const margen = totalVentas>0 ? (ganancia/totalVentas*100).toFixed(1) : 0;
+  const totalCompras = compras.reduce((s,c)=>s+(c.total||0),0);
+
+  // Ventas por día agrupadas
+  const porDia = {};
+  invs.forEach(i=>{ porDia[i.date]=(porDia[i.date]||0)+i.total; });
+  const diasConVentas = Object.keys(porDia).length;
+  const promDia = diasConVentas>0 ? totalVentas/diasConVentas : 0;
+
+  cont.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div class="card" style="padding:14px;text-align:center">
+        <div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Facturado</div>
+        <div style="font-size:20px;font-weight:900;color:var(--accent)">${fmtM(totalVentas)}</div>
+      </div>
+      <div class="card" style="padding:14px;text-align:center">
+        <div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Cobrado</div>
+        <div style="font-size:20px;font-weight:900;color:var(--green)">${fmtM(totalCobrado)}</div>
+      </div>
+      <div class="card" style="padding:14px;text-align:center">
+        <div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Pendiente</div>
+        <div style="font-size:20px;font-weight:900;color:var(--accent3)">${fmtM(totalPendiente)}</div>
+      </div>
+      <div class="card" style="padding:14px;text-align:center">
+        <div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Prom/día</div>
+        <div style="font-size:20px;font-weight:900;color:var(--text)">${fmtM(promDia)}</div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-header"><span class="card-title">Ganancia estimada</span></div>
+      <div style="padding:4px 14px 14px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;text-align:center">
+        <div><div style="font-size:11px;color:var(--text3)">Ganancia</div><div style="font-size:16px;font-weight:800;color:var(--green)">${fmtM(ganancia)}</div></div>
+        <div><div style="font-size:11px;color:var(--text3)">Costo</div><div style="font-size:16px;font-weight:800;color:var(--accent3)">${fmtM(totalCosto)}</div></div>
+        <div><div style="font-size:11px;color:var(--text3)">Margen</div><div style="font-size:16px;font-weight:800;color:var(--text)">${margen}%</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Compras en el período</span></div>
+      <div style="padding:4px 14px 14px;display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:center">
+        <div><div style="font-size:11px;color:var(--text3)">Total comprado</div><div style="font-size:16px;font-weight:800;color:var(--accent2)">${fmtM(totalCompras)}</div></div>
+        <div><div style="font-size:11px;color:var(--text3)">Facturas</div><div style="font-size:16px;font-weight:800;color:var(--text)">${invs.length}</div></div>
+      </div>
+    </div>`;
+}
+
+function renderEstCompras(cont, compras) {
+  const total = compras.reduce((s,c)=>s+(c.total||0),0);
+  // Por proveedor
+  const porProv = {};
+  compras.forEach(c=>{
+    const pv = S.proveedores.find(p=>p.id===c.provId);
+    const nom = pv?pv.name:(c.provId||'Sin proveedor');
+    if(!porProv[nom]) porProv[nom]={total:0,count:0};
+    porProv[nom].total+=c.total||0;
+    porProv[nom].count++;
+  });
+  const provList = Object.entries(porProv).sort((a,b)=>b[1].total-a[1].total);
+
+  cont.innerHTML = `
+    <div class="card" style="margin-bottom:12px;padding:14px;text-align:center">
+      <div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Total comprado</div>
+      <div style="font-size:24px;font-weight:900;color:var(--accent2)">${fmtM(total)}</div>
+      <div style="font-size:13px;color:var(--text3);margin-top:4px">${compras.length} compras</div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Por proveedor</span></div>
+      <div style="padding:0">
+        ${provList.map((([nom,d],i)=>`
+          <div style="padding:12px 14px;${i>0?'border-top:1px solid var(--border)':''}; display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-weight:700;font-size:14px">${nom}</div>
+              <div style="font-size:12px;color:var(--text3)">${d.count} compra${d.count!==1?'s':''}</div>
+            </div>
+            <div style="font-family:Inter,sans-serif;font-weight:800;color:var(--accent2)">${fmtM(d.total)}</div>
+          </div>`)).join('')}
+      </div>
+    </div>`;
+}
+
+function renderEstClientes(cont, invs) {
+  const porCli = {};
+  invs.forEach(i=>{
+    if(!i.clientId) return;
+    if(!porCli[i.clientId]) porCli[i.clientId]={name:i.clientName,total:0,count:0,cobrado:0};
+    porCli[i.clientId].total+=i.total;
+    porCli[i.clientId].count++;
+    porCli[i.clientId].cobrado+=i.total-(i.saldo||0);
+  });
+  const list = Object.values(porCli).sort((a,b)=>b.total-a.total);
+
+  cont.innerHTML = `
+    <div class="card">
+      <div class="card-header"><span class="card-title">Ranking de clientes</span></div>
+      <div style="padding:0">
+        ${list.map((c,i)=>`
+          <div style="padding:12px 14px;${i>0?'border-top:1px solid var(--border)':''}">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <div style="font-weight:700;font-size:14px">${i+1}. ${c.name}</div>
+              <div style="font-family:Inter,sans-serif;font-weight:800;color:var(--accent)">${fmtM(c.total)}</div>
+            </div>
+            <div style="display:flex;gap:12px;font-size:12px;color:var(--text3)">
+              <span>${c.count} factura${c.count!==1?'s':''}</span>
+              <span style="color:var(--green)">Cobrado: ${fmtM(c.cobrado)}</span>
+              ${c.total-c.cobrado>0?`<span style="color:var(--accent3)">Debe: ${fmtM(c.total-c.cobrado)}</span>`:''}
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+function renderEstProductos(cont, invs) {
+  const porProd = {};
+  invs.forEach(inv=>{
+    (inv.items||[]).forEach(it=>{
+      if(!it.prodId) return;
+      const p = S.products.find(x=>x.id===it.prodId);
+      const nom = it.name||(p?p.name:'');
+      if(!porProd[it.prodId]) porProd[it.prodId]={name:nom,qty:0,total:0,costo:0};
+      porProd[it.prodId].qty+=it.qty;
+      porProd[it.prodId].total+=it.qty*it.price;
+      if(p&&p.cost) porProd[it.prodId].costo+=p.cost*it.qty;
+    });
+  });
+  const list = Object.values(porProd).sort((a,b)=>b.qty-a.qty);
+  const porMargen = [...list].filter(p=>p.costo>0).sort((a,b)=>{
+    const mA=(a.total-a.costo)/a.total; const mB=(b.total-b.costo)/b.total; return mB-mA;
+  });
+
+  cont.innerHTML = `
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-header"><span class="card-title">🏆 Más vendidos</span></div>
+      <div style="padding:0">
+        ${list.slice(0,10).map((p,i)=>`
+          <div style="padding:10px 14px;${i>0?'border-top:1px solid var(--border)':''}; display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-weight:600;font-size:13px">${i+1}. ${p.name}</div>
+              <div style="font-size:12px;color:var(--text3)">${p.qty} uds</div>
+            </div>
+            <div style="font-family:Inter,sans-serif;font-weight:700;color:var(--accent);font-size:13px">${fmtM(p.total)}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-header"><span class="card-title">📉 Menos vendidos</span></div>
+      <div style="padding:0">
+        ${list.slice(-5).reverse().map((p,i)=>`
+          <div style="padding:10px 14px;${i>0?'border-top:1px solid var(--border)':''}; display:flex;justify-content:space-between;align-items:center">
+            <div style="font-weight:600;font-size:13px">${p.name}</div>
+            <div style="font-size:12px;color:var(--text3)">${p.qty} uds</div>
+          </div>`).join('')}
+      </div>
+    </div>
+    ${porMargen.length ? `
+    <div class="card">
+      <div class="card-header"><span class="card-title">💹 Mayor margen</span></div>
+      <div style="padding:0">
+        ${porMargen.slice(0,8).map((p,i)=>{
+          const m=((p.total-p.costo)/p.total*100).toFixed(1);
+          return `<div style="padding:10px 14px;${i>0?'border-top:1px solid var(--border)':''}; display:flex;justify-content:space-between;align-items:center">
+            <div style="font-weight:600;font-size:13px">${p.name}</div>
+            <div style="font-weight:700;color:var(--green)">${m}%</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : ''}`;
+}
 
 function generarFlyer() {
   const todosProds = S.products.filter(p=>p.enFlyer && p.price>0 && p.name);
