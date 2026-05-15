@@ -334,17 +334,15 @@ select option{background:var(--surface2)}
         <div style="font-size:13px;color:var(--text3)">registrar pago</div>
       </div>
     </div>
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Métricas</span>
-        <select id="dash-periodo" onchange="updDash()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:4px 10px;font-size:14px;font-family:inherit;cursor:pointer;outline:none">
-          <option value="hoy">Hoy</option>
-          <option value="semana">Esta semana</option>
-          <option value="mes" selected>Este mes</option>
-          <option value="año">Este año</option>
-        </select>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div class="card" style="padding:14px;text-align:center">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Facturado hoy</div>
+        <div style="font-size:18px;font-weight:900;color:var(--accent);font-family:Inter,sans-serif" id="dash-fact-hoy">$0</div>
       </div>
-      <div id="dash-metricas"></div>
+      <div class="card" style="padding:14px;text-align:center">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Comprado hoy</div>
+        <div style="font-size:18px;font-weight:900;color:var(--accent2);font-family:Inter,sans-serif" id="dash-comp-hoy">$0</div>
+      </div>
     </div>
     <div class="card" style="cursor:pointer" onclick="showPage('estadisticas')">
       <div class="card-header"><span class="card-title">📊 Estadísticas</span><span style="font-size:12px;color:var(--text3)">Ver métricas detalladas →</span></div>
@@ -4210,90 +4208,28 @@ function delInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv)return;const
 
 // === DASHBOARD ===
 function updDash() {
-  const now=new Date(), m=now.getMonth(), y=now.getFullYear();
-  const mi=S.invoices.filter(i=>{ const d=new Date(i.date); return d.getMonth()===m&&d.getFullYear()===y&&i.type!=='presupuesto'; });
-  const v=mi.filter(i=>i.status==='pagada').reduce((s,i)=>s+i.total,0);
-  const pend=S.invoices.filter(i=>i.status==='pendiente').length;
-  const sp=S.products.filter(p=>!p.price).length;
-  if(!document.getElementById('sv')) return;
-  if(!document.getElementById('sv')) return;
-  document.getElementById('sv').textContent='$'+v.toFixed(0);
-  document.getElementById('sf').textContent=S.invoices.length;
-  document.getElementById('sp').textContent=pend;
-  document.getElementById('sc').textContent=S.clients.length;
-  document.getElementById('spr').textContent=S.products.length;
-  document.getElementById('sspx').textContent=sp;
-  // Métricas
+  const now = new Date();
+  const todayStr = localDateStr();
+  const pend = S.invoices.filter(i=>i.status==='pendiente'&&i.type!=='presupuesto').length;
+  const sp = S.products.filter(p=>!p.price||p.price===0).length;
+  const spEl = document.getElementById('sp');
+  const scEl = document.getElementById('sc');
+  const sspxEl = document.getElementById('sspx');
+  if(spEl) spEl.textContent = pend;
+  if(scEl) scEl.textContent = S.clients.length;
+  if(sspxEl) sspxEl.textContent = sp;
+  // Facturado hoy
+  const factHoy = S.invoices.filter(i=>i.date===todayStr&&i.type!=='presupuesto').reduce((s,i)=>s+i.total,0);
+  const compHoy = (S.compras||[]).filter(c=>c.date===todayStr&&!c.draft).reduce((s,c)=>s+(c.total||0),0);
+  const fhEl = document.getElementById('dash-fact-hoy');
+  const chEl = document.getElementById('dash-comp-hoy');
+  if(fhEl) fhEl.textContent = '$'+Math.round(factHoy).toLocaleString('es-AR');
+  if(chEl) chEl.textContent = '$'+Math.round(compHoy).toLocaleString('es-AR');
+  // Resumen día en facturas
   const dm = document.getElementById('dash-metricas');
-  if(dm) {
-    const periodo = (document.getElementById('dash-periodo')||{value:'mes'}).value;
-    const now = new Date();
-    const invsFiltradas = S.invoices.filter(i=>{
-      if(i.type==='presupuesto') return false;
-      const d = new Date(i.date);
-      if(periodo==='hoy') return d.toDateString()===now.toDateString();
-      if(periodo==='semana') { const s=new Date(now); s.setDate(now.getDate()-6); return d>=s; }
-      if(periodo==='mes') return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
-      if(periodo==='año') return d.getFullYear()===now.getFullYear();
-      return true;
-    });
-    const ventas = invsFiltradas.reduce((s,i)=>s+i.total,0);
-    const cobrado = invsFiltradas.reduce((s,i)=>s+(i.pagos||[]).reduce((a,p)=>a+p.monto,0),0);
-    const pendienteMonto = invsFiltradas.reduce((s,i)=>s+(i.saldo||0),0);
-    // Ganancia estimada = ventas - costo
-    let ganancia = 0;
-    invsFiltradas.forEach(inv=>{
-      (inv.items||[]).forEach(item=>{
-        const prod = S.products.find(p=>p.id===item.prodId);
-        if(prod&&prod.cost>0) ganancia += (item.price - prod.cost) * item.qty;
-      });
-    });
-    // Productos más vendidos
-    const prodCounts = {};
-    invsFiltradas.forEach(inv=>{
-      (inv.items||[]).forEach(item=>{
-        if(!item.prodId) return;
-        if(!prodCounts[item.prodId]) prodCounts[item.prodId]={qty:0,total:0,ganancia:0};
-        prodCounts[item.prodId].qty += item.qty||1;
-        prodCounts[item.prodId].total += (item.price||0)*(item.qty||1);
-        const prod=S.products.find(p=>p.id===item.prodId);
-        if(prod&&prod.cost>0) prodCounts[item.prodId].ganancia += (item.price-prod.cost)*(item.qty||1);
-      });
-    });
-    const topProds = Object.entries(prodCounts).sort((a,b)=>b[1].total-a[1].total).slice(0,5);
-    // Clientes top
-    const cliCounts = {};
-    invsFiltradas.forEach(inv=>{
-      if(!inv.clientId) return;
-      if(!cliCounts[inv.clientId]) cliCounts[inv.clientId]={total:0,count:0};
-      cliCounts[inv.clientId].total += inv.total;
-      cliCounts[inv.clientId].count++;
-    });
-    const topClis = Object.entries(cliCounts).sort((a,b)=>b[1].total-a[1].total).slice(0,5);
-
-    dm.innerHTML =
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">'
-      +'<div style="background:var(--surface2);border-radius:var(--rs);padding:12px"><div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Ventas</div><div style="font-family:Inter,sans-serif;font-weight:800;font-size:18px;color:var(--accent)">$'+ventas.toFixed(0)+'</div><div style="font-size:12px;color:var(--text3)">'+invsFiltradas.length+' facturas</div></div>'
-      +'<div style="background:var(--surface2);border-radius:var(--rs);padding:12px"><div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Ganancia est.</div><div style="font-family:Inter,sans-serif;font-weight:800;font-size:18px;color:var(--green)">$'+ganancia.toFixed(0)+'</div><div style="font-size:12px;color:var(--text3)">'+(ventas>0?((ganancia/ventas)*100).toFixed(0)+'% margen':'---')+'</div></div>'
-      +'<div style="background:var(--surface2);border-radius:var(--rs);padding:12px"><div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Cobrado</div><div style="font-family:Inter,sans-serif;font-weight:800;font-size:18px;color:var(--green)">$'+cobrado.toFixed(0)+'</div></div>'
-      +'<div style="background:var(--surface2);border-radius:var(--rs);padding:12px"><div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Por cobrar</div><div style="font-family:Inter,sans-serif;font-weight:800;font-size:18px;color:var(--accent3)">$'+pendienteMonto.toFixed(0)+'</div></div>'
-      +'</div>'
-      +(topProds.length?'<div style="font-size:13px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Productos top</div>'
-      +'<div style="background:var(--surface2);border-radius:var(--rs);overflow:hidden;margin-bottom:14px">'
-      +topProds.map(([pid,d],i)=>{const p=S.products.find(x=>x.id===pid);return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
-      +'<span style="font-size:13px;font-weight:700;color:var(--text3);min-width:16px">'+(i+1)+'</span>'
-      +'<div style="flex:1;font-size:15px;font-weight:600">'+(p?p.name:'---')+'</div>'
-      +'<div style="text-align:right"><div style="font-size:15px;font-weight:700;color:var(--accent)">$'+d.total.toFixed(0)+'</div><div style="font-size:12px;color:var(--text3)">'+d.qty+' uds</div></div>'
-      +'</div>';}).join('')+'</div>':'')
-      +(topClis.length?'<div style="font-size:13px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Clientes top</div>'
-      +'<div style="background:var(--surface2);border-radius:var(--rs);overflow:hidden">'
-      +topClis.map(([cid,d],i)=>{const c=S.clients.find(x=>x.id===cid);return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
-      +'<span style="font-size:13px;font-weight:700;color:var(--text3);min-width:16px">'+(i+1)+'</span>'
-      +'<div style="flex:1;font-size:15px;font-weight:600">'+(c?c.name:'---')+'</div>'
-      +'<div style="text-align:right"><div style="font-size:15px;font-weight:700;color:var(--accent)">$'+d.total.toFixed(0)+'</div><div style="font-size:12px;color:var(--text3)">'+d.count+' facturas</div></div>'
-      +'</div>';}).join('')+'</div>':'');
-  }
+  if(dm) dm.innerHTML = '';
   const st=document.getElementById('dash-stock');
+  if(!st) return;
   const low=S.products.filter(p=>p.stock<0||(p.stock>0&&p.minStock>0&&p.stock<=p.minStock)).slice(0,5);
   if(!low.length) {
     st.innerHTML='<div class="list-item" style="cursor:default"><span style="color:var(--text3);font-size:15px">Sin alertas</span></div>';
