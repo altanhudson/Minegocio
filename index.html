@@ -3920,6 +3920,7 @@ function saveQPago() {
   window._forceWrite = true;
   try{save(['invoices','clients','cobranzas']);}catch(e){}
   window._forceWrite = false;
+  _cachedInvCanvas = null; _cachedInvId = null; // invalidar cache de imagen
   closeM('mqpago');
   toast('Pago registrado'+(creditoDisp>0?' (incluye $'+creditoDisp.toFixed(0)+' a favor)':''));
 }
