@@ -3920,7 +3920,12 @@ function saveQPago() {
   window._forceWrite = true;
   try{save(['invoices','clients','cobranzas']);}catch(e){}
   window._forceWrite = false;
-  _cachedInvCanvas = null; _cachedInvId = null; // invalidar cache de imagen
+  _cachedInvCanvas = null; _cachedInvId = null;
+  // Re-renderizar factura en modal de compartir si está abierto
+  if(document.getElementById('mshare') && document.getElementById('mshare').classList.contains('open')) {
+    const invActualizada = S.invoices.find(i=>i.id===S.editId);
+    if(invActualizada) renderInvoiceHTML(invActualizada);
+  }
   closeM('mqpago');
   toast('Pago registrado'+(creditoDisp>0?' (incluye $'+creditoDisp.toFixed(0)+' a favor)':''));
 }
@@ -5534,19 +5539,19 @@ function renderInvoiceHTML(inv) {
         const credito = cli && cli.credito > 0 ? cli.credito : 0;
         // Deuda anterior: otras facturas pendientes excluyendo la actual
         const deudaAnterior = S.invoices.filter(i=>i.clientId===inv.clientId&&i.id!==inv.id&&i.status!=='pagada'&&i.status!=='cancelada'&&i.type!=='presupuesto'&&i.type===inv.type).reduce((s,i)=>s+(i.saldo||0),0);
+        const pagosReales = (inv.pagos||[]).filter(p=>p.method!=='a favor');
+        const tienePagosPropios = pagosReales.length > 0;
         let html2 = '';
-        if(credito > 0) {
+        if(credito > 0 && !tienePagosPropios && inv.status !== 'pagada') {
           const totalAPagar = Math.max(0, inv.total - credito);
           html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #166534;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:.5px">Saldo a favor</span><span style="font-size:18px;font-weight:900;color:#166534">-$'+credito.toFixed(2)+'</span></div>';
           html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Total a pagar</span><span style="font-size:18px;font-weight:900;color:#c05000">$'+totalAPagar.toFixed(2)+'</span></div>';
-        } else if(deudaAnterior > 0) {
+        } else if(deudaAnterior > 0 && !tienePagosPropios) {
           const totalAPagar = inv.total + deudaAnterior;
           html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Saldo anterior</span><span style="font-size:18px;font-weight:900;color:#c05000">+$'+deudaAnterior.toFixed(2)+'</span></div>';
           html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Total a pagar</span><span style="font-size:18px;font-weight:900;color:#c05000">$'+totalAPagar.toFixed(2)+'</span></div>';
         } else if((inv.saldo||0) > 0 && inv.status !== 'pagada') {
-          // Mostrar pagos parciales si los hay
-          const pagosReales = (inv.pagos||[]).filter(p=>p.method!=='a favor');
-          if(pagosReales.length > 0) {
+          if(tienePagosPropios) {
             const totalPagado = pagosReales.reduce((s,p)=>s+p.monto,0);
             html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #166534;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:.5px">Pagos anteriores</span><span style="font-size:18px;font-weight:900;color:#166534">-$'+totalPagado.toFixed(2)+'</span></div>';
           }
