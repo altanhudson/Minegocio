@@ -5803,7 +5803,7 @@ function tiendaEntrar() {
     const cp = (c.phone||'').replace(/\D/g,'');
     return cp.length >= 6 && cp.slice(-6) === last6;
   }) || null;
-  TN = TC_CLI ? TC_CLI.name : 'Cliente '+last6;
+  TN = TC_CLI ? TC_CLI.name : 'visitante';
   document.getElementById('tienda-login').style.display='none';
   document.getElementById('tienda-catalogo').style.display='block';
   document.getElementById('tienda-saludo').textContent = TC_CLI ? 'Hola, ' + TC_CLI.name + '! ¿Qué vas a comprar hoy? 🛒' : 'Hola! ¿Qué vas a comprar hoy? 🛒';
@@ -5919,7 +5919,7 @@ function tiendaRender() {
     const ofertas = prods.filter(p=>p.oferta);
     if(ofertas.length) {
       html += '<div style="background:#fff;border-radius:16px;padding:14px;border:1px solid #eef0f5;margin-bottom:10px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.05)">';
-      html += '<div style="font-size:14px;font-weight:800;color:#333;margin-bottom:12px;padding:8px 0;border-bottom:1px solid #e0e0e0">🔥 OFERTAS <span style="font-size:11px;color:#666;font-weight:400">Solo por hoy</span></div>';
+      html += '<div style="font-size:14px;font-weight:800;color:#333;margin-bottom:12px;padding:8px 0;border-bottom:1px solid #e0e0e0">🔥 OFERTAS</div>';
       html += '<div style="display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch">';
       ofertas.forEach(p => {
         const prevPrice = p.priceHistory&&p.priceHistory.length ? p.priceHistory[p.priceHistory.length-1].price : null;
@@ -6022,11 +6022,15 @@ function tiendaActBadge() {
   else badge.style.display='none';
 }
 
+function tiendaGetPrice(p, qty) {
+  if(p.wholesalePrice && p.wholesaleQty && qty >= p.wholesaleQty) return p.wholesalePrice;
+  return p.price;
+}
 function tiendaActTotal() {
   let total = 0;
   Object.entries(TC).forEach(([id,qty])=>{
     const p=S.products.find(x=>x.id===id);
-    if(p) total += p.price*qty;
+    if(p) total += tiendaGetPrice(p, qty)*qty;
   });
   document.getElementById('tienda-total').textContent='$'+total.toFixed(2);
 }
@@ -6061,7 +6065,7 @@ function tiendaRenderCarrito() {
   const rows = items.map(([id,qty])=>{
     const p=S.products.find(x=>x.id===id);
     const name = p ? p.name : id;
-    const price = p ? p.price : 0;
+    const price = p ? tiendaGetPrice(p, qty) : 0;
     const emoji = p ? (p.emoji||'📦') : '📦';
     return '<div style="background:#fff;border-radius:12px;padding:12px;display:flex;align-items:center;gap:12px;border:1px solid #eef0f5;margin-bottom:8px">'
       +'<div style="font-size:28px">'+emoji+'</div>'
