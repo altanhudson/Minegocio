@@ -2343,10 +2343,11 @@ function saveCli() {
   renderClis(); updDash(); save(['clients','nCli']); closeM('mcli'); toast('Cliente guardado');
 }
 function cliSaldo(cliId) {
+  const cli = S.clients.find(c=>c.id===cliId);
+  const credito = cli ? (cli.credito||0) : 0;
   const invs = S.invoices.filter(i=>i.clientId===cliId && i.type!=='presupuesto' && i.status!=='cancelada');
   const saldo = invs.reduce((s,i)=> s + (i.status==='pagada' ? 0 : (i.saldo||0)), 0);
-  const aFavor = invs.reduce((s,i)=>s+(i.aFavor||0),0);
-  return saldo - aFavor;
+  return saldo - credito;
 }
 
 function renderClis(q) {
