@@ -685,6 +685,7 @@ select option{background:var(--surface2)}
       <div id="clidet-nombre" style="font-family:Inter,sans-serif;font-size:18px;font-weight:800;flex:1"></div>
       <button onclick="openCli(cliDetId)" style="background:var(--surface2);border:1px solid var(--border);color:var(--accent);border-radius:10px;padding:8px 14px;font-size:14px;font-weight:700;cursor:pointer">✏️ Editar</button>
       <button onclick="ajustarSaldo(cliDetId)" style="background:var(--surface2);border:1px solid var(--border);color:var(--green);border-radius:10px;padding:8px 14px;font-size:14px;font-weight:700;cursor:pointer">💰 Saldo</button>
+      <button onclick="delCli(cliDetId)" style="background:var(--surface2);border:1px solid var(--border);color:var(--accent3);border-radius:10px;padding:8px 14px;font-size:14px;font-weight:700;cursor:pointer">🗑️</button>
     </div>
     <div id="clidet-saldo" style="border-radius:var(--r);padding:16px;margin-bottom:14px;text-align:center"></div>
     <div id="clidet-metricas" style="margin-bottom:14px"></div>
@@ -4179,6 +4180,20 @@ function _recalcInv(inv) {
   const cli = S.clients.find(c=>c.id===inv.clientId);
   if(cli) cli.credito = inv.aFavor > 0 ? inv.aFavor : (cli.credito||0);
 }
+function delCli(id) {
+  const cli = S.clients.find(c=>c.id===id);
+  if(!cli) return;
+  const facturas = S.invoices.filter(i=>i.clientId===id).length;
+  const msg = facturas > 0
+    ? '¿Eliminar a "'+cli.name+'"? Tiene '+facturas+' factura(s) asociada(s). Los datos de facturas se conservan.'
+    : '¿Eliminar a "'+cli.name+'"?';
+  if(!confirm(msg)) return;
+  S.clients = S.clients.filter(c=>c.id!==id);
+  save(['clients'], true);
+  renderClis();
+  showPage('clientes');
+  toast('Cliente eliminado');
+}
 function ajustarSaldo(cliId) {
   const cli = S.clients.find(c=>c.id===cliId);
   if(!cli) return;
@@ -5806,7 +5821,8 @@ function tiendaEntrar() {
   TN = TC_CLI ? TC_CLI.name : 'visitante';
   document.getElementById('tienda-login').style.display='none';
   document.getElementById('tienda-catalogo').style.display='block';
-  document.getElementById('tienda-saludo').textContent = TC_CLI ? 'Hola, ' + TC_CLI.name + '! ¿Qué vas a comprar hoy? 🛒' : 'Hola! ¿Qué vas a comprar hoy? 🛒';
+  const nombreMostrar = TC_CLI && TC_CLI.name && !TC_CLI.name.includes('(web)') ? TC_CLI.name : null;
+  document.getElementById('tienda-saludo').textContent = nombreMostrar ? 'Hola, ' + nombreMostrar + '! ¿Qué vas a comprar hoy? 🛒' : 'Hola! ¿Qué vas a comprar hoy? 🛒';
   document.getElementById('tienda-footer').style.display='block';
   window.T_CAT = 'todas';
   tiendaSetVista('grilla');
