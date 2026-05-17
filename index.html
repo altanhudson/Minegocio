@@ -37,7 +37,7 @@
     return JSON.parse(JSON.stringify(obj, function(k,v){ return v === undefined ? null : v; }));
   }
 
-  window._fbSave = async function(data, fields) {
+  window._fbSave = async function(data, fields, forceWrite) {
     try {
       // PROTECCION: no guardar arrays vacios si Firebase ya tiene datos
       if(data.products !== undefined && data.products.length === 0) {
@@ -70,7 +70,7 @@
           for(const f of fields) {
             const remoteTs = remote['_ts_'+f] || 0;
             const localTs = window._localTs && window._localTs[f] ? window._localTs[f] : 0;
-            if(remoteTs > localTs && (now - remoteTs) < 30000 && !window._forceWrite) {
+            if(remoteTs > localTs && (now - remoteTs) < 30000 && !forceWrite) {
               // Otro dispositivo guardó este campo más recientemente — recargar en memoria
               console.warn('Campo '+f+' más nuevo en Firebase, recargando...');
               if(remote[f] !== undefined) {
@@ -1137,7 +1137,7 @@ function _syncShow(state) {
     el._hideT = setTimeout(()=>{ el.style.opacity='0'; setTimeout(()=>el.style.display='none',300); }, 4000);
   }
 }
-function save(fields) {
+function save(fields, forceWrite) {
   _lastSaveTime = Date.now();
   try {
     localStorage.setItem(SK, JSON.stringify({
@@ -1154,7 +1154,7 @@ function save(fields) {
     listaCompras:S.listaCompras||null, cobranzas:S.cobranzas||[]
   };
   if(window._fbSave) {
-    window._fbSave(data, fields)
+    window._fbSave(data, fields, forceWrite)
       .then(()=>_syncShow('ok'))
       .catch(e=>{ console.error('Firebase save error:',e); _syncShow('error'); });
   } else {
@@ -3628,7 +3628,7 @@ function saveInv() {
   } else {
     S.invoices.unshift(inv);
   }
-  try{renderInvs();}catch(e){} try{updDash();}catch(e){} window._forceWrite=true; try{save(['invoices','clients','products','nInv']);}catch(e){} window._forceWrite=false; cerrarNuevaFac(); toast('Factura guardada');
+  try{renderInvs();}catch(e){} try{updDash();}catch(e){} try{save(['invoices','clients','products','nInv'], true);}catch(e){} cerrarNuevaFac(); toast('Factura guardada');
 
   // Detectar productos nuevos (sin prodId) y ofrecer darlos de alta
   const nuevos = inv.items.filter(i => !i.prodId && (i.desc||'').trim());
@@ -3919,9 +3919,7 @@ function saveQPago() {
   });
   try{renderInvs();}catch(e){} try{renderClis();}catch(e){} try{updDash();}catch(e){}
   // Forzar escritura sin optimistic locking para pagos (crítico)
-  window._forceWrite = true;
-  try{save(['invoices','clients','cobranzas']);}catch(e){}
-  window._forceWrite = false;
+  try{save(['invoices','clients','cobranzas'], true);}catch(e){}
   _cachedInvCanvas = null; _cachedInvId = null;
   // Re-renderizar factura en modal de compartir si está abierto
   if(document.getElementById('mshare') && document.getElementById('mshare').classList.contains('open')) {
@@ -4189,7 +4187,7 @@ function ajustarSaldo(cliId) {
   const val = parseFloat(nuevo);
   if(isNaN(val) || val < 0) { toast('Monto inválido'); return; }
   cli.credito = val;
-  save(['clients']);
+  save(['clients'], true);
   openCliDet(cliId);
   toast('Saldo actualizado: $'+val.toFixed(0)+' a favor');
 }
@@ -4200,7 +4198,7 @@ function eliminarPago(invId, pi) {
   if(!confirm('Eliminar pago de $'+p.monto.toFixed(0)+'?')) return;
   inv.pagos.splice(pi, 1);
   _recalcInv(inv);
-  window._forceWrite=true; save(['invoices','clients','cobranzas']); window._forceWrite=false; renderInvs(); showCliTab('cobranzas'); toast('Pago eliminado');
+  save(['invoices','clients','cobranzas'], true); renderInvs(); showCliTab('cobranzas'); toast('Pago eliminado');
 }
 function editarPago(invId, pi) {
   const inv = S.invoices.find(i=>i.id===invId);
@@ -4212,7 +4210,7 @@ function editarPago(invId, pi) {
   if(isNaN(val) || val < 0) { toast('Monto inválido'); return; }
   p.monto = val;
   _recalcInv(inv);
-  window._forceWrite=true; save(['invoices','clients','cobranzas']); window._forceWrite=false; renderInvs(); showCliTab('cobranzas'); toast('Pago actualizado');
+  save(['invoices','clients','cobranzas'], true); renderInvs(); showCliTab('cobranzas'); toast('Pago actualizado');
 }
 function cycleInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv||inv.type==='presupuesto')return;const estados={pendiente:'Pagada',pagada:'Cancelada',cancelada:'Pendiente'};const next=estados[inv.status];if(!confirm('Cambiar estado a '+next+'?'))return;const c={pendiente:'pagada',pagada:'cancelada',cancelada:'pendiente'};inv.status=c[inv.status];if(inv.status==='pagada'){if(!inv.pagos)inv.pagos=[];const totalPagado=inv.pagos.reduce((s,p)=>s+p.monto,0);if(totalPagado===0){inv.pagos.push({monto:inv.total,method:'efectivo',date:localDateStr()});}inv.saldo=0;inv.aFavor=0;}renderInvs();updDash();save(['invoices','clients']);toast('Estado: '+inv.status);}
 function cancelInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv)return;if(inv.status==='cancelada'){toast('Ya esta cancelada');return;}if(!confirm('Cancelar la factura '+id+'? Quedara en el historial sin modificar el stock.'))return;inv.status='cancelada';renderInvs();updDash();save(['invoices']);toast('Factura cancelada');}
@@ -4735,7 +4733,7 @@ function pagocliConfirm() {
     aFavor: restante > 0 ? restante : 0
   });
 
-  window._forceWrite=true; save(['invoices','clients','cobranzas']); window._forceWrite=false;
+  save(['invoices','clients','cobranzas'], true);
   renderInvs();
   try{renderClis();}catch(e){}
   updDash();
@@ -6125,7 +6123,7 @@ function tiendaConfirmar() {
     const idx=S.products.findIndex(x=>x.id===id);
     if(idx>=0) S.products[idx].stock=(S.products[idx].stock||0)-qty;
   });
-  try{renderInvs();}catch(e){} try{updDash();}catch(e){} window._forceWrite=true; save(['invoices','clients','nInv']); window._forceWrite=false;
+  try{renderInvs();}catch(e){} try{updDash();}catch(e){} save(['invoices','clients','nInv'], true);
   // Limpiar carrito
   TC={};
   tiendaRenderCarrito();
