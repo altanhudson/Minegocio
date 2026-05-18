@@ -15,7 +15,7 @@
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, updateDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
   const firebaseConfig = {
@@ -30,26 +30,42 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
-  const DATA_DOC = doc(db, "negocio", "data");
 
-  // Exponer funciones al scope global
+  // Documentos separados por colección — nunca se pisan entre sí
+  const COLS = ['products','invoices','clients','compras','proveedores','cobranzas','ajustes'];
+  const CONFIG_FIELDS = ['nInv','nCli','nProd','nComp','nProv','nGrupo','listaCompras','gruposMay'];
+  const colDoc = name => doc(db, 'collections', name);
+  const OLD_DOC = doc(db, 'negocio', 'data'); // doc viejo — solo para migración
+
   function cleanUndefined(obj) {
     return JSON.parse(JSON.stringify(obj, function(k,v){ return v === undefined ? null : v; }));
   }
 
+  // Migración única: si las nuevas colecciones están vacías, copiar del doc viejo
+  async function migrateIfNeeded() {
+    try {
+      const prodSnap = await getDoc(colDoc('products'));
+      if(prodSnap.exists()) return; // ya migrado
+      const oldSnap = await getDoc(OLD_DOC);
+      if(!oldSnap.exists()) return; // no hay datos viejos
+      const old = oldSnap.data();
+      console.log('Migrando datos al nuevo esquema...');
+      const writes = [];
+      COLS.forEach(name => {
+        if(old[name] !== undefined) {
+          writes.push(setDoc(colDoc(name), {items: cleanUndefined(old[name] || []), updatedAt: Date.now()}));
+        }
+      });
+      const cfg = {};
+      CONFIG_FIELDS.forEach(f => { if(old[f] !== undefined) cfg[f] = old[f]; });
+      writes.push(setDoc(colDoc('config'), {data: cleanUndefined(cfg), updatedAt: Date.now()}));
+      await Promise.all(writes);
+      console.log('Migración completa ✓');
+    } catch(e) { console.error('Error en migración:', e); }
+  }
+
   window._fbSave = async function(data, fields, forceWrite) {
     try {
-      // PROTECCION: no guardar arrays vacios si Firebase ya tiene datos
-      if(data.products !== undefined && data.products.length === 0) {
-        const current = await getDoc(DATA_DOC);
-        if(current.exists()) {
-          const cur = current.data();
-          if(cur.products && cur.products.length > 0) {
-            console.error("PROTECCION ACTIVADA: se canceló guardado con products vacío");
-            return;
-          }
-        }
-      }
       // Backup local
       try {
         const bk = 'mneg_bk_' + Date.now();
@@ -58,66 +74,90 @@
         while(keys.length > 3) localStorage.removeItem(keys.shift());
       } catch(e) {}
 
-      const now = Date.now();
-
-      if(fields && fields.length) {
-        // OPTIMISTIC LOCKING: verificar timestamps por campo antes de escribir
-        const snap = await getDoc(DATA_DOC);
-        const partial = {};
-        const timestamps = {};
-        if(snap.exists()) {
-          const remote = snap.data();
-          for(const f of fields) {
-            const remoteTs = remote['_ts_'+f] || 0;
-            const localTs = window._localTs && window._localTs[f] ? window._localTs[f] : 0;
-            if(remoteTs > localTs && (now - remoteTs) < 30000 && !forceWrite) {
-              // Otro dispositivo guardó este campo más recientemente — recargar en memoria
-              console.warn('Campo '+f+' más nuevo en Firebase, recargando...');
-              if(remote[f] !== undefined) {
-                if(f==='products') window._S_ref && (window._S_ref.products = remote[f]);
-                // Para otros campos también actualizar S si está disponible
-                try { if(window.S && remote[f] !== undefined) window.S[f] = remote[f]; } catch(e) {}
-              }
-              continue; // No sobreescribir este campo
-            }
-            if(data[f] !== undefined) {
-              partial[f] = cleanUndefined(data[f]);
-              timestamps['_ts_'+f] = now;
-            }
-          }
-        } else {
-          // Doc no existe aún, escribir todo
-          fields.forEach(f => {
-            if(data[f] !== undefined) { partial[f] = cleanUndefined(data[f]); timestamps['_ts_'+f] = now; }
-          });
-        }
-        if(Object.keys(partial).length > 0) {
-          // Guardar timestamps locales
-          if(!window._localTs) window._localTs = {};
-          fields.forEach(f => { window._localTs[f] = now; });
-          await updateDoc(DATA_DOC, {...partial, ...timestamps});
-        }
-      } else {
-        // Escritura completa (solo restore backup)
-        await setDoc(DATA_DOC, cleanUndefined(data));
+      if(!fields || !fields.length) {
+        // Escritura completa (restore backup) — escribe todo
+        const writes = COLS.map(name =>
+          setDoc(colDoc(name), {items: cleanUndefined(data[name]||[]), updatedAt: Date.now()})
+        );
+        const cfg = {};
+        CONFIG_FIELDS.forEach(f => { if(data[f] !== undefined) cfg[f] = data[f]; });
+        writes.push(setDoc(colDoc('config'), {data: cleanUndefined(cfg), updatedAt: Date.now()}));
+        await Promise.all(writes);
+        return;
       }
-    } catch(e) {
-      // Si updateDoc falla porque el doc no existe, usar setDoc
-      try { await setDoc(DATA_DOC, cleanUndefined(data)); } catch(e2) { console.error("Firebase save error:", e2); }
-    }
+
+      // Escritura parcial — solo los campos solicitados
+      const writes = [];
+      const cfgUpdates = {};
+      let hasCfg = false;
+
+      fields.forEach(f => {
+        if(COLS.includes(f)) {
+          // Es una colección → escribir su documento
+          writes.push(setDoc(colDoc(f), {items: cleanUndefined(data[f]||[]), updatedAt: Date.now()}));
+        } else if(CONFIG_FIELDS.includes(f)) {
+          // Es un campo de config
+          cfgUpdates[f] = data[f] !== undefined ? data[f] : null;
+          hasCfg = true;
+        }
+      });
+
+      if(hasCfg) {
+        // Leer config actual y mergear
+        const cfgSnap = await getDoc(colDoc('config'));
+        const existing = cfgSnap.exists() ? (cfgSnap.data().data || {}) : {};
+        const merged = {...existing, ...cfgUpdates};
+        writes.push(setDoc(colDoc('config'), {data: cleanUndefined(merged), updatedAt: Date.now()}));
+      }
+
+      if(writes.length > 0) await Promise.all(writes);
+
+    } catch(e) { console.error('Firebase save error:', e); throw e; }
   };
 
   window._fbLoad = async function() {
     try {
-      const snap = await getDoc(DATA_DOC);
-      return snap.exists() ? snap.data() : null;
-    } catch(e) { console.error("Firebase load error:", e); return null; }
+      // Cargar todas las colecciones en paralelo
+      const snaps = await Promise.all([
+        ...COLS.map(name => getDoc(colDoc(name))),
+        getDoc(colDoc('config'))
+      ]);
+      const result = {};
+      COLS.forEach((name, i) => {
+        result[name] = snaps[i].exists() ? (snaps[i].data().items || []) : [];
+      });
+      const cfgSnap = snaps[COLS.length];
+      if(cfgSnap.exists()) Object.assign(result, cfgSnap.data().data || {});
+      return result;
+    } catch(e) { console.error('Firebase load error:', e); return null; }
   };
 
   window._fbListen = function(callback) {
-    return onSnapshot(DATA_DOC, (snap) => {
-      if (snap.exists()) callback(snap.data());
-    });
+    let merged = {};
+    let pending = new Set(COLS.concat(['config']));
+    let debounce = null;
+
+    const fire = () => {
+      if(pending.size > 0) return; // esperar que carguen todas
+      if(debounce) clearTimeout(debounce);
+      debounce = setTimeout(() => callback({...merged}), 150);
+    };
+
+    const unsubs = COLS.map(name =>
+      onSnapshot(colDoc(name), snap => {
+        merged[name] = snap.exists() ? (snap.data().items || []) : [];
+        pending.delete(name);
+        fire();
+      })
+    );
+
+    unsubs.push(onSnapshot(colDoc('config'), snap => {
+      if(snap.exists()) Object.assign(merged, snap.data().data || {});
+      pending.delete('config');
+      fire();
+    }));
+
+    return () => unsubs.forEach(u => u());
   };
 
   const storage = getStorage(app);
@@ -130,8 +170,11 @@
     } catch(e) { console.error("Storage upload error:", e); throw e; }
   };
 
-  window._firebaseReady = true;
-  document.dispatchEvent(new Event("firebaseReady"));
+  // Ejecutar migración y luego señalar que Firebase está listo
+  migrateIfNeeded().finally(() => {
+    window._firebaseReady = true;
+    document.dispatchEvent(new Event("firebaseReady"));
+  });
 </script>
 <style>
 :root {
@@ -1143,7 +1186,7 @@ function save(fields, forceWrite) {
   try {
     localStorage.setItem(SK, JSON.stringify({
       products:S.products, clients:S.clients, invoices:S.invoices, gruposMay:S.gruposMay||[],
-      compras:S.compras, proveedores:S.proveedores, listaCompras:S.listaCompras||null, cobranzas:S.cobranzas||[],
+      compras:S.compras, proveedores:S.proveedores, listaCompras:S.listaCompras||null, cobranzas:S.cobranzas||[], ajustes:S.ajustes||[],
       nInv:S.nInv, nCli:S.nCli, nProd:S.nProd, nComp:S.nComp, nProv:S.nProv
     }));
   } catch(e) {}
@@ -1152,7 +1195,7 @@ function save(fields, forceWrite) {
     products:S.products, clients:S.clients, invoices:S.invoices,
     compras:S.compras, proveedores:S.proveedores, gruposMay:S.gruposMay||[],
     nInv:S.nInv, nCli:S.nCli, nProd:S.nProd, nComp:S.nComp, nProv:S.nProv, nGrupo:S.nGrupo,
-    listaCompras:S.listaCompras||null, cobranzas:S.cobranzas||[]
+    listaCompras:S.listaCompras||null, cobranzas:S.cobranzas||[], ajustes:S.ajustes||[]
   };
   if(window._fbSave) {
     window._fbSave(data, fields, forceWrite)
@@ -4984,16 +5027,8 @@ async function initApp() {
     _fbListenerActive = true;
     let firstCall = true;
     window._fbListen((fbData) => {
-      if (firstCall) { 
-        firstCall = false; 
-        // Inicializar _localTs con los timestamps de Firebase
-        if(!window._localTs) window._localTs = {};
-        Object.keys(fbData).filter(k=>k.startsWith('_ts_')).forEach(k=>{
-          const field = k.replace('_ts_','');
-          if(!window._localTs[field] || fbData[k] > window._localTs[field]) {
-            window._localTs[field] = fbData[k];
-          }
-        });
+      if (firstCall) {
+        firstCall = false;
         if(hasLocalData) return;
         Object.assign(S, fbData);
         try { localStorage.setItem(SK, JSON.stringify(fbData)); } catch(e) {}
@@ -5001,13 +5036,7 @@ async function initApp() {
         try{updateStockBadge();}catch(e){}
         return;
       }
-      if(Date.now() - _lastSaveTime < 15000) return;
-      // Actualizar _localTs con los nuevos timestamps remotos
-      if(!window._localTs) window._localTs = {};
-      Object.keys(fbData).filter(k=>k.startsWith('_ts_')).forEach(k=>{
-        const field = k.replace('_ts_','');
-        window._localTs[field] = fbData[k];
-      });
+      if(Date.now() - _lastSaveTime < 5000) return; // ignorar eco de nuestro propio guardado
       Object.assign(S, fbData);
       try { localStorage.setItem(SK, JSON.stringify(fbData)); } catch(e) {}
       renderProds(); renderInvs(); renderClis(); renderProvs(); renderComps(); updDash();
@@ -5203,12 +5232,11 @@ function saveStockAjuste() {
     if (p && p.stock !== n) { ajusteItems.push({prodId:p.id, name:p.name, stockAnterior:p.stock, stockNuevo:n, diff:n-p.stock}); p.stock = n; changed++; }
   });
   if (changed === 0) { toast('No hay cambios para guardar'); return; }
-  // Registrar ajuste en movimientos
   if(!S.ajustes) S.ajustes = [];
   S.ajustes.push({ id:'AJU-'+Date.now(), date: localDateStr(), items: ajusteItems, tipo:'ajuste' });
   try{renderProds();}catch(e){}
   try{updDash();}catch(e){}
-  try{save(['products']);}catch(e){}
+  try{save(['products','ajustes'], true);}catch(e){}
   renderStockAlertas();
   toast(changed + ' producto' + (changed>1?'s':'') + ' actualizados');
   document.querySelectorAll('#stock-ajuste-list input').forEach(i => i.value = '');
