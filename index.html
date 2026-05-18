@@ -5618,7 +5618,7 @@ function renderInvoiceHTML(inv) {
         <div>
           <div style="font-family:Inter,sans-serif;font-size:22px;font-weight:900;color:#fff;letter-spacing:-0.5px" id="tienda-cat-titulo">Surtimar</div>
           <div style="font-size:16px;font-weight:700;color:#fff" id="tienda-saludo"></div>
-          <div style="font-size:13px;color:rgba(255,255,255,.8);margin-top:2px">Explorá nuestros productos y agregá lo que querés al carrito 🛒</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.85);margin-top:2px">Explorá nuestros productos y agregá lo que querés al carrito</div>
         </div>
         <button onclick="tiendaVerCarrito()" style="position:relative;background:#ffe600;border:none;color:#333;border-radius:12px;padding:10px 14px;font-size:20px;cursor:pointer;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.15)" id="tienda-cart-btn">
           🛒<span id="tienda-badge" style="display:none;position:absolute;top:-8px;right:-8px;background:#e53e3e;color:#fff;font-size:11px;font-weight:800;padding:2px 6px;border-radius:10px;min-width:18px;text-align:center">0</span>
@@ -5666,6 +5666,9 @@ function renderInvoiceHTML(inv) {
       <span style="color:#666;font-size:15px">Total del pedido</span>
       <span id="tienda-total" style="font-family:Inter,sans-serif;font-size:20px;font-weight:800;color:#333">$0.00</span>
     </div>
+    <button onclick="tiendaVerCarrito()" style="width:100%;padding:12px;background:#fff;color:#3483fa;border:2px solid #3483fa;border-radius:12px;font-size:15px;font-weight:800;font-family:Inter,sans-serif;cursor:pointer;margin-bottom:8px">
+      🛒 Ver carrito de compras
+    </button>
     <button id="tienda-btn-confirmar" onclick="tiendaConfirmar()"
       style="width:100%;padding:16px;background:#3483fa;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:800;font-family:Inter,sans-serif;cursor:pointer;line-height:1.3">
       Confirmar pedido por WhatsApp 📲<br><span style="font-size:12px;font-weight:400;opacity:.85">Te respondemos a la brevedad</span>
@@ -5827,7 +5830,7 @@ function tiendaEntrar() {
   document.getElementById('tienda-login').style.display='none';
   document.getElementById('tienda-catalogo').style.display='block';
   const nombreMostrar = TC_CLI && TC_CLI.name && !TC_CLI.name.includes('(web)') ? TC_CLI.name : null;
-  document.getElementById('tienda-saludo').textContent = nombreMostrar ? 'Hola, ' + nombreMostrar + '! ¿Qué vas a comprar hoy? 🛒' : 'Hola! ¿Qué vas a comprar hoy? 🛒';
+  document.getElementById('tienda-saludo').textContent = nombreMostrar ? 'Hola, ' + nombreMostrar + '! ¿Qué vas a comprar hoy?' : 'Hola! ¿Qué vas a comprar hoy?';
   document.getElementById('tienda-footer').style.display='block';
   window.T_CAT = 'todas';
   tiendaSetVista('grilla');
@@ -6078,7 +6081,7 @@ function tiendaVerCarrito() {
   if(lista && lista.parentNode) {
     lista.parentNode.insertBefore(car, lista.nextSibling);
   }
-  setTimeout(function(){ car.scrollIntoView({behavior:'smooth', block:'start'}); }, 50);
+  document.getElementById('tienda-app').scrollTo({top: 0, behavior:'smooth'});
 }
 
 function tiendaVolverCatalogo() {
