@@ -5036,7 +5036,6 @@ async function initApp() {
         try{updateStockBadge();}catch(e){}
         return;
       }
-      if(Date.now() - _lastSaveTime < 5000) return; // ignorar eco de nuestro propio guardado
       Object.assign(S, fbData);
       try { localStorage.setItem(SK, JSON.stringify(fbData)); } catch(e) {}
       renderProds(); renderInvs(); renderClis(); renderProvs(); renderComps(); updDash();
