@@ -3881,6 +3881,10 @@ let _cachedInvId = null;
 function openShareInvoice(id) {
   const inv = S.invoices.find(i=>i.id===id);
   if(!inv) return;
+  // Si la factura está siendo editada, guardarla primero
+  if(S.editId === id && S.invItems && S.invItems.length > 0) {
+    saveInv();
+  }
   S.shareInvId = id;
   _cachedInvCanvas = null;
   _cachedInvId = null;
@@ -3933,8 +3937,11 @@ function calcQPago() {
   const inv = S.invoices.find(i=>i.id===S.editId);
   if(!inv) return;
   const monto = parseFloat(document.getElementById('qp-monto').value)||0;
+  const cliQ = S.clients.find(c=>c.id===inv.clientId);
+  const creditoDisp = cliQ ? (cliQ.credito||0) : 0;
   const debe = inv.saldo||0;
-  const resta = debe - monto;
+  const totalEfectivo = monto + creditoDisp; // lo que realmente cancela
+  const resta = debe - totalEfectivo;
   let html = '';
   if(resta > 0) html = '<span style="color:var(--accent3)">Queda pendiente: $'+resta.toFixed(2)+'</span>';
   else if(resta < 0) html = '<span style="color:var(--green)">A favor: $'+Math.abs(resta).toFixed(2)+'</span>';
@@ -3975,8 +3982,11 @@ function saveQPago() {
     aFavor: inv.aFavor||0
   });
   try{renderInvs();}catch(e){} try{renderClis();}catch(e){} try{updDash();}catch(e){}
-  // Forzar escritura sin optimistic locking para pagos (crítico)
   try{save(['invoices','clients','cobranzas'], true);}catch(e){}
+  // Si la ficha del cliente está abierta, actualizarla
+  if(typeof cliDetId !== 'undefined' && cliDetId === inv.clientId) {
+    try{ verCliDetalle(cliDetId); }catch(e){}
+  }
   _cachedInvCanvas = null; _cachedInvId = null;
   // Re-renderizar factura en modal de compartir si está abierto
   if(document.getElementById('mshare') && document.getElementById('mshare').classList.contains('open')) {
