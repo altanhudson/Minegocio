@@ -1316,21 +1316,23 @@ function getEstPeriodo() {
   const sel = document.getElementById('est-periodo');
   const val = sel ? sel.value : 'mes';
   const now = new Date();
-  let desde;
-  if(val==='hoy') { desde = new Date(now.getFullYear(), now.getMonth(), now.getDate()); }
-  else if(val==='semana') { desde = new Date(now); desde.setDate(now.getDate()-7); }
-  else if(val==='mes') { desde = new Date(now.getFullYear(), now.getMonth(), 1); }
-  else if(val==='trim') { desde = new Date(now); desde.setMonth(now.getMonth()-3); }
-  else if(val==='año') { desde = new Date(now.getFullYear(), 0, 1); }
-  else { desde = new Date('2000-01-01'); }
-  return desde;
+  const pad = n => String(n).padStart(2,'0');
+  const toStr = d => d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  if(val==='hoy') return toStr(now);
+  if(val==='semana') { const d = new Date(now); d.setDate(now.getDate()-7); return toStr(d); }
+  if(val==='mes') return now.getFullYear()+'-'+pad(now.getMonth()+1)+'-01';
+  if(val==='trim') { const d = new Date(now); d.setMonth(now.getMonth()-3); return toStr(d); }
+  if(val==='año') return now.getFullYear()+'-01-01';
+  return '2000-01-01';
 }
 
 function estFiltrarInvs(desde) {
   return S.invoices.filter(i => {
     if(i.type==='presupuesto') return false;
-    const d = new Date(i.date.split('/').reverse().join('-'));
-    return d >= desde;
+    // fecha puede venir como DD/MM/YYYY o YYYY-MM-DD
+    const raw = i.date || '';
+    const norm = raw.includes('/') ? raw.split('/').reverse().join('-') : raw;
+    return norm >= desde;
   });
 }
 
@@ -1343,8 +1345,9 @@ function renderEstadisticas() {
   const invs = estFiltrarInvs(desde);
   const compras = (S.compras||[]).filter(c => {
     if(c.draft) return false;
-    const d = new Date((c.date||'').split('/').reverse().join('-'));
-    return d >= desde;
+    const raw = c.date || '';
+    const norm = raw.includes('/') ? raw.split('/').reverse().join('-') : raw;
+    return norm >= desde;
   });
 
   if(estTab==='ventas') renderEstVentas(cont, invs, compras);
