@@ -487,9 +487,12 @@ select option{background:var(--surface2)}
       <input type="date" id="nc-date" style="font-size:14px;padding:7px 6px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);width:118px">
     </div>
     <div style="padding:8px 12px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0">
-      <input type="search" id="nc-search" placeholder="🔍 Buscar producto..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-        oninput="ncRenderList(this.value);document.getElementById('nc-apply-all').style.display=this.value.trim()?'flex':'none'"
-        style="width:100%;font-size:15px;padding:10px 14px;border:1.5px solid var(--accent2);border-radius:12px;background:var(--surface);font-family:Inter,sans-serif;outline:none">
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="search" id="nc-search" placeholder="🔍 Buscar producto..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+          oninput="ncRenderList(this.value);document.getElementById('nc-apply-all').style.display=this.value.trim()?'flex':'none'"
+          style="flex:1;font-size:15px;padding:10px 14px;border:1.5px solid var(--accent2);border-radius:12px;background:var(--surface);font-family:Inter,sans-serif;outline:none">
+        <button onclick="openBarcodeScanner()" style="background:var(--accent2);color:#fff;border:none;border-radius:12px;padding:10px 14px;font-size:20px;cursor:pointer;flex-shrink:0" title="Escanear código de barras">📷</button>
+      </div>
       <div id="nc-apply-all" style="display:none;margin-top:8px;display:flex;align-items:center;gap:8px;background:var(--surface2);border-radius:10px;padding:6px 10px">
         <span style="font-size:13px;color:var(--text3);flex:1">Poner a todos los visibles:</span>
         <input type="number" id="nc-apply-qty" inputmode="decimal" step="0.1" min="0" placeholder="cant." style="width:65px;height:32px;text-align:center;font-size:14px;font-weight:700;border:1.5px solid var(--accent2);border-radius:8px;background:#fff;outline:none">
@@ -862,6 +865,43 @@ select option{background:var(--surface2)}
 </div>
 
 <!-- MODAL PRODUCTO -->
+<!-- Modal escáner de código de barras -->
+<div class="modal-overlay" id="mbarcode">
+  <div class="modal-content" style="max-width:420px;padding:0;overflow:hidden">
+    <div class="modal-header" style="padding:14px 16px">
+      <span class="modal-title">📷 Escanear código</span>
+      <button class="close-btn" onclick="closeBarcodeScanner()">x</button>
+    </div>
+    <div style="position:relative;background:#000;width:100%;aspect-ratio:1">
+      <video id="barcode-video" style="width:100%;height:100%;object-fit:cover" playsinline autoplay muted></video>
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
+        <div style="width:200px;height:200px;border:3px solid #ffe600;border-radius:12px;box-shadow:0 0 0 2000px rgba(0,0,0,.4)"></div>
+      </div>
+      <div id="barcode-status" style="position:absolute;bottom:12px;left:0;right:0;text-align:center;color:#fff;font-size:13px;font-weight:600">Apuntá la cámara al código de barras</div>
+    </div>
+    <!-- Popup cantidad cuando encuentra producto -->
+    <div id="barcode-found" style="display:none;padding:16px">
+      <div id="barcode-prod-name" style="font-weight:700;font-size:16px;margin-bottom:12px"></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="number" id="barcode-qty" inputmode="decimal" placeholder="Cantidad" min="0" step="0.1"
+          style="flex:1;font-size:20px;font-weight:700;padding:10px;border:2px solid var(--accent2);border-radius:10px;text-align:center"
+          onkeydown="if(event.key==='Enter')barcodeConfirm()">
+        <button onclick="barcodeConfirm()" style="background:var(--accent2);color:#fff;border:none;border-radius:10px;padding:12px 20px;font-size:15px;font-weight:700;cursor:pointer">✓</button>
+      </div>
+      <button onclick="barcodeContinue()" style="width:100%;margin-top:8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:14px;font-weight:600;cursor:pointer;color:var(--text2)">Escanear siguiente →</button>
+    </div>
+    <!-- Popup producto no encontrado -->
+    <div id="barcode-notfound" style="display:none;padding:16px">
+      <div style="font-size:14px;color:var(--text3);margin-bottom:10px">Código <strong id="barcode-code-display"></strong> no encontrado.</div>
+      <div style="font-size:13px;color:var(--text3);margin-bottom:10px">¿Querés asignarlo a un producto existente?</div>
+      <input type="search" id="barcode-assign-search" placeholder="Buscar producto..." oninput="barcodeAssignSearch(this.value)"
+        style="width:100%;font-size:14px;padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);box-sizing:border-box">
+      <div id="barcode-assign-list" style="max-height:160px;overflow-y:auto;margin-top:8px"></div>
+      <button onclick="barcodeContinue()" style="width:100%;margin-top:8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:14px;cursor:pointer;color:var(--text2)">Saltar →</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="mflyer">
   <div class="modal" style="padding:20px">
     <div class="modal-header"><span class="modal-title">Generar flyer</span><button class="close-btn" onclick="document.getElementById('mflyer').classList.remove('open')">x</button></div>
@@ -903,6 +943,12 @@ select option{background:var(--surface2)}
       <div class="form-row">
         <div class="form-group"><label class="fl">Grupo</label><input type="text" id="p-grupo" placeholder="ej: baggio-lt"></div>
         <div class="form-group"><label class="fl">Fracción mínima</label><input type="number" id="p-frac" placeholder="1" min="1" inputmode="numeric"></div>
+        <div class="form-group"><label class="fl">Código de barras</label>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="p-barcode" placeholder="Ej: 7790895000123" inputmode="numeric" style="flex:1">
+            <button type="button" onclick="scanBarcodeForProduct()" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:8px 12px;font-size:14px;cursor:pointer">📷</button>
+          </div>
+        </div>
       </div>
       <div style="background:var(--surface2);border-radius:var(--rs);padding:14px;margin-bottom:14px">
         <div style="font-size:13px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Precios</div>
@@ -1534,6 +1580,140 @@ function renderEstProductos(cont, invs) {
     </div>` : ''}`;
 }
 
+// === ESCÁNER CÓDIGO DE BARRAS ===
+let _barcodeStream = null;
+let _barcodeInterval = null;
+let _barcodeFoundProd = null;
+let _barcodeContext = 'compra'; // 'compra' o 'producto'
+
+async function openBarcodeScanner(context) {
+  _barcodeContext = context || 'compra';
+  _barcodeFoundProd = null;
+  document.getElementById('barcode-found').style.display = 'none';
+  document.getElementById('barcode-notfound').style.display = 'none';
+  document.getElementById('barcode-status').textContent = 'Apuntá la cámara al código de barras';
+  document.getElementById('mbarcode').classList.add('open');
+  try {
+    _barcodeStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width:{ideal:1280}, height:{ideal:720} }
+    });
+    const video = document.getElementById('barcode-video');
+    video.srcObject = _barcodeStream;
+    await video.play();
+    // Cargar ZXing si no está
+    if(!window.ZXing) {
+      await new Promise((res,rej) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/zxing-js/0.21.1/umd/index.min.js';
+        s.onload = res; s.onerror = rej;
+        document.head.appendChild(s);
+      });
+    }
+    const codeReader = new ZXing.BrowserMultiFormatReader();
+    codeReader.decodeFromVideoDevice(null, 'barcode-video', (result, err) => {
+      if(result) {
+        const code = result.getText();
+        codeReader.reset();
+        onBarcodeDetected(code);
+      }
+    });
+    window._codeReader = codeReader;
+  } catch(e) {
+    toast('No se pudo acceder a la cámara');
+    closeBarcodeScanner();
+  }
+}
+
+function onBarcodeDetected(code) {
+  // Vibrar para feedback
+  if(navigator.vibrate) navigator.vibrate(100);
+  // Buscar producto por código
+  const prod = S.products.find(p=>p.barcode===code);
+  if(prod) {
+    _barcodeFoundProd = prod;
+    document.getElementById('barcode-prod-name').textContent = prod.name;
+    document.getElementById('barcode-qty').value = '';
+    document.getElementById('barcode-found').style.display = 'block';
+    document.getElementById('barcode-notfound').style.display = 'none';
+    document.getElementById('barcode-status').textContent = '✓ Producto encontrado';
+    setTimeout(() => document.getElementById('barcode-qty').focus(), 100);
+  } else {
+    // No encontrado — ofrecer asignar
+    _barcodeFoundProd = null;
+    document.getElementById('barcode-code-display').textContent = code;
+    document.getElementById('barcode-notfound').style.display = 'block';
+    document.getElementById('barcode-found').style.display = 'none';
+    document.getElementById('barcode-status').textContent = 'Código no registrado';
+    document.getElementById('barcode-assign-search').value = '';
+    document.getElementById('barcode-assign-list').innerHTML = '';
+    window._pendingBarcode = code;
+  }
+}
+
+function barcodeConfirm() {
+  if(!_barcodeFoundProd) return;
+  const qty = parseFloat(document.getElementById('barcode-qty').value)||0;
+  if(qty <= 0) { toast('Ingresá una cantidad'); return; }
+  // Agregar a ncItems
+  if(!ncItems[_barcodeFoundProd.id]) ncItems[_barcodeFoundProd.id] = {qty:0, cost:_barcodeFoundProd.cost||0};
+  ncItems[_barcodeFoundProd.id].qty += qty;
+  ncUpdateTotal();
+  toast(_barcodeFoundProd.name+': +'+qty);
+  barcodeContinue();
+}
+
+function barcodeContinue() {
+  // Resetear y seguir escaneando
+  _barcodeFoundProd = null;
+  document.getElementById('barcode-found').style.display = 'none';
+  document.getElementById('barcode-notfound').style.display = 'none';
+  document.getElementById('barcode-status').textContent = 'Apuntá la cámara al código de barras';
+  // Reiniciar lector
+  if(window._codeReader) {
+    window._codeReader.decodeFromVideoDevice(null, 'barcode-video', (result) => {
+      if(result) { window._codeReader.reset(); onBarcodeDetected(result.getText()); }
+    });
+  }
+}
+
+function barcodeAssignSearch(q) {
+  const list = document.getElementById('barcode-assign-list');
+  if(!q.trim()) { list.innerHTML = ''; return; }
+  const prods = S.products.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())).slice(0,8);
+  list.innerHTML = prods.map(p=>'<div onclick="barcodeAssignTo(\''+p.id+'\')" style="padding:10px 12px;cursor:pointer;font-size:14px;border-bottom:1px solid var(--border)">'+p.name+'</div>').join('');
+}
+
+function barcodeAssignTo(prodId) {
+  const prod = S.products.find(p=>p.id===prodId);
+  if(!prod || !window._pendingBarcode) return;
+  prod.barcode = window._pendingBarcode;
+  save(['products']);
+  toast('Código asignado a "'+prod.name+'"');
+  // Ahora que está asignado, mostrar popup de cantidad
+  _barcodeFoundProd = prod;
+  document.getElementById('barcode-prod-name').textContent = prod.name;
+  document.getElementById('barcode-qty').value = '';
+  document.getElementById('barcode-found').style.display = 'block';
+  document.getElementById('barcode-notfound').style.display = 'none';
+  setTimeout(() => document.getElementById('barcode-qty').focus(), 100);
+}
+
+function scanBarcodeForProduct() {
+  openBarcodeScanner('producto');
+}
+
+function closeBarcodeScanner() {
+  if(_barcodeStream) { _barcodeStream.getTracks().forEach(t=>t.stop()); _barcodeStream = null; }
+  if(window._codeReader) { try{window._codeReader.reset();}catch(e){} window._codeReader = null; }
+  document.getElementById('mbarcode').classList.remove('open');
+  // Si veníamos de producto, poner el código en el campo
+  if(_barcodeContext === 'producto' && window._pendingBarcode) {
+    const el = document.getElementById('p-barcode');
+    if(el) el.value = window._pendingBarcode;
+  }
+  window._pendingBarcode = null;
+}
+
 function generarFlyer() {
   const todosProds = S.products.filter(p=>p.enFlyer && p.price>0 && p.name);
   if(!todosProds.length) {
@@ -1870,6 +2050,7 @@ function openProd(id) {
     document.getElementById('p-cost').value = p.cost||'';
     document.getElementById('p-stock').value = p.stock||'';
     document.getElementById('p-minst').value = p.minStock !== undefined ? p.minStock : 0;
+    document.getElementById('p-barcode').value = p.barcode||'';
     document.getElementById('p-desc').value = p.desc||'';
     document.getElementById('p-vis').checked = p.visible!==false;
     document.getElementById('p-oferta').checked = !!p.oferta;
@@ -1882,6 +2063,7 @@ function openProd(id) {
     document.getElementById('mprod-title').textContent = 'Nuevo Producto';
     flds.forEach(f => { const e=document.getElementById(f); if(e) e.value=''; });
     document.getElementById('p-minst').value = 0;
+    document.getElementById('p-barcode').value = '';
     document.getElementById('p-vis').checked = true;
   document.getElementById('p-oferta').checked = false;
   document.getElementById('p-soloflyer').checked = false;
@@ -1913,6 +2095,7 @@ function saveProd() {
     enFlyer: S.editId ? ((S.products.find(p=>p.id===S.editId)||{}).enFlyer||false) : false,
     marca: '',
     fracMin: parseInt(document.getElementById('p-frac').value)||1,
+    barcode: document.getElementById('p-barcode').value.trim()||null,
     grupoMay: document.getElementById('p-grupo').value.trim(),
     image: S.photo||null,
     sku: S.editId ? (S.products.find(p=>p.id===S.editId)||{}).sku : 'P'+Date.now()
