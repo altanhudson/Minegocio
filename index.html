@@ -873,7 +873,7 @@ select option{background:var(--surface2)}
       <button class="close-btn" onclick="closeBarcodeScanner()">x</button>
     </div>
     <div style="position:relative;background:#000;width:100%;aspect-ratio:1">
-      <video id="barcode-video" style="width:100%;height:100%;object-fit:cover" playsinline autoplay muted></video>
+      <div id="barcode-video-container" style="width:100%;aspect-ratio:1;background:#000"></div>
       <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
         <div style="width:200px;height:200px;border:3px solid #ffe600;border-radius:12px;box-shadow:0 0 0 2000px rgba(0,0,0,.4)"></div>
       </div>
@@ -1600,12 +1600,12 @@ async function openBarcodeScanner(context) {
     const video = document.getElementById('barcode-video');
     video.srcObject = _barcodeStream;
     await video.play();
-    // Cargar ZXing si no está
-    if(!window.ZXing) {
+    // Cargar html5-qrcode si no está
+    if(!window.Html5Qrcode) {
       try {
         await new Promise((res,rej) => {
           const s = document.createElement('script');
-          s.src = 'https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js';
+          s.src = 'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
           s.onload = res; s.onerror = rej;
           document.head.appendChild(s);
         });
@@ -1615,27 +1615,19 @@ async function openBarcodeScanner(context) {
       }
     }
     try {
-      const hints = new Map();
-      const formats = [
-        ZXing.BarcodeFormat.EAN_13,
-        ZXing.BarcodeFormat.EAN_8,
-        ZXing.BarcodeFormat.CODE_128,
-        ZXing.BarcodeFormat.CODE_39,
-        ZXing.BarcodeFormat.UPC_A,
-        ZXing.BarcodeFormat.UPC_E
-      ];
-      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
-      const codeReader = new ZXing.BrowserMultiFormatReader(hints);
-      const videoEl = document.getElementById('barcode-video');
-      codeReader.decodeFromStream(_barcodeStream, videoEl, (result, err) => {
-        if(result) {
-          codeReader.reset();
-          onBarcodeDetected(result.getText());
-        }
-      });
-      window._codeReader = codeReader;
+      // Parar stream previo — html5-qrcode maneja su propio stream
+      if(_barcodeStream) { _barcodeStream.getTracks().forEach(t=>t.stop()); _barcodeStream = null; }
+      const html5QrCode = new Html5Qrcode('barcode-video-container');
+      window._codeReader = html5QrCode;
+      await html5QrCode.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 200, height: 200 }, supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA] },
+        (decodedText) => { onBarcodeDetected(decodedText); },
+        () => {}
+      );
+      document.getElementById('barcode-status').textContent = 'Apuntá la cámara al código de barras';
     } catch(e) {
-      document.getElementById('barcode-status').textContent = '⚠️ Error iniciando escáner: '+e.message;
+      document.getElementById('barcode-status').textContent = '⚠️ Error: '+e.message;
     }
   } catch(e) {
     toast('No se pudo acceder a la cámara');
@@ -1682,18 +1674,11 @@ function barcodeConfirm() {
 }
 
 function barcodeContinue() {
-  // Resetear y seguir escaneando
   _barcodeFoundProd = null;
   document.getElementById('barcode-found').style.display = 'none';
   document.getElementById('barcode-notfound').style.display = 'none';
   document.getElementById('barcode-status').textContent = 'Apuntá la cámara al código de barras';
-  // Reiniciar lector
-  if(window._codeReader && _barcodeStream) {
-    const videoEl = document.getElementById('barcode-video');
-    window._codeReader.decodeFromStream(_barcodeStream, videoEl, (result) => {
-      if(result) { window._codeReader.reset(); onBarcodeDetected(result.getText()); }
-    });
-  }
+  // html5-qrcode sigue escaneando automáticamente
 }
 
 function barcodeAssignSearch(q) {
@@ -1723,10 +1708,12 @@ function scanBarcodeForProduct() {
 }
 
 function closeBarcodeScanner() {
+  if(window._codeReader) {
+    try{ window._codeReader.stop().catch(()=>{}); }catch(e){}
+    window._codeReader = null;
+  }
   if(_barcodeStream) { _barcodeStream.getTracks().forEach(t=>t.stop()); _barcodeStream = null; }
-  if(window._codeReader) { try{window._codeReader.reset();}catch(e){} window._codeReader = null; }
   document.getElementById('mbarcode').classList.remove('open');
-  // Si veníamos de producto, poner el código en el campo
   if(_barcodeContext === 'producto' && window._pendingBarcode) {
     const el = document.getElementById('p-barcode');
     if(el) el.value = window._pendingBarcode;
