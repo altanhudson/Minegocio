@@ -866,7 +866,7 @@ select option{background:var(--surface2)}
 
 <!-- MODAL PRODUCTO -->
 <!-- Modal escáner de código de barras -->
-<div class="modal-overlay" id="mbarcode">
+<div class="modal-overlay" id="mbarcode" style="z-index:10100">
   <div class="modal-content" style="max-width:420px;padding:0;overflow:hidden">
     <div class="modal-header" style="padding:14px 16px">
       <span class="modal-title">📷 Escanear código</span>
@@ -1615,12 +1615,22 @@ async function openBarcodeScanner(context) {
       }
     }
     try {
-      const codeReader = new ZXing.BrowserMultiFormatReader();
-      codeReader.decodeFromVideoDevice(null, 'barcode-video', (result, err) => {
+      const hints = new Map();
+      const formats = [
+        ZXing.BarcodeFormat.EAN_13,
+        ZXing.BarcodeFormat.EAN_8,
+        ZXing.BarcodeFormat.CODE_128,
+        ZXing.BarcodeFormat.CODE_39,
+        ZXing.BarcodeFormat.UPC_A,
+        ZXing.BarcodeFormat.UPC_E
+      ];
+      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+      const codeReader = new ZXing.BrowserMultiFormatReader(hints);
+      const videoEl = document.getElementById('barcode-video');
+      codeReader.decodeFromStream(_barcodeStream, videoEl, (result, err) => {
         if(result) {
-          const code = result.getText();
           codeReader.reset();
-          onBarcodeDetected(code);
+          onBarcodeDetected(result.getText());
         }
       });
       window._codeReader = codeReader;
@@ -1678,8 +1688,9 @@ function barcodeContinue() {
   document.getElementById('barcode-notfound').style.display = 'none';
   document.getElementById('barcode-status').textContent = 'Apuntá la cámara al código de barras';
   // Reiniciar lector
-  if(window._codeReader) {
-    window._codeReader.decodeFromVideoDevice(null, 'barcode-video', (result) => {
+  if(window._codeReader && _barcodeStream) {
+    const videoEl = document.getElementById('barcode-video');
+    window._codeReader.decodeFromStream(_barcodeStream, videoEl, (result) => {
       if(result) { window._codeReader.reset(); onBarcodeDetected(result.getText()); }
     });
   }
