@@ -1602,22 +1602,31 @@ async function openBarcodeScanner(context) {
     await video.play();
     // Cargar ZXing si no está
     if(!window.ZXing) {
-      await new Promise((res,rej) => {
-        const s = document.createElement('script');
-        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/zxing-js/0.21.1/umd/index.min.js';
-        s.onload = res; s.onerror = rej;
-        document.head.appendChild(s);
-      });
-    }
-    const codeReader = new ZXing.BrowserMultiFormatReader();
-    codeReader.decodeFromVideoDevice(null, 'barcode-video', (result, err) => {
-      if(result) {
-        const code = result.getText();
-        codeReader.reset();
-        onBarcodeDetected(code);
+      try {
+        await new Promise((res,rej) => {
+          const s = document.createElement('script');
+          s.src = 'https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js';
+          s.onload = res; s.onerror = rej;
+          document.head.appendChild(s);
+        });
+      } catch(e) {
+        document.getElementById('barcode-status').textContent = '⚠️ Error cargando librería. Verificá tu conexión.';
+        return;
       }
-    });
-    window._codeReader = codeReader;
+    }
+    try {
+      const codeReader = new ZXing.BrowserMultiFormatReader();
+      codeReader.decodeFromVideoDevice(null, 'barcode-video', (result, err) => {
+        if(result) {
+          const code = result.getText();
+          codeReader.reset();
+          onBarcodeDetected(code);
+        }
+      });
+      window._codeReader = codeReader;
+    } catch(e) {
+      document.getElementById('barcode-status').textContent = '⚠️ Error iniciando escáner: '+e.message;
+    }
   } catch(e) {
     toast('No se pudo acceder a la cámara');
     closeBarcodeScanner();
