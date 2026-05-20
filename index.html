@@ -1593,45 +1593,36 @@ async function openBarcodeScanner(context) {
   document.getElementById('barcode-notfound').style.display = 'none';
   document.getElementById('barcode-status').textContent = 'Apuntá la cámara al código de barras';
   document.getElementById('mbarcode').classList.add('open');
-  try {
-    _barcodeStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width:{ideal:1280}, height:{ideal:720} }
-    });
-    const video = document.getElementById('barcode-video');
-    video.srcObject = _barcodeStream;
-    await video.play();
-    // Cargar html5-qrcode si no está
-    if(!window.Html5Qrcode) {
-      try {
-        await new Promise((res,rej) => {
-          const s = document.createElement('script');
-          s.src = 'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
-          s.onload = res; s.onerror = rej;
-          document.head.appendChild(s);
-        });
-      } catch(e) {
-        document.getElementById('barcode-status').textContent = '⚠️ Error cargando librería. Verificá tu conexión.';
-        return;
-      }
-    }
+  if(window._codeReader) {
+    try{ await window._codeReader.stop(); }catch(e){}
+    window._codeReader = null;
+  }
+  if(!window.Html5Qrcode) {
     try {
-      // Parar stream previo — html5-qrcode maneja su propio stream
-      if(_barcodeStream) { _barcodeStream.getTracks().forEach(t=>t.stop()); _barcodeStream = null; }
-      const html5QrCode = new Html5Qrcode('barcode-video-container');
-      window._codeReader = html5QrCode;
-      await html5QrCode.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 200, height: 200 }, supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA] },
-        (decodedText) => { onBarcodeDetected(decodedText); },
-        () => {}
-      );
-      document.getElementById('barcode-status').textContent = 'Apuntá la cámara al código de barras';
+      await new Promise((res,rej) => {
+        const s = document.createElement('script');
+        s.src = 'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
+        s.onload = res; s.onerror = rej;
+        document.head.appendChild(s);
+      });
     } catch(e) {
-      document.getElementById('barcode-status').textContent = '⚠️ Error: '+e.message;
+      document.getElementById('barcode-status').textContent = '⚠️ Error cargando librería. Verificá tu conexión.';
+      return;
     }
+  }
+  const container = document.getElementById('barcode-video-container');
+  if(container) container.innerHTML = '';
+  try {
+    const html5QrCode = new Html5Qrcode('barcode-video-container');
+    window._codeReader = html5QrCode;
+    await html5QrCode.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 200, height: 200 } },
+      (decodedText) => { onBarcodeDetected(decodedText); },
+      () => {}
+    );
   } catch(e) {
-    toast('No se pudo acceder a la cámara');
-    closeBarcodeScanner();
+    document.getElementById('barcode-status').textContent = '⚠️ Error: '+e.message;
   }
 }
 
