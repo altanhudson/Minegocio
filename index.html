@@ -2484,6 +2484,8 @@ function openInv(id, defaultType) {
     if(_origInv) S._editOrigItems = _origInv.items.map(x=>({...x}));
   }
   document.getElementById('i-date').value=localDateStr();
+  const dateResEl = document.getElementById('i-date-res');
+  if(dateResEl) dateResEl.value = localDateStr();
   const sel=document.getElementById('i-cli');
   sel.innerHTML='<option value="">-- Elegir cliente --</option>';
   S.clients.forEach(c=>sel.innerHTML+='<option value="'+c.id+'">'+c.name+'</option>');
@@ -3582,7 +3584,7 @@ function saveInv() {
   }
   if(!cid){toast('Elegi un cliente');return;}
   // Sync date from resumen field if editing
-  if(S.editId){ const dr=document.getElementById('i-date-res'); const di=document.getElementById('i-date'); if(dr&&dr.value) di.value=dr.value; }
+  if(S.editId){ const dr=document.getElementById('i-date-res'); const di=document.getElementById('i-date'); if(dr&&di&&di.value) dr.value=di.value; }
   if(!S.invItems.length){toast('Agrega al menos un item');return;}
   // Sincronizar texto de inputs al estado antes de guardar
   S.invItems.forEach((item, idx) => {
