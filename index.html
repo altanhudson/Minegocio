@@ -2875,14 +2875,16 @@ function renderProdMovimientos(id) {
   const fmtDate = d => d ? d.split('-').reverse().join('/') : '—';
   // Calcular stock acumulado — ordenar de más viejo a más nuevo para calcular, luego invertir para mostrar
   const movsAsc = [...movs].sort((a,b)=>a.date.localeCompare(b.date));
-  // Stock inicial = stock actual - suma de todos los movimientos
   const totalMovs = movsAsc.reduce((s,m)=>s+m.qty, 0);
   let stockAcum = (p.stock||0) - totalMovs;
-  const stockPorMov = {};
-  movsAsc.forEach(m => {
+  const stockPorMov = new Map();
+  movsAsc.forEach((m, i) => {
     stockAcum += m.qty;
-    stockPorMov[m.date+'_'+m.ref+'_'+m.qty] = stockAcum;
+    stockPorMov.set(i, stockAcum);
   });
+  // Crear mapa de índice original → índice en movsAsc
+  const movToIdx = new Map();
+  movsAsc.forEach((m, i) => movToIdx.set(m, i));
   contEl.innerHTML = '<div class="card"><div style="padding:0">'
     +movs.map((m,i)=>{
       const esVenta = m.tipo==='venta';
@@ -2890,7 +2892,7 @@ function renderProdMovimientos(id) {
       const color = esAjuste ? '#d97706' : esVenta ? '#dc2626' : '#16a34a';
       const signo = esAjuste ? (m.qty>=0?'+':'') : esVenta ? '-' : '+';
       const abs = Math.abs(m.qty);
-      const stockEn = stockPorMov[m.date+'_'+m.ref+'_'+m.qty];
+      const stockEn = stockPorMov.get(movToIdx.get(m));
       const stockColor = stockEn < 0 ? '#dc2626' : stockEn === 0 ? 'var(--text3)' : '#16a34a';
       return '<div style="display:flex;align-items:center;gap:10px;padding:11px 14px;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
         +'<div style="width:10px;height:10px;border-radius:50%;background:'+color+';flex-shrink:0"></div>'
