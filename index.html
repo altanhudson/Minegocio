@@ -2877,6 +2877,8 @@ function cartRenderList(q) {
       +'<div style="flex:1;min-width:0">'
       +'<div style="font-weight:600;font-size:14px">'+p.name+'</div>'
       +'<div style="font-size:14px;color:var(--text3);margin-top:2px" id="cprice-'+p.id+'">$'+itemPrice.toFixed(2)+(hasQty?' &nbsp;·&nbsp; <span style="color:var(--accent);font-weight:700">$'+(qty*itemPrice).toFixed(0)+'</span>':'')+'</div>'
+      +(p.wholesalePrice&&p.wholesaleQty?'<div id="cwtag-'+p.id+'" style="font-size:12px;margin-top:1px;color:'+(hasQty&&qty>=p.wholesaleQty?'var(--accent2)':'var(--text3)')+'">'+
+        (hasQty&&qty>=p.wholesaleQty?'⭐ Precio mayorista':'Mayor: $'+p.wholesalePrice.toFixed(0)+' x'+p.wholesaleQty+' uds')+'</div>':'')
       +(p.stock!==undefined?'<div id="cstock-disp-'+p.id+'" style="font-size:12px;margin-top:2px;color:'+(hasQty&&qty>(p.stock||0)?'var(--accent3)':'var(--text3)')+'">Stock: '+(p.stock||0)+(hasQty?' → '+((p.stock||0)-qty):'')+' uds</div>':'')
       +'</div>'
       +'<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;align-items:flex-end">'
@@ -2937,6 +2939,22 @@ function cartQtyChange(input) {
     const usePrice = parseFloat(input.dataset.price)||p.price||0;
     if(existing>=0) { S.invItems[existing].qty=qty; if(!S.invItems[existing].price) S.invItems[existing].price=usePrice; chkW(existing); }
     else { S.invItems.push({desc:p.name,qty,price:usePrice,prodId:p.id,retailPrice:usePrice,wholesalePrice:p.wholesalePrice||0,wholesaleQty:p.wholesaleQty||0}); chkW(S.invItems.length-1); }
+    // Actualizar wtag en la lista de nueva factura
+    const wtagEl = document.getElementById('cwtag-'+pid);
+    if(wtagEl && p.wholesalePrice && p.wholesaleQty) {
+      const isW = qty >= p.wholesaleQty;
+      wtagEl.style.color = isW ? 'var(--accent2)' : 'var(--text3)';
+      wtagEl.textContent = isW ? '⭐ Precio mayorista' : 'Mayor: $'+p.wholesalePrice.toFixed(0)+' x'+p.wholesaleQty+' uds';
+    }
+    // Actualizar precio en el input si aplica mayorista
+    const priceInput = document.getElementById('cpreciou-'+pid);
+    if(priceInput && p.wholesalePrice && p.wholesaleQty) {
+      const newPrice = qty >= p.wholesaleQty ? p.wholesalePrice : p.price;
+      priceInput.value = newPrice.toFixed(2);
+      input.dataset.price = newPrice;
+      const idx2 = S.invItems.findIndex(i=>i.prodId===pid);
+      if(idx2>=0) { S.invItems[idx2].price = newPrice; }
+    }
   } else {
     const existing = S.invItems.findIndex(i=>i.prodId===pid);
     if(existing>=0) S.invItems.splice(existing,1);
@@ -5827,7 +5845,8 @@ function tiendaProdCardGrid(p) {
     : '<div style="width:100%;height:100px;border-radius:10px;background:#f7f8fc;display:flex;align-items:center;justify-content:center;font-size:40px;margin-bottom:8px">'+(p.emoji||'📦')+'</div>';
   const ctrl = qty===0
     ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="width:100%;background:#3483fa;color:#fff;border:none;border-radius:10px;padding:9px;font-weight:800;font-size:14px;cursor:pointer;margin-top:8px">+ Agregar'+(step>1?' x'+step:'')+'</button>'
-    : '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#eef0f5;color:#3483fa;border:none;border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;font-weight:700">−</button><span style="font-weight:800;font-size:16px;color:#1a1a2e">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;font-weight:700">+</button></div>';
+    : '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#eef0f5;color:#3483fa;border:none;border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;font-weight:700">−</button><span style="font-weight:800;font-size:16px;color:#1a1a2e">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;font-weight:700">+</button></div>'
+    +(p.wholesalePrice&&p.wholesaleQty&&qty>=p.wholesaleQty?'<div style="font-size:11px;color:#2e7d32;font-weight:700;text-align:center;margin-top:4px">⭐ Precio mayorista aplicado</div>':'');
   const mayorHtml = p.wholesalePrice&&p.wholesaleQty
     ? '<div style="font-size:11px;color:#2e7d32;font-weight:700;margin-top:3px">$'+(+p.wholesalePrice).toFixed(0)+' a partir de '+p.wholesaleQty+' uds</div>'
     : '';
@@ -5938,7 +5957,9 @@ function tiendaProdCard(p) {
     : '<div style="width:64px;height:64px;border-radius:4px;background:#fef9e7;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">'+(p.emoji||'📦')+'</div>';
   const ctrl = qty===0
     ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:4px;padding:7px 12px;font-weight:600;font-size:13px;cursor:pointer">+ Agregar'+(step>1?' x'+step:'')+'</button>'
-    : '<div style="display:flex;align-items:center;gap:10px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#eef0f5;color:#3483fa;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">−</button><span style="font-size:16px;font-weight:700;min-width:20px;text-align:center">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">+</button></div>';
+    : '<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div style="display:flex;align-items:center;gap:10px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#eef0f5;color:#3483fa;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">−</button><span style="font-size:16px;font-weight:700;min-width:20px;text-align:center">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">+</button></div>'
+    +(p.wholesalePrice&&p.wholesaleQty&&qty>=p.wholesaleQty?'<div style="font-size:11px;color:#2e7d32;font-weight:700">⭐ Precio mayorista</div>':'')
+    +'</div>';
   const priceChangeHtml = getPriceChangeHtml(p, '16px', '#3483fa', 'margin-top:2px');
   const precioHtml = priceChangeHtml
     ? priceChangeHtml + (p.wholesalePrice&&p.wholesaleQty?'<div style="font-size:12px;color:#2e7d32;font-weight:700;margin-top:2px">$'+(+p.wholesalePrice).toFixed(0)+' a partir de '+p.wholesaleQty+' uds</div>':'')
