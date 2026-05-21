@@ -2843,7 +2843,7 @@ function renderProdMovimientos(id) {
     if(inv.type==='presupuesto') return;
     (inv.items||[]).forEach(item => {
       if(item.prodId === id || item.desc === p.name) {
-        ventas.push({ tipo:'venta', date: inv.date, ts: parseInt((inv.id||'').replace(/\D/g,''))||0, ref: inv.id, desc: inv.clientName, qty: -(item.qty||1), price: item.price||0 });
+        ventas.push({ tipo:'venta', date: inv.date, ts: inv.ts||parseInt((inv.id||'').replace(/\D/g,''))||0, ref: inv.id, desc: inv.clientName, qty: -(item.qty||1), price: item.price||0 });
       }
     });
   });
@@ -3879,6 +3879,7 @@ function saveInv() {
     type:document.getElementById('i-type').value,
     clientId:cid, clientName:cli?cli.name:'---',
     date:document.getElementById('i-date').value,
+    ts: S.editId ? (S.invoices.find(x=>x.id===S.editId)||{}).ts||Date.now() : Date.now(),
     status, notes:document.getElementById('i-notes').value,
     items:[...S.invItems], subtotal:sub,
     descRetiro:ret, descExtraPct:extPct, descExtra:extAmt, total,
