@@ -4991,11 +4991,12 @@ function pagocliSelectClient(cliId) {
 function pagocliCalc() {
   if (!pagocliSelected) return;
   const monto = parseFloat(document.getElementById('pagocli-monto').value) || 0;
+  const credito = pagocliSelected.credito || 0;
   const pendientes = S.invoices.filter(inv => inv.clientId === pagocliSelected.id && (inv.status === 'pendiente' || inv.status === 'pending' || (inv.saldo||0) > 0) && inv.status !== 'cancelada' && inv.type !== 'presupuesto');
-  const totalDeuda = pendientes.reduce((s, inv) => {
+  const totalDeuda = Math.max(0, pendientes.reduce((s, inv) => {
     const pagado = (inv.pagos || []).reduce((a, p) => a + p.monto, 0);
     return s + (inv.total - pagado);
-  }, 0);
+  }, 0) - credito);
 
   const res = document.getElementById('pagocli-resultado');
   const btn = document.getElementById('pagocli-btn');
@@ -5012,7 +5013,7 @@ function pagocliCalc() {
     res.innerHTML = '<div style="background:#22c55e22;border:1px solid var(--green);border-radius:8px;padding:10px 12px;font-size:15px">'
       + '✅ Salda toda la deuda exactamente</div>';
   } else {
-    const favor = monto - totalDeuda;
+    const favor = monto - totalDeuda + credito;
     res.innerHTML = '<div style="background:#22c55e22;border:1px solid var(--green);border-radius:8px;padding:10px 12px;font-size:15px">'
       + '✅ Salda toda la deuda y queda <strong style="color:var(--green)">$' + favor.toFixed(0) + ' a favor</strong></div>';
   }
