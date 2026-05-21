@@ -822,6 +822,7 @@ select option{background:var(--surface2)}
         <div style="font-size:14px;color:var(--text3);margin-bottom:12px">Descargá una copia de todos tus datos como archivo JSON en tu celu.</div>
         <button onclick="backupData()" class="btn btn-primary btn-full">&#11015;&#65039; Descargar backup</button>
         <button onclick="normalizarCategorias()" class="btn btn-full" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);margin-top:8px">🔤 Normalizar categorías (mayúsculas)</button>
+        <button onclick="resetStockCero()" class="btn btn-full" style="background:rgba(220,38,38,.1);border:1px solid var(--accent3);color:var(--accent3);margin-top:8px">🔄 Reset stock a cero (todos los productos)</button>
       </div>
     </div>
     <div class="card" style="margin-bottom:12px">
@@ -1627,9 +1628,17 @@ async function openBarcodeScanner(context) {
 }
 
 function onBarcodeDetected(code) {
-  // Vibrar para feedback
   if(navigator.vibrate) navigator.vibrate(100);
-  // Buscar producto por código
+
+  // Si venimos de la ficha del producto, asignar directamente y cerrar
+  if(_barcodeContext === 'producto') {
+    window._pendingBarcode = code;
+    closeBarcodeScanner();
+    toast('Código asignado: '+code);
+    return;
+  }
+
+  // Contexto compra — buscar producto
   const prod = S.products.find(p=>p.barcode===code);
   if(prod) {
     _barcodeFoundProd = prod;
@@ -1640,15 +1649,15 @@ function onBarcodeDetected(code) {
     document.getElementById('barcode-status').textContent = '✓ Producto encontrado';
     setTimeout(() => document.getElementById('barcode-qty').focus(), 100);
   } else {
-    // No encontrado — ofrecer asignar
     _barcodeFoundProd = null;
+    window._pendingBarcode = code;
     document.getElementById('barcode-code-display').textContent = code;
     document.getElementById('barcode-notfound').style.display = 'block';
     document.getElementById('barcode-found').style.display = 'none';
     document.getElementById('barcode-status').textContent = 'Código no registrado';
     document.getElementById('barcode-assign-search').value = '';
     document.getElementById('barcode-assign-list').innerHTML = '';
-    window._pendingBarcode = code;
+    setTimeout(() => document.getElementById('barcode-assign-search').focus(), 100);
   }
 }
 
@@ -1925,6 +1934,15 @@ function mostrarRecordatorioBackup() {
 function localDateStr() {
   const d = new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function resetStockCero() {
+  if(!confirm('¿Poner en CERO el stock de todos los productos? Esta acción no se puede deshacer.')) return;
+  S.products.forEach(p => p.stock = 0);
+  // Limpiar ajustes también para empezar limpio
+  S.ajustes = [];
+  save(['products', 'ajustes'], true);
+  renderProds();
+  toast('Stock de todos los productos puesto en cero ✓');
 }
 function normalizarCategorias() {
   let changed = 0;
@@ -2825,7 +2843,7 @@ function renderProdMovimientos(id) {
     if(inv.type==='presupuesto') return;
     (inv.items||[]).forEach(item => {
       if(item.prodId === id || item.desc === p.name) {
-        ventas.push({ tipo:'venta', date: inv.date, ref: inv.id, desc: inv.clientName, qty: -(item.qty||1), price: item.price||0 });
+        ventas.push({ tipo:'venta', date: inv.date, ts: parseInt((inv.id||'').replace(/\D/g,''))||0, ref: inv.id, desc: inv.clientName, qty: -(item.qty||1), price: item.price||0 });
       }
     });
   });
@@ -2835,7 +2853,7 @@ function renderProdMovimientos(id) {
     if(comp.draft) return;
     (comp.items||[]).forEach(item => {
       if(item.prodId === id) {
-        compras.push({ tipo:'compra', date: comp.date, ref: comp.id, desc: comp.provName||'Proveedor', qty: item.qty||0, price: item.cost||0 });
+        compras.push({ tipo:'compra', date: comp.date, ts: comp.ts||0, ref: comp.id, desc: comp.provName||'Proveedor', qty: item.qty||0, price: item.cost||0 });
       }
     });
   });
@@ -2843,14 +2861,18 @@ function renderProdMovimientos(id) {
   const ajustes = [];
   (S.ajustes||[]).forEach(aj=>{
     (aj.items||[]).forEach(item=>{
-      if(item.prodId===id) ajustes.push({tipo:'ajuste', date:aj.date, ref:aj.id, desc:'Ajuste manual', qty:item.diff||0, price:0});
+      if(item.prodId===id) ajustes.push({tipo:'ajuste', date:aj.date, ts: aj.ts||0, ref:aj.id, desc:'Ajuste manual', qty:item.diff||0, price:0});
     });
   });
-  // Todos juntos ordenados
-  let movs = [...ventas, ...compras, ...ajustes].sort((a,b)=>b.date.localeCompare(a.date));
-  // Filtrar según tab
-  if(prodHTabActivo==='ventas') movs = ventas.sort((a,b)=>b.date.localeCompare(a.date));
-  else if(prodHTabActivo==='compras') movs = compras.sort((a,b)=>b.date.localeCompare(a.date));
+  // Todos juntos — ordenar por fecha desc, y por ts desc si mismo día
+  const sortMovs = (a,b) => {
+    const dc = b.date.localeCompare(a.date);
+    if(dc !== 0) return dc;
+    return (b.ts||0) - (a.ts||0);
+  };
+  let movs = [...ventas, ...compras, ...ajustes].sort(sortMovs);
+  if(prodHTabActivo==='ventas') movs = ventas.sort(sortMovs);
+  else if(prodHTabActivo==='compras') movs = compras.sort(sortMovs);
   // Stats
   const totalEntradas = compras.reduce((s,m)=>s+(m.qty||0),0);
   const totalSalidas = ventas.reduce((s,m)=>s+Math.abs(m.qty||0),0);
@@ -5460,7 +5482,7 @@ function saveStockAjuste() {
   });
   if (changed === 0) { toast('No hay cambios para guardar'); return; }
   if(!S.ajustes) S.ajustes = [];
-  S.ajustes.push({ id:'AJU-'+Date.now(), date: localDateStr(), items: ajusteItems, tipo:'ajuste' });
+  S.ajustes.push({ id:'AJU-'+Date.now(), date: localDateStr(), ts: Date.now(), items: ajusteItems, tipo:'ajuste' });
   try{renderProds();}catch(e){}
   try{updDash();}catch(e){}
   try{save(['products','ajustes'], true);}catch(e){}
