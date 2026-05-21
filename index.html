@@ -3421,6 +3421,7 @@ async function ncSaveComp() {
     id: compId,
     provId, provName: prov?prov.name:'',
     date: document.getElementById('nc-date').value,
+    ts: Date.now(),
     notes: document.getElementById('nc-notes').value,
     draft: isDraft,
     items: compItems,
@@ -4761,7 +4762,7 @@ async function saveComp(){
     const isDraft=document.getElementById('cp-draft').checked;
     const compId = S.editId || 'COMP-'+String(S.nComp).padStart(4,'0');
     if(!S.editId) S.nComp++;
-    const comp={id:compId,provId:pid,provName:prov?prov.name:'---',date:document.getElementById('cp-date').value,ref:'',notes:document.getElementById('cp-notes').value,items:[...items],total,draft:isDraft};
+    const comp={id:compId,provId:pid,provName:prov?prov.name:'---',date:document.getElementById('cp-date').value,ts:Date.now(),ref:'',notes:document.getElementById('cp-notes').value,items:[...items],total,draft:isDraft};
     if(!isDraft){
       if(S.editId){
         const prevIdx=S.compras.findIndex(x=>x.id===S.editId);
