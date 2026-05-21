@@ -2887,15 +2887,59 @@ function renderProdMovimientos(id) {
   }
   const fmtDate = d => d ? d.split('-').reverse().join('/') : '—';
   // Calcular stock acumulado — ordenar de más viejo a más nuevo para calcular, luego invertir para mostrar
-  const movsAsc = [...movs].sort((a,b)=>a.date.localeCompare(b.date));
-  const totalMovs = movsAsc.reduce((s,m)=>s+m.qty, 0);
-  let stockAcum = (p.stock||0) - totalMovs;
-  const stockPorMov = new Map();
-  movsAsc.forEach((m, i) => {
-    stockAcum += m.qty;
-    stockPorMov.set(i, stockAcum);
+  // Calcular stock acumulado — los ajustes son puntos de reset absoluto
+  const movsAsc = [...movs].sort((a,b)=>{
+    const dc = a.date.localeCompare(b.date);
+    if(dc !== 0) return dc;
+    return (a.ts||0) - (b.ts||0);
   });
-  // Crear mapa de índice original → índice en movsAsc
+  const totalMovs = movsAsc.reduce((s,m)=> m.tipo==='ajuste' ? 0 : s+m.qty, 0);
+  // Para calcular el stock inicial necesitamos recorrer desde el último ajuste
+  let stockAcum = 0;
+  const lastAjusteIdx = movsAsc.reduce((last, m, i) => m.tipo==='ajuste' ? i : last, -1);
+  if(lastAjusteIdx >= 0) {
+    // Stock en el momento del último ajuste = stockNuevo del ajuste
+    const lastAju = movsAsc[lastAjusteIdx];
+    const ajuItem = (S.ajustes.find(a=>a.id===lastAju.ref)||{items:[]}).items.find(i=>i.prodId===id);
+    stockAcum = ajuItem ? ajuItem.stockNuevo : 0;
+    // Sumar movimientos posteriores al último ajuste
+    for(let i = lastAjusteIdx+1; i < movsAsc.length; i++) {
+      stockAcum += movsAsc[i].qty;
+    }
+    // Verificar que coincide con p.stock
+  } else {
+    // Sin ajustes: calcular desde movimientos
+    const totalMovsAsc = movsAsc.reduce((s,m)=>s+m.qty, 0);
+    stockAcum = (p.stock||0) - totalMovsAsc;
+    movsAsc.forEach(m => stockAcum += m.qty);
+    stockAcum = p.stock||0; // simplificar — el stock actual es la verdad
+  }
+  
+  const stockPorMov = new Map();
+  let acc = 0;
+  // Recalcular desde el inicio
+  const firstAjuIdx = movsAsc.findIndex(m=>m.tipo==='ajuste');
+  if(firstAjuIdx >= 0) {
+    // Empezar desde antes del primer ajuste
+    let runningStock = 0;
+    movsAsc.forEach((m, i) => {
+      if(m.tipo === 'ajuste') {
+        const ajuData = (S.ajustes.find(a=>a.id===m.ref)||{items:[]}).items.find(it=>it.prodId===id);
+        runningStock = ajuData ? ajuData.stockNuevo : runningStock + m.qty;
+      } else {
+        runningStock += m.qty;
+      }
+      stockPorMov.set(i, runningStock);
+    });
+  } else {
+    // Sin ajustes: calcular desde stock inicial estimado
+    const totalAll = movsAsc.reduce((s,m)=>s+m.qty,0);
+    let running = (p.stock||0) - totalAll;
+    movsAsc.forEach((m, i) => {
+      running += m.qty;
+      stockPorMov.set(i, running);
+    });
+  }
   const movToIdx = new Map();
   movsAsc.forEach((m, i) => movToIdx.set(m, i));
   contEl.innerHTML = '<div class="card"><div style="padding:0">'
