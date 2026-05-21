@@ -5342,6 +5342,7 @@ async function initApp() {
         try{updateStockBadge();}catch(e){}
         return;
       }
+      if(S.editId) return; // no sincronizar mientras hay una edición activa
       Object.assign(S, fbData);
       try { localStorage.setItem(SK, JSON.stringify(fbData)); } catch(e) {}
       renderProds(); renderInvs(); renderClis(); renderProvs(); renderComps(); updDash();
