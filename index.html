@@ -6497,7 +6497,7 @@ function tiendaConfirmar() {
     id:'FAC-'+String(S.nInv++).padStart(4,'0'),
     type:'factura', status:'pendiente',
     clientId:cli.id, clientName:cli.name,
-    date:localDateStr(),
+    date:localDateStr(), ts:Date.now(),
     items:invItems, subtotal:invTotal,
     descRetiro:0, descExtraPct:0, descExtra:0, total:invTotal,
     pagos:[], saldo:invTotal, aFavor:0,
@@ -6509,7 +6509,7 @@ function tiendaConfirmar() {
     const idx=S.products.findIndex(x=>x.id===id);
     if(idx>=0) S.products[idx].stock=(S.products[idx].stock||0)-qty;
   });
-  try{renderInvs();}catch(e){} try{updDash();}catch(e){} save(['invoices','clients','nInv'], true);
+  try{renderInvs();}catch(e){} try{updDash();}catch(e){} save(['invoices','clients','products','nInv'], true);
   // Limpiar carrito
   TC={};
   tiendaRenderCarrito();
