@@ -4786,8 +4786,18 @@ function renderComps(){
 
 function deleteComp(id){
   if(!confirm('¿Eliminar esta compra?')) return;
+  const comp = S.compras.find(c=>c.id===id);
+  if(comp && !comp.draft) {
+    // Devolver stock de los productos de esta compra
+    (comp.items||[]).forEach(item => {
+      if(item.prodId && item.qty) {
+        const prod = S.products.find(p=>p.id===item.prodId);
+        if(prod) prod.stock = (prod.stock||0) - item.qty;
+      }
+    });
+  }
   S.compras = S.compras.filter(c => c.id !== id);
-  save(['compras','products']);
+  save(['compras','products'], true);
   renderComps();
   updDash();
   toast('Compra eliminada');
