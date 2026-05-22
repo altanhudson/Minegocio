@@ -895,7 +895,7 @@ select option{background:var(--surface2)}
     <div id="barcode-notfound" style="display:none;padding:16px">
       <div style="font-size:14px;color:var(--text3);margin-bottom:10px">Código <strong id="barcode-code-display"></strong> no encontrado.</div>
       <div style="font-size:13px;color:var(--text3);margin-bottom:10px">¿Querés asignarlo a un producto existente?</div>
-      <input type="search" id="barcode-assign-search" placeholder="Buscar producto..." oninput="barcodeAssignSearch(this.value)"
+      <input type="search" id="barcode-assign-search" placeholder="Buscar producto..." oninput="barcodeAssignSearch(this.value)" onkeyup="barcodeAssignSearch(this.value)"
         style="width:100%;font-size:14px;padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);box-sizing:border-box">
       <div id="barcode-assign-list" style="max-height:160px;overflow-y:auto;margin-top:8px"></div>
       <button onclick="barcodeContinue()" style="width:100%;margin-top:8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:14px;cursor:pointer;color:var(--text2)">Saltar →</button>
@@ -1704,6 +1704,9 @@ function barcodeAssignTo(prodId) {
 }
 
 function scanBarcodeForProduct() {
+  // Ocultar temporalmente el modal de producto para que la cámara se vea
+  const mprod = document.getElementById('mprod');
+  if(mprod) mprod.style.opacity = '0';
   openBarcodeScanner('producto');
 }
 
@@ -1714,6 +1717,9 @@ function closeBarcodeScanner() {
   }
   if(_barcodeStream) { _barcodeStream.getTracks().forEach(t=>t.stop()); _barcodeStream = null; }
   document.getElementById('mbarcode').classList.remove('open');
+  // Restaurar modal de producto si estaba abierto
+  const mprod = document.getElementById('mprod');
+  if(mprod) mprod.style.opacity = '1';
   if(_barcodeContext === 'producto' && window._pendingBarcode) {
     const el = document.getElementById('p-barcode');
     if(el) el.value = window._pendingBarcode;
