@@ -873,32 +873,32 @@ select option{background:var(--surface2)}
       <span class="modal-title">📷 Escanear código</span>
       <button class="close-btn" onclick="closeBarcodeScanner()">x</button>
     </div>
-    <div id="barcode-camera-container" style="position:relative;background:#000;width:100%;aspect-ratio:1">
-      <div id="barcode-video-container" style="width:100%;height:100%;background:#000"></div>
+    <div style="position:relative;background:#000;width:100%;aspect-ratio:1">
+      <div id="barcode-video-container" style="width:100%;aspect-ratio:1;background:#000"></div>
       <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
         <div style="width:200px;height:200px;border:3px solid #ffe600;border-radius:12px;box-shadow:0 0 0 2000px rgba(0,0,0,.4)"></div>
       </div>
       <div id="barcode-status" style="position:absolute;bottom:12px;left:0;right:0;text-align:center;color:#fff;font-size:13px;font-weight:600">Apuntá la cámara al código de barras</div>
     </div>
     <!-- Popup cantidad cuando encuentra producto -->
-    <div id="barcode-found" style="display:none;padding:16px;background:#fff;position:relative;z-index:2">
-      <div id="barcode-prod-name" style="font-weight:700;font-size:16px;margin-bottom:12px;color:#222"></div>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+    <div id="barcode-found" style="display:none;padding:16px">
+      <div id="barcode-prod-name" style="font-weight:700;font-size:16px;margin-bottom:12px"></div>
+      <div style="display:flex;gap:8px;align-items:center">
         <input type="number" id="barcode-qty" inputmode="decimal" placeholder="Cantidad" min="0" step="0.1"
-          style="flex:1;font-size:24px;font-weight:700;padding:12px;border:2px solid var(--accent2);border-radius:10px;text-align:center;color:#222"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();barcodeConfirm();}">
-        <button onclick="barcodeConfirm()" style="background:var(--accent2);color:#fff;border:none;border-radius:10px;padding:14px 22px;font-size:18px;font-weight:700;cursor:pointer">✓</button>
+          style="flex:1;font-size:20px;font-weight:700;padding:10px;border:2px solid var(--accent2);border-radius:10px;text-align:center"
+          onkeydown="if(event.key==='Enter')barcodeConfirm()">
+        <button onclick="barcodeConfirm()" style="background:var(--accent2);color:#fff;border:none;border-radius:10px;padding:12px 20px;font-size:15px;font-weight:700;cursor:pointer">✓</button>
       </div>
-      <button onclick="barcodeContinue()" style="width:100%;background:#555;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:600;cursor:pointer;color:#fff">Escanear siguiente →</button>
+      <button onclick="barcodeContinue()" style="width:100%;margin-top:8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:14px;font-weight:600;cursor:pointer;color:var(--text2)">Escanear siguiente →</button>
     </div>
     <!-- Popup producto no encontrado -->
-    <div id="barcode-notfound" style="display:none;padding:16px;background:#fff;position:relative;z-index:2">
+    <div id="barcode-notfound" style="display:none;padding:16px">
       <div style="font-size:14px;color:var(--text3);margin-bottom:10px">Código <strong id="barcode-code-display"></strong> no encontrado.</div>
       <div style="font-size:13px;color:var(--text3);margin-bottom:10px">¿Querés asignarlo a un producto existente?</div>
-      <input type="search" id="barcode-assign-search" placeholder="Buscar producto..." oninput="barcodeAssignSearch(this.value)" onkeyup="barcodeAssignSearch(this.value)"
+      <input type="search" id="barcode-assign-search" placeholder="Buscar producto..." oninput="barcodeAssignSearch(this.value)"
         style="width:100%;font-size:14px;padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);box-sizing:border-box">
-      <div id="barcode-assign-list" style="max-height:160px;overflow-y:auto;margin-top:8px;background:#fff;border-radius:8px;border:1px solid #ddd"></div>
-      <button onclick="barcodeContinue()" style="width:100%;margin-top:12px;background:#555;border:none;border-radius:10px;padding:12px;font-size:14px;cursor:pointer;color:#fff;font-weight:600">Escanear siguiente →</button>
+      <div id="barcode-assign-list" style="max-height:160px;overflow-y:auto;margin-top:8px"></div>
+      <button onclick="barcodeContinue()" style="width:100%;margin-top:8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:14px;cursor:pointer;color:var(--text2)">Saltar →</button>
     </div>
   </div>
 </div>
@@ -1628,11 +1628,9 @@ async function openBarcodeScanner(context) {
 }
 
 function onBarcodeDetected(code) {
-  // Evitar detecciones múltiples mientras se procesa
-  if(document.getElementById('barcode-found').style.display === 'block') return;
-  if(document.getElementById('barcode-notfound').style.display === 'block') return;
   if(navigator.vibrate) navigator.vibrate(100);
 
+  // Si venimos de la ficha del producto, asignar directamente y cerrar
   if(_barcodeContext === 'producto') {
     window._pendingBarcode = code;
     closeBarcodeScanner();
@@ -1640,11 +1638,8 @@ function onBarcodeDetected(code) {
     return;
   }
 
-  // Pausar escáner mientras el usuario ingresa la cantidad
-  if(window._codeReader) { try{ window._codeReader.pause(true); }catch(e){} }
-
+  // Contexto compra — buscar producto
   const prod = S.products.find(p=>p.barcode===code);
-  const cam = document.getElementById('barcode-camera-container');
   if(prod) {
     _barcodeFoundProd = prod;
     document.getElementById('barcode-prod-name').textContent = prod.name;
@@ -1652,7 +1647,6 @@ function onBarcodeDetected(code) {
     document.getElementById('barcode-found').style.display = 'block';
     document.getElementById('barcode-notfound').style.display = 'none';
     document.getElementById('barcode-status').textContent = '✓ Producto encontrado';
-    if(cam) cam.style.height = '120px';
     setTimeout(() => document.getElementById('barcode-qty').focus(), 100);
   } else {
     _barcodeFoundProd = null;
@@ -1663,20 +1657,18 @@ function onBarcodeDetected(code) {
     document.getElementById('barcode-status').textContent = 'Código no registrado';
     document.getElementById('barcode-assign-search').value = '';
     document.getElementById('barcode-assign-list').innerHTML = '';
-    if(cam) cam.style.height = '120px';
     setTimeout(() => document.getElementById('barcode-assign-search').focus(), 100);
   }
 }
 
 function barcodeConfirm() {
-  if(!_barcodeFoundProd) { toast('Error: producto no encontrado'); return; }
+  if(!_barcodeFoundProd) return;
   const qty = parseFloat(document.getElementById('barcode-qty').value)||0;
   if(qty <= 0) { toast('Ingresá una cantidad'); return; }
-  if(typeof ncItems === 'undefined') window.ncItems = {};
+  // Agregar a ncItems
   if(!ncItems[_barcodeFoundProd.id]) ncItems[_barcodeFoundProd.id] = {qty:0, cost:_barcodeFoundProd.cost||0};
   ncItems[_barcodeFoundProd.id].qty += qty;
-  try{ ncUpdateTotal(); }catch(e){}
-  try{ ncRenderList(document.getElementById('nc-search')?document.getElementById('nc-search').value:''); }catch(e){}
+  ncUpdateTotal();
   toast(_barcodeFoundProd.name+': +'+qty);
   barcodeContinue();
 }
@@ -1686,17 +1678,14 @@ function barcodeContinue() {
   document.getElementById('barcode-found').style.display = 'none';
   document.getElementById('barcode-notfound').style.display = 'none';
   document.getElementById('barcode-status').textContent = 'Apuntá la cámara al código de barras';
-  const cam = document.getElementById('barcode-camera-container');
-  if(cam) { cam.style.height = ''; }
-  // Reanudar escáner
-  if(window._codeReader) { try{ window._codeReader.resume(); }catch(e){} }
+  // html5-qrcode sigue escaneando automáticamente
 }
 
 function barcodeAssignSearch(q) {
   const list = document.getElementById('barcode-assign-list');
   if(!q.trim()) { list.innerHTML = ''; return; }
   const prods = S.products.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())).slice(0,8);
-  list.innerHTML = prods.map(p=>'<div onclick="barcodeAssignTo(\''+p.id+'\')" style="padding:10px 12px;cursor:pointer;font-size:14px;border-bottom:1px solid #eee;color:#222;background:#fff">'+p.name+'</div>').join('');
+  list.innerHTML = prods.map(p=>'<div onclick="barcodeAssignTo(\''+p.id+'\')" style="padding:10px 12px;cursor:pointer;font-size:14px;border-bottom:1px solid var(--border)">'+p.name+'</div>').join('');
 }
 
 function barcodeAssignTo(prodId) {
@@ -1715,9 +1704,6 @@ function barcodeAssignTo(prodId) {
 }
 
 function scanBarcodeForProduct() {
-  // Ocultar temporalmente el modal de producto para que la cámara se vea
-  const mprod = document.getElementById('mprod');
-  if(mprod) mprod.style.opacity = '0';
   openBarcodeScanner('producto');
 }
 
@@ -1728,9 +1714,6 @@ function closeBarcodeScanner() {
   }
   if(_barcodeStream) { _barcodeStream.getTracks().forEach(t=>t.stop()); _barcodeStream = null; }
   document.getElementById('mbarcode').classList.remove('open');
-  // Restaurar modal de producto si estaba abierto
-  const mprod = document.getElementById('mprod');
-  if(mprod) mprod.style.opacity = '1';
   if(_barcodeContext === 'producto' && window._pendingBarcode) {
     const el = document.getElementById('p-barcode');
     if(el) el.value = window._pendingBarcode;
@@ -3895,7 +3878,7 @@ function saveInv() {
     id:S.editId||'FAC-'+String(S.nInv++).padStart(4,'0'),
     type:document.getElementById('i-type').value,
     clientId:cid, clientName:cli?cli.name:'---',
-    date:document.getElementById('i-date').value,
+    date:(document.getElementById('i-date-res')&&document.getElementById('i-date-res').value) ? document.getElementById('i-date-res').value : document.getElementById('i-date').value,
     ts: S.editId ? (S.invoices.find(x=>x.id===S.editId)||{}).ts||Date.now() : Date.now(),
     status, notes:document.getElementById('i-notes').value,
     items:[...S.invItems], subtotal:sub,
@@ -5008,12 +4991,11 @@ function pagocliSelectClient(cliId) {
 function pagocliCalc() {
   if (!pagocliSelected) return;
   const monto = parseFloat(document.getElementById('pagocli-monto').value) || 0;
-  const credito = pagocliSelected.credito || 0;
   const pendientes = S.invoices.filter(inv => inv.clientId === pagocliSelected.id && (inv.status === 'pendiente' || inv.status === 'pending' || (inv.saldo||0) > 0) && inv.status !== 'cancelada' && inv.type !== 'presupuesto');
-  const totalDeuda = Math.max(0, pendientes.reduce((s, inv) => {
+  const totalDeuda = pendientes.reduce((s, inv) => {
     const pagado = (inv.pagos || []).reduce((a, p) => a + p.monto, 0);
     return s + (inv.total - pagado);
-  }, 0) - credito);
+  }, 0);
 
   const res = document.getElementById('pagocli-resultado');
   const btn = document.getElementById('pagocli-btn');
@@ -5030,7 +5012,7 @@ function pagocliCalc() {
     res.innerHTML = '<div style="background:#22c55e22;border:1px solid var(--green);border-radius:8px;padding:10px 12px;font-size:15px">'
       + '✅ Salda toda la deuda exactamente</div>';
   } else {
-    const favor = monto - totalDeuda + credito;
+    const favor = monto - totalDeuda;
     res.innerHTML = '<div style="background:#22c55e22;border:1px solid var(--green);border-radius:8px;padding:10px 12px;font-size:15px">'
       + '✅ Salda toda la deuda y queda <strong style="color:var(--green)">$' + favor.toFixed(0) + ' a favor</strong></div>';
   }
