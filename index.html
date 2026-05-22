@@ -1669,13 +1669,14 @@ function onBarcodeDetected(code) {
 }
 
 function barcodeConfirm() {
-  if(!_barcodeFoundProd) return;
+  if(!_barcodeFoundProd) { toast('Error: producto no encontrado'); return; }
   const qty = parseFloat(document.getElementById('barcode-qty').value)||0;
   if(qty <= 0) { toast('Ingresá una cantidad'); return; }
-  // Agregar a ncItems
+  if(typeof ncItems === 'undefined') window.ncItems = {};
   if(!ncItems[_barcodeFoundProd.id]) ncItems[_barcodeFoundProd.id] = {qty:0, cost:_barcodeFoundProd.cost||0};
   ncItems[_barcodeFoundProd.id].qty += qty;
-  ncUpdateTotal();
+  try{ ncUpdateTotal(); }catch(e){}
+  try{ ncRenderList(document.getElementById('nc-search')?document.getElementById('nc-search').value:''); }catch(e){}
   toast(_barcodeFoundProd.name+': +'+qty);
   barcodeContinue();
 }
