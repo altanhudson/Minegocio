@@ -889,7 +889,7 @@ select option{background:var(--surface2)}
           onkeydown="if(event.key==='Enter')barcodeConfirm()">
         <button onclick="barcodeConfirm()" style="background:var(--accent2);color:#fff;border:none;border-radius:10px;padding:12px 20px;font-size:15px;font-weight:700;cursor:pointer">✓</button>
       </div>
-      <button onclick="barcodeContinue()" style="width:100%;margin-top:8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:14px;font-weight:600;cursor:pointer;color:var(--text2)">Escanear siguiente →</button>
+      <button onclick="barcodeContinue()" style="width:100%;margin-top:8px;background:#555;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;color:#fff">Escanear siguiente →</button>
     </div>
     <!-- Popup producto no encontrado -->
     <div id="barcode-notfound" style="display:none;padding:16px">
@@ -897,8 +897,8 @@ select option{background:var(--surface2)}
       <div style="font-size:13px;color:var(--text3);margin-bottom:10px">¿Querés asignarlo a un producto existente?</div>
       <input type="search" id="barcode-assign-search" placeholder="Buscar producto..." oninput="barcodeAssignSearch(this.value)" onkeyup="barcodeAssignSearch(this.value)"
         style="width:100%;font-size:14px;padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);box-sizing:border-box">
-      <div id="barcode-assign-list" style="max-height:160px;overflow-y:auto;margin-top:8px"></div>
-      <button onclick="barcodeContinue()" style="width:100%;margin-top:8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:14px;cursor:pointer;color:var(--text2)">Saltar →</button>
+      <div id="barcode-assign-list" style="max-height:160px;overflow-y:auto;margin-top:8px;background:#fff;border-radius:8px;border:1px solid #ddd"></div>
+      <button onclick="barcodeContinue()" style="width:100%;margin-top:12px;background:#555;border:none;border-radius:10px;padding:12px;font-size:14px;cursor:pointer;color:#fff;font-weight:600">Escanear siguiente →</button>
     </div>
   </div>
 </div>
@@ -1685,7 +1685,7 @@ function barcodeAssignSearch(q) {
   const list = document.getElementById('barcode-assign-list');
   if(!q.trim()) { list.innerHTML = ''; return; }
   const prods = S.products.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())).slice(0,8);
-  list.innerHTML = prods.map(p=>'<div onclick="barcodeAssignTo(\''+p.id+'\')" style="padding:10px 12px;cursor:pointer;font-size:14px;border-bottom:1px solid var(--border)">'+p.name+'</div>').join('');
+  list.innerHTML = prods.map(p=>'<div onclick="barcodeAssignTo(\''+p.id+'\')" style="padding:10px 12px;cursor:pointer;font-size:14px;border-bottom:1px solid #eee;color:#222;background:#fff">'+p.name+'</div>').join('');
 }
 
 function barcodeAssignTo(prodId) {
