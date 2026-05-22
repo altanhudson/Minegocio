@@ -1628,9 +1628,11 @@ async function openBarcodeScanner(context) {
 }
 
 function onBarcodeDetected(code) {
+  // Evitar detecciones múltiples mientras se procesa
+  if(document.getElementById('barcode-found').style.display === 'block') return;
+  if(document.getElementById('barcode-notfound').style.display === 'block') return;
   if(navigator.vibrate) navigator.vibrate(100);
 
-  // Si venimos de la ficha del producto, asignar directamente y cerrar
   if(_barcodeContext === 'producto') {
     window._pendingBarcode = code;
     closeBarcodeScanner();
@@ -1638,8 +1640,11 @@ function onBarcodeDetected(code) {
     return;
   }
 
-  // Contexto compra — buscar producto
+  // Pausar escáner mientras el usuario ingresa la cantidad
+  if(window._codeReader) { try{ window._codeReader.pause(true); }catch(e){} }
+
   const prod = S.products.find(p=>p.barcode===code);
+  const cam = document.getElementById('barcode-camera-container');
   if(prod) {
     _barcodeFoundProd = prod;
     document.getElementById('barcode-prod-name').textContent = prod.name;
@@ -1647,9 +1652,7 @@ function onBarcodeDetected(code) {
     document.getElementById('barcode-found').style.display = 'block';
     document.getElementById('barcode-notfound').style.display = 'none';
     document.getElementById('barcode-status').textContent = '✓ Producto encontrado';
-    // Achicar cámara para dar espacio a los botones
-    const cam = document.getElementById('barcode-camera-container');
-    if(cam) cam.style.height = '140px';
+    if(cam) cam.style.height = '120px';
     setTimeout(() => document.getElementById('barcode-qty').focus(), 100);
   } else {
     _barcodeFoundProd = null;
@@ -1660,6 +1663,7 @@ function onBarcodeDetected(code) {
     document.getElementById('barcode-status').textContent = 'Código no registrado';
     document.getElementById('barcode-assign-search').value = '';
     document.getElementById('barcode-assign-list').innerHTML = '';
+    if(cam) cam.style.height = '120px';
     setTimeout(() => document.getElementById('barcode-assign-search').focus(), 100);
   }
 }
@@ -1681,9 +1685,10 @@ function barcodeContinue() {
   document.getElementById('barcode-found').style.display = 'none';
   document.getElementById('barcode-notfound').style.display = 'none';
   document.getElementById('barcode-status').textContent = 'Apuntá la cámara al código de barras';
-  // Restaurar tamaño de cámara
   const cam = document.getElementById('barcode-camera-container');
-  if(cam) { cam.style.height = ''; cam.style.aspectRatio = '1'; }
+  if(cam) { cam.style.height = ''; }
+  // Reanudar escáner
+  if(window._codeReader) { try{ window._codeReader.resume(); }catch(e){} }
 }
 
 function barcodeAssignSearch(q) {
