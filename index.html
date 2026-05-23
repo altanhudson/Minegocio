@@ -3851,8 +3851,8 @@ function saveInv() {
     if(cid) document.getElementById('i-cli').value = cid;
   }
   if(!cid){toast('Elegi un cliente');return;}
-  // Sync date from resumen field if editing
-  if(S.editId){ const dr=document.getElementById('i-date-res'); const di=document.getElementById('i-date'); if(dr&&di&&di.value) dr.value=di.value; }
+  // Sync: i-date-res tiene prioridad, copiar a i-date
+  { const dr=document.getElementById('i-date-res'); const di=document.getElementById('i-date'); if(dr&&dr.value) di.value=dr.value; }
   if(!S.invItems.length){toast('Agrega al menos un item');return;}
   // Sincronizar texto de inputs al estado antes de guardar
   S.invItems.forEach((item, idx) => {
