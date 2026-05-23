@@ -5347,11 +5347,15 @@ async function syncManual() {
       // 2. Bajar datos frescos de Firebase
       const fbData = await window._fbLoad();
       if (fbData) {
-        if (S.editId) {
+        // Solo bloquear si la pantalla de resumen de factura está realmente activa
+        const resumenActivo = document.getElementById('page-resumen-factura') &&
+          document.getElementById('page-resumen-factura').classList.contains('active');
+        if (S.editId && resumenActivo) {
           toast('⚠️ Hay una factura abierta — cerrala antes de sincronizar');
           if (btn) btn.textContent = '🔄';
           return;
         }
+        S.editId = null; // limpiar rastro residual
         Object.assign(S, fbData);
         try { localStorage.setItem(SK, JSON.stringify(fbData)); } catch(e) {}
         renderProds(); renderInvs(); renderClis(); renderProvs(); renderComps(); updDash();
