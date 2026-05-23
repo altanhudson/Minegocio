@@ -132,33 +132,8 @@
     } catch(e) { console.error('Firebase load error:', e); return null; }
   };
 
-  window._fbListen = function(callback) {
-    let merged = {};
-    let pending = new Set(COLS.concat(['config']));
-    let debounce = null;
-
-    const fire = () => {
-      if(pending.size > 0) return; // esperar que carguen todas
-      if(debounce) clearTimeout(debounce);
-      debounce = setTimeout(() => callback({...merged}), 150);
-    };
-
-    const unsubs = COLS.map(name =>
-      onSnapshot(colDoc(name), snap => {
-        merged[name] = snap.exists() ? (snap.data().items || []) : [];
-        pending.delete(name);
-        fire();
-      })
-    );
-
-    unsubs.push(onSnapshot(colDoc('config'), snap => {
-      if(snap.exists()) Object.assign(merged, snap.data().data || {});
-      pending.delete('config');
-      fire();
-    }));
-
-    return () => unsubs.forEach(u => u());
-  };
+  // Sincronización manual — no onSnapshot
+  window._fbListen = null;
 
   const storage = getStorage(app);
   window._fbUploadPhoto = async function(file, productId) {
@@ -323,6 +298,12 @@ select option{background:var(--surface2)}
   <div class="topbar-title">Revendit</div>
   <div style="display:flex;align-items:center;gap:6px">
     <button class="btn btn-sm" id="btn-add" onclick="handleAdd()" style="background:#ffe600;color:#1a3a6b;border:none;font-weight:700;display:none">+ Nuevo</button>
+    <div style="position:relative">
+      <button id="btn-sync" onclick="syncManual()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:18px;padding:6px 10px;border-radius:8px;cursor:pointer;position:relative" title="Sincronizar">
+        🔄
+        <span id="sync-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#dc2626;color:#fff;border-radius:50%;width:14px;height:14px;font-size:9px;font-weight:700;display:none;align-items:center;justify-content:center;line-height:1">!</span>
+      </button>
+    </div>
     <div style="position:relative">
       <button class="btn btn-sm" onclick="showPage('config')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:18px;padding:6px 12px">&#9881;&#65039;</button>
     </div>
@@ -1246,8 +1227,8 @@ function save(fields, forceWrite) {
   };
   if(window._fbSave) {
     window._fbSave(data, fields, forceWrite)
-      .then(()=>_syncShow('ok'))
-      .catch(e=>{ console.error('Firebase save error:',e); _syncShow('error'); });
+      .then(()=>{ _syncShow('ok'); try{_syncMarkDirty(false);}catch(e){} })
+      .catch(e=>{ console.error('Firebase save error:',e); _syncShow('error'); try{_syncMarkDirty(true);}catch(e2){} });
   } else {
     _syncShow('ok');
   }
@@ -1937,15 +1918,9 @@ function localDateStr() {
 }
 function resetStockCero() {
   if(!confirm('¿Poner en CERO el stock de todos los productos? Esta acción no se puede deshacer.')) return;
-  // Crear ajuste snapshot ANTES de resetear — sirve de ancla para el historial
-  if(!S.ajustes) S.ajustes = [];
-  const snapItems = S.products
-    .filter(p => (p.stock||0) !== 0)
-    .map(p => ({prodId:p.id, name:p.name, stockAnterior:p.stock, stockNuevo:0, diff:-(p.stock||0)}));
-  if(snapItems.length > 0) {
-    S.ajustes.push({id:'AJU-'+Date.now(), date:localDateStr(), ts:Date.now(), items:snapItems, tipo:'ajuste'});
-  }
   S.products.forEach(p => p.stock = 0);
+  // Limpiar ajustes también para empezar limpio
+  S.ajustes = [];
   save(['products', 'ajustes'], true);
   renderProds();
   toast('Stock de todos los productos puesto en cero ✓');
@@ -5334,30 +5309,83 @@ async function initApp() {
 
   renderProds(); renderInvs(); renderClis(); renderProvs(); renderComps(); updDash();
 
-  // 3. Activar listener de sincronización en tiempo real (solo una vez)
-  if (!_fbListenerActive && window._fbListen) {
-    _fbListenerActive = true;
-    let firstCall = true;
-    window._fbListen((fbData) => {
-      if (firstCall) {
-        firstCall = false;
-        if(hasLocalData) return;
+  // Badge de sync pendiente: mostrar si hay datos locales más nuevos que Firebase
+  _syncMarkDirty(false); // al iniciar no hay cambios pendientes
+}
+
+
+// ========== SINCRONIZACIÓN MANUAL ==========
+let _syncDirty = false;
+
+function _syncMarkDirty(dirty) {
+  _syncDirty = dirty;
+  const badge = document.getElementById('sync-badge');
+  const btn = document.getElementById('btn-sync');
+  if (!badge || !btn) return;
+  if (dirty) {
+    badge.style.display = 'flex';
+    btn.style.background = '#fef3c7';
+    btn.style.borderColor = '#f59e0b';
+    btn.title = 'Hay cambios sin sincronizar — tocá para sincronizar';
+  } else {
+    badge.style.display = 'none';
+    btn.style.background = 'var(--surface2)';
+    btn.style.borderColor = 'var(--border)';
+    btn.title = 'Sincronizado';
+  }
+}
+
+async function syncManual() {
+  const btn = document.getElementById('btn-sync');
+  if (btn) btn.textContent = '⏳';
+  try {
+    if (typeof window._fbLoad === 'function') {
+      // 1. Primero subir datos locales
+      if (_syncDirty && typeof window._fbSave === 'function') {
+        await window._fbSave(S, null, true);
+      }
+      // 2. Bajar datos frescos de Firebase
+      const fbData = await window._fbLoad();
+      if (fbData) {
+        if (S.editId) {
+          toast('⚠️ Hay una factura abierta — cerrala antes de sincronizar');
+          if (btn) btn.textContent = '🔄';
+          return;
+        }
         Object.assign(S, fbData);
         try { localStorage.setItem(SK, JSON.stringify(fbData)); } catch(e) {}
         renderProds(); renderInvs(); renderClis(); renderProvs(); renderComps(); updDash();
-        try{updateStockBadge();}catch(e){}
-        return;
+        try { updateStockBadge(); } catch(e) {}
+        try { renderProdCatChips(); } catch(e) {}
+        _syncMarkDirty(false);
+        toast('✅ Sincronizado');
       }
-      if(S.editId) return; // no sincronizar mientras hay una edición activa
-      Object.assign(S, fbData);
-      try { localStorage.setItem(SK, JSON.stringify(fbData)); } catch(e) {}
-      renderProds(); renderInvs(); renderClis(); renderProvs(); renderComps(); updDash();
-      try{updateStockBadge();}catch(e){}
-      try{renderProdCatChips();}catch(e){}
-      toast('🔄 Sincronizado');
-    });
+    }
+  } catch(e) {
+    console.error('Error sync:', e);
+    toast('❌ Error al sincronizar');
   }
+  if (btn) btn.textContent = '🔄';
 }
+
+// Sincronizar al cerrar/minimizar la app
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'hidden' && _syncDirty) {
+    // Guardar en Firebase antes de cerrar
+    if (typeof window._fbSave === 'function') {
+      try { window._fbSave(S, null, true); } catch(e) {}
+    }
+  }
+  if (document.visibilityState === 'visible') {
+    // Al volver, sincronizar automáticamente si hay cambios
+    setTimeout(function() {
+      if (typeof window._fbLoad === 'function') {
+        syncManual();
+      }
+    }, 1000);
+  }
+});
+// ========== FIN SINCRONIZACIÓN MANUAL ==========
 
 // Esperar a que Firebase esté listo, o iniciar igual con localStorage
 if (window._firebaseReady) {
