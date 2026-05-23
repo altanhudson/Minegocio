@@ -1937,9 +1937,15 @@ function localDateStr() {
 }
 function resetStockCero() {
   if(!confirm('¿Poner en CERO el stock de todos los productos? Esta acción no se puede deshacer.')) return;
+  // Crear ajuste snapshot ANTES de resetear — sirve de ancla para el historial
+  if(!S.ajustes) S.ajustes = [];
+  const snapItems = S.products
+    .filter(p => (p.stock||0) !== 0)
+    .map(p => ({prodId:p.id, name:p.name, stockAnterior:p.stock, stockNuevo:0, diff:-(p.stock||0)}));
+  if(snapItems.length > 0) {
+    S.ajustes.push({id:'AJU-'+Date.now(), date:localDateStr(), ts:Date.now(), items:snapItems, tipo:'ajuste'});
+  }
   S.products.forEach(p => p.stock = 0);
-  // Limpiar ajustes también para empezar limpio
-  S.ajustes = [];
   save(['products', 'ajustes'], true);
   renderProds();
   toast('Stock de todos los productos puesto en cero ✓');
