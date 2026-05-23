@@ -5372,22 +5372,14 @@ async function syncManual() {
   if (btn) btn.textContent = '🔄';
 }
 
-// Sincronizar al cerrar/minimizar la app
+// Guardar en Firebase al minimizar/cerrar la app
 document.addEventListener('visibilitychange', function() {
   if (document.visibilityState === 'hidden' && _syncDirty) {
-    // Guardar en Firebase antes de cerrar
     if (typeof window._fbSave === 'function') {
       try { window._fbSave(S, null, true); } catch(e) {}
     }
   }
-  if (document.visibilityState === 'visible') {
-    // Al volver, sincronizar automáticamente si hay cambios
-    setTimeout(function() {
-      if (typeof window._fbLoad === 'function') {
-        syncManual();
-      }
-    }, 1000);
-  }
+  // Al volver NO sincroniza automáticamente — solo manual o al abrir la app
 });
 // ========== FIN SINCRONIZACIÓN MANUAL ==========
 
