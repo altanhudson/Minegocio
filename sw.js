@@ -1,7 +1,7 @@
-const CACHE_NAME = 'revendit-v9';
+const CACHE_NAME = 'revendit-v10';
 const urlsToCache = [
-  '/Minegocio/',
-  '/Minegocio/index.html'
+  '/',
+  '/index.html'
 ];
 
 self.addEventListener('install', event => {
@@ -25,7 +25,7 @@ self.addEventListener('message', event => {
 });
 
 self.addEventListener('fetch', event => {
-  if (event.request.url.includes('index.html') || event.request.url.endsWith('/Minegocio/')) {
+  if (event.request.url.includes('index.html') || event.request.url.endsWith('/')) {
     event.respondWith(
       fetch(event.request).catch(() => caches.match(event.request))
     );
