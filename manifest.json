@@ -2,14 +2,14 @@
   "name": "Revendit",
   "short_name": "Revendit",
   "description": "Gestión de distribuidora y reventas",
-  "start_url": "/Minegocio/",
-  "scope": "/Minegocio/",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#edf0ed",
   "theme_color": "#0d9488",
   "icons": [
-    {"src": "/Minegocio/icon-192.png", "sizes": "192x192", "type": "image/png"},
-    {"src": "/Minegocio/icon-512.png", "sizes": "512x512", "type": "image/png"}
+    {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png"}
   ]
 }
