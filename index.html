@@ -6115,7 +6115,7 @@ function tiendaAdminVolver() {
   showPage('dashboard');
 }
 function tiendaCompartirLink() {
-  const url = 'https://altanhudson.github.io/Minegocio?tienda';
+  const url = 'https://surtimar.com.ar?tienda';
   if(navigator.share) {
     navigator.share({ title: 'Surtimar - Tienda online', text: 'Hacé tu pedido online 🛒', url });
   } else {
@@ -6576,7 +6576,7 @@ window.addEventListener('DOMContentLoaded', function(){
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/Minegocio/sw.js')
+        navigator.serviceWorker.register('/sw.js')
           .then(reg => {
             console.log('SW registrado:', reg.scope);
             // Detectar cuando hay una nueva versión esperando
