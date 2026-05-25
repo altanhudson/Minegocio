@@ -621,10 +621,10 @@ select option{background:var(--surface2)}
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
       <div id="prod-cat-chips" style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex:1;padding:2px 0">
-        <div class="chip active" id="chip-all" onclick="setPF('all',this)">Todos</div>
         <div class="chip" id="chip-noprice" onclick="setPF('noprice',this)">Sin precio</div>
         <div class="chip" id="chip-flyer" onclick="setPF('flyer',this)">📢 Flyer</div>
         <div class="chip" id="chip-tienda" onclick="setPF('tienda',this)">👁️ Tienda</div>
+        <div class="chip" id="chip-oferta" onclick="setPF('oferta',this)">🔥 Oferta</div>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:0">
@@ -2196,9 +2196,15 @@ function toggleProdView() {
   renderProds(document.getElementById('prod-search').value);
 }
 function setPF(f,el) {
-  pf=f;
-  document.querySelectorAll('#prod-cat-chips .chip').forEach(c=>c.classList.remove('active'));
-  if(el) el.classList.add('active');
+  if(pf === f) {
+    // Toggle off — volver a todos
+    pf = 'all';
+    document.querySelectorAll('#prod-cat-chips .chip').forEach(c=>c.classList.remove('active'));
+  } else {
+    pf=f;
+    document.querySelectorAll('#prod-cat-chips .chip').forEach(c=>c.classList.remove('active'));
+    if(el) el.classList.add('active');
+  }
   renderProds(document.getElementById('prod-search').value);
 }
 function setPFCat(cat) {
@@ -2266,6 +2272,7 @@ function renderProds(q) {
   if(pf==='noprice') list = list.filter(p=>!p.price);
   else if(pf==='flyer') list = list.filter(p=>!!p.enFlyer);
   else if(pf==='tienda') list = list.filter(p=>p.visible!==false);
+  else if(pf==='oferta') list = list.filter(p=>!!p.oferta);
   else if(pf && pf.startsWith('cat:')) { const cat=pf.slice(4); list=list.filter(p=>(p.category||p.marca||'').trim()===cat); }
   // Ordenar
   const sortEl = document.getElementById('prod-sort');
@@ -5356,20 +5363,11 @@ async function syncManual() {
       // 2. Bajar datos frescos de Firebase
       const fbData = await window._fbLoad();
       if (fbData) {
-        // Bloquear si hay factura/compra abierta en edición
-        const facturaActiva = document.getElementById('page-resumen-factura') &&
+        // Solo bloquear si la pantalla de resumen de factura está realmente activa
+        const resumenActivo = document.getElementById('page-resumen-factura') &&
           document.getElementById('page-resumen-factura').classList.contains('active');
-        const compraResActiva = document.getElementById('page-resumen-compra') &&
-          document.getElementById('page-resumen-compra').classList.contains('active');
-        const compraNuevaActiva = document.getElementById('page-nueva-compra') &&
-          document.getElementById('page-nueva-compra').classList.contains('active');
-        if (S.editId && (facturaActiva || compraResActiva)) {
-          toast('⚠️ Tenés una factura/compra abierta — cerrala antes de sincronizar');
-          if (btn) btn.textContent = '🔄';
-          return;
-        }
-        if (compraNuevaActiva && Object.keys(window.ncItems||{}).length > 0) {
-          toast('⚠️ Tenés una compra en armado — guardala antes de sincronizar');
+        if (S.editId && resumenActivo) {
+          toast('⚠️ Hay una factura abierta — cerrala antes de sincronizar');
           if (btn) btn.textContent = '🔄';
           return;
         }
