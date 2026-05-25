@@ -776,6 +776,7 @@ select option{background:var(--surface2)}
       <div id="stock-ajuste-list" style="padding-bottom:70px"></div>
       <div style="position:sticky;bottom:0;left:0;right:0;background:var(--bg);padding:10px 0 4px;margin-top:4px">
         <button class="btn btn-primary btn-full" onclick="saveStockAjuste()">💾 Guardar ajuste</button>
+        <button id="btn-fijar-stock" class="btn btn-full" onclick="fijarStockActual()" style="background:rgba(234,179,8,.15);border:1px solid #ca8a04;color:#854d0e;margin-top:8px">📸 Fijar stock actual como punto de partida</button>
       </div>
     </div>
 
@@ -5561,6 +5562,17 @@ function renderStockAjuste(q) {
       + '<input type="number" inputmode="decimal" placeholder="' + (p.stock||0) + '" data-prodid="' + p.id + '" style="width:70px;text-align:center;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-size:14px;font-weight:600">'
       + '</div>';
   }).join('');
+}
+
+function fijarStockActual() {
+  if(!confirm('¿Fijar el stock actual de TODOS los productos como punto de partida? Esto crea un ajuste con el valor actual de cada producto.')) return;
+  if(!S.ajustes) S.ajustes = [];
+  const items = S.products
+    .filter(p => p.name && p.name.trim())
+    .map(p => ({prodId:p.id, name:p.name, stockAnterior:p.stock||0, stockNuevo:p.stock||0, diff:0}));
+  S.ajustes.push({id:'AJU-'+Date.now(), date:localDateStr(), ts:Date.now(), items:items, tipo:'ajuste'});
+  save(['ajustes'], true);
+  toast('✅ Stock actual fijado como punto de partida (' + items.length + ' productos)');
 }
 
 function saveStockAjuste() {
