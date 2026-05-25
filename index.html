@@ -1972,6 +1972,7 @@ function restoreData(input) {
       if(!data.products || !data.clients) { toast('Archivo inválido'); return; }
       if(!confirm('Restaurar backup del ' + (data.date||'').split('T')[0] + '? Esto reemplaza todos los datos actuales.')) return;
       Object.assign(S, data);
+      try { recalcAllStocks(); } catch(ex) {}
       save();
       try{renderProds();}catch(ex){} try{renderClis();}catch(ex){} try{renderInvs();}catch(ex){} try{updDash();}catch(ex){}
   try{mostrarRecordatorioBackup();}catch(ex){}
@@ -5326,6 +5327,7 @@ async function initApp() {
 
   // Badge de sync pendiente: mostrar si hay datos locales más nuevos que Firebase
   _syncMarkDirty(false); // al iniciar no hay cambios pendientes
+  try { recalcAllStocks(); } catch(e) { console.error('recalc error:', e); }
   try { updTiendaModoUI(); } catch(e) {}
 }
 
@@ -5374,6 +5376,7 @@ async function syncManual() {
         S.editId = null; // limpiar rastro residual
         Object.assign(S, fbData);
         try { localStorage.setItem(SK, JSON.stringify(fbData)); } catch(e) {}
+        try { recalcAllStocks(); } catch(e) { console.error('recalc error:', e); }
         renderProds(); renderInvs(); renderClis(); renderProvs(); renderComps(); updDash();
         try { updateStockBadge(); } catch(e) {}
         try { renderProdCatChips(); } catch(e) {}
@@ -5398,6 +5401,67 @@ document.addEventListener('visibilitychange', function() {
   // Al volver NO sincroniza automáticamente — solo manual o al abrir la app
 });
 // ========== FIN SINCRONIZACIÓN MANUAL ==========
+
+
+// ========== RECALC STOCK DESDE MOVIMIENTOS ==========
+function recalcAllStocks() {
+  if (!S.products || !S.products.length) return;
+  const ajustesList = S.ajustes || [];
+  const comprasList = S.compras || [];
+  const invoicesList = S.invoices || [];
+
+  S.products.forEach(function(p) {
+    // Recopilar ajustes de este producto ordenados por ts
+    const prodAjustes = [];
+    ajustesList.forEach(function(aju) {
+      (aju.items || []).forEach(function(item) {
+        if (item.prodId === p.id) {
+          prodAjustes.push({ ts: aju.ts || 0, date: aju.date || '', stockNuevo: item.stockNuevo || 0 });
+        }
+      });
+    });
+    prodAjustes.sort(function(a,b){ return a.ts !== b.ts ? a.ts - b.ts : a.date.localeCompare(b.date); });
+
+    var baseStock = 0, baseTs = 0, baseDate = '';
+    if (prodAjustes.length > 0) {
+      var last = prodAjustes[prodAjustes.length - 1];
+      baseStock = last.stockNuevo || 0;
+      baseTs = last.ts || 0;
+      baseDate = last.date || '';
+    }
+
+    var stock = baseStock;
+
+    // Aplicar compras posteriores al último ajuste
+    comprasList.forEach(function(c) {
+      if (c.draft) return;
+      var cTs = c.ts || 0;
+      var cDate = c.date || '';
+      var after = baseTs > 0 ? cTs > baseTs : (baseDate ? cDate > baseDate || (cDate === baseDate && cTs >= baseTs) : true);
+      if (baseTs === 0 && baseDate === '') after = true;
+      if (!after) return;
+      (c.items || []).forEach(function(item) {
+        if (item.prodId === p.id) stock += (item.qty || 0);
+      });
+    });
+
+    // Aplicar ventas posteriores al último ajuste
+    invoicesList.forEach(function(inv) {
+      if (inv.type === 'presupuesto') return;
+      var iTs = inv.ts || 0;
+      var iDate = inv.date || '';
+      var after = baseTs > 0 ? iTs > baseTs : (baseDate ? iDate > baseDate || (iDate === baseDate && iTs >= baseTs) : true);
+      if (baseTs === 0 && baseDate === '') after = true;
+      if (!after) return;
+      (inv.items || []).forEach(function(item) {
+        if (item.prodId === p.id) stock -= (item.qty || 0);
+      });
+    });
+
+    p.stock = stock;
+  });
+}
+// ========== FIN RECALC STOCK ==========
 
 // Esperar a que Firebase esté listo, o iniciar igual con localStorage
 if (window._firebaseReady) {
