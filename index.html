@@ -6282,11 +6282,21 @@ function tiendaEntrar() {
     return cp.length >= 6 && cp.slice(-6) === last6;
   }) || null;
   TN = TC_CLI ? TC_CLI.name : 'visitante';
+  // Verificar modo tienda
+  const modoActual = getTiendaModo();
+  if(modoActual === 'cerrada') {
+    document.getElementById('tienda-login').style.display='none';
+    const cat = document.getElementById('tienda-catalogo');
+    cat.style.display='flex'; cat.style.flexDirection='column'; cat.style.alignItems='center'; cat.style.justifyContent='center'; cat.style.minHeight='60vh';
+    cat.innerHTML='<div style="text-align:center;padding:30px"><div style="font-size:48px">🔴</div><div style="font-size:20px;font-weight:700;color:#991b1b;margin:12px 0">Tienda cerrada temporalmente</div><div style="font-size:14px;color:#666">Volvé pronto para hacer tu pedido.</div></div>';
+    return;
+  }
   document.getElementById('tienda-login').style.display='none';
   document.getElementById('tienda-catalogo').style.display='block';
   const nombreMostrar = TC_CLI && TC_CLI.name && !TC_CLI.name.includes('(web)') ? TC_CLI.name : null;
   document.getElementById('tienda-saludo').textContent = nombreMostrar ? 'Hola, ' + nombreMostrar + '! ¿Qué vas a comprar hoy?' : 'Hola! ¿Qué vas a comprar hoy?';
   document.getElementById('tienda-footer').style.display='block';
+  if(modoActual === 'solo_vista') tiendaModoMensaje();
   window.T_CAT = 'todas';
   tiendaSetVista('grilla');
   T_VISTA = 'catalogo';
