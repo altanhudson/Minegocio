@@ -1231,7 +1231,8 @@ function save(fields, forceWrite) {
     products:S.products, clients:S.clients, invoices:S.invoices,
     compras:S.compras, proveedores:S.proveedores, gruposMay:S.gruposMay||[],
     nInv:S.nInv, nCli:S.nCli, nProd:S.nProd, nComp:S.nComp, nProv:S.nProv, nGrupo:S.nGrupo,
-    listaCompras:S.listaCompras||null, cobranzas:S.cobranzas||[], ajustes:S.ajustes||[]
+    listaCompras:S.listaCompras||null, cobranzas:S.cobranzas||[], ajustes:S.ajustes||[],
+    tiendaModo:S.tiendaModo||'abierta'
   };
   if(window._fbSave) {
     window._fbSave(data, fields, forceWrite)
