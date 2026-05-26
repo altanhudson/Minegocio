@@ -33,7 +33,7 @@
 
   // Documentos separados por colección — nunca se pisan entre sí
   const COLS = ['products','invoices','clients','compras','proveedores','cobranzas','ajustes'];
-  const CONFIG_FIELDS = ['nInv','nCli','nProd','nComp','nProv','nGrupo','listaCompras','gruposMay'];
+  const CONFIG_FIELDS = ['nInv','nCli','nProd','nComp','nProv','nGrupo','listaCompras','gruposMay','tiendaModo'];
   const colDoc = name => doc(db, 'collections', name);
   const OLD_DOC = doc(db, 'negocio', 'data'); // doc viejo — solo para migración
 
