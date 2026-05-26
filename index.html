@@ -3442,26 +3442,12 @@ async function ncSaveComp() {
     total: total
   };
 
-  // Actualizar stock
+  // Actualizar costo unitario si corresponde
   if(!isDraft) {
-    if(S.editId) {
-      // Revertir stock de la compra anterior
-      const prev = S.compras.find(x=>x.id===S.editId);
-      if(prev && !prev.draft) {
-        (prev.items||[]).forEach(item=>{
-          const p = S.products.find(x=>x.id===item.prodId);
-          if(p) p.stock = (p.stock||0) - item.qty;
-        });
-      }
-    }
-    // Aplicar nuevo stock
     compItems.forEach(item=>{
       const p = S.products.find(x=>x.id===item.prodId);
-      if(!p) return;
-      p.stock = (p.stock||0) + item.qty;
-      if(item.cost>0) p.cost = item.cost;
+      if(p && item.cost>0) p.cost = item.cost;
     });
-    try{renderProds();}catch(e){}
   }
 
   // Guardar compra
@@ -3479,6 +3465,7 @@ async function ncSaveComp() {
   // Forzar cierre de ambas pantallas de compra
   try{document.getElementById('page-resumen-compra').classList.remove('active');}catch(e){}
   try{document.getElementById('page-nueva-compra').classList.remove('active');}catch(e){}
+  try{ recalcAllStocks(); recalcClientCredits(); }catch(e){}
   try{renderComps();}catch(e){}
   try{renderProds();}catch(e){}
   try{renderStockAlertas();}catch(e){}
@@ -3937,30 +3924,8 @@ function saveInv() {
   } else if(pago>0) {
     inv.status = inv.saldo<=0 ? 'pagada' : status;
   }
-  // Actualizar stock
-  if(!S.editId) {
-    // Factura nueva: descontar stock
-    inv.items.forEach(function(item) {
-      if(!item.prodId) return;
-      const p = S.products.find(x=>x.id===item.prodId);
-      if(p) p.stock = (p.stock||0) - (item.qty||0);
-    });
-  } else {
-    // Edición: revertir stock anterior y aplicar nuevo
-    const prevItems = S._editOrigItems || [];
-    if(!prevItems.length) console.warn('saveInv edit: no _editOrigItems, stock no revertido');
-    prevItems.forEach(function(item) {
-      if(!item.prodId) return;
-      const p = S.products.find(x=>x.id===item.prodId);
-      if(p) p.stock = (p.stock||0) + (item.qty||0); // devolver
-    });
-    S._editOrigItems = null;
-    inv.items.forEach(function(item) {
-      if(!item.prodId) return;
-      const p = S.products.find(x=>x.id===item.prodId);
-      if(p) p.stock = (p.stock||0) - (item.qty||0); // descontar nuevo
-    });
-  }
+  // Stock se recalcula desde movimientos — no modificar p.stock directamente
+  S._editOrigItems = null;
   // Guardar factura — verificar índice válido antes de reemplazar
   if(S.editId) {
     const idx = S.invoices.findIndex(x=>x.id===S.editId);
@@ -3973,7 +3938,7 @@ function saveInv() {
   } else {
     S.invoices.unshift(inv);
   }
-  try{renderInvs();}catch(e){} try{updDash();}catch(e){} try{save(['invoices','clients','products','nInv'], true);}catch(e){} cerrarNuevaFac(); toast('Factura guardada');
+  try{recalcAllStocks();recalcClientCredits();}catch(e){} try{renderInvs();}catch(e){} try{updDash();}catch(e){} try{renderProds();}catch(e){} try{save(['invoices','clients','products','nInv'], true);}catch(e){} cerrarNuevaFac(); toast('Factura guardada');
 
   // Detectar productos nuevos (sin prodId) y ofrecer darlos de alta
   const nuevos = inv.items.filter(i => !i.prodId && (i.desc||'').trim());
@@ -4583,7 +4548,7 @@ function editarPago(invId, pi) {
 }
 function cycleInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv||inv.type==='presupuesto')return;const estados={pendiente:'Pagada',pagada:'Cancelada',cancelada:'Pendiente'};const next=estados[inv.status];if(!confirm('Cambiar estado a '+next+'?'))return;const c={pendiente:'pagada',pagada:'cancelada',cancelada:'pendiente'};inv.status=c[inv.status];if(inv.status==='pagada'){if(!inv.pagos)inv.pagos=[];const totalPagado=inv.pagos.reduce((s,p)=>s+p.monto,0);if(totalPagado===0){inv.pagos.push({monto:inv.total,method:'efectivo',date:localDateStr()});}inv.saldo=0;inv.aFavor=0;}renderInvs();updDash();save(['invoices','clients']);toast('Estado: '+inv.status);}
 function cancelInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv)return;if(inv.status==='cancelada'){toast('Ya esta cancelada');return;}if(!confirm('Cancelar la factura '+id+'? Quedara en el historial sin modificar el stock.'))return;inv.status='cancelada';renderInvs();updDash();save(['invoices']);toast('Factura cancelada');}
-function delInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv)return;const hasPago=inv.pagos&&inv.pagos.reduce((s,p)=>s+p.monto,0)>0;if(!confirm('Eliminar la factura '+id+(hasPago?' (tiene pagos registrados)':'')+' y devolver el stock?'))return;inv.items.forEach(item=>{if(!item.prodId)return;const p=S.products.find(x=>x.id===item.prodId);if(p)p.stock=(p.stock||0)+(item.qty||0);});S.invoices=S.invoices.filter(i=>i.id!==id);renderInvs();renderProds();updDash();save(['invoices','products']);toast('Factura eliminada y stock restaurado');}
+function delInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv)return;const hasPago=inv.pagos&&inv.pagos.reduce((s,p)=>s+p.monto,0)>0;if(!confirm('Eliminar la factura '+id+(hasPago?' (tiene pagos registrados)':'')+' y devolver el stock?'))return;S.invoices=S.invoices.filter(i=>i.id!==id);try{recalcAllStocks();recalcClientCredits();}catch(e){}renderInvs();renderProds();updDash();save(['invoices','products']);toast('Factura eliminada y stock restaurado');}
 
 // === DASHBOARD ===
 function updDash() {
@@ -4779,22 +4744,11 @@ async function saveComp(){
     if(!S.editId) S.nComp++;
     const comp={id:compId,provId:pid,provName:prov?prov.name:'---',date:document.getElementById('cp-date').value,ts:Date.now(),ref:'',notes:document.getElementById('cp-notes').value,items:[...items],total,draft:isDraft};
     if(!isDraft){
-      if(S.editId){
-        const prevIdx=S.compras.findIndex(x=>x.id===S.editId);
-        if(prevIdx>=0&&!S.compras[prevIdx].draft){
-          S.compras[prevIdx].items.map(x=>({...x})).forEach(item=>{
-            if(!item.prodId)return;
-            const p=S.products.find(x=>x.id===item.prodId);
-            if(p) p.stock=(p.stock||0)-item.qty;
-          });
-        }
-      }
+      // Actualizar solo costo — stock se recalcula desde movimientos
       items.forEach(item=>{
         if(!item.prodId)return;
         const p=S.products.find(x=>x.id===item.prodId);
-        if(!p)return;
-        p.stock=(p.stock||0)+item.qty;
-        if(item.cost>0)p.cost=item.cost;
+        if(p&&item.cost>0)p.cost=item.cost;
       });
     }
     if(S.editId){const i=S.compras.findIndex(x=>x.id===S.editId);if(i>=0)S.compras[i]=comp;}
@@ -4805,6 +4759,7 @@ async function saveComp(){
     if(mcomp){mcomp.classList.remove('open');mcomp.style.display='none';}
     setTimeout(function(){if(mcomp)mcomp.style.display='';},200);
     // Luego guardar y re-renderizar
+    try{recalcAllStocks();recalcClientCredits();}catch(e){}
     try{renderComps();}catch(e){}
     try{renderProds();}catch(e){}
     try{renderStockAlertas();}catch(e){}
@@ -4822,7 +4777,7 @@ async function saveComp(){
   }
 }
 
-function confirmComp(id){if(!confirm('Confirmar esta compra? Se va a actualizar el stock.'))return;const comp=S.compras.find(x=>x.id===id);if(!comp||!comp.draft)return;comp.draft=false;comp.items.forEach(item=>{if(!item.prodId)return;const p=S.products.find(x=>x.id===item.prodId);if(!p)return;p.stock=(p.stock||0)+item.qty;if(item.cost>0)p.cost=item.cost;});renderComps();renderProds();renderProvs();updDash();save(['compras','products','nComp']);toast('Compra confirmada - Stock actualizado');}
+function confirmComp(id){if(!confirm('Confirmar esta compra? Se va a actualizar el stock.'))return;const comp=S.compras.find(x=>x.id===id);if(!comp||!comp.draft)return;comp.draft=false;comp.items.forEach(item=>{if(!item.prodId)return;const p=S.products.find(x=>x.id===item.prodId);if(p&&item.cost>0)p.cost=item.cost;});try{recalcAllStocks();recalcClientCredits();}catch(e){}renderComps();renderProds();renderProvs();updDash();save(['compras','products','nComp']);toast('Compra confirmada - Stock actualizado');}
 function renderComps(){
   const el=document.getElementById('comp-hist');
   if(!S.compras.length){el.innerHTML='<div class="empty"><div class="ei">&#128717;</div><h3>Sin compras</h3><p>Toca + para registrar</p></div>';return;}
@@ -5680,6 +5635,7 @@ function fijarStockActual() {
     .filter(p => p.name && p.name.trim())
     .map(p => ({prodId:p.id, name:p.name, stockAnterior:p.stock||0, stockNuevo:p.stock||0, diff:0}));
   S.ajustes.push({id:'AJU-'+Date.now(), date:localDateStr(), ts:Date.now(), items:items, tipo:'ajuste'});
+  try{recalcAllStocks();recalcClientCredits();}catch(e){}
   save(['ajustes'], true);
   toast('✅ Stock actual fijado como punto de partida (' + items.length + ' productos)');
 }
@@ -5699,6 +5655,7 @@ function saveStockAjuste() {
   if (changed === 0) { toast('No hay cambios para guardar'); return; }
   if(!S.ajustes) S.ajustes = [];
   S.ajustes.push({ id:'AJU-'+Date.now(), date: localDateStr(), ts: Date.now(), items: ajusteItems, tipo:'ajuste' });
+  try{recalcAllStocks();recalcClientCredits();}catch(e){}
   try{renderProds();}catch(e){}
   try{updDash();}catch(e){}
   try{save(['products','ajustes'], true);}catch(e){}
