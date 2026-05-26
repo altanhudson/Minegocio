@@ -6331,6 +6331,17 @@ function tiendaInit() {
     if(window._fbLoad) {
       window._fbLoad().then(data => {
         if(data) Object.assign(S, data);
+        // Verificar modo tienda DESPUÉS de cargar datos
+        const modoPost = getTiendaModo();
+        if(modoPost === 'cerrada') {
+          if(btn) { btn.disabled = true; btn.textContent = 'Tienda cerrada'; }
+          const loginEl = document.getElementById('tienda-login');
+          const msgDiv = document.createElement('div');
+          msgDiv.style.cssText = 'text-align:center;padding:40px 20px';
+          msgDiv.innerHTML = '<div style="font-size:48px">🔴</div><div style="font-size:20px;font-weight:700;color:#991b1b;margin:12px 0">Tienda cerrada temporalmente</div><div style="font-size:14px;color:#666">Volvé pronto para hacer tu pedido.</div>';
+          if(loginEl) loginEl.appendChild(msgDiv);
+          return;
+        }
         if(btn) { btn.disabled = false; btn.textContent = 'Ver productos →'; }
       });
     } else {
