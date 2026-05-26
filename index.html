@@ -1973,7 +1973,7 @@ function restoreData(input) {
       if(!data.products || !data.clients) { toast('Archivo inválido'); return; }
       if(!confirm('Restaurar backup del ' + (data.date||'').split('T')[0] + '? Esto reemplaza todos los datos actuales.')) return;
       Object.assign(S, data);
-      try { recalcAllStocks(); } catch(ex) {}
+      try { recalcAllStocks(); recalcClientCredits(); } catch(ex) {}
       save();
       try{renderProds();}catch(ex){} try{renderClis();}catch(ex){} try{renderInvs();}catch(ex){} try{updDash();}catch(ex){}
   try{mostrarRecordatorioBackup();}catch(ex){}
@@ -5344,7 +5344,7 @@ async function initApp() {
 
   // Badge de sync pendiente: mostrar si hay datos locales más nuevos que Firebase
   _syncMarkDirty(false); // al iniciar no hay cambios pendientes
-  try { recalcAllStocks(); } catch(e) { console.error('recalc error:', e); }
+  try { recalcAllStocks(); recalcClientCredits(); } catch(e) { console.error('recalc error:', e); }
   try { updTiendaModoUI(); } catch(e) {}
 }
 
@@ -5393,7 +5393,7 @@ async function syncManual() {
         S.editId = null; // limpiar rastro residual
         Object.assign(S, fbData);
         try { localStorage.setItem(SK, JSON.stringify(fbData)); } catch(e) {}
-        try { recalcAllStocks(); } catch(e) { console.error('recalc error:', e); }
+        try { recalcAllStocks(); recalcClientCredits(); } catch(e) { console.error('recalc error:', e); }
         renderProds(); renderInvs(); renderClis(); renderProvs(); renderComps(); updDash();
         try { updateStockBadge(); } catch(e) {}
         try { renderProdCatChips(); } catch(e) {}
@@ -5479,6 +5479,27 @@ function recalcAllStocks() {
   });
 }
 // ========== FIN RECALC STOCK ==========
+
+// ========== RECALC CREDITO CLIENTES ==========
+function recalcClientCredits() {
+  if (!S.clients || !S.invoices) return;
+  // Para cada cliente, el crédito real es la suma de aFavor de todas sus facturas
+  // menos los créditos ya aplicados como pagos "a favor" en otras facturas
+  S.clients.forEach(function(c) {
+    var totalAFavor = 0;
+    var totalAplicado = 0;
+    S.invoices.forEach(function(inv) {
+      if (inv.clientId !== c.id) return;
+      totalAFavor += (inv.aFavor || 0);
+      (inv.pagos || []).forEach(function(p) {
+        if (p.method === 'a favor') totalAplicado += (p.monto || 0);
+      });
+    });
+    var creditoReal = Math.max(0, totalAFavor - totalAplicado);
+    c.credito = creditoReal;
+  });
+}
+// ========== FIN RECALC CREDITO ==========
 
 // Esperar a que Firebase esté listo, o iniciar igual con localStorage
 if (window._firebaseReady) {
