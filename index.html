@@ -3192,10 +3192,26 @@ function cartQtyChange(input) {
       wtagEl.style.color = isW ? 'var(--accent2)' : 'var(--text3)';
       wtagEl.textContent = isW ? '⭐ Precio mayorista' : 'Mayor: $'+p.wholesalePrice.toFixed(0)+' x'+p.wholesaleQty+' uds';
     }
-    // Actualizar precio en el input si aplica mayorista
+    // Actualizar precio en el input si aplica mayorista (respetando grupo)
     const priceInput = document.getElementById('cpreciou-'+pid);
     if(priceInput && p.wholesalePrice && p.wholesaleQty) {
-      const newPrice = qty >= p.wholesaleQty ? p.wholesalePrice : p.price;
+      // Calcular total del grupo si corresponde
+      let isW = false;
+      const grupoP = (p.grupoMay||'').toLowerCase().trim();
+      if(grupoP) {
+        const gDef = S.gruposMay ? S.gruposMay.find(g=>g.nombre&&g.nombre.toLowerCase().trim()===grupoP) : null;
+        const minG = gDef ? gDef.minMay : p.wholesaleQty;
+        let totalG = 0;
+        document.querySelectorAll('[id^="cqty-"]').forEach(el => {
+          const eid = el.id.replace('cqty-','');
+          const ep = S.products.find(x=>x.id===eid);
+          if(ep && (ep.grupoMay||'').toLowerCase().trim()===grupoP) totalG += parseFloat(el.value)||0;
+        });
+        isW = minG > 0 && totalG >= minG;
+      } else {
+        isW = qty >= p.wholesaleQty;
+      }
+      const newPrice = isW ? p.wholesalePrice : p.price;
       priceInput.value = newPrice.toFixed(2);
       input.dataset.price = newPrice;
       const idx2 = S.invItems.findIndex(i=>i.prodId===pid);
@@ -6353,11 +6369,25 @@ function tiendaEntrar() {
     return cp.length >= 6 && cp.slice(-6) === last6;
   }) || null;
   TN = TC_CLI ? TC_CLI.name : 'visitante';
+
+  // Verificar modo tienda
+  const modoTienda = getTiendaModo();
+  if(modoTienda === 'cerrada') {
+    document.getElementById('tienda-login').style.display='none';
+    const cat = document.getElementById('tienda-catalogo');
+    cat.style.display='flex'; cat.style.flexDirection='column';
+    cat.style.alignItems='center'; cat.style.justifyContent='center';
+    cat.style.minHeight='60vh';
+    cat.innerHTML='<div style="text-align:center;padding:30px"><div style="font-size:48px">🔴</div><div style="font-size:20px;font-weight:700;color:#991b1b;margin:12px 0">Tienda cerrada temporalmente</div><div style="font-size:14px;color:#666">Volvé pronto para hacer tu pedido.</div></div>';
+    return;
+  }
+
   document.getElementById('tienda-login').style.display='none';
   document.getElementById('tienda-catalogo').style.display='block';
   const nombreMostrar = TC_CLI && TC_CLI.name && !TC_CLI.name.includes('(web)') ? TC_CLI.name : null;
   document.getElementById('tienda-saludo').textContent = nombreMostrar ? 'Hola, ' + nombreMostrar + '! ¿Qué vas a comprar hoy?' : 'Hola! ¿Qué vas a comprar hoy?';
   document.getElementById('tienda-footer').style.display='block';
+  if(modoTienda === 'solo_vista') tiendaModoMensaje();
   window.T_CAT = 'todas';
   tiendaSetVista('grilla');
   T_VISTA = 'catalogo';
