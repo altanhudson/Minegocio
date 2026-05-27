@@ -3420,9 +3420,13 @@ function ncProvSelect(id, name) {
   document.getElementById('nc-prov-drop').style.display = 'none';
   ncProvId = id;
 }
+let _savingComp = false;
 async function ncSaveComp() {
+  if(_savingComp) { toast('Guardando...'); return; }
+  _savingComp = true;
+  setTimeout(()=>{ _savingComp = false; }, 3000);
   const items = Object.entries(ncItems).filter(([pid,item])=>item.qty>=0.01);
-  if(!items.length) { toast('Sin productos'); return; }
+  if(!items.length) { _savingComp = false; toast('Sin productos'); return; }
   const provId = ncProvId || document.getElementById('nc-prov').value;
   if(!provId) { toast('Falta seleccionar el proveedor'); return; }
   const prov = S.proveedores.find(p=>p.id===provId);
