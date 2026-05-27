@@ -6161,7 +6161,7 @@ function getTiendaModo() {
 
 function setTiendaModo(modo) {
   S.tiendaModo = modo;
-  save(['config'], true);
+  save(['tiendaModo'], true);
   updTiendaModoUI();
   const labels = {abierta:'Abierta', solo_vista:'Solo vista', cerrada:'Cerrada'};
   toast('Tienda: ' + labels[modo]);
