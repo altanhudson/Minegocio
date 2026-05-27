@@ -2994,6 +2994,9 @@ function cliSearchSelect(id, name) {
   }
 }
 function cerrarNuevaFac() {
+  S.editId = null;
+  S._editOrigItems = null;
+  S.invItems = [];
   showPage('facturas');
 }
 
