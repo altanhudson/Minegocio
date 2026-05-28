@@ -710,6 +710,11 @@ select option{background:var(--surface2)}
         <div class="chip" id="chip-oferta" onclick="setPF('oferta',this)">🔥 Oferta</div>
       </div>
     </div>
+    <div id="flyer-rapido-bar" style="display:none;padding:8px 12px;background:#fff3e0;border-radius:10px;margin-bottom:6px;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:13px;font-weight:600;color:#e65100" id="flyer-rapido-count">0 seleccionados</span>
+      <button onclick="generarFlyerRapido()" style="padding:6px 14px;background:#ff6b35;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">📤 Generar flyer</button>
+      <button onclick="cancelarFlyerRapido()" style="padding:6px 10px;background:#fff;border:1px solid #ccc;border-radius:8px;font-size:13px;cursor:pointer">✕ Cancelar</button>
+    </div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:0">
       <select id="prod-sort" onchange="renderProds(document.getElementById('prod-search').value)" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:20px;padding:6px 12px;font-size:14px;font-family:inherit;cursor:pointer;outline:none">
         <option value="vendidos">Más vendidos</option>
@@ -718,6 +723,7 @@ select option{background:var(--surface2)}
         <option value="margen-asc">Margen ↑ (menor)</option>
         <option value="margen-desc">Margen ↓ (mayor)</option>
       </select>
+      <button onclick="activarFlyerRapido()" id="btn-flyer-rapido" style="white-space:nowrap;padding:6px 10px;background:#ff6b35;color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">📤 Rápido</button>
       <button id="prod-view-btn" onclick="toggleProdView()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text3);border-radius:20px;padding:6px 10px;font-size:16px;cursor:pointer;line-height:1" title="Cambiar vista">⊞</button>
       <button id="prod-view-btn-fixed" onclick="toggleProdView()" style="display:none;position:fixed;bottom:calc(var(--nav-h) + 80px);right:16px;z-index:20;width:44px;height:44px;border-radius:50%;background:var(--surface);border:2px solid var(--border);color:var(--text3);font-size:18px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.3)">⊞</button>
     </div>
@@ -1796,6 +1802,57 @@ function closeBarcodeScanner() {
   window._pendingBarcode = null;
 }
 
+// ========== FLYER RÁPIDO ==========
+let _flyerRapidoActivo = false;
+let _flyerRapidoSeleccion = new Set();
+
+function activarFlyerRapido() {
+  _flyerRapidoActivo = true;
+  _flyerRapidoSeleccion = new Set();
+  document.getElementById('flyer-rapido-bar').style.display = 'flex';
+  document.getElementById('btn-flyer-rapido').style.display = 'none';
+  document.getElementById('flyer-rapido-count').textContent = '0 seleccionados — tocá los productos';
+  renderProds(document.getElementById('prod-search').value);
+  toast('Tocá los productos para incluirlos en el flyer');
+}
+
+function cancelarFlyerRapido() {
+  _flyerRapidoActivo = false;
+  _flyerRapidoSeleccion = new Set();
+  document.getElementById('flyer-rapido-bar').style.display = 'none';
+  document.getElementById('btn-flyer-rapido').style.display = '';
+  renderProds(document.getElementById('prod-search').value);
+}
+
+function toggleFlyerRapidoProd(id) {
+  if(!_flyerRapidoActivo) return;
+  if(_flyerRapidoSeleccion.has(id)) _flyerRapidoSeleccion.delete(id);
+  else _flyerRapidoSeleccion.add(id);
+  document.getElementById('flyer-rapido-count').textContent = _flyerRapidoSeleccion.size + ' seleccionado' + (_flyerRapidoSeleccion.size !== 1 ? 's' : '');
+  // Update visual
+  const card = document.getElementById('pcard-' + id);
+  if(card) {
+    card.style.outline = _flyerRapidoSeleccion.has(id) ? '3px solid #ff6b35' : '';
+    card.style.background = _flyerRapidoSeleccion.has(id) ? '#fff3e0' : '';
+  }
+}
+
+function generarFlyerRapido() {
+  if(_flyerRapidoSeleccion.size === 0) { toast('Seleccioná al menos un producto'); return; }
+  const prods = S.products.filter(p => _flyerRapidoSeleccion.has(p.id) && p.price > 0);
+  if(!prods.length) { toast('Los productos seleccionados no tienen precio'); return; }
+  // Cancelar modo selección antes de generar
+  _flyerRapidoActivo = false;
+  _flyerRapidoSeleccion = new Set();
+  document.getElementById('flyer-rapido-bar').style.display = 'none';
+  document.getElementById('btn-flyer-rapido').style.display = '';
+  renderProds(document.getElementById('prod-search').value);
+  // Generar flyer con los productos seleccionados
+  confirmarGenerarFlyer(0, null, prods);
+}
+// ========== FIN FLYER RÁPIDO ==========
+
+
 function generarFlyer() {
   const todosProds = S.products.filter(p=>p.enFlyer && p.price>0 && p.name);
   if(!todosProds.length) {
@@ -2280,8 +2337,8 @@ let pf = 'all';
 let prodView = 'grid'; // 'grid' | 'list'
 
 function toggleProdView() {
-  prodView = prodView === 'grid' ? 'imglist' : prodView === 'imglist' ? 'list' : 'grid';
-  const icon = prodView === 'grid' ? '⊞' : prodView === 'imglist' ? '▤' : '☰';
+  prodView = prodView === 'grid' ? 'imglist' : 'grid';
+  const icon = prodView === 'grid' ? '⊞' : '▤';
   const btn = document.getElementById('prod-view-btn');
   const btnFixed = document.getElementById('prod-view-btn-fixed');
   if(btn) btn.textContent = icon;
@@ -2530,7 +2587,7 @@ function renderProds(q) {
     const st = p.stock<0?'Faltan '+Math.abs(p.stock):p.stock===0?'Sin stock':(p.stock+' uds');
     const hasPx = p.price>0;
     return [
-      '<div class="prod-card" id="pc-'+pid+'">',
+      '<div class="prod-card" id="pc-'+pid+'" id2="pcard-'+pid+'" onclick="if(window._flyerRapidoActivo){toggleFlyerRapidoProd(\"'+pid+'\");return;}" style="'+(window._flyerRapidoActivo&&window._flyerRapidoSeleccion&&window._flyerRapidoSeleccion.has(pid)?'outline:3px solid #ff6b35;background:#fff3e0':'')+'">',
         '<div class="prod-img" data-action="openProd" data-id="'+pid+'">',
           '<span>'+(p.emoji||'&#128230;')+'</span>',
           (p.image?'<img src="'+p.image+'" data-action="openImg">':''),
