@@ -2237,7 +2237,13 @@ function saveProd() {
     const pg = window._returnAfterProd;
     window._returnAfterProd = null;
     if(pg==='nueva-factura') { cartRenderList(document.getElementById('cart-search')?document.getElementById('cart-search').value:''); }
-    else if(pg==='nueva-compra') { ncRenderList(document.getElementById('nc-search')?document.getElementById('nc-search').value:''); }
+    else if(pg==='nueva-compra') {
+      // Limpiar entradas de ncItems que no corresponden a productos reales
+      Object.keys(ncItems).forEach(pid => {
+        if(!S.products.find(p=>p.id===pid)) delete ncItems[pid];
+      });
+      ncRenderList(document.getElementById('nc-search')?document.getElementById('nc-search').value:'');
+    }
     showPage(pg);
   }
 }
@@ -3510,7 +3516,7 @@ async function ncSaveComp() {
   if(_savingComp) { toast('Guardando...'); return; }
   _savingComp = true;
   setTimeout(()=>{ _savingComp = false; }, 3000);
-  const items = Object.entries(ncItems).filter(([pid,item])=>item.qty>=0.01);
+  const items = Object.entries(ncItems).filter(([pid,item])=>item.qty>=0.01 && S.products.find(p=>p.id===pid));
   if(!items.length) { _savingComp = false; toast('Sin productos'); return; }
   const provId = ncProvId || document.getElementById('nc-prov').value;
   if(!provId) { toast('Falta seleccionar el proveedor'); return; }
