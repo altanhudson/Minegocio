@@ -3526,7 +3526,7 @@ async function ncSaveComp() {
   const total = items.reduce((s,[pid,item])=>s+item.qty*(item.cost||0),0);
 
   // Determinar ID
-  const compId = S.editId || ('COMP-'+String(S.nComp).padStart(4,'0'));
+  const compId = S.editId || ('COMP-'+String(S.nComp).padStart(4,'0')+'-'+Date.now().toString(36).slice(-4).toUpperCase());
   if(!S.editId) S.nComp++; // solo incrementar si es nueva
 
   const comp = {
@@ -3975,7 +3975,7 @@ function saveInv() {
   if(pago>0) status=saldo<=0?'pagada':'pendiente';
   const cli=S.clients.find(c=>c.id===cid);
   const inv={
-    id:S.editId||'FAC-'+String(S.nInv++).padStart(4,'0'),
+    id:S.editId||('FAC-'+String(S.nInv++).padStart(4,'0')+'-'+Date.now().toString(36).slice(-4).toUpperCase()),
     type:document.getElementById('i-type').value,
     clientId:cid, clientName:cli?cli.name:'---',
     date:(document.getElementById('i-date-res')&&document.getElementById('i-date-res').value) ? document.getElementById('i-date-res').value : document.getElementById('i-date').value,
@@ -4835,7 +4835,7 @@ async function saveComp(){
     const prov=S.proveedores.find(p=>p.id===pid);
     const total=items.reduce((s,i)=>s+(i.qty*i.cost),0);
     const isDraft=document.getElementById('cp-draft').checked;
-    const compId = S.editId || 'COMP-'+String(S.nComp).padStart(4,'0');
+    const compId = S.editId || ('COMP-'+String(S.nComp).padStart(4,'0')+'-'+Date.now().toString(36).slice(-4).toUpperCase());
     if(!S.editId) S.nComp++;
     const comp={id:compId,provId:pid,provName:prov?prov.name:'---',date:document.getElementById('cp-date').value,ts:Date.now(),ref:'',notes:document.getElementById('cp-notes').value,items:[...items],total,draft:isDraft};
     if(!isDraft){
@@ -6830,7 +6830,7 @@ function tiendaConfirmar() {
   }).filter(Boolean);
   const invTotal = invItems.reduce((s,i)=>s+i.qty*i.price,0);
   const inv = {
-    id:'FAC-'+String(S.nInv++).padStart(4,'0'),
+    id:'FAC-'+String(S.nInv++).padStart(4,'0')+'-'+Date.now().toString(36).slice(-4).toUpperCase(),
     type:'factura', status:'pendiente',
     clientId:cli.id, clientName:cli.name,
     date:localDateStr(), ts:Date.now(),
