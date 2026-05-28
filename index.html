@@ -238,11 +238,9 @@
     } catch(e) { console.error("Storage upload error:", e); throw e; }
   };
 
-  // Ejecutar migración y luego señalar que Firebase está listo
-  migrateIfNeeded().finally(() => {
-    window._firebaseReady = true;
-    document.dispatchEvent(new Event("firebaseReady"));
-  });
+  // Señalar que Firebase está listo (migración V2 es manual desde Configuración)
+  window._firebaseReady = true;
+  document.dispatchEvent(new Event("firebaseReady"));
 </script>
 <style>
 :root {
