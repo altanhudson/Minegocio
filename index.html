@@ -3250,8 +3250,56 @@ function cartNuevoProd() {
 }
 
 function ncNuevoProd() {
-  window._returnAfterProd = 'nueva-compra';
-  openProd();
+  // Mini-modal inline — no sale de la compra
+  const nombre = (document.getElementById('nc-search')||{}).value || '';
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML = '<div style="background:#fff;border-radius:16px;padding:20px;width:100%;max-width:360px">'+
+    '<div style="font-size:17px;font-weight:700;margin-bottom:16px">📦 Nuevo producto (para compra)</div>'+
+    '<div style="margin-bottom:12px"><label style="font-size:13px;color:#666;display:block;margin-bottom:4px">Nombre</label>'+
+    '<input id="ncnp-nombre" type="text" value="'+nombre+'" placeholder="Nombre del producto" style="width:100%;padding:10px;border:1.5px solid #d0d9ee;border-radius:10px;font-size:15px;font-family:Inter,sans-serif"></div>'+
+    '<div style="margin-bottom:16px"><label style="font-size:13px;color:#666;display:block;margin-bottom:4px">Costo</label>'+
+    '<input id="ncnp-costo" type="number" inputmode="decimal" placeholder="$0.00" style="width:100%;padding:10px;border:1.5px solid #d0d9ee;border-radius:10px;font-size:15px;font-family:Inter,sans-serif"></div>'+
+    '<div style="display:flex;gap:10px">'+
+    '<button onclick="this.closest('div[style*=fixed]').remove()" style="flex:1;padding:12px;border:1.5px solid #d0d9ee;border-radius:10px;font-size:15px;font-weight:600;background:#fff;cursor:pointer">Cancelar</button>'+
+    '<button onclick="ncNuevoProdGuardar(this)" style="flex:1;padding:12px;background:#1a3a6b;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer">Agregar</button>'+
+    '</div></div>';
+  document.body.appendChild(modal);
+  setTimeout(()=>{ const inp=document.getElementById('ncnp-nombre'); if(inp){inp.focus();inp.select();} },100);
+}
+
+function ncNuevoProdGuardar(btn) {
+  const nombre = (document.getElementById('ncnp-nombre')||{}).value || '';
+  const costo = parseFloat((document.getElementById('ncnp-costo')||{}).value)||0;
+  if(!nombre.trim()) { toast('Ingresá un nombre'); return; }
+  const existe = S.products.find(p=>p.name.toLowerCase()===nombre.trim().toLowerCase());
+  if(existe) {
+    // Ya existe — solo agregar a la compra
+    btn.closest('div[style*="fixed"]').remove();
+    if(!ncItems[existe.id]) ncItems[existe.id] = {qty:1, cost:costo||existe.cost||0};
+    else ncItems[existe.id].qty = (ncItems[existe.id].qty||0) + 1;
+    ncRenderList('');
+    toast('"'+existe.name+'" agregado');
+    return;
+  }
+  const prod = {
+    id: 'PROD-' + String(S.nProd++).padStart(3,'0'),
+    name: nombre.trim(), emoji: '📦', category: '',
+    price: 0, wholesalePrice: 0, wholesaleQty: 0,
+    cost: costo, stock: 0, minStock: 0,
+    desc: '', visible: true, marca: '', fracMin: 1, grupoMay: '',
+    image: null, sku: 'P' + Date.now()
+  };
+  S.products.push(prod);
+  try{_markDirty('products', prod.id);}catch(e){}
+  try{save(['products','nProd']);}catch(e){}
+  // Agregar a la compra actual
+  ncItems[prod.id] = {qty: 1, cost: costo};
+  btn.closest('div[style*="fixed"]').remove();
+  const searchEl = document.getElementById('nc-search');
+  if(searchEl) searchEl.value = '';
+  ncRenderList('');
+  toast('"'+prod.name+'" creado y agregado');
 }
 
 function cartPriceChange(input) {
@@ -4053,34 +4101,48 @@ function saveInv() {
       nuevos.forEach(item => {
         const nombre = (item.desc||'').trim();
         if(!nombre) return;
-        // Verificar que no exista ya
         const existe = S.products.find(p => p.name.toLowerCase() === nombre.toLowerCase());
-        if(existe) return;
-        if(confirm('¿Dar de alta "' + nombre + '"? Va a quedar en productos con stock 0 para cuando lo comprés.')) {
-          const prod = {
-            id: 'PROD-' + String(S.nProd++).padStart(3,'0'),
-            name: nombre,
-            emoji: '📦',
-            category: '',
-            price: item.price || 0,
-            wholesalePrice: 0, wholesaleQty: 0,
-            cost: 0,
-            stock: -(item.qty||0),
-            minStock: 0,
-            desc: '',
-            visible: true,
-            marca: '', fracMin: 1, grupoMay: '',
-            image: null,
-            sku: 'P' + Date.now()
-          };
-          S.products.push(prod);
-          try{renderProds();}catch(e){}
-          try{save(['products','nProd']);}catch(e){}
-          toast('"' + nombre + '" dado de alta en productos');
+        if(existe) { // ya existe — actualizar prodId en la factura
+          const fac = S.invoices.find(x=>x.id===inv.id);
+          if(fac) fac.items.forEach(it=>{ if((it.desc||'')==nombre && !it.prodId) it.prodId=existe.id; });
+          return;
         }
+        // Mini-modal para dar de alta el producto
+        const modal = document.createElement('div');
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+        modal.innerHTML = '<div style="background:#fff;border-radius:16px;padding:20px;width:100%;max-width:360px">'+
+          '<div style="font-size:17px;font-weight:700;margin-bottom:8px">📦 Nuevo producto</div>'+
+          '<div style="font-size:13px;color:#666;margin-bottom:16px">Dar de alta "'+nombre+'" para la próxima compra</div>'+
+          '<div style="margin-bottom:16px"><label style="font-size:13px;color:#666;display:block;margin-bottom:4px">Precio de venta</label>'+
+          '<input id="invnp-precio" type="number" inputmode="decimal" value="'+(item.price||'')+'" placeholder="$0.00" style="width:100%;padding:10px;border:1.5px solid #d0d9ee;border-radius:10px;font-size:15px;font-family:Inter,sans-serif"></div>'+
+          '<div style="display:flex;gap:10px">'+
+          '<button onclick="this.closest('div[style*=fixed]').remove()" style="flex:1;padding:12px;border:1.5px solid #d0d9ee;border-radius:10px;font-size:15px;font-weight:600;background:#fff;cursor:pointer">Omitir</button>'+
+          '<button onclick="invNuevoProdGuardar(this,''+inv.id+'',''+nombre+'')" style="flex:1;padding:12px;background:#1a3a6b;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer">Crear producto</button>'+
+          '</div></div>';
+        document.body.appendChild(modal);
       });
     }, 400);
   }
+}
+
+function invNuevoProdGuardar(btn, invId, nombre) {
+  const precio = parseFloat((document.getElementById('invnp-precio')||{}).value)||0;
+  const prod = {
+    id: 'PROD-' + String(S.nProd++).padStart(3,'0'),
+    name: nombre, emoji: '📦', category: '',
+    price: precio, wholesalePrice: 0, wholesaleQty: 0,
+    cost: 0, stock: 0, minStock: 0,
+    desc: '', visible: true, marca: '', fracMin: 1, grupoMay: '',
+    image: null, sku: 'P' + Date.now()
+  };
+  S.products.push(prod);
+  // Actualizar prodId en la factura guardada
+  const fac = S.invoices.find(x=>x.id===invId);
+  if(fac) fac.items.forEach(it=>{ if((it.desc||'')==nombre && !it.prodId) { it.prodId=prod.id; it.name=nombre; } });
+  try{_markDirty('products', prod.id); _markDirty('invoices', invId);}catch(e){}
+  try{save(['products','invoices','nProd']);}catch(e){}
+  btn.closest('div[style*="fixed"]').remove();
+  toast('"'+nombre+'" creado');
 }
 
 function filterInv(f,el) {
