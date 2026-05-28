@@ -2587,7 +2587,7 @@ function renderProds(q) {
     const st = p.stock<0?'Faltan '+Math.abs(p.stock):p.stock===0?'Sin stock':(p.stock+' uds');
     const hasPx = p.price>0;
     return [
-      '<div class="prod-card" id="pc-'+pid+'" id2="pcard-'+pid+'" onclick="if(window._flyerRapidoActivo){toggleFlyerRapidoProd(\"'+pid+'\");return;}" style="'+(window._flyerRapidoActivo&&window._flyerRapidoSeleccion&&window._flyerRapidoSeleccion.has(pid)?'outline:3px solid #ff6b35;background:#fff3e0':'')+'">',
+      '<div class="prod-card" id="pc-'+pid+'" style="'+(window._flyerRapidoActivo&&window._flyerRapidoSeleccion&&window._flyerRapidoSeleccion.has(pid)?'outline:3px solid #ff6b35;background:#fff3e0':'')+'">',
         '<div class="prod-img" data-action="openProd" data-id="'+pid+'">',
           '<span>'+(p.emoji||'&#128230;')+'</span>',
           (p.image?'<img src="'+p.image+'" data-action="openImg">':''),
@@ -2616,7 +2616,7 @@ document.getElementById('page-productos').addEventListener('click', function(e) 
   const action = el.dataset.action;
   const id = el.dataset.id;
   if(action==='verProdHist') { verProdHistorial(id); return; }
-  if(action==='openProd') openProd(id);
+  if(action==='openProd') { if(window._flyerRapidoActivo) { toggleFlyerRapidoProd(id); return; } openProd(id); }
   else if(action==='togQE') togQE(id);
   else if(action==='saveQE') saveQE(id);
   else if(action==='delProd') delProd(id);
