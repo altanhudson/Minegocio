@@ -1830,7 +1830,7 @@ function toggleFlyerRapidoProd(id) {
   else _flyerRapidoSeleccion.add(id);
   document.getElementById('flyer-rapido-count').textContent = _flyerRapidoSeleccion.size + ' seleccionado' + (_flyerRapidoSeleccion.size !== 1 ? 's' : '');
   // Update visual
-  const card = document.getElementById('pcard-' + id);
+  const card = document.getElementById('pc-' + id);
   if(card) {
     card.style.outline = _flyerRapidoSeleccion.has(id) ? '3px solid #ff6b35' : '';
     card.style.background = _flyerRapidoSeleccion.has(id) ? '#fff3e0' : '';
@@ -2587,7 +2587,7 @@ function renderProds(q) {
     const st = p.stock<0?'Faltan '+Math.abs(p.stock):p.stock===0?'Sin stock':(p.stock+' uds');
     const hasPx = p.price>0;
     return [
-      '<div class="prod-card" id="pc-'+pid+'" style="'+(window._flyerRapidoActivo&&window._flyerRapidoSeleccion&&window._flyerRapidoSeleccion.has(pid)?'outline:3px solid #ff6b35;background:#fff3e0':'')+'">',
+      '<div class="prod-card" id="pc-'+pid+'" >',
         '<div class="prod-img" data-action="openProd" data-id="'+pid+'">',
           '<span>'+(p.emoji||'&#128230;')+'</span>',
           (p.image?'<img src="'+p.image+'" data-action="openImg">':''),
