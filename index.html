@@ -15,7 +15,7 @@
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc, getDocs, collection, writeBatch, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getFirestore, doc, setDoc, getDoc, getDocs, collection, writeBatch, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
   const firebaseConfig = {
@@ -215,6 +215,12 @@
       _clearDirty(); // después de cargar, nada está dirty
       return result;
     } catch(e) { console.error('Firebase load error:', e); return null; }
+  };
+
+  // Eliminar documento individual de Firestore
+  window._fbDeleteDoc = async function(col, id) {
+    try { await deleteDoc(v2doc(col, id)); }
+    catch(e) { console.error('Firebase delete error:', e); }
   };
 
   // Sincronización manual — no onSnapshot
@@ -2260,6 +2266,7 @@ function saveProd() {
       // Actualizar producto en array con la URL real
       const idx2 = S.products.findIndex(p=>p.id===prodId);
       if(idx2>=0) S.products[idx2].image = url;
+      try{ _markDirty('products', prodId); }catch(e){}
       save(['products']);
       try{renderProds();}catch(e){}
       toast('Foto guardada ✓');
@@ -2282,6 +2289,7 @@ function saveProd() {
     }
     const i=S.products.findIndex(p=>p.id===S.editId); S.products[i]=prod;
   } else S.products.push(prod);
+  try{ _markDirty('products', prod.id); }catch(e){}
   // Cerrar modal primero
   const mprod = document.getElementById('mprod');
   if(mprod){ mprod.classList.remove('open'); mprod.style.display='none'; }
@@ -2687,6 +2695,7 @@ function saveQE(id) {
 function delProd(id) {
   if(!confirm('Eliminar este producto?')) return;
   S.products = S.products.filter(p=>p.id!==id);
+  try{ if(window._fbDeleteDoc) _fbDeleteDoc('products', id); }catch(e){}
   renderProds(); updDash(); save(['products']);
   toast('Eliminado');
 }
@@ -2732,6 +2741,7 @@ function saveCli() {
     color: S.editId?(S.clients.find(x=>x.id===S.editId)||{}).color||CCOLS[0]:CCOLS[S.clients.length%CCOLS.length]
   };
   if(S.editId){const i=S.clients.findIndex(x=>x.id===S.editId);S.clients[i]=c;}else S.clients.push(c);
+  try{_markDirty('clients', c.id);}catch(e){}
   renderClis(); updDash(); save(['clients','nCli']); closeM('mcli'); toast('Cliente guardado');
 }
 function cliSaldo(cliId) {
@@ -4659,6 +4669,7 @@ function delCli(id) {
     : '¿Eliminar a "'+cli.name+'"?';
   if(!confirm(msg)) return;
   S.clients = S.clients.filter(c=>c.id!==id);
+  try{ if(window._fbDeleteDoc) _fbDeleteDoc('clients', id); }catch(e){}
   save(['clients'], true);
   renderClis();
   showPage('clientes');
@@ -4673,6 +4684,7 @@ function ajustarSaldo(cliId) {
   const val = parseFloat(nuevo);
   if(isNaN(val) || val < 0) { toast('Monto inválido'); return; }
   cli.credito = val;
+  try{_markDirty('clients', cli.id);}catch(e){}
   save(['clients'], true);
   openCliDet(cliId);
   toast('Saldo actualizado: $'+val.toFixed(0)+' a favor');
@@ -4684,6 +4696,8 @@ function eliminarPago(invId, pi) {
   if(!confirm('Eliminar pago de $'+p.monto.toFixed(0)+'?')) return;
   inv.pagos.splice(pi, 1);
   _recalcInv(inv);
+  try{recalcClientCredits();}catch(e){}
+  try{_markDirty('invoices', inv.id); if(inv.clientId) _markDirty('clients', inv.clientId);}catch(e){}
   save(['invoices','clients','cobranzas'], true); renderInvs(); showCliTab('cobranzas'); toast('Pago eliminado');
 }
 function editarPago(invId, pi) {
@@ -4696,11 +4710,13 @@ function editarPago(invId, pi) {
   if(isNaN(val) || val < 0) { toast('Monto inválido'); return; }
   p.monto = val;
   _recalcInv(inv);
+  try{recalcClientCredits();}catch(e){}
+  try{_markDirty('invoices', inv.id); if(inv.clientId) _markDirty('clients', inv.clientId);}catch(e){}
   save(['invoices','clients','cobranzas'], true); renderInvs(); showCliTab('cobranzas'); toast('Pago actualizado');
 }
 function cycleInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv||inv.type==='presupuesto')return;const estados={pendiente:'Pagada',pagada:'Cancelada',cancelada:'Pendiente'};const next=estados[inv.status];if(!confirm('Cambiar estado a '+next+'?'))return;const c={pendiente:'pagada',pagada:'cancelada',cancelada:'pendiente'};inv.status=c[inv.status];if(inv.status==='pagada'){if(!inv.pagos)inv.pagos=[];const totalPagado=inv.pagos.reduce((s,p)=>s+p.monto,0);if(totalPagado===0){inv.pagos.push({monto:inv.total,method:'efectivo',date:localDateStr()});}inv.saldo=0;inv.aFavor=0;}renderInvs();updDash();save(['invoices','clients']);toast('Estado: '+inv.status);}
 function cancelInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv)return;if(inv.status==='cancelada'){toast('Ya esta cancelada');return;}if(!confirm('Cancelar la factura '+id+'? Quedara en el historial sin modificar el stock.'))return;inv.status='cancelada';renderInvs();updDash();save(['invoices']);toast('Factura cancelada');}
-function delInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv)return;const hasPago=inv.pagos&&inv.pagos.reduce((s,p)=>s+p.monto,0)>0;if(!confirm('Eliminar la factura '+id+(hasPago?' (tiene pagos registrados)':'')+' y devolver el stock?'))return;S.invoices=S.invoices.filter(i=>i.id!==id);try{recalcAllStocks();recalcClientCredits();}catch(e){} renderInvs();renderProds();updDash();save(['invoices','products']);toast('Factura eliminada y stock restaurado');}
+function delInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv)return;const hasPago=inv.pagos&&inv.pagos.reduce((s,p)=>s+p.monto,0)>0;if(!confirm('Eliminar la factura '+id+(hasPago?' (tiene pagos registrados)':'')+' y devolver el stock?'))return;S.invoices=S.invoices.filter(i=>i.id!==id);try{if(window._fbDeleteDoc)_fbDeleteDoc('invoices',id);}catch(e){}try{recalcAllStocks();recalcClientCredits();}catch(e){} renderInvs();renderProds();updDash();save(['invoices','products']);toast('Factura eliminada y stock restaurado');}
 
 // === DASHBOARD ===
 function updDash() {
@@ -4743,7 +4759,7 @@ function updDash() {
 // === PROVEEDORES ===
 const PCOLS=['#47c8ff','#4ade80','#fb923c','#c084fc'];
 function openProv(id){S.editId=id||null;if(id){const pv=S.proveedores.find(x=>x.id===id);document.getElementById('mprov-title').textContent='Editar Proveedor';document.getElementById('pv-name').value=pv.name;document.getElementById('pv-phone').value=pv.phone||'';document.getElementById('pv-days').value=pv.days||'';document.getElementById('pv-email').value=pv.email||'';document.getElementById('pv-tax').value=pv.tax||'';document.getElementById('pv-notes').value=pv.notes||'';}else{document.getElementById('mprov-title').textContent='Nuevo Proveedor';['pv-name','pv-phone','pv-days','pv-email','pv-tax','pv-notes'].forEach(f=>document.getElementById(f).value='');}document.getElementById('mprov').classList.add('open');}
-function saveProv(){const name=document.getElementById('pv-name').value.trim();if(!name){toast('Ingresa el nombre');return;}const pv={id:S.editId||'PROV-'+String(S.nProv++).padStart(3,'0'),name,phone:document.getElementById('pv-phone').value,days:document.getElementById('pv-days').value,email:document.getElementById('pv-email').value,tax:document.getElementById('pv-tax').value,notes:document.getElementById('pv-notes').value,color:S.editId?(S.proveedores.find(p=>p.id===S.editId)||{}).color||PCOLS[0]:PCOLS[S.proveedores.length%PCOLS.length]};if(S.editId){const i=S.proveedores.findIndex(p=>p.id===S.editId);S.proveedores[i]=pv;}else S.proveedores.push(pv);renderProvs();save(['proveedores','nProv']);closeM('mprov');toast('Proveedor guardado');}
+function saveProv(){const name=document.getElementById('pv-name').value.trim();if(!name){toast('Ingresa el nombre');return;}const pv={id:S.editId||'PROV-'+String(S.nProv++).padStart(3,'0'),name,phone:document.getElementById('pv-phone').value,days:document.getElementById('pv-days').value,email:document.getElementById('pv-email').value,tax:document.getElementById('pv-tax').value,notes:document.getElementById('pv-notes').value,color:S.editId?(S.proveedores.find(p=>p.id===S.editId)||{}).color||PCOLS[0]:PCOLS[S.proveedores.length%PCOLS.length]};if(S.editId){const i=S.proveedores.findIndex(p=>p.id===S.editId);S.proveedores[i]=pv;}else S.proveedores.push(pv);try{_markDirty('proveedores', pv.id);}catch(e){}renderProvs();save(['proveedores','nProv']);closeM('mprov');toast('Proveedor guardado');}
 function renderProvs(){
   const el=document.getElementById('prov-list');
   if(!S.proveedores.length){el.innerHTML='<div class="empty"><div class="ei">&#127981;</div><h3>Sin proveedores</h3><p>Agrega tus proveedores habituales</p></div>';return;}
@@ -4954,19 +4970,12 @@ function renderComps(){
 
 function deleteComp(id){
   if(!confirm('¿Eliminar esta compra?')) return;
-  const comp = S.compras.find(c=>c.id===id);
-  if(comp && !comp.draft) {
-    // Devolver stock de los productos de esta compra
-    (comp.items||[]).forEach(item => {
-      if(item.prodId && item.qty) {
-        const prod = S.products.find(p=>p.id===item.prodId);
-        if(prod) prod.stock = (prod.stock||0) - item.qty;
-      }
-    });
-  }
   S.compras = S.compras.filter(c => c.id !== id);
+  try{ if(window._fbDeleteDoc) _fbDeleteDoc('compras', id); }catch(e){}
+  try{ recalcAllStocks(); recalcClientCredits(); }catch(e){}
   save(['compras','products'], true);
   renderComps();
+  renderProds();
   updDash();
   toast('Compra eliminada');
 }
