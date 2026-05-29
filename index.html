@@ -1803,12 +1803,12 @@ function closeBarcodeScanner() {
 }
 
 // ========== FLYER RÁPIDO ==========
-let _flyerRapidoActivo = false;
-let _flyerRapidoSeleccion = new Set();
+window._flyerRapidoActivo = false;
+window._flyerRapidoSeleccion = new Set();
 
 function activarFlyerRapido() {
-  _flyerRapidoActivo = true;
-  _flyerRapidoSeleccion = new Set();
+  window._flyerRapidoActivo = true;
+  window._flyerRapidoSeleccion = new Set();
   document.getElementById('flyer-rapido-bar').style.display = 'flex';
   document.getElementById('btn-flyer-rapido').style.display = 'none';
   document.getElementById('flyer-rapido-count').textContent = '0 seleccionados — tocá los productos';
@@ -1817,33 +1817,33 @@ function activarFlyerRapido() {
 }
 
 function cancelarFlyerRapido() {
-  _flyerRapidoActivo = false;
-  _flyerRapidoSeleccion = new Set();
+  window._flyerRapidoActivo = false;
+  window._flyerRapidoSeleccion = new Set();
   document.getElementById('flyer-rapido-bar').style.display = 'none';
   document.getElementById('btn-flyer-rapido').style.display = '';
   renderProds(document.getElementById('prod-search').value);
 }
 
 function toggleFlyerRapidoProd(id) {
-  if(!_flyerRapidoActivo) return;
-  if(_flyerRapidoSeleccion.has(id)) _flyerRapidoSeleccion.delete(id);
-  else _flyerRapidoSeleccion.add(id);
-  document.getElementById('flyer-rapido-count').textContent = _flyerRapidoSeleccion.size + ' seleccionado' + (_flyerRapidoSeleccion.size !== 1 ? 's' : '');
+  if(!window._flyerRapidoActivo) return;
+  if(window._flyerRapidoSeleccion.has(id)) window._flyerRapidoSeleccion.delete(id);
+  else window._flyerRapidoSeleccion.add(id);
+  document.getElementById('flyer-rapido-count').textContent = window._flyerRapidoSeleccion.size + ' seleccionado' + (window._flyerRapidoSeleccion.size !== 1 ? 's' : '');
   // Update visual
   const card = document.getElementById('pc-' + id);
   if(card) {
-    card.style.outline = _flyerRapidoSeleccion.has(id) ? '3px solid #ff6b35' : '';
-    card.style.background = _flyerRapidoSeleccion.has(id) ? '#fff3e0' : '';
+    card.style.outline = window._flyerRapidoSeleccion.has(id) ? '3px solid #ff6b35' : '';
+    card.style.background = window._flyerRapidoSeleccion.has(id) ? '#fff3e0' : '';
   }
 }
 
 function generarFlyerRapido() {
-  if(_flyerRapidoSeleccion.size === 0) { toast('Seleccioná al menos un producto'); return; }
-  const prods = S.products.filter(p => _flyerRapidoSeleccion.has(p.id) && p.price > 0);
+  if(window._flyerRapidoSeleccion.size === 0) { toast('Seleccioná al menos un producto'); return; }
+  const prods = S.products.filter(p => window._flyerRapidoSeleccion.has(p.id) && p.price > 0);
   if(!prods.length) { toast('Los productos seleccionados no tienen precio'); return; }
   // Cancelar modo selección antes de generar
-  _flyerRapidoActivo = false;
-  _flyerRapidoSeleccion = new Set();
+  window._flyerRapidoActivo = false;
+  window._flyerRapidoSeleccion = new Set();
   document.getElementById('flyer-rapido-bar').style.display = 'none';
   document.getElementById('btn-flyer-rapido').style.display = '';
   renderProds(document.getElementById('prod-search').value);
@@ -2587,7 +2587,7 @@ function renderProds(q) {
     const st = p.stock<0?'Faltan '+Math.abs(p.stock):p.stock===0?'Sin stock':(p.stock+' uds');
     const hasPx = p.price>0;
     return [
-      '<div class="prod-card" id="pc-'+pid+'" >',
+      '<div class="prod-card" id="pc-'+pid+'" style="'+(window._flyerRapidoActivo&&window._flyerRapidoSeleccion&&window._flyerRapidoSeleccion.has(pid)?'outline:3px solid #ff6b35;background:#fff3e0':'')+'">',
         '<div class="prod-img" data-action="openProd" data-id="'+pid+'">',
           '<span>'+(p.emoji||'&#128230;')+'</span>',
           (p.image?'<img src="'+p.image+'" data-action="openImg">':''),
