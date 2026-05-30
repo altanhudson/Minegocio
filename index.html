@@ -4350,6 +4350,7 @@ function openQPago(id) {
   const inv = S.invoices.find(i=>i.id===id);
   if(!inv) return;
   S.editId = id;
+  window._qpagoInvId = id; // ID dedicado para el cobro — no se pisa
   document.getElementById('mqpago-title').textContent = 'Pago - '+id;
   const cli = S.clients.find(c=>c.id===inv.clientId);
   const credito = cli ? (cli.credito||0) : 0;
@@ -4364,7 +4365,7 @@ function openQPago(id) {
 }
 
 function calcQPago() {
-  const inv = S.invoices.find(i=>i.id===S.editId);
+  const inv = S.invoices.find(i=>i.id===(window._qpagoInvId||S.editId));
   if(!inv) return;
   const monto = parseFloat(document.getElementById('qp-monto').value)||0;
   const cliQ = S.clients.find(c=>c.id===inv.clientId);
@@ -4380,11 +4381,11 @@ function calcQPago() {
 }
 
 function saveQPago() {
-  const inv = S.invoices.find(i=>i.id===S.editId);
-  if(!inv) return;
+  const inv = S.invoices.find(i=>i.id===(window._qpagoInvId||S.editId));
+  if(!inv) { toast('Error: factura no encontrada'); return; }
   const monto = parseFloat(document.getElementById('qp-monto').value)||0;
   if(!monto) { toast('Ingresá un monto'); return; }
-  const method = document.getElementById('qp-method').value;
+  const method = document.getElementById('qp-method').value || 'efectivo';
   const cliQ = S.clients.find(c=>c.id===inv.clientId);
   const creditoDisp = cliQ ? (cliQ.credito||0) : 0;
   if(!inv.pagos) inv.pagos = [];
@@ -4422,7 +4423,7 @@ function saveQPago() {
   _cachedInvCanvas = null; _cachedInvId = null;
   // Re-renderizar factura en modal de compartir si está abierto
   if(document.getElementById('mshare') && document.getElementById('mshare').classList.contains('open')) {
-    const invActualizada = S.invoices.find(i=>i.id===S.editId);
+    const invActualizada = S.invoices.find(i=>i.id===(window._qpagoInvId||S.editId));
     if(invActualizada) renderInvoiceHTML(invActualizada);
   }
   closeM('mqpago');
