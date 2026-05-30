@@ -528,9 +528,12 @@ select option{background:var(--surface2)}
       <input type="date" id="i-date" style="font-size:14px;padding:7px 6px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);width:118px">
     </div>
     <div style="padding:8px 12px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0">
-      <input type="search" id="cart-search" placeholder="🔍 Buscar producto..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-        oninput="cartRenderList(this.value);document.getElementById('cart-apply-all').style.display=this.value.trim()?'flex':'none'"
-        style="width:100%;font-size:15px;padding:10px 14px;border:1.5px solid var(--accent);border-radius:12px;background:var(--surface);font-family:Inter,sans-serif;outline:none">
+      <div style="position:relative">
+      <input type="text" id="cart-search" placeholder="🔍 Buscar producto..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+        oninput="cartRenderList(this.value);document.getElementById('cart-apply-all').style.display=this.value.trim()?'flex':'none';document.getElementById('cart-search-x').style.display=this.value?'flex':'none'"
+        style="width:100%;font-size:15px;padding:10px 44px 10px 14px;border:1.5px solid var(--accent);border-radius:12px;background:var(--surface);font-family:Inter,sans-serif;outline:none">
+      <button id="cart-search-x" onclick="document.getElementById('cart-search').value='';cartRenderList('');document.getElementById('cart-apply-all').style.display='none';this.style.display='none';document.getElementById('cart-search').focus()" style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);background:var(--accent);color:#fff;border:none;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;align-items:center;justify-content:center;line-height:1">✕</button>
+      </div>
       <div id="cart-apply-all" style="display:none;margin-top:8px;display:flex;align-items:center;gap:8px;background:var(--surface2);border-radius:10px;padding:6px 10px">
         <span style="font-size:13px;color:var(--text3);flex:1">Poner a todos los visibles:</span>
         <input type="number" id="cart-apply-qty" inputmode="decimal" step="0.1" min="0" placeholder="cant." style="width:65px;height:32px;text-align:center;font-size:14px;font-weight:700;border:1.5px solid var(--accent);border-radius:8px;background:#fff;outline:none">
@@ -565,9 +568,12 @@ select option{background:var(--surface2)}
     </div>
     <div style="padding:8px 12px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0">
       <div style="display:flex;gap:8px;align-items:center">
-        <input type="search" id="nc-search" placeholder="🔍 Buscar producto..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-          oninput="ncRenderList(this.value);document.getElementById('nc-apply-all').style.display=this.value.trim()?'flex':'none'"
-          style="flex:1;font-size:15px;padding:10px 14px;border:1.5px solid var(--accent2);border-radius:12px;background:var(--surface);font-family:Inter,sans-serif;outline:none">
+        <div style="position:relative;flex:1">
+          <input type="text" id="nc-search" placeholder="🔍 Buscar producto..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+            oninput="ncRenderList(this.value);document.getElementById('nc-apply-all').style.display=this.value.trim()?'flex':'none';document.getElementById('nc-search-x').style.display=this.value?'flex':'none'"
+            style="width:100%;font-size:15px;padding:10px 44px 10px 14px;border:1.5px solid var(--accent2);border-radius:12px;background:var(--surface);font-family:Inter,sans-serif;outline:none">
+          <button id="nc-search-x" onclick="document.getElementById('nc-search').value='';ncRenderList('');document.getElementById('nc-apply-all').style.display='none';this.style.display='none';document.getElementById('nc-search').focus()" style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);background:var(--accent2);color:#fff;border:none;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;align-items:center;justify-content:center;line-height:1">✕</button>
+        </div>
         <button onclick="openBarcodeScanner()" style="background:var(--accent2);color:#fff;border:none;border-radius:12px;padding:10px 14px;font-size:20px;cursor:pointer;flex-shrink:0" title="Escanear código de barras">📷</button>
       </div>
       <div id="nc-apply-all" style="display:none;margin-top:8px;display:flex;align-items:center;gap:8px;background:var(--surface2);border-radius:10px;padding:6px 10px">
