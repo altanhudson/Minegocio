@@ -2091,6 +2091,7 @@ function normalizarCategorias() {
     }
   });
   if(changed === 0) { toast('Todas las categorías ya están normalizadas'); return; }
+  try{S.products.forEach(p=>_markDirty('products',p.id));}catch(e){}
   save(['products']);
   toast(changed + ' categorías normalizadas ✓');
 }
@@ -2386,7 +2387,7 @@ function prodBulkTog(field) {
   const cat = pf.slice(4);
   const prods = S.products.filter(p=>(p.category||p.marca||'').trim()===cat);
   const allOn = prods.every(p=>field==='visible'?p.visible!==false:!!p[field]);
-  prods.forEach(p=>{ if(field==='visible') p.visible=allOn?false:true; else p[field]=!allOn; });
+  prods.forEach(p=>{ if(field==='visible') p.visible=allOn?false:true; else p[field]=!allOn; try{_markDirty('products', p.id);}catch(e){} });
   save(['products']);
   renderProds(document.getElementById('prod-search').value);
   toast((allOn?'Desactivado':'Activado')+' para '+prods.length+' productos');
@@ -2646,6 +2647,7 @@ function togVis(id) {
   const p = S.products.find(x=>x.id===id);
   if(!p) return;
   p.visible = p.visible===false ? true : false;
+  try{ _markDirty('products', p.id); }catch(e){}
   save(['products']);
   renderProds(document.getElementById('prod-search').value);
 }
@@ -2653,6 +2655,7 @@ function togOferta(id) {
   const p = S.products.find(x=>x.id===id);
   if(!p) return;
   p.oferta = !p.oferta;
+  try{ _markDirty('products', p.id); }catch(e){}
   save(['products']);
   renderProds(document.getElementById('prod-search').value);
 }
@@ -2660,6 +2663,7 @@ function togFlyer(id) {
   const p = S.products.find(x=>x.id===id);
   if(!p) return;
   p.enFlyer = !p.enFlyer;
+  try{ _markDirty('products', p.id); }catch(e){}
   save(['products']);
   renderProds(document.getElementById('prod-search').value);
 }
@@ -2687,6 +2691,7 @@ function saveQE(id) {
   p.wholesalePrice = parseFloat(document.getElementById('qw-'+id).value)||0;
   p.wholesaleQty = parseInt(document.getElementById('qq-'+id).value)||0;
   p.cost = parseFloat(document.getElementById('qc-'+id).value)||0;
+  try{ _markDirty('products', p.id); }catch(e){}
   renderProds(document.getElementById('prod-search').value);
   updDash(); save(['products']);
   toast(p.name.substring(0,20)+' guardado');
@@ -4994,7 +4999,7 @@ function fmtDate(s){if(!s)return'';const[y,m,d]=s.split('-');const ms=['Ene','Fe
 // === CSV ===
 function dlTemplate(){const h='nombre,precio,costo,stock,stock_minimo,categoria,precio_mayorista,cantidad_mayorista';const ex='Aceite girasol 1L,2500,1800,50,10,Aceites,2000,6';const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(h+'\n'+ex);a.download='plantilla.csv';a.click();}
 function prevCSV(input){if(!input.files[0])return;const r=new FileReader();r.onload=e=>{const ls=e.target.result.trim().split('\n').slice(0,5);const p=document.getElementById('csv-prev');p.innerHTML=ls.map((l,i)=>'<div style="'+(i===0?'color:var(--accent);font-weight:600':'')+';padding:2px 0;border-bottom:1px solid var(--border)">'+l+'</div>').join('');p.style.display='';};r.readAsText(input.files[0]);}
-function doImport(){const file=document.getElementById('csv-file').files[0];if(!file){toast('Elige un archivo');return;}const r=new FileReader();r.onload=e=>{const lines=e.target.result.trim().split('\n');if(lines.length<2){toast('Archivo vacio');return;}const hs=lines[0].split(',').map(h=>h.trim().toLowerCase().replace(/[\'"]/g,''));const idx=n=>hs.findIndex(h=>h===n||h.includes(n));const iN=idx('nombre'),iP=idx('precio'),iC=idx('costo'),iS=idx('stock'),iMS=idx('minimo'),iCat=idx('categori'),iWP=idx('mayorista'),iWQ=idx('cantidad');if(iN<0){toast('No se encontro columna nombre');return;}let cnt=0;for(let i=1;i<lines.length;i++){const cols=lines[i].split(',').map(c=>c.trim().replace(/^["\'"]|["\'"]$/g,''));const name=cols[iN];if(!name)continue;S.products.push({id:'PROD-'+String(S.nProd++).padStart(3,'0'),name,price:iP>=0?parseFloat(cols[iP])||0:0,cost:iC>=0?parseFloat(cols[iC])||0:0,stock:iS>=0?parseInt(cols[iS])||0:0,minStock:iMS>=0?parseInt(cols[iMS])||5:5,category:iCat>=0?cols[iCat]||'':'',wholesalePrice:iWP>=0?parseFloat(cols[iWP])||0:0,wholesaleQty:iWQ>=0?parseInt(cols[iWQ])||0:0,emoji:'',desc:'',visible:true,image:null,sku:'P'+Date.now()+i});cnt++;}renderProds();updDash();save(['products','nProd']);closeM('mimport');toast(cnt+' productos importados');};r.readAsText(file);}
+function doImport(){const file=document.getElementById('csv-file').files[0];if(!file){toast('Elige un archivo');return;}const r=new FileReader();r.onload=e=>{const lines=e.target.result.trim().split('\n');if(lines.length<2){toast('Archivo vacio');return;}const hs=lines[0].split(',').map(h=>h.trim().toLowerCase().replace(/[\'"]/g,''));const idx=n=>hs.findIndex(h=>h===n||h.includes(n));const iN=idx('nombre'),iP=idx('precio'),iC=idx('costo'),iS=idx('stock'),iMS=idx('minimo'),iCat=idx('categori'),iWP=idx('mayorista'),iWQ=idx('cantidad');if(iN<0){toast('No se encontro columna nombre');return;}let cnt=0;for(let i=1;i<lines.length;i++){const cols=lines[i].split(',').map(c=>c.trim().replace(/^["\'"]|["\'"]$/g,''));const name=cols[iN];if(!name)continue;S.products.push({id:'PROD-'+String(S.nProd++).padStart(3,'0'),name,price:iP>=0?parseFloat(cols[iP])||0:0,cost:iC>=0?parseFloat(cols[iC])||0:0,stock:iS>=0?parseInt(cols[iS])||0:0,minStock:iMS>=0?parseInt(cols[iMS])||5:5,category:iCat>=0?cols[iCat]||'':'',wholesalePrice:iWP>=0?parseFloat(cols[iWP])||0:0,wholesaleQty:iWQ>=0?parseInt(cols[iWQ])||0:0,emoji:'',desc:'',visible:true,image:null,sku:'P'+Date.now()+i});cnt++;}try{S.products.forEach(p=>_markDirty('products',p.id));}catch(e){}renderProds();updDash();save(['products','nProd']);closeM('mimport');toast(cnt+' productos importados');};r.readAsText(file);}
 
 
 // === ACTUALIZAR PRECIOS DESDE INVOICE MANAGER ===
