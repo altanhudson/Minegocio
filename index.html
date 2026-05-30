@@ -2837,6 +2837,7 @@ document.getElementById('page-clientes').addEventListener('click', function(e){
 // === INVOICES ===
 function openInv(id, defaultType) {
   S.editId=id||null; S.invItems=[];
+  window.invEditId = id||null;
   S.editClientId = id ? null : null;
   S._editOrigItems = null;
   if(id) {
@@ -2900,6 +2901,7 @@ function verInv(id) {
   const inv = S.invoices.find(x=>x.id===id);
   if(!inv) return;
   S.editId = id;
+  window.invEditId = id; // ID dedicado para facturas
   S._editOrigItems = inv.items.map(x=>({...x})); // copia profunda de items originales
   S.invItems = [...inv.items];
   S.editClientId = inv.clientId; // guardar clientId para usarlo al guardar
@@ -3158,6 +3160,7 @@ function cliSearchSelect(id, name) {
 }
 function cerrarNuevaFac() {
   S.editId = null;
+  window.invEditId = null;
   S._editOrigItems = null;
   S.invItems = [];
   showPage('facturas');
@@ -3423,6 +3426,7 @@ var ncProvId = ''; // pid -> {qty, cost}
 function openNuevaCompra(id) {
   ncItems = {};
   ncProvId = null;
+  window.ncEditId = null; // compra nueva — sin ID de edición
   document.getElementById('nc-date').value = localDateStr();
   document.getElementById('nc-notes').value = '';
   document.getElementById('nc-draft').checked = false;
@@ -3598,7 +3602,7 @@ async function ncSaveComp() {
   const total = items.reduce((s,[pid,item])=>s+item.qty*(item.cost||0),0);
 
   // Determinar ID
-  const compId = S.editId || ('COMP-'+String(S.nComp).padStart(4,'0')+'-'+Date.now().toString(36).slice(-4).toUpperCase());
+  const compId = window.ncEditId || ('COMP-'+String(S.nComp).padStart(4,'0')+'-'+Date.now().toString(36).slice(-4).toUpperCase());
   if(!S.editId) S.nComp++; // solo incrementar si es nueva
 
   const comp = {
@@ -3620,9 +3624,9 @@ async function ncSaveComp() {
     });
   }
 
-  // Guardar compra
-  if(S.editId) {
-    const i = S.compras.findIndex(x=>x.id===S.editId);
+  // Guardar compra — usar ncEditId dedicado
+  if(window.ncEditId) {
+    const i = S.compras.findIndex(x=>x.id===window.ncEditId);
     if(i>=0) S.compras[i]=comp;
     else S.compras.push(comp);
   } else {
@@ -3630,6 +3634,7 @@ async function ncSaveComp() {
   }
 
   S.editId = null;
+  window.ncEditId = null;
   ncItems = {};
   ncProvId = null;
   // Forzar cierre de ambas pantallas de compra
@@ -4047,7 +4052,7 @@ function saveInv() {
   if(pago>0) status=saldo<=0?'pagada':'pendiente';
   const cli=S.clients.find(c=>c.id===cid);
   const inv={
-    id:S.editId||('FAC-'+String(S.nInv++).padStart(4,'0')+'-'+Date.now().toString(36).slice(-4).toUpperCase()),
+    id:(window.invEditId||S.editId)||('FAC-'+String(S.nInv++).padStart(4,'0')+'-'+Date.now().toString(36).slice(-4).toUpperCase()),
     type:document.getElementById('i-type').value,
     clientId:cid, clientName:cli?cli.name:'---',
     date:(document.getElementById('i-date-res')&&document.getElementById('i-date-res').value) ? document.getElementById('i-date-res').value : document.getElementById('i-date').value,
@@ -4097,9 +4102,10 @@ function saveInv() {
   }
   // Stock se recalcula desde movimientos — no modificar p.stock directamente
   S._editOrigItems = null;
-  // Guardar factura — verificar índice válido antes de reemplazar
-  if(S.editId) {
-    const idx = S.invoices.findIndex(x=>x.id===S.editId);
+  // Guardar factura — usar invEditId dedicado
+  const _facEditId = window.invEditId || S.editId;
+  if(_facEditId) {
+    const idx = S.invoices.findIndex(x=>x.id===_facEditId);
     if(idx>=0) {
       S.invoices[idx]=inv;
     } else {
@@ -4794,6 +4800,7 @@ document.getElementById('page-proveedores').addEventListener('click', function(e
 function openComp(id) {
   // Usar page-nueva-compra para editar, igual que para nueva
   S.editId = id || null;
+  window.ncEditId = id || null; // ID dedicado para compras — no se pisa al crear producto
   ncItems = {};
   ncProvId = null;
   // Cargar proveedores
