@@ -976,7 +976,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">2.4.0</strong> · 01/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">2.5.0</strong> · 01/06/2026</div>
       </div>
     </div>
   </div>
@@ -6537,10 +6537,10 @@ function renderInvoiceHTML(inv) {
 </script>
 
 <!-- ===== TIENDA ONLINE ===== -->
-<div id="tienda-app" style="display:none;position:fixed;inset:0;background:#fffbea;color:#333;z-index:9999;overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:100vh;min-height:100dvh">
+<div id="tienda-app" style="display:none;position:fixed;inset:0;background:#ededed;color:#333;z-index:9999;overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:100vh;min-height:100dvh">
 
   <!-- Pantalla de bienvenida -->
-  <div id="tienda-login" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100dvh;padding:32px 24px;background:#fffbea">
+  <div id="tienda-login" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100dvh;padding:32px 24px;background:#ededed">
     <div style="font-size:48px;margin-bottom:16px">🛒</div>
     <div style="font-family:Inter,sans-serif;font-size:26px;font-weight:800;color:#3483fa;margin-bottom:8px" id="tienda-titulo">Surtimar</div>
     <div style="color:#666;font-size:14px;margin-bottom:40px;text-align:center">Hacé tu pedido fácil y rápido</div>
@@ -6559,7 +6559,7 @@ function renderInvoiceHTML(inv) {
   </div>
 
   <!-- Catálogo -->
-  <div id="tienda-catalogo" style="display:none;padding-bottom:120px;background:#fffbea">
+  <div id="tienda-catalogo" style="display:none;padding-bottom:120px;background:#ededed">
     <div style="position:sticky;top:0;z-index:10;background:#3483fa;padding:16px 16px 0;box-shadow:0 4px 16px rgba(52,131,250,.35)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div>
@@ -6578,7 +6578,7 @@ function renderInvoiceHTML(inv) {
           style="flex:1;padding:12px 0;font-size:14px;background:transparent;border:none;color:#333;outline:none;font-family:Inter,sans-serif">
       </div>
       <!-- Categorías sobre fondo crema con borde redondeado -->
-      <div style="background:#fffbea;margin:0 -16px;padding:10px 16px 8px;border-radius:16px 16px 0 0">
+      <div style="background:#ededed;margin:0 -16px;padding:10px 16px 8px;border-radius:16px 16px 0 0">
         <div id="tienda-cats" style="display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:4px 0"></div>
       </div>
     </div>
@@ -6590,7 +6590,7 @@ function renderInvoiceHTML(inv) {
       <button onclick="tiendaSetVista('grilla')" id="tienda-btn-grilla" style="padding:7px 12px;border-radius:8px;border:1px solid #e0e4f0;background:#f0f4ff;color:#3483fa;font-size:15px;cursor:pointer">⊞</button>
     </div>
     <div id="tienda-lista" style="padding:0 16px;display:flex;flex-direction:column;gap:8px"></div>
-    <div id="tienda-hint" style="margin:10px 16px 0;background:#fffbea;border:1.5px solid #ffe600;border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:10px;font-size:13px;color:#555">
+    <div id="tienda-hint" style="margin:10px 16px 0;background:#ededed;border:1.5px solid #ffe600;border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:10px;font-size:13px;color:#555">
       <span style="font-size:22px">👆</span>
       <span>Tocá cualquier producto para agregarlo al carrito. Cuando termines, confirmá tu pedido.</span>
     </div>
@@ -6684,7 +6684,7 @@ function tiendaAdminEntrar() {
   document.querySelectorAll('.page,.bottom-nav,.top-bar,.fab').forEach(e=>e.style.display='none');
   const shell = document.getElementById('app-shell');
   if(shell) shell.style.display='none';
-  document.body.style.background = '#fffbea';
+  document.body.style.background = '#ededed';
   document.body.style.overflow = 'hidden';
   document.getElementById('tienda-app').style.display='block';
   document.getElementById('tienda-login').style.display='none';
@@ -6697,7 +6697,7 @@ function tiendaAdminEntrar() {
   document.getElementById('tienda-cat-titulo').textContent = TIENDA_NOMBRE;
   // Fix login bg
   const loginEl = document.getElementById('tienda-login');
-  if(loginEl) loginEl.style.background = '#fffbea';
+  if(loginEl) loginEl.style.background = '#ededed';
   // Fix entrar btn
   const btnEntrar = document.getElementById('tienda-entrar-btn');
   if(btnEntrar) { btnEntrar.style.background = '#3483fa'; btnEntrar.style.color = '#fff'; }
@@ -6780,18 +6780,18 @@ function tiendaInit() {
   document.querySelectorAll('.page,.bottom-nav,.top-bar,.fab').forEach(e=>e.style.display='none');
   const shell = document.getElementById('app-shell');
   if(shell) shell.style.display='none';
-  document.body.style.background = '#fffbea';
+  document.body.style.background = '#ededed';
   document.body.style.overflow = 'hidden';
-  document.documentElement.style.background = '#fffbea';
+  document.documentElement.style.background = '#ededed';
   // Override dark CSS variables for tienda
-  document.documentElement.style.setProperty('--bg','#fffbea');
+  document.documentElement.style.setProperty('--bg','#ededed');
   document.getElementById('tienda-app').style.display='block';
   document.getElementById('tienda-titulo').textContent = TIENDA_NOMBRE;
   document.getElementById('tienda-titulo').style.color = '#3483fa';
   document.getElementById('tienda-cat-titulo').textContent = TIENDA_NOMBRE;
   // Fix login bg
   const loginEl = document.getElementById('tienda-login');
-  if(loginEl) loginEl.style.background = '#fffbea';
+  if(loginEl) loginEl.style.background = '#ededed';
   // Fix entrar btn
   const btnEntrar = document.getElementById('tienda-entrar-btn');
   if(btnEntrar) { btnEntrar.style.background = '#3483fa'; btnEntrar.style.color = '#fff'; }
@@ -6963,12 +6963,13 @@ function tiendaRender() {
       return horas <= 48 && last.price < p.price;
     });
     if(aumentos.length) {
-      html += '<div style="background:#fff;border-radius:16px;padding:14px;border:1px solid #fecaca;margin-bottom:10px;box-shadow:0 2px 10px rgba(0,0,0,.05)">';
-      html += '<div style="font-size:14px;font-weight:800;color:#dc2626;margin-bottom:10px">📈 Subieron de precio <span style="font-size:11px;color:#999;font-weight:400">últimas 48hs</span></div>';
+      html += '<div style="background:#fff5f5;border-radius:16px;padding:0;border:1.5px solid #fecaca;margin-bottom:12px;overflow:hidden;box-shadow:0 2px 10px rgba(220,38,38,.08)">';
+      html += '<div style="background:#dc2626;padding:10px 14px;font-size:14px;font-weight:800;color:#fff">📈 Subieron de precio <span style="font-size:11px;color:rgba(255,255,255,.85);font-weight:400">últimas 48hs</span></div>';
+      html += '<div style="padding:14px">';
       html += '<div style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch">';
       aumentos.forEach(p => {
         const last = p.priceHistory[p.priceHistory.length-1];
-        html += '<div style="flex-shrink:0;width:120px;background:#fff5f5;border-radius:12px;padding:10px;text-align:center;border:1px solid #fecaca">';
+        html += '<div style="flex-shrink:0;width:120px;background:#fff;border-radius:12px;padding:10px;text-align:center;border:1px solid #fecaca;box-shadow:0 1px 4px rgba(0,0,0,.05)">';
         html += p.image
           ? '<img src="'+p.image+'" style="width:70px;height:70px;border-radius:8px;object-fit:cover;margin-bottom:4px">'
           : '<div style="font-size:26px;margin-bottom:4px">'+(p.emoji||'📦')+'</div>';
@@ -6977,15 +6978,15 @@ function tiendaRender() {
         html += '<div style="font-size:14px;font-weight:800;color:#dc2626">$'+p.price.toFixed(0)+' ↑</div>';
         html += '</div>';
       });
-      html += '</div></div>';
+      html += '</div></div></div>';
     }
   }
   if(!q && cat==='todas') {
     const ofertas = prods.filter(p=>p.oferta);
     if(ofertas.length) {
-      html += '<div style="background:#fff;border-radius:16px;padding:14px;border:1px solid #eef0f5;margin-bottom:10px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.05)">';
-      html += '<div style="font-size:14px;font-weight:800;color:#333;margin-bottom:12px;padding:8px 0;border-bottom:1px solid #e0e0e0">🔥 OFERTAS</div>';
-      html += '<div style="display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch">';
+      html += '<div style="background:#fff7ed;border-radius:16px;padding:0;border:1.5px solid #fed7aa;margin-bottom:12px;overflow:hidden;box-shadow:0 2px 10px rgba(247,144,30,.1)">';
+      html += '<div style="background:#f7901e;padding:10px 14px;font-size:14px;font-weight:800;color:#fff">🔥 OFERTAS</div>';
+      html += '<div style="display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:14px">';
       ofertas.forEach(p => {
         const prevPrice = p.priceHistory&&p.priceHistory.length ? p.priceHistory[p.priceHistory.length-1].price : null;
         const qty = TC[p.id]||0;
