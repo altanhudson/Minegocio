@@ -976,7 +976,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">2.1.0</strong> · 01/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">2.2.0</strong> · 01/06/2026</div>
       </div>
     </div>
   </div>
@@ -2289,6 +2289,9 @@ function delBanner(id) {
 }
 
 // Render en la tienda (carrusel arriba del catálogo)
+let _bannerIdx = 0;
+let _bannerTimer = null;
+
 function tiendaRenderBanners() {
   const el = document.getElementById('tienda-banners');
   if(!el) return;
@@ -2298,17 +2301,54 @@ function tiendaRenderBanners() {
   });
   if(!banners.length) { el.style.display='none'; el.innerHTML=''; return; }
   el.style.display = 'block';
-  const slides = banners.map(function(b){
+  if(_bannerIdx >= banners.length) _bannerIdx = 0;
+  const b = banners[_bannerIdx];
+  const p = S.products.find(x=>x.id===b.prodId);
+  const precio = '$'+(p.price||0).toFixed(0);
+  const flechas = banners.length>1
+    ? '<button onclick="cambiarBanner(-1)" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.45);color:#fff;border:none;border-radius:50%;width:38px;height:38px;font-size:20px;cursor:pointer;z-index:2;display:flex;align-items:center;justify-content:center">‹</button>'
+      + '<button onclick="cambiarBanner(1)" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.45);color:#fff;border:none;border-radius:50%;width:38px;height:38px;font-size:20px;cursor:pointer;z-index:2;display:flex;align-items:center;justify-content:center">›</button>'
+    : '';
+  const dots = banners.length>1
+    ? '<div style="display:flex;justify-content:center;gap:6px;margin-top:8px">'
+      + banners.map(function(x,i){return '<div style="width:8px;height:8px;border-radius:50%;background:'+(i===_bannerIdx?'#3483fa':'#3483fa40')+'"></div>';}).join('')
+      + '</div>'
+    : '';
+  el.innerHTML = '<div style="position:relative;border-radius:16px;overflow:hidden;aspect-ratio:16/9;box-shadow:0 3px 12px rgba(0,0,0,.15)">'
+    + '<div onclick="tiendaIrAProducto(\''+b.prodId+'\')" style="cursor:pointer;width:100%;height:100%">'
+    + '<img src="'+b.img+'" style="width:100%;height:100%;object-fit:cover;display:block">'
+    + '<div style="position:absolute;bottom:0;right:0;background:#3483fa;color:#fff;font-size:22px;font-weight:900;padding:8px 18px;border-radius:16px 0 0 0;font-family:Inter,sans-serif;box-shadow:0 -2px 8px rgba(0,0,0,.2)">'+precio+'</div>'
+    + '</div>'
+    + flechas
+    + '</div>' + dots;
+  if(!_bannerTimer) _resetBannerTimer();
+}
+
+function cambiarBanner(dir) {
+  const banners = (S.banners||[]).filter(function(b){
     const p = S.products.find(x=>x.id===b.prodId);
-    const precio = '$'+(p.price||0).toFixed(0);
-    return '<div onclick="tiendaIrAProducto(\''+b.prodId+'\')" style="flex:0 0 100%;width:100%;box-sizing:border-box;scroll-snap-align:start;cursor:pointer;position:relative;border-radius:16px;overflow:hidden;aspect-ratio:16/9;box-shadow:0 3px 12px rgba(0,0,0,.15)">'
-      + '<img src="'+b.img+'" style="width:100%;height:100%;object-fit:cover;display:block">'
-      + '<div style="position:absolute;bottom:0;right:0;background:#3483fa;color:#fff;font-size:22px;font-weight:900;padding:8px 18px;border-radius:16px 0 0 0;font-family:Inter,sans-serif;box-shadow:0 -2px 8px rgba(0,0,0,.2)">'+precio+'</div>'
-      + '</div>';
-  }).join('');
-  const dots = banners.length>1 ? '<div style="display:flex;justify-content:center;gap:6px;margin-top:8px">'+banners.map(function(){return '<div style="width:7px;height:7px;border-radius:50%;background:#3483fa50"></div>';}).join('')+'</div>' : '';
-  const hint = banners.length>1 ? '<div style="text-align:center;font-size:11px;color:#3483fa;margin-top:4px">← deslizá para ver más →</div>' : '';
-  el.innerHTML = '<div style="display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch;width:100%">'+slides+'</div>'+dots+hint;
+    return p && p.visible!==false && p.price>0;
+  });
+  if(!banners.length) return;
+  _bannerIdx = (_bannerIdx + dir + banners.length) % banners.length;
+  tiendaRenderBanners();
+  _resetBannerTimer();
+}
+
+function _resetBannerTimer() {
+  if(_bannerTimer) { clearInterval(_bannerTimer); _bannerTimer = null; }
+  const banners = (S.banners||[]).filter(function(b){
+    const p = S.products.find(x=>x.id===b.prodId);
+    return p && p.visible!==false && p.price>0;
+  });
+  if(banners.length <= 1) return; // no rotar si hay uno solo
+  _bannerTimer = setInterval(function(){
+    // solo rotar si la tienda está visible
+    const cat = document.getElementById('tienda-catalogo');
+    if(!cat || cat.style.display === 'none') return;
+    _bannerIdx = (_bannerIdx + 1) % banners.length;
+    tiendaRenderBanners();
+  }, 4000);
 }
 
 // Llevar al producto dentro de la tienda
