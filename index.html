@@ -2301,13 +2301,14 @@ function tiendaRenderBanners() {
   const slides = banners.map(function(b){
     const p = S.products.find(x=>x.id===b.prodId);
     const precio = '$'+(p.price||0).toFixed(0);
-    return '<div onclick="tiendaIrAProducto(\''+b.prodId+'\')" style="flex:0 0 100%;scroll-snap-align:center;cursor:pointer;position:relative;border-radius:16px;overflow:hidden;aspect-ratio:16/9;box-shadow:0 3px 12px rgba(0,0,0,.15)">'
-      + '<img src="'+b.img+'" style="width:100%;height:100%;object-fit:cover">'
+    return '<div onclick="tiendaIrAProducto(\''+b.prodId+'\')" style="flex:0 0 100%;width:100%;box-sizing:border-box;scroll-snap-align:start;cursor:pointer;position:relative;border-radius:16px;overflow:hidden;aspect-ratio:16/9;box-shadow:0 3px 12px rgba(0,0,0,.15)">'
+      + '<img src="'+b.img+'" style="width:100%;height:100%;object-fit:cover;display:block">'
       + '<div style="position:absolute;bottom:0;right:0;background:#3483fa;color:#fff;font-size:22px;font-weight:900;padding:8px 18px;border-radius:16px 0 0 0;font-family:Inter,sans-serif;box-shadow:0 -2px 8px rgba(0,0,0,.2)">'+precio+'</div>'
       + '</div>';
   }).join('');
   const dots = banners.length>1 ? '<div style="display:flex;justify-content:center;gap:6px;margin-top:8px">'+banners.map(function(){return '<div style="width:7px;height:7px;border-radius:50%;background:#3483fa50"></div>';}).join('')+'</div>' : '';
-  el.innerHTML = '<div style="display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch">'+slides+'</div>'+dots;
+  const hint = banners.length>1 ? '<div style="text-align:center;font-size:11px;color:#3483fa;margin-top:4px">← deslizá para ver más →</div>' : '';
+  el.innerHTML = '<div style="display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch;width:100%">'+slides+'</div>'+dots+hint;
 }
 
 // Llevar al producto dentro de la tienda
