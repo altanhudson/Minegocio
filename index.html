@@ -37,7 +37,7 @@
   // Dos dispositivos nunca pueden pisarse porque escriben documentos distintos.
 
   const COLS = ['products','invoices','clients','compras','proveedores','cobranzas','ajustes'];
-  const CONFIG_FIELDS = ['nInv','nCli','nProd','nComp','nProv','nGrupo','listaCompras','gruposMay','tiendaModo'];
+  const CONFIG_FIELDS = ['nInv','nCli','nProd','nComp','nProv','nGrupo','listaCompras','gruposMay','tiendaModo','banners'];
   const V2_PREFIX = 'v2'; // prefijo para colecciones nuevas
   const colLegacy = name => doc(db, 'collections', name); // colección vieja (solo lectura)
 
@@ -962,6 +962,14 @@ select option{background:var(--surface2)}
         <button onclick="document.getElementById('restore-input').click()" class="btn btn-ghost btn-full" style="border-color:var(--accent3);color:var(--accent3)">&#128194; Seleccionar archivo</button>
       </div>
     </div>
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-header"><span class="card-title">🖼️ Banners de la tienda</span></div>
+      <div style="padding:14px 16px">
+        <div style="font-size:14px;color:var(--text3);margin-bottom:12px">Imágenes destacadas que aparecen arriba del catálogo en la tienda. Tocá un banner y lleva al cliente al producto. El precio se toma solo del producto.</div>
+        <div id="banners-list" style="margin-bottom:12px"></div>
+        <button onclick="openBannerModal()" class="btn btn-primary btn-full">+ Agregar banner</button>
+      </div>
+    </div>
     <div class="card">
       <div class="card-header"><span class="card-title">&#8505;&#65039; Información</span></div>
       <div style="padding:14px 16px;font-size:14px;color:var(--text3)">
@@ -1166,6 +1174,39 @@ select option{background:var(--surface2)}
   </div>
 </div>
 
+<!-- MODAL BANNER TIENDA -->
+<div class="modal-overlay" id="mbanner">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header"><span class="modal-title">Nuevo banner</span><button class="close-btn" onclick="closeM('mbanner')">x</button></div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="fl">Imagen del banner (horizontal)</label>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Recomendado: formato horizontal (apaisado). Se recorta centrada para encajar.</div>
+        <input type="file" id="banner-file" accept="image/*" style="display:none" onchange="onBannerPhoto(this)">
+        <button onclick="document.getElementById('banner-file').click()" class="btn btn-ghost btn-full" style="border-color:var(--accent);color:var(--accent)">📷 Elegir imagen</button>
+        <div id="banner-preview-wrap" style="display:none;margin-top:10px;position:relative;border-radius:12px;overflow:hidden;aspect-ratio:16/9;background:#f0f0f0">
+          <img id="banner-preview" style="width:100%;height:100%;object-fit:cover">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="fl">Producto vinculado *</label>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Al tocar el banner, el cliente va a este producto. El precio se muestra solo.</div>
+        <div style="position:relative">
+          <input type="text" id="banner-prod-search" placeholder="🔍 Buscar producto..." autocomplete="off" oninput="bannerProdSearch(this.value)" style="width:100%;font-size:15px;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface);outline:none">
+          <input type="hidden" id="banner-prod-id">
+        </div>
+        <div id="banner-prod-results" style="margin-top:6px;max-height:180px;overflow-y:auto"></div>
+        <div id="banner-prod-selected" style="display:none;margin-top:8px;padding:10px;background:var(--surface2);border-radius:10px;font-size:14px;font-weight:600"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeM('mbanner')">Cancelar</button>
+      <button class="btn btn-primary" style="flex:2" onclick="saveBanner()">Guardar banner</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL COMPRA -->
 <div class="modal-overlay" id="mcomp">
   <div class="modal">
@@ -1330,6 +1371,7 @@ const S = {
   invItems:[], compItems:[], photo:null,
   nInv:1, nCli:1, nProd:601, nComp:1, nProv:1, nGrupo:1,
   excludedCats:['cigarrillos','cigarrillo','tabaco'],
+  banners:[],
 };
 const SK = 'mneg_v2';
 
@@ -1363,6 +1405,7 @@ function save(fields, forceWrite) {
     localStorage.setItem(SK, JSON.stringify({
       products:S.products, clients:S.clients, invoices:S.invoices, gruposMay:S.gruposMay||[],
       compras:S.compras, proveedores:S.proveedores, listaCompras:S.listaCompras||null, cobranzas:S.cobranzas||[], ajustes:S.ajustes||[],
+      banners:S.banners||[],
       nInv:S.nInv, nCli:S.nCli, nProd:S.nProd, nComp:S.nComp, nProv:S.nProv
     }));
   } catch(e) {}
@@ -1372,7 +1415,7 @@ function save(fields, forceWrite) {
     compras:S.compras, proveedores:S.proveedores, gruposMay:S.gruposMay||[],
     nInv:S.nInv, nCli:S.nCli, nProd:S.nProd, nComp:S.nComp, nProv:S.nProv, nGrupo:S.nGrupo,
     listaCompras:S.listaCompras||null, cobranzas:S.cobranzas||[], ajustes:S.ajustes||[],
-    tiendaModo:S.tiendaModo||'abierta'
+    tiendaModo:S.tiendaModo||'abierta', banners:S.banners||[]
   };
   if(window._fbSave) {
     window._fbSave(data, fields, forceWrite)
@@ -1476,6 +1519,7 @@ function showPage(p) {
   if(nav) nav.style.display = ['nueva-factura','resumen-factura','nueva-compra','resumen-compra','reparto','cobrar-reparto'].includes(p) ? 'none' : '';
   if(p==='dashboard') updDash();
   if(p==='estadisticas') { estTab='ventas'; renderEstadisticas(); }
+  if(p==='config') { try{ renderBannersList(); }catch(e){} }
 }
 
 
@@ -2138,6 +2182,151 @@ function normalizarCategorias() {
   save(['products']);
   toast(changed + ' categorías normalizadas ✓');
 }
+// ========== BANNERS DE LA TIENDA ==========
+let _bannerImg = null;       // imagen comprimida del banner en edición
+let _bannerProdId = null;    // producto vinculado en edición
+
+function renderBannersList() {
+  const el = document.getElementById('banners-list');
+  if(!el) return;
+  const banners = S.banners || [];
+  if(!banners.length) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--text3);text-align:center;padding:10px">No hay banners. Agregá uno para destacar un producto en la tienda.</div>';
+    return;
+  }
+  el.innerHTML = banners.map(function(b){
+    const p = S.products.find(x=>x.id===b.prodId);
+    const nombre = p ? p.name : '(producto eliminado)';
+    const precio = p ? ('$'+(p.price||0).toFixed(0)) : '-';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px;background:var(--surface2);border-radius:10px;margin-bottom:8px">'
+      + '<img src="'+b.img+'" style="width:64px;height:40px;object-fit:cover;border-radius:6px;flex-shrink:0">'
+      + '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+nombre+'</div><div style="font-size:12px;color:var(--accent2);font-weight:700">'+precio+'</div></div>'
+      + '<button onclick="delBanner(\''+b.id+'\')" class="btn btn-sm" style="background:#ff3b3022;color:#ff6b60;border:1px solid #ff3b3044;padding:6px 10px;flex-shrink:0">🗑️</button>'
+      + '</div>';
+  }).join('');
+}
+
+function openBannerModal() {
+  _bannerImg = null;
+  _bannerProdId = null;
+  document.getElementById('banner-prod-search').value = '';
+  document.getElementById('banner-prod-id').value = '';
+  document.getElementById('banner-prod-results').innerHTML = '';
+  document.getElementById('banner-prod-selected').style.display = 'none';
+  document.getElementById('banner-preview-wrap').style.display = 'none';
+  document.getElementById('mbanner').classList.add('open');
+}
+
+function onBannerPhoto(input) {
+  if(!input.files[0]) return;
+  const file = input.files[0];
+  const img = new Image();
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    img.onload = function() {
+      // Recortar a 16:9 centrado y comprimir
+      const TW = 800, TH = 450;
+      const canvas = document.createElement('canvas');
+      canvas.width = TW; canvas.height = TH;
+      const ctx = canvas.getContext('2d');
+      const srcRatio = img.width / img.height;
+      const dstRatio = TW / TH;
+      let sx, sy, sw, sh;
+      if(srcRatio > dstRatio) { sh = img.height; sw = sh * dstRatio; sx = (img.width - sw)/2; sy = 0; }
+      else { sw = img.width; sh = sw / dstRatio; sx = 0; sy = (img.height - sh)/2; }
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, TW, TH);
+      _bannerImg = canvas.toDataURL('image/jpeg', 0.75);
+      document.getElementById('banner-preview').src = _bannerImg;
+      document.getElementById('banner-preview-wrap').style.display = 'block';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function bannerProdSearch(q) {
+  const el = document.getElementById('banner-prod-results');
+  q = (q||'').trim().toLowerCase();
+  if(!q) { el.innerHTML = ''; return; }
+  const matches = S.products.filter(p=>p.price>0 && (p.name||'').toLowerCase().includes(q)).slice(0,8);
+  el.innerHTML = matches.map(function(p){
+    return '<div onclick="selectBannerProd(\''+p.id+'\')" style="padding:8px 10px;border-bottom:1px solid var(--border);cursor:pointer;font-size:14px">'+p.name+' <span style="color:var(--accent2);font-weight:700">$'+(p.price||0).toFixed(0)+'</span></div>';
+  }).join('');
+}
+
+function selectBannerProd(pid) {
+  const p = S.products.find(x=>x.id===pid);
+  if(!p) return;
+  _bannerProdId = pid;
+  document.getElementById('banner-prod-id').value = pid;
+  document.getElementById('banner-prod-search').value = '';
+  document.getElementById('banner-prod-results').innerHTML = '';
+  const sel = document.getElementById('banner-prod-selected');
+  sel.style.display = 'block';
+  sel.innerHTML = '✓ '+p.name+' — $'+(p.price||0).toFixed(0);
+}
+
+function saveBanner() {
+  if(!_bannerImg) { toast('Elegí una imagen'); return; }
+  if(!_bannerProdId) { toast('Elegí un producto'); return; }
+  if(!S.banners) S.banners = [];
+  const id = 'BAN-' + Date.now().toString(36).toUpperCase();
+  S.banners.push({ id: id, img: _bannerImg, prodId: _bannerProdId });
+  try{ _markDirty('config', 'main'); }catch(e){}
+  save(['banners'], true);
+  renderBannersList();
+  closeM('mbanner');
+  toast('Banner agregado ✓');
+}
+
+function delBanner(id) {
+  if(!confirm('¿Eliminar este banner?')) return;
+  S.banners = (S.banners||[]).filter(b=>b.id!==id);
+  try{ _markDirty('config', 'main'); }catch(e){}
+  save(['banners'], true);
+  renderBannersList();
+  toast('Banner eliminado');
+}
+
+// Render en la tienda (carrusel arriba del catálogo)
+function tiendaRenderBanners() {
+  const el = document.getElementById('tienda-banners');
+  if(!el) return;
+  const banners = (S.banners||[]).filter(function(b){
+    const p = S.products.find(x=>x.id===b.prodId);
+    return p && p.visible!==false && p.price>0;
+  });
+  if(!banners.length) { el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display = 'block';
+  const slides = banners.map(function(b){
+    const p = S.products.find(x=>x.id===b.prodId);
+    const precio = '$'+(p.price||0).toFixed(0);
+    return '<div onclick="tiendaIrAProducto(\''+b.prodId+'\')" style="flex:0 0 100%;scroll-snap-align:center;cursor:pointer;position:relative;border-radius:16px;overflow:hidden;aspect-ratio:16/9;box-shadow:0 3px 12px rgba(0,0,0,.15)">'
+      + '<img src="'+b.img+'" style="width:100%;height:100%;object-fit:cover">'
+      + '<div style="position:absolute;bottom:0;right:0;background:#3483fa;color:#fff;font-size:22px;font-weight:900;padding:8px 18px;border-radius:16px 0 0 0;font-family:Inter,sans-serif;box-shadow:0 -2px 8px rgba(0,0,0,.2)">'+precio+'</div>'
+      + '</div>';
+  }).join('');
+  const dots = banners.length>1 ? '<div style="display:flex;justify-content:center;gap:6px;margin-top:8px">'+banners.map(function(){return '<div style="width:7px;height:7px;border-radius:50%;background:#3483fa50"></div>';}).join('')+'</div>' : '';
+  el.innerHTML = '<div style="display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch">'+slides+'</div>'+dots;
+}
+
+// Llevar al producto dentro de la tienda
+function tiendaIrAProducto(pid) {
+  const p = S.products.find(x=>x.id===pid);
+  if(!p) return;
+  // Poner el buscador con el nombre del producto y renderizar
+  const buscar = document.getElementById('tienda-buscar');
+  if(buscar) { buscar.value = p.name; }
+  window.T_CAT = 'todas';
+  tiendaRender();
+  // Scroll al catálogo
+  setTimeout(function(){
+    const lista = document.getElementById('tienda-lista');
+    if(lista) lista.scrollIntoView({behavior:'smooth', block:'start'});
+  }, 100);
+}
+// ========== FIN BANNERS ==========
+
 function backupData() {
   localStorage.setItem('lastBackupDate', localDateStr());
   const backup = {
@@ -2145,6 +2334,7 @@ function backupData() {
     date: new Date().toISOString(),
     products: S.products, clients: S.clients, invoices: S.invoices,
     compras: S.compras, proveedores: S.proveedores, cobranzas: S.cobranzas||[],
+    banners: S.banners||[],
     nInv: S.nInv, nCli: S.nCli, nProd: S.nProd, nComp: S.nComp, nProv: S.nProv
   };
   const blob = new Blob([JSON.stringify(backup, null, 2)], {type: 'application/json'});
@@ -6351,6 +6541,8 @@ function renderInvoiceHTML(inv) {
         <div id="tienda-cats" style="display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:4px 0"></div>
       </div>
     </div>
+    <!-- Banner destacado (carrusel) -->
+    <div id="tienda-banners" style="display:none;padding:12px 16px 0"></div>
     <!-- Vista toggle -->
     <div style="display:flex;justify-content:flex-end;padding:8px 16px;gap:6px">
       <button onclick="tiendaSetVista('lista')" id="tienda-btn-lista" style="padding:7px 12px;border-radius:8px;border:none;background:#3483fa;color:#fff;font-size:15px;cursor:pointer">☰</button>
@@ -6698,6 +6890,7 @@ function tiendaProdCard(p) {
     +'</div>';
 }
 function tiendaRender() {
+  try { tiendaRenderBanners(); } catch(e) {}
   const q = (document.getElementById('tienda-buscar').value||'').toLowerCase();
   const cat = window.T_CAT||'todas';
   let prods = S.products.filter(p => p.visible !== false && p.price > 0 && p.name && p.name.trim());
