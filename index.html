@@ -63,8 +63,11 @@
     ajustes: new Set(), config: false
   };
   window._markDirty = function(col, id) {
-    if(col === 'config') { _dirty.config = true; return; }
-    if(_dirty[col]) _dirty[col].add(id);
+    if(col === 'config') { _dirty.config = true; }
+    else if(_dirty[col]) _dirty[col].add(id);
+    // Activar la bandera de sincronización para que el botón 🔄 suba los cambios
+    window._syncPendingFlag = true;
+    try { if(typeof _syncMarkDirty === 'function') _syncMarkDirty(true); } catch(e) {}
   };
   function _clearDirty() {
     COLS.forEach(c => _dirty[c].clear());
@@ -5519,9 +5522,11 @@ async function initApp() {
 
 // ========== SINCRONIZACIÓN MANUAL ==========
 let _syncDirty = false;
+window._syncPendingFlag = false;
 
 function _syncMarkDirty(dirty) {
   _syncDirty = dirty;
+  window._syncPendingFlag = dirty;
   const badge = document.getElementById('sync-badge');
   const btn = document.getElementById('btn-sync');
   if (!badge || !btn) return;
@@ -5544,7 +5549,7 @@ async function syncManual() {
   try {
     if (typeof window._fbLoad === 'function') {
       // 1. Primero subir SOLO los cambios locales (dirty) — nunca la base completa
-      if (_syncDirty && typeof window._fbSaveDirty === 'function') {
+      if ((_syncDirty || window._syncPendingFlag) && typeof window._fbSaveDirty === 'function') {
         await window._fbSaveDirty(S);
       }
       // 2. Bajar datos frescos de Firebase
@@ -5566,6 +5571,7 @@ async function syncManual() {
         try { updateStockBadge(); } catch(e) {}
         try { renderProdCatChips(); } catch(e) {}
         _syncMarkDirty(false);
+        window._syncPendingFlag = false;
         toast('✅ Sincronizado');
       }
     }
