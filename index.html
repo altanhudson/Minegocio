@@ -200,6 +200,38 @@
     } catch(e) { console.error('Firebase save error:', e); throw e; }
   };
 
+  // === SAVE DIRTY: sube SOLO los registros marcados como dirty (todas las colecciones) ===
+  // Nunca escribe la base completa — así un dispositivo no pisa los cambios del otro.
+  window._fbSaveDirty = async function(data) {
+    try {
+      const batches = [];
+      for(const col of COLS) {
+        const dirtyIds = _dirty[col];
+        if(!dirtyIds || dirtyIds.size === 0) continue;
+        const records = (data[col] || []).filter(r => r && r.id && dirtyIds.has(r.id));
+        if(records.length === 0) { dirtyIds.clear(); continue; }
+        for(let i = 0; i < records.length; i += 400) {
+          const batch = writeBatch(db);
+          records.slice(i, i+400).forEach(rec => {
+            batch.set(v2doc(col, rec.id), cleanUndefined(rec));
+          });
+          batches.push(batch.commit());
+        }
+        dirtyIds.clear();
+      }
+      // Config: solo si está dirty
+      if(_dirty.config) {
+        const cfgSnap = await getDoc(v2config());
+        const existing = cfgSnap.exists() ? cfgSnap.data() : {};
+        const merged = {...existing};
+        CONFIG_FIELDS.forEach(f => { if(data[f] !== undefined) merged[f] = data[f]; });
+        batches.push(setDoc(v2config(), cleanUndefined(merged)));
+        _dirty.config = false;
+      }
+      if(batches.length > 0) await Promise.all(batches);
+    } catch(e) { console.error('Firebase saveDirty error:', e); throw e; }
+  };
+
   // === LOAD V2: lee todos los documentos de cada colección ===
   window._fbLoad = async function() {
     try {
@@ -5511,9 +5543,9 @@ async function syncManual() {
   if (btn) btn.textContent = '⏳';
   try {
     if (typeof window._fbLoad === 'function') {
-      // 1. Primero subir datos locales
-      if (_syncDirty && typeof window._fbSave === 'function') {
-        await window._fbSave(S, null, true);
+      // 1. Primero subir SOLO los cambios locales (dirty) — nunca la base completa
+      if (_syncDirty && typeof window._fbSaveDirty === 'function') {
+        await window._fbSaveDirty(S);
       }
       // 2. Bajar datos frescos de Firebase
       const fbData = await window._fbLoad();
@@ -5547,8 +5579,8 @@ async function syncManual() {
 // Guardar en Firebase al minimizar/cerrar la app
 document.addEventListener('visibilitychange', function() {
   if (document.visibilityState === 'hidden' && _syncDirty) {
-    if (typeof window._fbSave === 'function') {
-      try { window._fbSave(S, null, true); } catch(e) {}
+    if (typeof window._fbSaveDirty === 'function') {
+      try { window._fbSaveDirty(S); } catch(e) {}
     }
   }
   // Al volver NO sincroniza automáticamente — solo manual o al abrir la app
