@@ -67,7 +67,7 @@
     else if(_dirty[col]) _dirty[col].add(id);
     // Activar la bandera de sincronización para que el botón 🔄 suba los cambios
     window._syncPendingFlag = true;
-    try { if(typeof _syncMarkDirty === 'function') _syncMarkDirty(true); } catch(e) {}
+    try { if(typeof window._syncMarkDirty === 'function') window._syncMarkDirty(true); } catch(e) {}
   };
   function _clearDirty() {
     COLS.forEach(c => _dirty[c].clear());
@@ -802,6 +802,10 @@ select option{background:var(--surface2)}
       <div class="tab" onclick="swCompTab('comparador',this)">Comparador</div>
       <div class="tab" onclick="swCompTab('lista',this)">Lista compras</div>
     </div>
+    <div id="comp-hist-search-wrap" style="position:relative;margin-bottom:10px">
+      <input type="text" id="comp-search" placeholder="🔍 Buscar por proveedor..." autocomplete="off" oninput="renderComps()" style="width:100%;font-size:15px;padding:10px 44px 10px 14px;border:1.5px solid var(--accent2);border-radius:12px;background:var(--surface);font-family:Inter,sans-serif;outline:none">
+      <button id="comp-search-x" onclick="document.getElementById('comp-search').value='';renderComps();this.style.display='none';document.getElementById('comp-search').focus()" style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);background:var(--accent2);color:#fff;border:none;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;align-items:center;justify-content:center;line-height:1">✕</button>
+    </div>
     <div id="comp-hist"><div class="empty"><div class="ei">&#128717;</div><h3>Sin compras</h3><p>Toca + para registrar una compra</p></div></div>
     <div id="comp-lista" style="display:none">
       <div style="font-size:14px;color:var(--text3);margin-bottom:10px">Productos faltantes en facturas pendientes de entrega</div>
@@ -948,8 +952,6 @@ select option{background:var(--surface2)}
         <button onclick="backupData()" class="btn btn-primary btn-full">&#11015;&#65039; Descargar backup</button>
         <button onclick="normalizarCategorias()" class="btn btn-full" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);margin-top:8px">🔤 Normalizar categorías (mayúsculas)</button>
         <button onclick="resetStockCero()" class="btn btn-full" style="background:rgba(220,38,38,.1);border:1px solid var(--accent3);color:var(--accent3);margin-top:8px">🔄 Reset stock a cero (todos los productos)</button>
-        <button id="btn-migrate-v2" onclick="runMigracionV2()" class="btn btn-full" style="background:rgba(22,163,74,.1);border:1px solid #16a34a;color:#166534;margin-top:8px">🚀 Migrar a nueva arquitectura (hacer UNA sola vez)</button>
-        <div id="migrate-progress" style="display:none;padding:8px;background:var(--surface2);border-radius:8px;font-size:13px;margin-top:6px;text-align:center"></div>
       </div>
     </div>
     <div class="card" style="margin-bottom:12px">
@@ -966,7 +968,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:12px">Versión <strong style="color:var(--text2)">1.4.0</strong> · 06/05/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">2.0.0</strong> · 31/05/2026</div>
       </div>
     </div>
   </div>
@@ -5004,8 +5006,16 @@ function confirmComp(id){if(!confirm('Confirmar esta compra? Se va a actualizar 
 function renderComps(){
   const el=document.getElementById('comp-hist');
   if(!S.compras.length){el.innerHTML='<div class="empty"><div class="ei">&#128717;</div><h3>Sin compras</h3><p>Toca + para registrar</p></div>';return;}
+  // Filtro por proveedor
+  const searchEl = document.getElementById('comp-search');
+  const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
+  const xBtn = document.getElementById('comp-search-x');
+  if(xBtn) xBtn.style.display = q ? 'flex' : 'none';
+  let lista = S.compras;
+  if(q) lista = S.compras.filter(c => (c.provName||'').toLowerCase().includes(q));
+  if(!lista.length){el.innerHTML='<div class="empty"><div class="ei">🔍</div><h3>Sin resultados</h3><p>No hay compras de ese proveedor</p></div>';return;}
   const bd={};
-  S.compras.forEach(c=>{if(!bd[c.date])bd[c.date]=[];bd[c.date].push(c);});
+  lista.forEach(c=>{if(!bd[c.date])bd[c.date]=[];bd[c.date].push(c);});
   el.innerHTML=Object.entries(bd).sort((a,b)=>b[0].localeCompare(a[0])).map(([date,cs])=>
     '<div style="font-size:13px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:600;margin:12px 0 6px">'+fmtDate(date)+'</div>'
     +'<div class="card" style="margin-bottom:0">'
@@ -5542,6 +5552,7 @@ function _syncMarkDirty(dirty) {
     btn.title = 'Sincronizado';
   }
 }
+window._syncMarkDirty = _syncMarkDirty;
 
 async function syncManual() {
   const btn = document.getElementById('btn-sync');
@@ -6337,7 +6348,7 @@ function renderInvoiceHTML(inv) {
       </div>
       <!-- Categorías sobre fondo crema con borde redondeado -->
       <div style="background:#fffbea;margin:0 -16px;padding:10px 16px 8px;border-radius:16px 16px 0 0">
-        <div id="tienda-cats" style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch"></div>
+        <div id="tienda-cats" style="display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:4px 0"></div>
       </div>
     </div>
     <!-- Vista toggle -->
@@ -6802,7 +6813,7 @@ function tiendaRenderCats() {
     const key = c.toLowerCase().trim();
     return CAT_EMOJI[key] || '📦';
   };
-  const btnStyle = (active) => 'flex-shrink:0;padding:6px 14px;border-radius:20px;border:none;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;'+(active?'background:#3483fa;color:#fff':'background:#f0f4ff;color:#3483fa;border:1.5px solid #3483fa20');
+  const btnStyle = (active) => 'flex-shrink:0;padding:11px 20px;border-radius:24px;border:none;font-size:16px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 1px 4px rgba(52,131,250,.15);'+(active?'background:#3483fa;color:#fff':'background:#fff;color:#3483fa;border:2px solid #3483fa40');
   el.innerHTML = '<button style="'+btnStyle(cat==='todas')+'" onclick="window.T_CAT=&quot;todas&quot;;tiendaRender()">🏪 Todas</button>'
     +(hasOfertas?'<button style="'+btnStyle(cat==='ofertas')+'" onclick="window.T_CAT=&quot;ofertas&quot;;tiendaRender()">🔥 Ofertas</button>':'')
     +cats.map(c=>'<button style="'+btnStyle(cat===c)+'" onclick="window.T_CAT=&quot;'+c+'&quot;;tiendaRender()">'+getEmoji(c)+' '+c+'</button>').join('');
