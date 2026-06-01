@@ -976,7 +976,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">2.3.0</strong> · 01/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">2.4.0</strong> · 01/06/2026</div>
       </div>
     </div>
   </div>
@@ -6619,6 +6619,7 @@ function renderInvoiceHTML(inv) {
         <button onclick="tiendaConfirmar()" style="width:100%;padding:16px;background:#3483fa;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:800;font-family:Inter,sans-serif;cursor:pointer;line-height:1.3">
           Confirmar pedido por WhatsApp 📲<br><span style="font-size:12px;font-weight:400;opacity:.85">Te respondemos a la brevedad</span>
         </button>
+        <button onclick="tiendaVaciarCarrito()" id="tienda-btn-vaciar" style="width:100%;padding:10px;background:#fff;color:#dc2626;border:1px solid #fecaca;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px">🗑️ Vaciar carrito</button>
       </div>
     </div>
   </div>
@@ -7145,8 +7146,10 @@ function tiendaRenderCarrito() {
   const empty = document.getElementById('tienda-carrito-empty');
   const count = document.getElementById('tienda-carrito-count');
   if(count) count.textContent = items.length + ' producto' + (items.length!==1?'s':'');
-  if(!items.length){cont.innerHTML='';empty.style.display='block';tiendaActTotal();return;}
+  const btnVaciar = document.getElementById('tienda-btn-vaciar');
+  if(!items.length){cont.innerHTML='';empty.style.display='block';if(btnVaciar)btnVaciar.style.display='none';tiendaActTotal();return;}
   empty.style.display='none';
+  if(btnVaciar) btnVaciar.style.display='block';
   const rows = items.map(([id,qty])=>{
     const p=S.products.find(x=>x.id===id);
     const name = p ? p.name : id;
@@ -7165,6 +7168,16 @@ function tiendaRenderCarrito() {
   });
   cont.innerHTML = rows.join('');
   tiendaActTotal();
+}
+
+function tiendaVaciarCarrito() {
+  const items = Object.entries(TC).filter(([,q])=>q>0);
+  if(!items.length) return;
+  if(!confirm('¿Vaciar todo el carrito? Se quitarán todos los productos.')) return;
+  TC = {};
+  tiendaRenderCarrito();
+  tiendaActBadge();
+  tiendaVolverCatalogo();
 }
 
 function tiendaConfirmar() {
@@ -7208,12 +7221,11 @@ function tiendaConfirmar() {
     notes:'Pedido desde tienda online'
   };
   S.invoices.unshift(inv);
-  // Descontar stock
-  items.forEach(([id,qty])=>{
-    const idx=S.products.findIndex(x=>x.id===id);
-    if(idx>=0) S.products[idx].stock=(S.products[idx].stock||0)-qty;
-  });
-  try{renderInvs();}catch(e){} try{updDash();}catch(e){} save(['invoices','clients','products','nInv'], true);
+  // Marcar dirty para que sincronice a Firebase
+  try{ _markDirty('invoices', inv.id); _markDirty('clients', cli.id); }catch(e){}
+  // El stock se recalcula desde los movimientos (no descontar manual)
+  try{ recalcAllStocks(); recalcClientCredits(); }catch(e){}
+  try{renderInvs();}catch(e){} try{renderProds();}catch(e){} try{updDash();}catch(e){} save(['invoices','clients','products','nInv'], true);
   // Limpiar carrito
   TC={};
   tiendaRenderCarrito();
