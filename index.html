@@ -976,7 +976,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">2.5.0</strong> · 01/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">2.6.0</strong> · 01/06/2026</div>
       </div>
     </div>
   </div>
@@ -2508,7 +2508,7 @@ function saveProd() {
   const name = document.getElementById('p-name').value.trim();
   if(!name) { toast('Ingresa el nombre'); return; }
   const prod = {
-    id: S.editId || 'PROD-'+String(S.nProd++).padStart(3,'0'),
+    id: S.editId || ('PROD-'+String(S.nProd++).padStart(3,'0')+'-'+Date.now().toString(36).slice(-4).toUpperCase()),
     name,
     emoji: '📦',
     category: (document.getElementById('p-cat').value||'').trim().replace(/^\w/, c=>c.toUpperCase()),
@@ -4405,7 +4405,7 @@ function saveInv() {
         if(existe) return;
         if(confirm('¿Dar de alta "' + nombre + '"? Va a quedar en productos con stock 0 para cuando lo comprés.')) {
           const prod = {
-            id: 'PROD-' + String(S.nProd++).padStart(3,'0'),
+            id: 'PROD-' + String(S.nProd++).padStart(3,'0')+'-'+Date.now().toString(36).slice(-4).toUpperCase(),
             name: nombre, emoji: '📦', category: '',
             price: item.price || 0, wholesalePrice: 0, wholesaleQty: 0,
             cost: 0, stock: -(item.qty||0), minStock: 0,
@@ -5289,7 +5289,7 @@ function fmtDate(s){if(!s)return'';const[y,m,d]=s.split('-');const ms=['Ene','Fe
 // === CSV ===
 function dlTemplate(){const h='nombre,precio,costo,stock,stock_minimo,categoria,precio_mayorista,cantidad_mayorista';const ex='Aceite girasol 1L,2500,1800,50,10,Aceites,2000,6';const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(h+'\n'+ex);a.download='plantilla.csv';a.click();}
 function prevCSV(input){if(!input.files[0])return;const r=new FileReader();r.onload=e=>{const ls=e.target.result.trim().split('\n').slice(0,5);const p=document.getElementById('csv-prev');p.innerHTML=ls.map((l,i)=>'<div style="'+(i===0?'color:var(--accent);font-weight:600':'')+';padding:2px 0;border-bottom:1px solid var(--border)">'+l+'</div>').join('');p.style.display='';};r.readAsText(input.files[0]);}
-function doImport(){const file=document.getElementById('csv-file').files[0];if(!file){toast('Elige un archivo');return;}const r=new FileReader();r.onload=e=>{const lines=e.target.result.trim().split('\n');if(lines.length<2){toast('Archivo vacio');return;}const hs=lines[0].split(',').map(h=>h.trim().toLowerCase().replace(/[\'"]/g,''));const idx=n=>hs.findIndex(h=>h===n||h.includes(n));const iN=idx('nombre'),iP=idx('precio'),iC=idx('costo'),iS=idx('stock'),iMS=idx('minimo'),iCat=idx('categori'),iWP=idx('mayorista'),iWQ=idx('cantidad');if(iN<0){toast('No se encontro columna nombre');return;}let cnt=0;for(let i=1;i<lines.length;i++){const cols=lines[i].split(',').map(c=>c.trim().replace(/^["\'"]|["\'"]$/g,''));const name=cols[iN];if(!name)continue;S.products.push({id:'PROD-'+String(S.nProd++).padStart(3,'0'),name,price:iP>=0?parseFloat(cols[iP])||0:0,cost:iC>=0?parseFloat(cols[iC])||0:0,stock:iS>=0?parseInt(cols[iS])||0:0,minStock:iMS>=0?parseInt(cols[iMS])||5:5,category:iCat>=0?cols[iCat]||'':'',wholesalePrice:iWP>=0?parseFloat(cols[iWP])||0:0,wholesaleQty:iWQ>=0?parseInt(cols[iWQ])||0:0,emoji:'',desc:'',visible:true,image:null,sku:'P'+Date.now()+i});cnt++;}try{S.products.forEach(p=>_markDirty('products',p.id));}catch(e){}renderProds();updDash();save(['products','nProd']);closeM('mimport');toast(cnt+' productos importados');};r.readAsText(file);}
+function doImport(){const file=document.getElementById('csv-file').files[0];if(!file){toast('Elige un archivo');return;}const r=new FileReader();r.onload=e=>{const lines=e.target.result.trim().split('\n');if(lines.length<2){toast('Archivo vacio');return;}const hs=lines[0].split(',').map(h=>h.trim().toLowerCase().replace(/[\'"]/g,''));const idx=n=>hs.findIndex(h=>h===n||h.includes(n));const iN=idx('nombre'),iP=idx('precio'),iC=idx('costo'),iS=idx('stock'),iMS=idx('minimo'),iCat=idx('categori'),iWP=idx('mayorista'),iWQ=idx('cantidad');if(iN<0){toast('No se encontro columna nombre');return;}let cnt=0;for(let i=1;i<lines.length;i++){const cols=lines[i].split(',').map(c=>c.trim().replace(/^["\'"]|["\'"]$/g,''));const name=cols[iN];if(!name)continue;S.products.push({id:'PROD-'+String(S.nProd++).padStart(3,'0')+'-'+Date.now().toString(36).slice(-4).toUpperCase()+i,name,price:iP>=0?parseFloat(cols[iP])||0:0,cost:iC>=0?parseFloat(cols[iC])||0:0,stock:iS>=0?parseInt(cols[iS])||0:0,minStock:iMS>=0?parseInt(cols[iMS])||5:5,category:iCat>=0?cols[iCat]||'':'',wholesalePrice:iWP>=0?parseFloat(cols[iWP])||0:0,wholesaleQty:iWQ>=0?parseInt(cols[iWQ])||0:0,emoji:'',desc:'',visible:true,image:null,sku:'P'+Date.now()+i});cnt++;}try{S.products.forEach(p=>_markDirty('products',p.id));}catch(e){}renderProds();updDash();save(['products','nProd']);closeM('mimport');toast(cnt+' productos importados');};r.readAsText(file);}
 
 
 // === ACTUALIZAR PRECIOS DESDE INVOICE MANAGER ===
