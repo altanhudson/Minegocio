@@ -976,7 +976,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">2.6.0</strong> · 01/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">2.7.0</strong> · 01/06/2026</div>
       </div>
     </div>
   </div>
@@ -2352,12 +2352,22 @@ function _resetBannerTimer() {
 }
 
 // Llevar al producto dentro de la tienda
+function tiendaLimpiarBuscar() {
+  const b = document.getElementById('tienda-buscar');
+  if(b) b.value = '';
+  const x = document.getElementById('tienda-buscar-x');
+  if(x) x.style.display = 'none';
+  tiendaRender();
+}
+
 function tiendaIrAProducto(pid) {
   const p = S.products.find(x=>x.id===pid);
   if(!p) return;
-  // Poner el buscador con el nombre del producto y renderizar
+  // Poner el buscador con el nombre del producto y mostrar la X para volver
   const buscar = document.getElementById('tienda-buscar');
   if(buscar) { buscar.value = p.name; }
+  const x = document.getElementById('tienda-buscar-x');
+  if(x) x.style.display = 'flex';
   window.T_CAT = 'todas';
   tiendaRender();
   // Scroll al catálogo
@@ -6574,8 +6584,9 @@ function renderInvoiceHTML(inv) {
       <!-- Buscador blanco bien visible -->
       <div style="background:#fff;border-radius:12px;display:flex;align-items:center;padding:0 12px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.1)">
         <span style="color:#999;font-size:16px;margin-right:8px">🔍</span>
-        <input id="tienda-buscar" type="text" placeholder="Buscar producto..." oninput="tiendaRender()"
+        <input id="tienda-buscar" type="text" placeholder="Buscar producto..." oninput="tiendaRender();document.getElementById('tienda-buscar-x').style.display=this.value?'flex':'none'"
           style="flex:1;padding:12px 0;font-size:14px;background:transparent;border:none;color:#333;outline:none;font-family:Inter,sans-serif">
+        <button id="tienda-buscar-x" onclick="tiendaLimpiarBuscar()" style="display:none;background:#3483fa;color:#fff;border:none;border-radius:50%;width:30px;height:30px;font-size:15px;cursor:pointer;align-items:center;justify-content:center;line-height:1;flex-shrink:0">✕</button>
       </div>
       <!-- Categorías sobre fondo crema con borde redondeado -->
       <div style="background:#ededed;margin:0 -16px;padding:10px 16px 8px;border-radius:16px 16px 0 0">
@@ -6941,7 +6952,14 @@ function tiendaRender() {
   else if(cat !== 'todas') prods = prods.filter(p => (p.category||'').toLowerCase() === cat.toLowerCase());
   const lista = document.getElementById('tienda-lista');
   if(!prods.length) {
-    lista.innerHTML = '<div style="text-align:center;padding:40px;color:#555">Sin productos disponibles</div>';
+    let vacioHtml = '';
+    if(q) {
+      vacioHtml = '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:#e7f0ff;border:1.5px solid #3483fa;border-radius:12px;padding:10px 14px;margin-bottom:12px">'
+        + '<span style="font-size:13px;color:#1a5cc4;font-weight:600">🔍 Mostrando tu búsqueda</span>'
+        + '<button onclick="tiendaLimpiarBuscar()" style="background:#3483fa;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">✕ Ver todo</button>'
+        + '</div>';
+    }
+    lista.innerHTML = vacioHtml + '<div style="text-align:center;padding:40px;color:#555">Sin productos disponibles</div>';
     tiendaRenderCats();
     return;
   }
@@ -6954,6 +6972,13 @@ function tiendaRender() {
   });
   // Sección ofertas y banners
   let html = '';
+  // Cartel de filtro activo (cuando hay búsqueda) — para que el cliente sepa volver
+  if(q) {
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:#e7f0ff;border:1.5px solid #3483fa;border-radius:12px;padding:10px 14px;margin-bottom:12px">'
+      + '<span style="font-size:13px;color:#1a5cc4;font-weight:600">🔍 Mostrando tu búsqueda</span>'
+      + '<button onclick="tiendaLimpiarBuscar()" style="background:#3483fa;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">✕ Ver todo</button>'
+      + '</div>';
+  }
   // Banner de aumentos (últimas 48hs, solo si no hay filtro)
   if(!q && cat==='todas') {
     const aumentos = prods.filter(p => {
