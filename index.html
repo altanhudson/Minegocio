@@ -976,7 +976,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">2.7.0</strong> · 01/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">2.8.0</strong> · 02/06/2026</div>
       </div>
     </div>
   </div>
@@ -3126,7 +3126,14 @@ function openInv(id, defaultType) {
   S._editOrigItems = null;
   if(id) {
     const _origInv = S.invoices.find(x=>x.id===id);
-    if(_origInv) S._editOrigItems = _origInv.items.map(x=>({...x}));
+    if(_origInv) {
+      S._editOrigItems = _origInv.items.map(x=>({...x}));
+      S._editOrigTotal = _origInv.total || 0;
+      S._editOrigPagado = (_origInv.pagos||[]).reduce((s,p)=>s+(p.monto||0),0);
+      S._editOrigSaldo = _origInv.saldo || 0;
+    }
+  } else {
+    S._editOrigTotal = null; S._editOrigPagado = 0; S._editOrigSaldo = 0;
   }
   document.getElementById('i-date').value=localDateStr();
   const dateResEl = document.getElementById('i-date-res');
@@ -3187,6 +3194,9 @@ function verInv(id) {
   S.editId = id;
   window.invEditId = id; // ID dedicado para facturas
   S._editOrigItems = inv.items.map(x=>({...x})); // copia profunda de items originales
+  S._editOrigTotal = inv.total || 0;
+  S._editOrigPagado = (inv.pagos||[]).reduce((s,p)=>s+(p.monto||0),0);
+  S._editOrigSaldo = inv.saldo || 0;
   S.invItems = [...inv.items];
   S.editClientId = inv.clientId; // guardar clientId para usarlo al guardar
   document.getElementById('i-cli').value = inv.clientId;
@@ -4315,6 +4325,16 @@ function saveInv() {
   // Sync: i-date-res tiene prioridad, copiar a i-date
   { const dr=document.getElementById('i-date-res'); const di=document.getElementById('i-date'); if(dr&&dr.value) di.value=dr.value; }
   if(!S.invItems.length){toast('Agrega al menos un item');return;}
+  // Preguntar si aplicar crédito a favor (solo factura nueva y si el cliente tiene crédito > 0)
+  window._aplicarCreditoEnFactura = false;
+  {
+    const esEdic = !!(window.invEditId || S.editId);
+    const _cli = S.clients.find(c=>c.id===cid);
+    const cred = _cli ? (_cli.credito||0) : 0;
+    if(!esEdic && cred > 0) {
+      window._aplicarCreditoEnFactura = confirm('Este cliente tiene $'+cred.toFixed(0)+' a favor.\n\n¿Querés aplicarlo a esta factura?');
+    }
+  }
   // Sincronizar texto de inputs al estado antes de guardar
   S.invItems.forEach((item, idx) => {
     const acEl = document.getElementById('ac-'+idx);
@@ -4359,27 +4379,46 @@ function saveInv() {
     const cli2 = S.clients.find(c=>c.id===cid);
     S.cobranzas.push({id:'COB-'+Date.now(), clientId:cid, clientName:cli2?cli2.name:'---', monto:pago, method:document.getElementById('i-pmethod').value, date:document.getElementById('i-date').value, facturas:[inv.id], aFavor:0});
   }
-  // Aplicar crédito a favor del cliente en facturas nuevas
   const cliData = S.clients.find(c=>c.id===cid);
-  if(!S.editId && cliData) {
+  const esEdicion = !!(window.invEditId || S.editId);
+
+  // === LÓGICA DE SALDO A FAVOR / DEUDA — simple suma y resta ===
+  if(esEdicion && cliData) {
+    // Editando una factura existente: si estaba pagada (o parte) y cambió el total,
+    // la diferencia ajusta el crédito del cliente.
+    const origTotal = S._editOrigTotal || 0;
+    const origPagado = S._editOrigPagado || 0;
+    const diff = origTotal - inv.total; // positivo = bajó (a favor), negativo = subió (debe)
+    // Solo ajustamos por lo que el cliente YA había pagado de esta factura
+    if(origPagado > 0 && diff !== 0) {
+      // Si bajó el total: lo que pagó de más vuelve como crédito (hasta el monto pagado).
+      // Si subió el total: lo que falta cubrir se descuenta del crédito (queda debiendo).
+      cliData.credito = (cliData.credito||0) + diff;
+    }
+  } else if(!esEdicion && cliData) {
+    // Factura nueva: aplicar crédito a favor si el cliente tiene (ya viene confirmado por el prompt previo)
     const credito = cliData.credito||0;
-    if(credito>0) { inv.pagos.push({monto:credito,method:'a favor',date:inv.date}); cliData.credito=0; }
+    if(credito > 0 && window._aplicarCreditoEnFactura) {
+      const aAplicar = Math.min(credito, inv.total);
+      inv.pagos.push({monto:aAplicar, method:'a favor', date:inv.date});
+      cliData.credito = credito - aAplicar;
+    }
   }
+  window._aplicarCreditoEnFactura = false;
+
   // Recalcular saldo con todos los pagos
   const totalPagadoFinal = inv.pagos.reduce((s,p)=>s+p.monto,0);
   inv.saldo = Math.max(0, inv.total - totalPagadoFinal);
-  inv.aFavor = totalPagadoFinal > inv.total ? totalPagadoFinal - inv.total : 0;
-  if(cliData) {
-    if(S.editId) {
-      // Al editar: recalcular el crédito real del cliente basado en TODAS sus facturas
-      const otrasAFavor = S.invoices.filter(i=>i.id!==S.editId&&i.clientId===cid).reduce((s,i)=>s+(i.aFavor||0),0);
-      cliData.credito = otrasAFavor + inv.aFavor;
-    } else if(inv.aFavor>0) {
-      cliData.credito = (cliData.credito||0) + inv.aFavor;
-    }
+  // Si pagaron de más en ESTA factura (número redondo), el excedente va al crédito del cliente
+  const excedente = totalPagadoFinal - inv.total;
+  if(excedente > 0 && cliData) {
+    cliData.credito = (cliData.credito||0) + excedente;
+    // Quitar el excedente de los pagos para que la factura quede justa (saldo 0, no aFavor)
+    inv.saldo = 0;
   }
-  // Siempre recalcular status al editar: si el total subió y los pagos no alcanzan → pendiente
-  if(S.editId) {
+  inv.aFavor = 0; // ya no usamos aFavor por factura, el crédito vive en el cliente
+  // Status
+  if(esEdicion) {
     inv.status = inv.saldo<=0 ? 'pagada' : 'pendiente';
   } else if(pago>0) {
     inv.status = inv.saldo<=0 ? 'pagada' : status;
@@ -4676,9 +4715,14 @@ function saveQPago() {
   inv.pagos.push({monto, method, date: localDateStr()});
   const totalPagado = inv.pagos.reduce((s,p)=>s+p.monto,0);
   inv.saldo = Math.max(0, inv.total - totalPagado);
-  inv.aFavor = totalPagado > inv.total ? totalPagado - inv.total : 0;
+  // Si pagó de más, el excedente SUMA al crédito del cliente (no lo reemplaza)
+  const excedenteQ = totalPagado - inv.total;
+  if(excedenteQ > 0 && cliQ) {
+    cliQ.credito = (cliQ.credito||0) + excedenteQ;
+    inv.saldo = 0;
+  }
+  inv.aFavor = 0;
   inv.status = inv.saldo <= 0 ? 'pagada' : 'pendiente';
-  if(cliQ && inv.aFavor > 0) cliQ.credito = inv.aFavor;
   if(!S.cobranzas) S.cobranzas = [];
   S.cobranzas.push({
     id: 'COB-'+Date.now(),
@@ -5908,22 +5952,15 @@ function recalcAllStocks() {
 
 // ========== RECALC CREDITO CLIENTES ==========
 function recalcClientCredits() {
-  if (!S.clients || !S.invoices) return;
-  // Para cada cliente, el crédito real es la suma de aFavor de todas sus facturas
-  // menos los créditos ya aplicados como pagos "a favor" en otras facturas
-  S.clients.forEach(function(c) {
-    var totalAFavor = 0;
-    var totalAplicado = 0;
-    S.invoices.forEach(function(inv) {
-      if (inv.clientId !== c.id) return;
-      totalAFavor += (inv.aFavor || 0);
-      (inv.pagos || []).forEach(function(p) {
-        if (p.method === 'a favor') totalAplicado += (p.monto || 0);
-      });
-    });
-    var creditoReal = Math.max(0, totalAFavor - totalAplicado);
-    c.credito = creditoReal;
-  });
+  // El crédito del cliente ya NO se recalcula desde el historial (eso descuadraba todo).
+  // Ahora el crédito (cli.credito) se maneja por eventos directos de suma/resta:
+  //  - pago de más en una factura  → suma
+  //  - sacar producto de factura pagada → suma
+  //  - agregar producto a factura pagada → resta
+  //  - aplicar crédito a una factura nueva → resta
+  //  - ajuste manual (botón Saldo) → set directo
+  // Por eso esta función queda intencionalmente vacía.
+  return;
 }
 // ========== FIN RECALC CREDITO ==========
 
