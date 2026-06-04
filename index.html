@@ -6666,7 +6666,10 @@ function renderInvoiceHTML(inv) {
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div>
           <div style="font-family:Inter,sans-serif;font-size:22px;font-weight:900;color:#fff;letter-spacing:-0.5px" id="tienda-cat-titulo">Surtimar</div>
-          <div style="font-size:16px;font-weight:700;color:#fff" id="tienda-saludo"></div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="font-size:16px;font-weight:700;color:#fff" id="tienda-saludo"></div>
+            <button id="tienda-logout-btn" onclick="tiendaCerrarSesion()" style="display:none;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:3px 8px;font-size:11px;cursor:pointer">Cambiar</button>
+          </div>
           <div style="font-size:12px;color:rgba(255,255,255,.85);margin-top:2px">Explorá nuestros productos y agregá lo que querés al carrito</div>
         </div>
         <button onclick="tiendaVerCarrito()" style="position:relative;background:#ffe600;border:none;color:#333;border-radius:12px;padding:10px 14px;font-size:20px;cursor:pointer;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.15)" id="tienda-cart-btn">
@@ -6917,6 +6920,12 @@ function tiendaInit() {
           return;
         }
         if(btn) { btn.disabled = false; btn.textContent = 'Ver productos →'; }
+        // Auto-entrar si hay número guardado en este celular
+        const savedPhone = localStorage.getItem('tienda_phone');
+        if(savedPhone && modoPost !== 'cerrada') {
+          document.getElementById('tienda-phone-input').value = savedPhone;
+          tiendaEntrar();
+        }
       });
     } else {
       setTimeout(tryLoad, 500);
@@ -6944,6 +6953,18 @@ function tiendaModoMensaje() {
   }
 }
 
+function tiendaCerrarSesion() {
+  try { localStorage.removeItem('tienda_phone'); } catch(e) {}
+  TC_PHONE = ''; TC_CLI = null; TN = '';
+  document.getElementById('tienda-phone-input').value = '';
+  document.getElementById('tienda-catalogo').style.display='none';
+  document.getElementById('tienda-login').style.display='flex';
+  const logoutBtn = document.getElementById('tienda-logout-btn');
+  if(logoutBtn) logoutBtn.style.display = 'none';
+  TC = {};
+  tiendaActBadge();
+}
+
 function tiendaEntrar() {
   const ph = document.getElementById('tienda-phone-input').value.replace(/\D/g,'');
   if(!ph || ph.length < 6) { document.getElementById('tienda-phone-input').focus(); return; }
@@ -6967,10 +6988,14 @@ function tiendaEntrar() {
     return;
   }
 
+  // Recordar número en este celular
+  try { localStorage.setItem('tienda_phone', ph); } catch(e) {}
   document.getElementById('tienda-login').style.display='none';
   document.getElementById('tienda-catalogo').style.display='block';
   const nombreMostrar = TC_CLI && TC_CLI.name && !TC_CLI.name.includes('(web)') ? TC_CLI.name : null;
   document.getElementById('tienda-saludo').textContent = nombreMostrar ? 'Hola, ' + nombreMostrar + '! ¿Qué vas a comprar hoy?' : 'Hola! ¿Qué vas a comprar hoy?';
+  const logoutBtn = document.getElementById('tienda-logout-btn');
+  if(logoutBtn) logoutBtn.style.display = 'inline-block';
   document.getElementById('tienda-footer').style.display='block';
   if(modoTienda === 'solo_vista') tiendaModoMensaje();
   window.T_CAT = 'todas';
