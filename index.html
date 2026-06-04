@@ -1230,8 +1230,8 @@ select option{background:var(--surface2)}
         </div>
       </div>
       <div class="form-group">
-        <label class="fl">Producto vinculado *</label>
-        <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Al tocar el banner, el cliente va a este producto. El precio se muestra solo.</div>
+        <label class="fl">Producto vinculado <span style="font-size:12px;color:var(--text3);font-weight:400">(opcional)</span></label>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Si elegís un producto, el banner muestra el precio y lleva al cliente a ese producto. Si no elegís ninguno, el banner es solo imagen.</div>
         <div style="position:relative">
           <input type="text" id="banner-prod-search" placeholder="🔍 Buscar producto..." autocomplete="off" oninput="bannerProdSearch(this.value)" style="width:100%;font-size:15px;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface);outline:none">
           <input type="hidden" id="banner-prod-id">
@@ -2308,10 +2308,9 @@ function selectBannerProd(pid) {
 
 function saveBanner() {
   if(!_bannerImg) { toast('Elegí una imagen'); return; }
-  if(!_bannerProdId) { toast('Elegí un producto'); return; }
   if(!S.banners) S.banners = [];
   const id = 'BAN-' + Date.now().toString(36).toUpperCase();
-  S.banners.push({ id: id, img: _bannerImg, prodId: _bannerProdId });
+  S.banners.push({ id: id, img: _bannerImg, prodId: _bannerProdId || null });
   try{ _markDirty('config', 'main'); }catch(e){}
   save(['banners'], true);
   renderBannersList();
@@ -2336,6 +2335,7 @@ function tiendaRenderBanners() {
   const el = document.getElementById('tienda-banners');
   if(!el) return;
   const banners = (S.banners||[]).filter(function(b){
+    if(!b.prodId) return true; // banner libre siempre se muestra
     const p = S.products.find(x=>x.id===b.prodId);
     return p && p.price>0;
   });
@@ -2343,8 +2343,8 @@ function tiendaRenderBanners() {
   el.style.display = 'block';
   if(_bannerIdx >= banners.length) _bannerIdx = 0;
   const b = banners[_bannerIdx];
-  const p = S.products.find(x=>x.id===b.prodId);
-  const precio = '$'+(p.price||0).toFixed(0);
+  const p = b.prodId ? S.products.find(x=>x.id===b.prodId) : null;
+  const precio = p ? '$'+p.price.toFixed(0) : null;
   const flechas = banners.length>1
     ? '<button onclick="cambiarBanner(-1)" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.45);color:#fff;border:none;border-radius:50%;width:38px;height:38px;font-size:20px;cursor:pointer;z-index:2;display:flex;align-items:center;justify-content:center">‹</button>'
       + '<button onclick="cambiarBanner(1)" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.45);color:#fff;border:none;border-radius:50%;width:38px;height:38px;font-size:20px;cursor:pointer;z-index:2;display:flex;align-items:center;justify-content:center">›</button>'
@@ -2354,10 +2354,12 @@ function tiendaRenderBanners() {
       + banners.map(function(x,i){return '<div style="width:8px;height:8px;border-radius:50%;background:'+(i===_bannerIdx?'#3483fa':'#3483fa40')+'"></div>';}).join('')
       + '</div>'
     : '';
+  const onclickAttr = p ? 'onclick="tiendaIrAProducto(''+b.prodId+'')" style="cursor:pointer;width:100%;height:100%"' : 'style="width:100%;height:100%"';
+  const precioTag = precio ? '<div style="position:absolute;bottom:0;right:0;background:#3483fa;color:#fff;font-size:22px;font-weight:900;padding:8px 18px;border-radius:16px 0 0 0;font-family:Inter,sans-serif;box-shadow:0 -2px 8px rgba(0,0,0,.2)">'+precio+'</div>' : '';
   el.innerHTML = '<div style="position:relative;border-radius:16px;overflow:hidden;aspect-ratio:16/9;box-shadow:0 3px 12px rgba(0,0,0,.15)">'
-    + '<div onclick="tiendaIrAProducto(\''+b.prodId+'\')" style="cursor:pointer;width:100%;height:100%">'
+    + '<div '+onclickAttr+'>'
     + '<img src="'+b.img+'" style="width:100%;height:100%;object-fit:cover;display:block">'
-    + '<div style="position:absolute;bottom:0;right:0;background:#3483fa;color:#fff;font-size:22px;font-weight:900;padding:8px 18px;border-radius:16px 0 0 0;font-family:Inter,sans-serif;box-shadow:0 -2px 8px rgba(0,0,0,.2)">'+precio+'</div>'
+    + precioTag
     + '</div>'
     + flechas
     + '</div>' + dots;
@@ -2366,6 +2368,7 @@ function tiendaRenderBanners() {
 
 function cambiarBanner(dir) {
   const banners = (S.banners||[]).filter(function(b){
+    if(!b.prodId) return true; // banner libre siempre se muestra
     const p = S.products.find(x=>x.id===b.prodId);
     return p && p.price>0;
   });
@@ -2378,6 +2381,7 @@ function cambiarBanner(dir) {
 function _resetBannerTimer() {
   if(_bannerTimer) { clearInterval(_bannerTimer); _bannerTimer = null; }
   const banners = (S.banners||[]).filter(function(b){
+    if(!b.prodId) return true; // banner libre siempre se muestra
     const p = S.products.find(x=>x.id===b.prodId);
     return p && p.price>0;
   });
