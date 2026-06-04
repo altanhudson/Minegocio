@@ -6,11 +6,22 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Revendit">
+<meta name="apple-mobile-web-app-title" content="Surtimar">
 <meta name="theme-color" content="#0d9488">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>Revendit</title>
+<title>Surtimar — Tienda online</title>
+<meta name="description" content="Hacé tu pedido online en Surtimar. Catálogo completo con precios actualizados, fácil y rápido desde tu celular.">
+<!-- Vista previa al compartir el enlace (WhatsApp, etc.) -->
+<meta property="og:title" content="Surtimar — Tienda online">
+<meta property="og:description" content="Hacé tu pedido online: catálogo completo con precios actualizados, fácil y rápido.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://surtimar.com.ar">
+<meta property="og:image" content="https://surtimar.com.ar/icon-192.png">
+<meta property="og:site_name" content="Surtimar">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Surtimar — Tienda online">
+<meta name="twitter:description" content="Hacé tu pedido online: catálogo completo con precios actualizados.">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <!-- Firebase SDK -->
 <script type="module">
@@ -417,6 +428,34 @@ select option{background:var(--surface2)}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
+<div id="admin-gate" style="display:flex;position:fixed;inset:0;z-index:99999;background:linear-gradient(135deg,#0d9488,#0f766e);flex-direction:column;align-items:center;justify-content:center;padding:24px;font-family:Inter,sans-serif">
+  <div style="background:#fff;border-radius:20px;padding:32px 24px;max-width:340px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.3);text-align:center">
+    <div style="font-size:40px;margin-bottom:8px">🔒</div>
+    <div style="font-size:22px;font-weight:800;color:#0f766e;margin-bottom:4px">Surtimar</div>
+    <div style="font-size:14px;color:#666;margin-bottom:20px">Panel de gestión</div>
+    <input type="password" id="admin-gate-input" inputmode="numeric" placeholder="Contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter')validarAdminGate()" style="width:100%;font-size:18px;padding:14px;border:1.5px solid #ddd;border-radius:12px;text-align:center;outline:none;margin-bottom:12px;box-sizing:border-box;letter-spacing:2px">
+    <div id="admin-gate-error" style="display:none;color:#dc2626;font-size:13px;margin-bottom:12px">Contraseña incorrecta</div>
+    <label style="display:flex;align-items:center;gap:8px;justify-content:center;font-size:13px;color:#666;margin-bottom:16px;cursor:pointer">
+      <input type="checkbox" id="admin-gate-remember" checked style="width:16px;height:16px"> Recordar en este dispositivo
+    </label>
+    <button onclick="validarAdminGate()" style="width:100%;padding:14px;background:#0d9488;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer">Entrar</button>
+  </div>
+</div>
+<script>
+  // Ocultar el gate inmediatamente si es tienda o ya hay sesión recordada (evita parpadeo)
+  (function(){
+    try {
+      var esTienda = window.location.search.indexOf('tienda') !== -1;
+      var recordado = localStorage.getItem('revendit_admin_ok') === '1';
+      if(esTienda || recordado) {
+        var g = document.getElementById('admin-gate');
+        if(g) g.style.display = 'none';
+      } else {
+        document.body.style.overflow = 'hidden';
+      }
+    } catch(e) {}
+  })();
+</script>
 <div id="sync-indicator" style="display:none;position:fixed;bottom:calc(var(--nav-h,56px) + 10px);right:12px;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:700;box-shadow:0 2px 10px rgba(0,0,0,.15);transition:opacity .3s;pointer-events:none"></div>
 <header class="topbar">
   <div class="topbar-title">Revendit</div>
@@ -976,7 +1015,8 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">2.8.1</strong> · 02/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">3.0.0</strong> · 03/06/2026</div>
+        <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
   </div>
@@ -7312,8 +7352,61 @@ window.addEventListener('popstate', function(e) {
     }
   }
 });
+// ===== CONTRASEÑA DEL PANEL DE ADMINISTRACIÓN =====
+const ADMIN_PASS = '130320';
+const ADMIN_GATE_KEY = 'revendit_admin_ok';
+
+function esTiendaURL() {
+  return window.location.search.includes('tienda');
+}
+
+function validarAdminGate() {
+  const inp = document.getElementById('admin-gate-input');
+  const err = document.getElementById('admin-gate-error');
+  const rem = document.getElementById('admin-gate-remember');
+  if(!inp) return;
+  if(inp.value === ADMIN_PASS) {
+    if(rem && rem.checked) {
+      try { localStorage.setItem(ADMIN_GATE_KEY, '1'); } catch(e) {}
+    }
+    const gate = document.getElementById('admin-gate');
+    if(gate) gate.style.display = 'none';
+    document.body.style.overflow = '';
+  } else {
+    if(err) err.style.display = 'block';
+    inp.value = '';
+    inp.focus();
+  }
+}
+
+function bloquearPanel() {
+  if(!confirm('¿Bloquear el panel? Vas a tener que ingresar la contraseña de nuevo en este dispositivo.')) return;
+  try { localStorage.removeItem(ADMIN_GATE_KEY); } catch(e) {}
+  location.reload();
+}
+
+function checkAdminGate() {
+  const gate = document.getElementById('admin-gate');
+  // La tienda NUNCA pide contraseña → ocultar gate
+  if(esTiendaURL()) { if(gate) gate.style.display='none'; return; }
+  // Si ya validó en este dispositivo, ocultar gate
+  let recordado = false;
+  try { recordado = localStorage.getItem(ADMIN_GATE_KEY) === '1'; } catch(e) {}
+  if(recordado) { if(gate) gate.style.display='none'; return; }
+  // Si no, mantener el gate visible y enfocar el input
+  if(gate) {
+    gate.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    setTimeout(function(){
+      const inp = document.getElementById('admin-gate-input');
+      if(inp) inp.focus();
+    }, 100);
+  }
+}
+
 // Iniciar tienda si la URL corresponde
 window.addEventListener('DOMContentLoaded', function(){
+  checkAdminGate();
   tiendaInit();
 });
 </script>
