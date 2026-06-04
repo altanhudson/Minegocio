@@ -2576,9 +2576,11 @@ function saveProd() {
     visibleSince: (()=>{
       const isVisible = document.getElementById('p-vis').checked;
       if(!isVisible) return null;
-      // Si ya tenía visibleSince, mantenerlo; si es la primera vez que se hace visible, fecha de hoy
       const orig = S.editId ? (S.products.find(p=>p.id===S.editId)||{}) : {};
-      return orig.visibleSince || new Date().toISOString();
+      const wasVisible = orig.visible === true;
+      // Solo es "nuevo" si antes NO estaba visible (transición a visible por primera vez)
+      if(wasVisible) return orig.visibleSince || null; // ya estaba visible → mantener o null (no aparece como nuevo)
+      return new Date().toISOString(); // primera vez que se hace visible → aparece como nuevo
     })(),
     oferta: document.getElementById('p-oferta').checked,
     soloFlyer: document.getElementById('p-soloflyer').checked,
@@ -7111,7 +7113,7 @@ function tiendaRender() {
       nuevos.forEach(p => {
         const imgStyle = p.image ? 'background:url('+JSON.stringify(p.image)+') center/cover' : 'background:#e8f5e9;display:flex;align-items:center;justify-content:center';
         const imgContent = p.image ? '' : '<span style="font-size:26px">'+(p.emoji||'📦')+'</span>';
-        html += '<div onclick="tiendaAgregar(\''+p.id+'\')" style="flex-shrink:0;width:130px;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #bbf7d0;box-shadow:0 1px 4px rgba(0,0,0,.06);cursor:pointer">'
+        html += '<div onclick="tiendaIrAProducto(\''+p.id+'\')" style="flex-shrink:0;width:130px;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #bbf7d0;box-shadow:0 1px 4px rgba(0,0,0,.06);cursor:pointer">'
           + '<div style="width:100%;height:90px;'+imgStyle+'">'+imgContent+'</div>'
           + '<div style="padding:8px">'
           + '<div style="font-size:12px;font-weight:600;color:#1e293b;line-height:1.3;margin-bottom:4px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">'+p.name+'</div>'
