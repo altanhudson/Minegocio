@@ -2404,20 +2404,30 @@ function tiendaLimpiarBuscar() {
 }
 
 function tiendaIrAProducto(pid) {
-  const p = S.products.find(x=>x.id===pid);
-  if(!p) return;
-  // Poner el buscador con el nombre del producto y mostrar la X para volver
-  const buscar = document.getElementById('tienda-buscar');
-  if(buscar) { buscar.value = p.name; }
-  const x = document.getElementById('tienda-buscar-x');
-  if(x) x.style.display = 'flex';
+  // Ir a categoria "Todas" sin filtro y hacer scroll al producto
   window.T_CAT = 'todas';
+  const buscar = document.getElementById('tienda-buscar');
+  if(buscar && buscar.value) {
+    buscar.value = '';
+    const x = document.getElementById('tienda-buscar-x');
+    if(x) x.style.display = 'none';
+  }
   tiendaRender();
-  // Scroll al catálogo
+  // Scroll al card del producto específico
   setTimeout(function(){
-    const lista = document.getElementById('tienda-lista');
-    if(lista) lista.scrollIntoView({behavior:'smooth', block:'start'});
-  }, 100);
+    const card = document.querySelector('[data-prod-id="'+pid+'"]');
+    if(card) {
+      card.scrollIntoView({behavior:'smooth', block:'center'});
+      // Resaltar brevemente el producto
+      card.style.transition = 'box-shadow .3s';
+      card.style.boxShadow = '0 0 0 3px #3483fa';
+      setTimeout(function(){ card.style.boxShadow = ''; }, 1500);
+    } else {
+      // Si no encuentra el card, scroll al inicio del catálogo
+      const lista = document.getElementById('tienda-lista');
+      if(lista) lista.scrollIntoView({behavior:'smooth', block:'start'});
+    }
+  }, 150);
 }
 // ========== FIN BANNERS ==========
 
@@ -6873,7 +6883,7 @@ function tiendaProdCardGrid(p) {
     ? priceChangeHtmlG
     : '<div style="font-size:15px;font-weight:800;color:#3483fa">$'+(+p.price).toFixed(0)+'</div>';
   const ofertaBadge = p.oferta ? '<div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#e53e3e;color:#fff;font-size:9px;font-weight:800;padding:2px 10px;border-radius:20px;white-space:nowrap">OFERTA</div>' : '';
-  return '<div style="background:#fff;border-radius:16px;padding:12px;border:1px solid '+(p.oferta?'#e53e3e50':qty>0?'#3483fa40':'#eef0f5')+';box-shadow:0 2px 10px rgba(0,0,0,.06);position:relative">'
+  return '<div data-prod-id="'+p.id+'" style="background:#fff;border-radius:16px;padding:12px;border:1px solid '+(p.oferta?'#e53e3e50':qty>0?'#3483fa40':'#eef0f5')+';box-shadow:0 2px 10px rgba(0,0,0,.06);position:relative">'
     +ofertaBadge
     +imgHtml
     +'<div style="font-size:13px;font-weight:600;margin-bottom:4px;line-height:1.3;color:#1a1a2e">'+p.name+'</div>'
@@ -7050,7 +7060,7 @@ function tiendaProdCard(p) {
     : (p.wholesalePrice&&p.wholesaleQty
       ? '<div style="font-size:16px;font-weight:800;color:#3483fa;margin-top:2px">$'+(+p.price).toFixed(0)+'</div><div style="font-size:12px;color:#2e7d32;font-weight:700;margin-top:2px">$'+(+p.wholesalePrice).toFixed(0)+' a partir de '+p.wholesaleQty+' uds</div>'
       : '<div style="font-size:16px;font-weight:800;color:#3483fa;margin-top:2px">$'+(+p.price).toFixed(0)+'</div>');
-  return '<div style="background:'+(qty>0?'#f0f7ff':'#fff')+';border-radius:14px;padding:12px;display:flex;gap:12px;align-items:center;border:1px solid '+(p.oferta?'#e53e3e50':qty>0?'#3483fa40':'#eef0f5')+';margin-bottom:8px;box-shadow:0 1px 6px rgba(0,0,0,.04);position:relative">'
+  return '<div data-prod-id="'+p.id+'" style="background:'+(qty>0?'#f0f7ff':'#fff')+';border-radius:14px;padding:12px;display:flex;gap:12px;align-items:center;border:1px solid '+(p.oferta?'#e53e3e50':qty>0?'#3483fa40':'#eef0f5')+';margin-bottom:8px;box-shadow:0 1px 6px rgba(0,0,0,.04);position:relative">'
     +(p.oferta?'<div style="position:absolute;top:-7px;left:12px;background:#e53e3e;color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:20px">OFERTA</div>':'')
     +imgHtml
     +'<div style="flex:1;min-width:0">'
@@ -7108,7 +7118,7 @@ function tiendaRender() {
     });
     if(nuevos.length) {
       html += '<div style="background:#f0fdf4;border-radius:16px;padding:0;border:1.5px solid #bbf7d0;margin-bottom:12px;overflow:hidden;box-shadow:0 2px 10px rgba(22,163,74,.08)">';
-      html += '<div style="background:#16a34a;padding:10px 14px;font-size:14px;font-weight:800;color:#fff">🆕 Nuevos en la tienda</div>';
+      html += '<div style="background:#16a34a;padding:10px 14px;font-size:14px;font-weight:800;color:#fff">🆕 Agregados recientemente</div>';
       html += '<div style="display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:14px">';
       nuevos.forEach(p => {
         const imgStyle = p.image ? 'background:url('+JSON.stringify(p.image)+') center/cover' : 'background:#e8f5e9;display:flex;align-items:center;justify-content:center';
@@ -7139,7 +7149,7 @@ function tiendaRender() {
       html += '<div style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch">';
       aumentos.forEach(p => {
         const last = p.priceHistory[p.priceHistory.length-1];
-        html += '<div style="flex-shrink:0;width:120px;background:#fff;border-radius:12px;padding:10px;text-align:center;border:1px solid #fecaca;box-shadow:0 1px 4px rgba(0,0,0,.05)">';
+        html += '<div onclick="tiendaIrAProducto(\'' + p.id + '\')" style="flex-shrink:0;width:120px;background:#fff;border-radius:12px;padding:10px;text-align:center;border:1px solid #fecaca;box-shadow:0 1px 4px rgba(0,0,0,.05);cursor:pointer">';
         html += p.image
           ? '<img src="'+p.image+'" style="width:70px;height:70px;border-radius:8px;object-fit:cover;margin-bottom:4px">'
           : '<div style="font-size:26px;margin-bottom:4px">'+(p.emoji||'📦')+'</div>';
@@ -7160,7 +7170,7 @@ function tiendaRender() {
       ofertas.forEach(p => {
         const prevPrice = p.priceHistory&&p.priceHistory.length ? p.priceHistory[p.priceHistory.length-1].price : null;
         const qty = TC[p.id]||0;
-        html += '<div style="flex-shrink:0;width:130px;background:#fff;border-radius:14px;padding:10px;text-align:center;border:1.5px solid #ffe0e0;box-shadow:0 2px 8px rgba(0,0,0,.06)">';
+        html += '<div onclick="tiendaIrAProducto(\'' + p.id + '\')" style="flex-shrink:0;width:130px;background:#fff;border-radius:14px;padding:10px;text-align:center;border:1.5px solid #ffe0e0;box-shadow:0 2px 8px rgba(0,0,0,.06);cursor:pointer">';
         html += p.image
           ? '<img src="'+p.image+'" style="width:80px;height:80px;border-radius:10px;object-fit:cover;margin-bottom:4px">'
           : '<div style="font-size:28px;margin-bottom:4px">'+(p.emoji||'📦')+'</div>';
