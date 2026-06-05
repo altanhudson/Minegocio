@@ -6674,17 +6674,17 @@ function renderInvoiceHTML(inv) {
 
   <!-- Catálogo -->
   <div id="tienda-catalogo" style="display:none;padding-bottom:120px;background:#ededed">
-    <div style="position:sticky;top:0;z-index:10;background:#3483fa;padding:16px 16px 0;box-shadow:0 4px 16px rgba(52,131,250,.35)">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div>
-          <div style="font-family:Inter,sans-serif;font-size:22px;font-weight:900;color:#fff;letter-spacing:-0.5px" id="tienda-cat-titulo">Surtimar</div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <div style="font-size:16px;font-weight:700;color:#fff" id="tienda-saludo"></div>
-            <button id="tienda-logout-btn" onclick="tiendaCerrarSesion()" style="display:none;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:3px 8px;font-size:11px;cursor:pointer">Cambiar</button>
+    <div style="position:sticky;top:0;z-index:10;background:#3483fa;padding:10px 16px 0;box-shadow:0 4px 16px rgba(52,131,250,.35)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <div style="font-family:Inter,sans-serif;font-size:18px;font-weight:900;color:#fff;letter-spacing:-0.5px;flex-shrink:0" id="tienda-cat-titulo">Surtimar</div>
+            <div style="font-size:14px;font-weight:600;color:rgba(255,255,255,.9);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="tienda-saludo"></div>
+            <button id="tienda-logout-btn" onclick="tiendaCerrarSesion()" style="display:none;background:#fff;border:none;color:#3483fa;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0">Cambiar</button>
           </div>
-          <div style="font-size:12px;color:rgba(255,255,255,.85);margin-top:2px">Explorá nuestros productos y agregá lo que querés al carrito</div>
+          <div id="tienda-saldo-info" style="display:none;margin-top:3px"></div>
         </div>
-        <button onclick="tiendaVerCarrito()" style="position:relative;background:#ffe600;border:none;color:#333;border-radius:12px;padding:10px 14px;font-size:20px;cursor:pointer;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.15)" id="tienda-cart-btn">
+        <button onclick="tiendaVerCarrito()" style="position:relative;background:#ffe600;border:none;color:#333;border-radius:12px;padding:8px 12px;font-size:20px;cursor:pointer;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.15);flex-shrink:0" id="tienda-cart-btn">
           🛒<span id="tienda-badge" style="display:none;position:absolute;top:-8px;right:-8px;background:#e53e3e;color:#fff;font-size:11px;font-weight:800;padding:2px 6px;border-radius:10px;min-width:18px;text-align:center">0</span>
         </button>
       </div>
@@ -6973,6 +6973,8 @@ function tiendaCerrarSesion() {
   document.getElementById('tienda-login').style.display='flex';
   const logoutBtn = document.getElementById('tienda-logout-btn');
   if(logoutBtn) logoutBtn.style.display = 'none';
+  const saldoEl2 = document.getElementById('tienda-saldo-info');
+  if(saldoEl2) saldoEl2.style.display = 'none';
   TC = {};
   tiendaActBadge();
 }
@@ -7008,6 +7010,24 @@ function tiendaEntrar() {
   document.getElementById('tienda-saludo').textContent = nombreMostrar ? 'Hola, ' + nombreMostrar + '! ¿Qué vas a comprar hoy?' : 'Hola! ¿Qué vas a comprar hoy?';
   const logoutBtn = document.getElementById('tienda-logout-btn');
   if(logoutBtn) logoutBtn.style.display = 'inline-block';
+  // Mostrar saldo a favor o deuda
+  const saldoEl = document.getElementById('tienda-saldo-info');
+  if(saldoEl && TC_CLI) {
+    const credito = TC_CLI.credito || 0;
+    const deudaFacturas = S.invoices
+      .filter(i => i.clientId === TC_CLI.id && i.status !== 'pagada' && i.type !== 'presupuesto')
+      .reduce((s, i) => s + (i.saldo || 0), 0);
+    const saldoNeto = deudaFacturas - credito;
+    if(credito > 0 && saldoNeto <= 0) {
+      saldoEl.style.display = 'block';
+      saldoEl.innerHTML = '<span style="background:rgba(255,255,255,.2);border-radius:8px;padding:3px 10px;font-size:12px;font-weight:700;color:#bbf7d0">✓ Tenés $'+credito.toFixed(0)+' a favor</span>';
+    } else if(saldoNeto > 0) {
+      saldoEl.style.display = 'block';
+      saldoEl.innerHTML = '<span style="background:rgba(220,38,38,.3);border-radius:8px;padding:3px 10px;font-size:12px;font-weight:700;color:#fecaca">⚠ Saldo pendiente: $'+saldoNeto.toFixed(0)+'</span>';
+    } else {
+      saldoEl.style.display = 'none';
+    }
+  }
   document.getElementById('tienda-footer').style.display='block';
   if(modoTienda === 'solo_vista') tiendaModoMensaje();
   window.T_CAT = 'todas';
@@ -7373,8 +7393,7 @@ function tiendaConfirmar() {
   }).filter(Boolean).join('\n');
   const msg = '\uD83D\uDED2 *Pedido de '+TN+'*\n\n'+lineas+'\n\n*Total: $'+total.toFixed(2)+'*';
   const url = 'https://wa.me/'+WA_NUM+'?text='+encodeURIComponent(msg);
-  window.open(url,'_blank');
-  // Crear o usar cliente existente
+  // Crear o usar cliente existente ANTES de abrir WhatsApp
   let cli = TC_CLI;
   if(!cli) {
     // Crear cliente nuevo
@@ -7407,6 +7426,8 @@ function tiendaConfirmar() {
   // El stock se recalcula desde los movimientos (no descontar manual)
   try{ recalcAllStocks(); recalcClientCredits(); }catch(e){}
   try{renderInvs();}catch(e){} try{renderProds();}catch(e){} try{updDash();}catch(e){} save(['invoices','clients','products','nInv'], true);
+  // Abrir WhatsApp DESPUÉS de guardar la factura
+  window.open(url,'_blank');
   // Limpiar carrito
   TC={};
   tiendaRenderCarrito();
