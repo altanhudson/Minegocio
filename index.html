@@ -7425,8 +7425,12 @@ function tiendaConfirmar() {
   try{ _markDirty('invoices', inv.id); _markDirty('clients', cli.id); }catch(e){}
   // El stock se recalcula desde los movimientos (no descontar manual)
   try{ recalcAllStocks(); recalcClientCredits(); }catch(e){}
-  try{renderInvs();}catch(e){} try{renderProds();}catch(e){} try{updDash();}catch(e){} save(['invoices','clients','products','nInv'], true);
-  // Abrir WhatsApp DESPUÉS de guardar la factura
+  try{renderInvs();}catch(e){} try{renderProds();}catch(e){} try{updDash();}catch(e){}
+  // Guardar en localStorage primero (inmediato)
+  save(['invoices','clients','products','nInv'], true);
+  // Subir a Firebase de forma inmediata sin esperar al sync manual
+  try{ if(typeof window._fbSaveDirty === 'function') window._fbSaveDirty(S); }catch(e){}
+  // Abrir WhatsApp DESPUÉS de guardar
   window.open(url,'_blank');
   // Limpiar carrito
   TC={};
