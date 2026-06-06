@@ -1015,7 +1015,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">3.8.0</strong> · 05/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.0.0</strong> · 05/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -4445,23 +4445,23 @@ function saveInv() {
   const cliData = S.clients.find(c=>c.id===cid);
   const esEdicion = !!(window.invEditId || S.editId);
 
-  // === LÓGICA DE SALDO A FAVOR / DEUDA — simple suma y resta ===
-  if(esEdicion && cliData && S._editOrigTotal !== null && S._editOrigTotal !== undefined) {
-    // Editando una factura existente: si estaba pagada (o parte) y cambió el total,
-    // la diferencia ajusta el crédito del cliente.
-    const origTotal = S._editOrigTotal || 0;
-    const origPagado = S._editOrigPagado || 0;
-    const diff = origTotal - inv.total; // positivo = bajó (a favor), negativo = subió (debe)
-    // Solo ajustamos por lo que el cliente YA había pagado de esta factura
-    if(origPagado > 0 && diff !== 0) {
-      // Si bajó el total: lo que pagó de más vuelve como crédito (hasta el monto pagado).
-      // Si subió el total: lo que falta cubrir se descuenta del crédito (queda debiendo).
-      cliData.credito = (cliData.credito||0) + diff;
+  // === LÓGICA DE SALDO A FAVOR — calcula desde datos reales, no estado capturado ===
+  if(esEdicion && cliData) {
+    const editId = window.invEditId || S.editId;
+    const origInv = S.invoices.find(i => i.id === editId);
+    if(origInv) {
+      const origTotal = origInv.total || 0;
+      const origPagado = (origInv.pagos||[]).reduce((s,p)=>s+(p.monto||0), 0);
+      const newTotal = inv.total;
+      // Exceso = cuánto pagó el cliente por encima de lo que debía
+      // Si el exceso cambió al editar, eso es lo que va al crédito
+      const excesoAntes = Math.max(0, origPagado - origTotal);
+      const excesoDespues = Math.max(0, origPagado - newTotal);
+      const creditDelta = excesoDespues - excesoAntes;
+      if(creditDelta !== 0) {
+        cliData.credito = (cliData.credito||0) + creditDelta;
+      }
     }
-    // CRÍTICO: limpiar inmediatamente para que NO se pueda aplicar dos veces
-    S._editOrigTotal = null;
-    S._editOrigPagado = 0;
-    S._editOrigSaldo = 0;
   } else if(!esEdicion && cliData) {
     // Factura nueva: aplicar crédito a favor si el cliente tiene (ya viene confirmado por el prompt previo)
     const credito = cliData.credito||0;
@@ -4472,6 +4472,8 @@ function saveInv() {
     }
   }
   window._aplicarCreditoEnFactura = false;
+  // Limpiar estado capturado (ya no se usa para crédito, pero limpiamos igual)
+  S._editOrigTotal = null; S._editOrigPagado = 0; S._editOrigSaldo = 0;
 
   // Recalcular saldo con todos los pagos
   const totalPagadoFinal = inv.pagos.reduce((s,p)=>s+p.monto,0);
@@ -7381,7 +7383,7 @@ function tiendaVaciarCarrito() {
   tiendaVolverCatalogo();
 }
 
-function tiendaConfirmar() {
+async function tiendaConfirmar() {
   const items = Object.entries(TC).filter(([,q])=>q>0);
   if(!items.length){alert('Agregá al menos un producto');return;}
   let total=0;
@@ -7393,10 +7395,11 @@ function tiendaConfirmar() {
   }).filter(Boolean).join('\n');
   const msg = '\uD83D\uDED2 *Pedido de '+TN+'*\n\n'+lineas+'\n\n*Total: $'+total.toFixed(2)+'*';
   const url = 'https://wa.me/'+WA_NUM+'?text='+encodeURIComponent(msg);
-  // Crear o usar cliente existente ANTES de abrir WhatsApp
+  // Mostrar pantalla de guardando mientras esperamos Firebase
+  document.getElementById('tienda-carrito').innerHTML='<div style="text-align:center;padding:80px 24px"><div style="font-size:50px;margin-bottom:16px">⏳</div><div style="font-family:Inter,sans-serif;font-size:18px;font-weight:700;color:#3483fa">Guardando tu pedido...</div></div>';
+  // Crear o usar cliente existente
   let cli = TC_CLI;
   if(!cli) {
-    // Crear cliente nuevo
     const color = '#'+Math.floor(Math.random()*0xffffff).toString(16).padStart(6,'0');
     cli = {id:'CLI-WEB-'+Date.now(), name: TN+' (web)', phone: TC_PHONE, email:'', type:'minorista', color, credito:0};
     S.clients.push(cli);
@@ -7421,22 +7424,31 @@ function tiendaConfirmar() {
     notes:'Pedido desde tienda online'
   };
   S.invoices.unshift(inv);
-  // Marcar dirty para que sincronice a Firebase
   try{ _markDirty('invoices', inv.id); _markDirty('clients', cli.id); }catch(e){}
-  // El stock se recalcula desde los movimientos (no descontar manual)
   try{ recalcAllStocks(); recalcClientCredits(); }catch(e){}
   try{renderInvs();}catch(e){} try{renderProds();}catch(e){} try{updDash();}catch(e){}
-  // Guardar en localStorage primero (inmediato)
+  // Guardar en localStorage (inmediato)
   save(['invoices','clients','products','nInv'], true);
-  // Subir a Firebase de forma inmediata sin esperar al sync manual
-  try{ if(typeof window._fbSaveDirty === 'function') window._fbSaveDirty(S); }catch(e){}
-  // Abrir WhatsApp DESPUÉS de guardar
-  window.open(url,'_blank');
+  // Esperar que Firebase confirme el guardado (máx 4 segundos)
+  try{
+    if(typeof window._fbSaveDirty === 'function') {
+      await Promise.race([
+        window._fbSaveDirty(S),
+        new Promise(resolve => setTimeout(resolve, 4000))
+      ]);
+    }
+  }catch(e){}
   // Limpiar carrito
   TC={};
-  tiendaRenderCarrito();
   tiendaActBadge();
-  document.getElementById('tienda-carrito').innerHTML='<div style="text-align:center;padding:80px 24px"><div style="font-size:60px;margin-bottom:20px">\u2705</div><div style="font-family:Inter,sans-serif;font-size:22px;font-weight:800;color:#3483fa;margin-bottom:10px">\u00a1Pedido enviado!</div><div style="color:#666;font-size:14px">Nos llega tu pedido por WhatsApp y te confirmamos en breve.</div></div>';
+  // Mostrar confirmación con botón para abrir WhatsApp (el cliente lo toca activamente)
+  document.getElementById('tienda-carrito').innerHTML=
+    '<div style="text-align:center;padding:60px 24px">'
+    +'<div style="font-size:60px;margin-bottom:16px">✅</div>'
+    +'<div style="font-family:Inter,sans-serif;font-size:22px;font-weight:800;color:#3483fa;margin-bottom:8px">¡Pedido guardado!</div>'
+    +'<div style="color:#666;font-size:14px;margin-bottom:32px">Tu pedido quedó registrado. Tocá para enviarlo por WhatsApp.</div>'
+    +'<a href="'+url+'" style="display:inline-block;background:#25d366;color:#fff;font-family:Inter,sans-serif;font-size:16px;font-weight:700;padding:16px 32px;border-radius:14px;text-decoration:none">📲 Enviar por WhatsApp</a>'
+    +'</div>';
 }
 
 // Manejar botón atrás en tienda
