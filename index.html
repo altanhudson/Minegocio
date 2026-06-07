@@ -219,6 +219,7 @@
   window._fbSaveDirty = async function(data) {
     try {
       const batches = [];
+      const _toClear = [];
       for(const col of COLS) {
         const dirtyIds = _dirty[col];
         if(!dirtyIds || dirtyIds.size === 0) continue;
@@ -231,18 +232,22 @@
           });
           batches.push(batch.commit());
         }
-        dirtyIds.clear();
+        _toClear.push(dirtyIds); // limpiar SOLO tras confirmar (si falla, no se pierde)
       }
       // Config: solo si está dirty
+      let _clearConfig = false;
       if(_dirty.config) {
         const cfgSnap = await getDoc(v2config());
         const existing = cfgSnap.exists() ? cfgSnap.data() : {};
         const merged = {...existing};
         CONFIG_FIELDS.forEach(f => { if(data[f] !== undefined) merged[f] = data[f]; });
         batches.push(setDoc(v2config(), cleanUndefined(merged)));
-        _dirty.config = false;
+        _clearConfig = true;
       }
       if(batches.length > 0) await Promise.all(batches);
+      // Confirmado por el servidor → recién ahora marcar como sincronizado
+      _toClear.forEach(s => s.clear());
+      if(_clearConfig) _dirty.config = false;
     } catch(e) { console.error('Firebase saveDirty error:', e); throw e; }
   };
 
@@ -1015,7 +1020,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.3</strong> · 06/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.4</strong> · 06/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -7477,36 +7482,65 @@ async function tiendaConfirmar() {
   try{ _markDirty('invoices', inv.id); _markDirty('clients', cli.id); }catch(e){}
   try{ recalcAllStocks(); recalcClientCredits(); }catch(e){}
   try{renderInvs();}catch(e){} try{renderProds();}catch(e){} try{updDash();}catch(e){}
-  // Guardar en localStorage (inmediato)
+  // Guardar en localStorage (inmediato, respaldo en este dispositivo)
   save(['invoices','clients','products','nInv'], true);
-  // Esperar que Firebase confirme el guardado (máx 4 segundos)
-  try{
+  // Cerrar el carrito si estaba abierto (sin destruir su estructura)
+  try { document.getElementById('tienda-carrito').style.display='none'; } catch(e){}
+  // Subir a Firebase y abrir WhatsApp SOLO cuando el servidor confirme
+  window._tcPendingUrl = url;
+  _tiendaGuardarYAbrir();
+}
+
+// Sube el pedido a Firebase mostrando un cartel de espera y abre WhatsApp
+// SOLO cuando el servidor confirmó. Si la conexión falla, ofrece reintentar
+// (nunca abre WhatsApp con un pedido sin guardar). No recrea la factura: el
+// reintento solo reintenta la subida de lo que quedó marcado como pendiente.
+async function _tiendaGuardarYAbrir() {
+  const url = window._tcPendingUrl;
+  const ov = document.getElementById('tienda-confirm-overlay');
+  if(!ov || !url) return;
+  ov.style.display = 'flex';
+  ov.innerHTML = '<div style="background:#fff;border-radius:18px;padding:44px 28px;text-align:center;max-width:340px;width:100%;box-shadow:0 8px 30px rgba(0,0,0,.25)">'
+    +'<div style="font-size:50px;margin-bottom:16px">⏳</div>'
+    +'<div style="font-family:Inter,sans-serif;font-size:19px;font-weight:800;color:#3483fa;margin-bottom:8px">Estamos guardando tu pedido...</div>'
+    +'<div style="color:#555;font-size:14px;line-height:1.45">Esperá un momentito 🙏<br>No cierres esta pantalla.</div>'
+    +'</div>';
+  let ok = false;
+  try {
     if(typeof window._fbSaveDirty === 'function') {
       await Promise.race([
         window._fbSaveDirty(S),
-        new Promise(resolve => setTimeout(resolve, 4000))
+        new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('timeout')); }, 15000); })
       ]);
     }
-  }catch(e){}
-  // Limpiar carrito
-  TC={};
-  tiendaActBadge();
-  // Mostrar confirmación con botón para abrir WhatsApp (el cliente lo toca activamente)
-  // Cerrar el carrito si estaba abierto (sin destruir su estructura)
-  try { document.getElementById('tienda-carrito').style.display='none'; } catch(e){}
-  // Pantalla de cierre en overlay DEDICADO + apertura automática de WhatsApp
-  document.getElementById('tienda-confirm-overlay').innerHTML=
-    '<div style="background:#fff;border-radius:18px;padding:36px 26px;text-align:center;max-width:360px;width:100%;box-shadow:0 8px 30px rgba(0,0,0,.25)">'
-    +'<div style="font-size:54px;margin-bottom:12px">📲</div>'
-    +'<div style="font-family:Inter,sans-serif;font-size:20px;font-weight:800;color:#3483fa;margin-bottom:10px;line-height:1.25">Te estamos abriendo WhatsApp con tu pedido listo</div>'
-    +'<div style="color:#444;font-size:15px;margin-bottom:24px;line-height:1.45">Para terminar, solo tocá <strong>enviar</strong> &#10148; en el mensaje que te aparece.<br>¡Eso confirma tu compra!</div>'
-    +'<a href="'+url+'" style="display:block;background:#25d366;color:#fff;font-family:Inter,sans-serif;font-size:17px;font-weight:800;padding:16px 20px;border-radius:14px;text-decoration:none;margin-bottom:10px">📲 Abrir WhatsApp con mi pedido</a>'
-    +'<div style="color:#999;font-size:13px;margin-bottom:18px">(si no se abrió solo, tocá el botón de arriba)</div>'
-    +'<button onclick="tiendaCerrarConfirm()" style="background:none;border:none;color:#3483fa;font-size:14px;font-weight:600;cursor:pointer">← Seguir comprando</button>'
-    +'</div>';
-  // Abrir WhatsApp automáticamente. location.href se dispara solo aunque haya habido espera
-  // (a diferencia de window.open, que se bloquea fuera del gesto del usuario).
-  setTimeout(function(){ try { window.location.href = url; } catch(e){} }, 450);
+    ok = true;
+  } catch(e) { ok = false; }
+
+  if(ok) {
+    // Confirmado por Firebase → recién ahora vaciar carrito y abrir WhatsApp
+    TC = {};
+    tiendaActBadge();
+    ov.innerHTML =
+      '<div style="background:#fff;border-radius:18px;padding:36px 26px;text-align:center;max-width:360px;width:100%;box-shadow:0 8px 30px rgba(0,0,0,.25)">'
+      +'<div style="font-size:54px;margin-bottom:12px">📲</div>'
+      +'<div style="font-family:Inter,sans-serif;font-size:20px;font-weight:800;color:#3483fa;margin-bottom:10px;line-height:1.25">Te estamos abriendo WhatsApp con tu pedido listo</div>'
+      +'<div style="color:#444;font-size:15px;margin-bottom:24px;line-height:1.45">Para terminar, solo tocá <strong>enviar</strong> &#10148; en el mensaje que te aparece.<br>¡Eso confirma tu compra!</div>'
+      +'<a href="'+url+'" style="display:block;background:#25d366;color:#fff;font-family:Inter,sans-serif;font-size:17px;font-weight:800;padding:16px 20px;border-radius:14px;text-decoration:none;margin-bottom:10px">📲 Abrir WhatsApp con mi pedido</a>'
+      +'<div style="color:#999;font-size:13px;margin-bottom:18px">(si no se abrió solo, tocá el botón de arriba)</div>'
+      +'<button onclick="tiendaCerrarConfirm()" style="background:none;border:none;color:#3483fa;font-size:14px;font-weight:600;cursor:pointer">← Seguir comprando</button>'
+      +'</div>';
+    setTimeout(function(){ try { window.location.href = url; } catch(e){} }, 450);
+  } else {
+    // No se pudo confirmar → NO abrir WhatsApp. Ofrecer reintentar.
+    ov.innerHTML =
+      '<div style="background:#fff;border-radius:18px;padding:36px 26px;text-align:center;max-width:360px;width:100%;box-shadow:0 8px 30px rgba(0,0,0,.25)">'
+      +'<div style="font-size:50px;margin-bottom:12px">📡</div>'
+      +'<div style="font-family:Inter,sans-serif;font-size:19px;font-weight:800;color:#c05000;margin-bottom:10px;line-height:1.25">No pudimos guardar tu pedido todavía</div>'
+      +'<div style="color:#444;font-size:15px;margin-bottom:24px;line-height:1.45">Tu conexión está lenta. Fijate de tener señal o WiFi y volvé a intentar.</div>'
+      +'<button onclick="_tiendaGuardarYAbrir()" style="display:block;width:100%;background:#3483fa;color:#fff;font-family:Inter,sans-serif;font-size:17px;font-weight:800;padding:16px 20px;border:none;border-radius:14px;cursor:pointer;margin-bottom:10px">🔄 Reintentar</button>'
+      +'<button onclick="tiendaCerrarConfirm()" style="background:none;border:none;color:#3483fa;font-size:14px;font-weight:600;cursor:pointer">← Seguir comprando</button>'
+      +'</div>';
+  }
 }
 
 function tiendaCerrarConfirm() {
