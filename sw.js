@@ -1,4 +1,4 @@
-const CACHE_NAME = 'revendit-v10';
+const CACHE_NAME = 'revendit-v11';
 const urlsToCache = [
   '/',
   '/index.html'
@@ -6,7 +6,10 @@ const urlsToCache = [
 
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(urlsToCache))
+      // Activarse de inmediato, sin quedar "esperando" a que el cliente toque "Actualizar"
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -25,11 +28,20 @@ self.addEventListener('message', event => {
 });
 
 self.addEventListener('fetch', event => {
-  if (event.request.url.includes('index.html') || event.request.url.endsWith('/')) {
+  // El HTML (navegación, '/', '/?tienda', index.html) SIEMPRE network-first:
+  // así el cliente recibe la última versión apenas tiene conexión.
+  if (
+    event.request.mode === 'navigate' ||
+    event.request.url.includes('index.html') ||
+    event.request.url.endsWith('/')
+  ) {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request))
+      fetch(event.request).catch(() =>
+        caches.match('/index.html').then(r => r || caches.match('/'))
+      )
     );
   } else {
+    // El resto (íconos, etc.) cache-first
     event.respondWith(
       caches.match(event.request).then(r => r || fetch(event.request))
     );
