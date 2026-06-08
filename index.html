@@ -1020,7 +1020,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.5</strong> · 06/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.8</strong> · 06/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -7154,10 +7154,11 @@ function tiendaRender() {
       html += '<div style="background:#16a34a;padding:10px 14px;font-size:14px;font-weight:800;color:#fff">🆕 Agregados recientemente</div>';
       html += '<div style="display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:14px">';
       nuevos.forEach(p => {
-        const imgStyle = p.image ? 'background:url('+JSON.stringify(p.image)+') center/cover' : 'background:#e8f5e9;display:flex;align-items:center;justify-content:center';
-        const imgContent = p.image ? '' : '<span style="font-size:26px">'+(p.emoji||'📦')+'</span>';
+        const imgBox = p.image
+          ? '<img src="'+p.image+'" style="width:100%;height:90px;object-fit:cover;display:block">'
+          : '<div style="width:100%;height:90px;background:#e8f5e9;display:flex;align-items:center;justify-content:center"><span style="font-size:26px">'+(p.emoji||'📦')+'</span></div>';
         html += '<div onclick="tiendaIrAProducto(\''+p.id+'\')" style="flex-shrink:0;width:130px;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #bbf7d0;box-shadow:0 1px 4px rgba(0,0,0,.06);cursor:pointer">'
-          + '<div style="width:100%;height:90px;'+imgStyle+'">'+imgContent+'</div>'
+          + imgBox
           + '<div style="padding:8px">'
           + '<div style="font-size:12px;font-weight:600;color:#1e293b;line-height:1.3;margin-bottom:4px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">'+p.name+'</div>'
           + '<div style="font-size:14px;font-weight:800;color:#16a34a">$'+p.price.toFixed(0)+'</div>'
@@ -7325,8 +7326,21 @@ function tiendaActBadge() {
 }
 
 function tiendaGetPrice(p, qty) {
-  if(p.wholesalePrice && p.wholesaleQty && qty >= p.wholesaleQty) return p.wholesalePrice;
-  return p.price;
+  if(!(p.wholesalePrice && p.wholesaleQty)) return p.price;
+  const grupoP = (p.grupoMay||'').toLowerCase().trim();
+  if(grupoP) {
+    // Mayorista agrupado: suma las cantidades de TODOS los productos del mismo grupo en el carrito
+    const gDef = (S.gruposMay||[]).find(g=>g.nombre && g.nombre.toLowerCase().trim()===grupoP);
+    const minG = gDef ? gDef.minMay : p.wholesaleQty;
+    let totalG = 0;
+    Object.entries(TC).forEach(([id,q])=>{
+      const ep = S.products.find(x=>x.id===id);
+      if(ep && (ep.grupoMay||'').toLowerCase().trim()===grupoP) totalG += q;
+    });
+    return (minG > 0 && totalG >= minG) ? p.wholesalePrice : p.price;
+  }
+  // Sin grupo: por cantidad del propio producto
+  return qty >= p.wholesaleQty ? p.wholesalePrice : p.price;
 }
 function tiendaActTotal() {
   let total = 0;
@@ -7465,7 +7479,8 @@ async function tiendaConfirmar() {
   const invItems = items.map(([id,qty])=>{
     const p=S.products.find(x=>x.id===id);
     if(!p) return null;
-    return {prodId:p.id, desc:p.name, qty, price:p.price, retailPrice:p.price, wholesalePrice:p.wholesalePrice||0, wholesaleQty:p.wholesaleQty||0};
+    const unit = tiendaGetPrice(p, qty); // aplica precio mayorista si la cantidad alcanza
+    return {prodId:p.id, desc:p.name, qty, price:unit, retailPrice:p.price, wholesalePrice:p.wholesalePrice||0, wholesaleQty:p.wholesaleQty||0};
   }).filter(Boolean);
   const invTotal = invItems.reduce((s,i)=>s+i.qty*i.price,0);
   const inv = {
