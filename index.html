@@ -1028,7 +1028,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.12</strong> · 09/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.13</strong> · 09/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -2691,9 +2691,10 @@ function applyMarcaUpdate(marca, prodIds) {
   prodIds.forEach(id => {
     const p = S.products.find(x => x.id === id);
     if(!p) return;
-    if(min > 0) p.price = min;
+    if(min > 0) { if(!p.priceHistory) p.priceHistory=[]; if(p.price>0&&p.price!==min) p.priceHistory.push({price:p.price,date:new Date().toISOString()}); p.price = min; }
     if(may > 0) p.wholesalePrice = may;
     if(cos > 0) p.cost = cos;
+    try{ _markDirty('products', id); }catch(e){}
     updated++;
   });
   try{save(['products']);}catch(e){}
@@ -4691,6 +4692,7 @@ document.getElementById('page-facturas').addEventListener('click', function(e){
     if(!inv) return;
     if(!inv.itemsArmados) inv.itemsArmados = {};
     inv.itemsArmados[idx] = !inv.itemsArmados[idx];
+    try{ _markDirty('invoices', invId); }catch(e){}
     save(['invoices']);
     // Actualizar visual sin re-renderizar toda la lista
     const armado = inv.itemsArmados[idx];
