@@ -1028,7 +1028,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.13</strong> · 09/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.14</strong> · 09/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -1140,6 +1140,10 @@ select option{background:var(--surface2)}
             <button type="button" onclick="scanBarcodeForProduct()" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:8px 12px;font-size:14px;cursor:pointer">📷</button>
           </div>
         </div>
+      </div>
+      <div class="form-group">
+        <label class="fl">Variantes <span style="font-size:11px;color:var(--text3);font-weight:400">(opcional — ej: Vainilla, Chocolate, Relleno)</span></label>
+        <input type="text" id="p-variantes" placeholder="Separadas por coma: Vainilla, Chocolate, Relleno">
       </div>
       <div style="background:var(--surface2);border-radius:var(--rs);padding:14px;margin-bottom:14px">
         <div style="font-size:13px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Precios</div>
@@ -2563,6 +2567,7 @@ function openProd(id) {
     document.getElementById('p-soloflyer').checked = !!p.soloFlyer;
     document.getElementById('p-frac').value = p.fracMin||1;
     document.getElementById('p-grupo').value = p.grupoMay||'';
+    document.getElementById('p-variantes').value = (p.variantes||[]).join(', ');
     S.photo = p.image||null;
     if(p.image) { showPhoto(p.image); } else resetPhoto('');
   } else {
@@ -2575,6 +2580,7 @@ function openProd(id) {
   document.getElementById('p-soloflyer').checked = false;
     document.getElementById('p-frac').value = 1;
     document.getElementById('p-grupo').value = '';
+    document.getElementById('p-variantes').value = '';
     resetPhoto('');
   }
   document.getElementById('mprod').classList.add('open');
@@ -2612,6 +2618,7 @@ function saveProd() {
     fracMin: parseInt(document.getElementById('p-frac').value)||1,
     barcode: document.getElementById('p-barcode').value.trim()||null,
     grupoMay: document.getElementById('p-grupo').value.trim(),
+    variantes: document.getElementById('p-variantes').value.trim().split(',').map(v=>v.trim()).filter(Boolean),
     image: S.photo||null,
     sku: S.editId ? (S.products.find(p=>p.id===S.editId)||{}).sku : 'P'+Date.now()
   };
@@ -6803,6 +6810,9 @@ function renderInvoiceHTML(inv) {
   <!-- Overlay DEDICADO para guardar/confirmar pedido (no pisa #tienda-carrito) -->
   <div id="tienda-confirm-overlay" style="display:none;position:fixed;inset:0;z-index:10005;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:20px"></div>
 
+  <!-- Overlay selector de variante -->
+  <div id="tienda-variante-overlay" style="display:none;position:fixed;inset:0;z-index:10006;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:20px"></div>
+
 </div>
 
 <script>
@@ -6915,15 +6925,20 @@ function tiendaSetVista(tipo) {
   tiendaRender();
 }
 function tiendaProdCardGrid(p) {
-  const qty = TC[p.id]||0;
+  const hasVar = p.variantes && p.variantes.length;
+  const qty = hasVar
+    ? Object.entries(TC).filter(function(e){ return tcProdId(e[0])===p.id; }).reduce(function(s,e){ return s+e[1]; },0)
+    : (TC[p.id]||0);
   const step = p.fracMin && p.fracMin > 1 ? p.fracMin : 1;
   const imgHtml = p.image
     ? '<img src="'+p.image+'" style="width:100%;height:110px;border-radius:10px;object-fit:contain;display:block;background:#f7f8fc;margin-bottom:8px">'
     : '<div style="width:100%;height:100px;border-radius:10px;background:#f7f8fc;display:flex;align-items:center;justify-content:center;font-size:40px;margin-bottom:8px">'+(p.emoji||'📦')+'</div>';
-  const ctrl = qty===0
-    ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="width:100%;background:#3483fa;color:#fff;border:none;border-radius:10px;padding:9px;font-weight:800;font-size:14px;cursor:pointer;margin-top:8px">+ Agregar'+(step>1?' x'+step:'')+'</button>'
-    : '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#eef0f5;color:#3483fa;border:none;border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;font-weight:700">−</button><span style="font-weight:800;font-size:16px;color:#1a1a2e">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;font-weight:700">+</button></div>'
-    +(p.wholesalePrice&&p.wholesaleQty&&qty>=p.wholesaleQty?'<div style="font-size:11px;color:#2e7d32;font-weight:700;text-align:center;margin-top:4px">⭐ Precio mayorista aplicado</div>':'');
+  const ctrl = hasVar
+    ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="width:100%;background:#3483fa;color:#fff;border:none;border-radius:10px;padding:9px;font-weight:800;font-size:14px;cursor:pointer;margin-top:8px">+ Agregar'+(qty>0?' ('+qty+' en carrito)':'')+'</button>'
+    : (qty===0
+        ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="width:100%;background:#3483fa;color:#fff;border:none;border-radius:10px;padding:9px;font-weight:800;font-size:14px;cursor:pointer;margin-top:8px">+ Agregar'+(step>1?' x'+step:'')+'</button>'
+        : '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#eef0f5;color:#3483fa;border:none;border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;font-weight:700">−</button><span style="font-weight:800;font-size:16px;color:#1a1a2e">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;font-weight:700">+</button></div>'
+          +(p.wholesalePrice&&p.wholesaleQty&&qty>=p.wholesaleQty?'<div style="font-size:11px;color:#2e7d32;font-weight:700;text-align:center;margin-top:4px">⭐ Precio mayorista aplicado</div>':''));
   const mayorHtml = p.wholesalePrice&&p.wholesaleQty
     ? '<div style="font-size:11px;color:#2e7d32;font-weight:700;margin-top:3px">$'+(+p.wholesalePrice).toFixed(0)+' a partir de '+p.wholesaleQty+' uds</div>'
     : '';
@@ -7307,6 +7322,48 @@ function tiendaRenderCats() {
     +cats.map(c=>'<button style="'+btnStyle(cat===c)+'" onclick="window.T_CAT=&quot;'+c+'&quot;;tiendaRender()">'+getEmoji(c)+' '+c+'</button>').join('');
 }
 
+// ── Helpers para keys de carrito con variante ──────────────────────────────
+// Key del carrito: "prodId" para productos sin variante, "prodId|Variante" con variante.
+function tcProdId(key){ return key.split('|')[0]; }
+function tcVariante(key){ return key.includes('|') ? key.split('|').slice(1).join('|') : ''; }
+
+// Popup para elegir variante al agregar
+function tiendaSelecVariante(prodId) {
+  const p = S.products.find(x=>x.id===prodId);
+  if(!p) return;
+  const ov = document.getElementById('tienda-variante-overlay');
+  ov.style.display = 'flex';
+  ov.innerHTML = '<div style="background:#fff;border-radius:18px;padding:24px 20px;max-width:340px;width:100%;box-shadow:0 8px 30px rgba(0,0,0,.25)">'
+    +'<div style="font-size:17px;font-weight:800;color:#1a1a2e;margin-bottom:6px;text-align:center">¿Qué variante querés?</div>'
+    +'<div style="font-size:14px;font-weight:600;color:#3483fa;margin-bottom:18px;text-align:center">'+p.name+'</div>'
+    +'<div style="display:flex;flex-direction:column;gap:8px">'
+    +(p.variantes||[]).map(function(v){
+      return '<button onclick="tiendaAddVariante(\''+prodId+'\',\''+v.replace(/\\/g,'\\\\').replace(/'/g,'\\\'')+'\')" style="background:#f0f4ff;border:1.5px solid #3483fa;color:#3483fa;border-radius:12px;padding:14px;font-size:15px;font-weight:700;cursor:pointer">'+v+'</button>';
+    }).join('')
+    +'</div>'
+    +'<button onclick="tiendaCerrarVariante()" style="margin-top:14px;width:100%;background:none;border:none;color:#999;font-size:14px;cursor:pointer;padding:8px">Cancelar</button>'
+    +'</div>';
+}
+function tiendaAddVariante(prodId, variante) {
+  tiendaCerrarVariante();
+  const p = S.products.find(x=>x.id===prodId);
+  if(!p) return;
+  const step = p.fracMin&&p.fracMin>1 ? p.fracMin : 1;
+  const key = prodId+'|'+variante;
+  TC[key] = (TC[key]||0) + step;
+  const hint = document.getElementById('tienda-hint');
+  if(hint) hint.style.display = 'none';
+  const cartBtn = document.getElementById('tienda-cart-btn');
+  if(cartBtn){ cartBtn.style.transform='scale(1.25)'; cartBtn.style.transition='transform .15s'; setTimeout(function(){ cartBtn.style.transform='scale(1)'; },200); }
+  tiendaActBadge();
+  tiendaRender();
+  tiendaActTotal();
+}
+function tiendaCerrarVariante() {
+  const ov = document.getElementById('tienda-variante-overlay');
+  if(ov){ ov.style.display='none'; ov.innerHTML=''; }
+}
+
 function tiendaAdd(id) {
   const modo = getTiendaModo();
   if(modo === 'solo_vista') {
@@ -7320,6 +7377,8 @@ function tiendaAdd(id) {
   }
   if(modo === 'cerrada') return;
   const p = S.products.find(x=>x.id===id);
+  // Si tiene variantes → popup selector (nunca agregar directo desde el catálogo)
+  if(p && p.variantes && p.variantes.length) { tiendaSelecVariante(id); return; }
   const step = p&&p.fracMin&&p.fracMin>1 ? p.fracMin : 1;
   TC[id] = (TC[id]||0) + step;
   // Ocultar banner de orientación al primer producto agregado
@@ -7337,7 +7396,7 @@ function tiendaAdd(id) {
   tiendaActTotal();
 }
 function tiendaInc(id) {
-  const p = S.products.find(x=>x.id===id);
+  const p = S.products.find(x=>x.id===tcProdId(id));
   const step = p&&p.fracMin&&p.fracMin>1 ? p.fracMin : 1;
   TC[id]=(TC[id]||0)+step;
   const cartBtn = document.getElementById('tienda-cart-btn');
@@ -7347,7 +7406,7 @@ function tiendaInc(id) {
   tiendaActTotal();
 }
 function tiendaDec(id) {
-  const p = S.products.find(x=>x.id===id);
+  const p = S.products.find(x=>x.id===tcProdId(id));
   const step = p&&p.fracMin&&p.fracMin>1 ? p.fracMin : 1;
   TC[id]=(TC[id]||step)-step;
   if(TC[id]<=0) delete TC[id];
@@ -7371,8 +7430,8 @@ function tiendaGetPrice(p, qty) {
     const gDef = (S.gruposMay||[]).find(g=>g.nombre && g.nombre.toLowerCase().trim()===grupoP);
     const minG = gDef ? gDef.minMay : p.wholesaleQty;
     let totalG = 0;
-    Object.entries(TC).forEach(([id,q])=>{
-      const ep = S.products.find(x=>x.id===id);
+    Object.entries(TC).forEach(([k,q])=>{
+      const ep = S.products.find(x=>x.id===tcProdId(k));
       if(ep && (ep.grupoMay||'').toLowerCase().trim()===grupoP) totalG += q;
     });
     return (minG > 0 && totalG >= minG) ? p.wholesalePrice : p.price;
@@ -7383,7 +7442,7 @@ function tiendaGetPrice(p, qty) {
 function tiendaActTotal() {
   let total = 0;
   Object.entries(TC).forEach(([id,qty])=>{
-    const p=S.products.find(x=>x.id===id);
+    const p=S.products.find(x=>x.id===tcProdId(id));
     if(p) total += tiendaGetPrice(p, qty)*qty;
   });
   const totalEl = document.getElementById('tienda-total');
@@ -7419,8 +7478,9 @@ function tiendaRenderCarrito() {
   if(btnVaciar) btnVaciar.style.display='block';
   if(btnGuardar) btnGuardar.style.display='block';
   const rows = items.map(([id,qty])=>{
-    const p=S.products.find(x=>x.id===id);
-    const name = p ? p.name : id;
+    const p=S.products.find(x=>x.id===tcProdId(id));
+    const variante = tcVariante(id);
+    const name = p ? (p.name + (variante ? ' - '+variante : '')) : id;
     const price = p ? tiendaGetPrice(p, qty) : 0;
     const emoji = p ? (p.emoji||'📦') : '📦';
     return '<div style="background:#fff;border-radius:12px;padding:12px;display:flex;align-items:center;gap:12px;border:1px solid #eef0f5;margin-bottom:8px">'
@@ -7515,10 +7575,13 @@ async function tiendaConfirmar() {
   }
   // Crear factura
   const invItems = items.map(([id,qty])=>{
-    const p=S.products.find(x=>x.id===id);
+    const pid = tcProdId(id);
+    const variante = tcVariante(id);
+    const p=S.products.find(x=>x.id===pid);
     if(!p) return null;
-    const unit = tiendaGetPrice(p, qty); // aplica precio mayorista si la cantidad alcanza
-    return {prodId:p.id, desc:p.name, qty, price:unit, retailPrice:p.price, wholesalePrice:p.wholesalePrice||0, wholesaleQty:p.wholesaleQty||0};
+    const unit = tiendaGetPrice(p, qty);
+    const desc = p.name + (variante ? ' - '+variante : '');
+    return {prodId:pid, desc, qty, price:unit, retailPrice:p.price, wholesalePrice:p.wholesalePrice||0, wholesaleQty:p.wholesaleQty||0};
   }).filter(Boolean);
   const invTotal = invItems.reduce((s,i)=>s+i.qty*i.price,0);
   const inv = {
