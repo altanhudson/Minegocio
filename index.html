@@ -1028,7 +1028,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.14</strong> · 09/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.15</strong> · 09/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -7331,21 +7331,40 @@ function tcVariante(key){ return key.includes('|') ? key.split('|').slice(1).joi
 function tiendaSelecVariante(prodId) {
   const p = S.products.find(x=>x.id===prodId);
   if(!p) return;
+  tiendaRenderVariantePopup(prodId);
+}
+function tiendaRenderVariantePopup(prodId) {
+  const p = S.products.find(x=>x.id===prodId);
+  if(!p) return;
   const ov = document.getElementById('tienda-variante-overlay');
   ov.style.display = 'flex';
+  const totalEnCarrito = (p.variantes||[]).reduce(function(s,v){
+    return s + (TC[prodId+'|'+v]||0);
+  }, 0);
+  const botonesVariantes = (p.variantes||[]).map(function(v) {
+    const qty = TC[prodId+'|'+v]||0;
+    const sel = qty > 0;
+    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
+      +'<button onclick="tiendaAddVariante(\''+prodId+'\',\''+v.replace(/\\/g,'\\\\').replace(/'/g,'\\\'')+'\')" style="flex:1;background:'+(sel?'#3483fa':'#f0f4ff')+';border:1.5px solid #3483fa;color:'+(sel?'#fff':'#3483fa')+';border-radius:12px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;text-align:left">'+v+'</button>'
+      +(qty>0
+        ? '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
+          +'<button onclick="tiendaDecVariante(\''+prodId+'\',\''+v.replace(/\\/g,'\\\\').replace(/'/g,'\\\'')+'\')" style="background:#eef0f5;color:#3483fa;border:none;border-radius:8px;width:32px;height:32px;font-size:20px;cursor:pointer;font-weight:700">−</button>'
+          +'<span style="font-weight:800;font-size:16px;color:#333;min-width:18px;text-align:center">'+qty+'</span>'
+          +'<button onclick="tiendaAddVariante(\''+prodId+'\',\''+v.replace(/\\/g,'\\\\').replace(/'/g,'\\\'')+'\')" style="background:#3483fa;color:#fff;border:none;border-radius:8px;width:32px;height:32px;font-size:20px;cursor:pointer;font-weight:700">+</button>'
+          +'</div>'
+        : '')
+      +'</div>';
+  }).join('');
   ov.innerHTML = '<div style="background:#fff;border-radius:18px;padding:24px 20px;max-width:340px;width:100%;box-shadow:0 8px 30px rgba(0,0,0,.25)">'
-    +'<div style="font-size:17px;font-weight:800;color:#1a1a2e;margin-bottom:6px;text-align:center">¿Qué variante querés?</div>'
-    +'<div style="font-size:14px;font-weight:600;color:#3483fa;margin-bottom:18px;text-align:center">'+p.name+'</div>'
-    +'<div style="display:flex;flex-direction:column;gap:8px">'
-    +(p.variantes||[]).map(function(v){
-      return '<button onclick="tiendaAddVariante(\''+prodId+'\',\''+v.replace(/\\/g,'\\\\').replace(/'/g,'\\\'')+'\')" style="background:#f0f4ff;border:1.5px solid #3483fa;color:#3483fa;border-radius:12px;padding:14px;font-size:15px;font-weight:700;cursor:pointer">'+v+'</button>';
-    }).join('')
-    +'</div>'
-    +'<button onclick="tiendaCerrarVariante()" style="margin-top:14px;width:100%;background:none;border:none;color:#999;font-size:14px;cursor:pointer;padding:8px">Cancelar</button>'
+    +'<div style="font-size:17px;font-weight:800;color:#1a1a2e;margin-bottom:4px;text-align:center">¿Qué variante querés?</div>'
+    +'<div style="font-size:14px;font-weight:600;color:#3483fa;margin-bottom:16px;text-align:center">'+p.name+'</div>'
+    +botonesVariantes
+    +'<button onclick="tiendaCerrarVariante()" style="margin-top:12px;width:100%;background:'+(totalEnCarrito>0?'#3483fa':'#f0f4ff')+';border:none;color:'+(totalEnCarrito>0?'#fff':'#999')+';border-radius:12px;padding:14px;font-size:15px;font-weight:800;cursor:pointer">'
+    +(totalEnCarrito>0?'✓ Listo ('+totalEnCarrito+' en carrito)':'Cancelar')
+    +'</button>'
     +'</div>';
 }
 function tiendaAddVariante(prodId, variante) {
-  tiendaCerrarVariante();
   const p = S.products.find(x=>x.id===prodId);
   if(!p) return;
   const step = p.fracMin&&p.fracMin>1 ? p.fracMin : 1;
@@ -7353,15 +7372,26 @@ function tiendaAddVariante(prodId, variante) {
   TC[key] = (TC[key]||0) + step;
   const hint = document.getElementById('tienda-hint');
   if(hint) hint.style.display = 'none';
-  const cartBtn = document.getElementById('tienda-cart-btn');
-  if(cartBtn){ cartBtn.style.transform='scale(1.25)'; cartBtn.style.transition='transform .15s'; setTimeout(function(){ cartBtn.style.transform='scale(1)'; },200); }
   tiendaActBadge();
-  tiendaRender();
   tiendaActTotal();
+  // Re-renderizar el popup para mostrar la cantidad actualizada
+  tiendaRenderVariantePopup(prodId);
+}
+function tiendaDecVariante(prodId, variante) {
+  const p = S.products.find(x=>x.id===prodId);
+  const step = p&&p.fracMin&&p.fracMin>1 ? p.fracMin : 1;
+  const key = prodId+'|'+variante;
+  TC[key] = (TC[key]||step) - step;
+  if(TC[key] <= 0) delete TC[key];
+  tiendaActBadge();
+  tiendaActTotal();
+  tiendaRenderVariantePopup(prodId);
 }
 function tiendaCerrarVariante() {
   const ov = document.getElementById('tienda-variante-overlay');
   if(ov){ ov.style.display='none'; ov.innerHTML=''; }
+  // Actualizar el catálogo para reflejar las cantidades nuevas
+  try{ tiendaRender(); }catch(e){}
 }
 
 function tiendaAdd(id) {
@@ -7553,10 +7583,13 @@ async function tiendaConfirmar() {
   if(!items.length){alert('Agregá al menos un producto');return;}
   let total=0;
   let lineas = items.map(([id,qty])=>{
-    const p=S.products.find(x=>x.id===id);
+    const p=S.products.find(x=>x.id===tcProdId(id));
     if(!p) return '';
-    total+=p.price*qty;
-    return '\u2022 '+p.name+' x'+qty+' = $'+(p.price*qty).toFixed(2);
+    const variante = tcVariante(id);
+    const nombre = p.name + (variante ? ' - '+variante : '');
+    const unit = tiendaGetPrice(p, qty);
+    total += unit*qty;
+    return '\u2022 '+nombre+' x'+qty+' = $'+(unit*qty).toFixed(2);
   }).filter(Boolean).join('\n');
   const msg = '\uD83D\uDED2 *Pedido de '+TN+'*\n\n'+lineas+'\n\n*Total: $'+total.toFixed(2)+'*';
   const url = 'https://wa.me/'+WA_NUM+'?text='+encodeURIComponent(msg);
