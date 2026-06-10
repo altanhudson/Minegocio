@@ -1028,7 +1028,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.15</strong> · 09/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.16</strong> · 09/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -5938,55 +5938,66 @@ async function syncManual() {
   const btn = document.getElementById('btn-sync');
   if (btn) btn.textContent = '⏳';
   try {
-    if (typeof window._fbLoad === 'function') {
-      // 1. Primero subir SOLO los cambios locales (dirty) — nunca la base completa
-      if ((_syncDirty || window._syncPendingFlag) && typeof window._fbSaveDirty === 'function') {
+    if (typeof window._fbLoad !== 'function') { if(btn) btn.textContent='🔄'; return; }
+
+    // 1. Subir dirty — si falla, avisamos pero IGUAL intentamos bajar
+    if ((_syncDirty || window._syncPendingFlag) && typeof window._fbSaveDirty === 'function') {
+      try {
         await window._fbSaveDirty(S);
-      }
-      // 2. Bajar datos frescos de Firebase
-      const fbData = await window._fbLoad();
-      if (fbData) {
-        // Solo bloquear si la pantalla de resumen de factura está realmente activa
-        const resumenActivo = document.getElementById('page-resumen-factura') &&
-          document.getElementById('page-resumen-factura').classList.contains('active');
-        if (S.editId && resumenActivo) {
-          toast('⚠️ Hay una factura abierta — cerrala antes de sincronizar');
-          if (btn) btn.textContent = '🔄';
-          return;
-        }
-        S.editId = null; // limpiar rastro residual
-        // Merge inteligente: en vez de pisar todo con Firebase, para cada registro
-        // se queda con la versión más reciente (updatedAt). Resuelve el bug donde
-        // un celular con datos viejos pisaba las correcciones del otro al sincronizar.
-        COLS.forEach(function(col) {
-          if(!fbData[col]) return;
-          const localById = {};
-          (S[col]||[]).forEach(function(r){ if(r && r.id) localById[r.id] = r; });
-          S[col] = fbData[col].map(function(remote) {
-            const local = localById[remote.id];
-            if(!local) return remote; // nuevo en Firebase, usar
-            const localTime = local.updatedAt ? new Date(local.updatedAt).getTime() : 0;
-            const remoteTime = remote.updatedAt ? new Date(remote.updatedAt).getTime() : 0;
-            return localTime > remoteTime ? local : remote; // más reciente gana; empate → Firebase
-          }).filter(Boolean);
-        });
-        // Config y contadores: siempre usar Firebase
-        Object.keys(fbData).forEach(function(k){
-          if(!COLS.includes(k)) S[k] = fbData[k];
-        });
-        try { localStorage.setItem(SK, JSON.stringify(fbData)); } catch(e) {}
-        try { recalcAllStocks(); recalcClientCredits(); } catch(e) { console.error('recalc error:', e); }
-        renderProds(); renderInvs(); renderClis(); renderProvs(); renderComps(); updDash();
-        try { updateStockBadge(); } catch(e) {}
-        try { renderProdCatChips(); } catch(e) {}
-        _syncMarkDirty(false);
-        window._syncPendingFlag = false;
-        toast('✅ Sincronizado');
+      } catch(eUp) {
+        console.error('Error subiendo a Firebase:', eUp);
+        toast('⚠️ No se pudo subir — intentando bajar igual...');
       }
     }
+
+    // 2. Bajar datos frescos de Firebase (siempre, aunque la subida haya fallado)
+    const fbData = await window._fbLoad();
+    if (!fbData) { toast('❌ No se pudo conectar con Firebase'); if(btn) btn.textContent='🔄'; return; }
+
+    const resumenActivo = document.getElementById('page-resumen-factura') &&
+      document.getElementById('page-resumen-factura').classList.contains('active');
+    if (S.editId && resumenActivo) {
+      toast('⚠️ Hay una factura abierta — cerrala antes de sincronizar');
+      if (btn) btn.textContent = '🔄';
+      return;
+    }
+    S.editId = null;
+
+    // 3. Merge inteligente
+    COLS.forEach(function(col) {
+      if(!fbData[col]) return;
+      const localById = {};
+      (S[col]||[]).forEach(function(r){ if(r && r.id) localById[r.id] = r; });
+      S[col] = fbData[col].map(function(remote) {
+        const local = localById[remote.id];
+        if(!local) return remote;
+        const localTime = local.updatedAt ? new Date(local.updatedAt).getTime() : 0;
+        const remoteTime = remote.updatedAt ? new Date(remote.updatedAt).getTime() : 0;
+        return localTime > remoteTime ? local : remote;
+      }).filter(Boolean);
+    });
+    Object.keys(fbData).forEach(function(k){
+      if(!COLS.includes(k)) S[k] = fbData[k];
+    });
+
+    // 4. Guardar en localStorage — si falla (cuota llena) no es crítico
+    try { localStorage.setItem(SK, JSON.stringify(fbData)); } catch(eLs) { console.warn('localStorage lleno:', eLs); }
+
+    // 5. Recalcular y renderizar — si algo falla acá, los datos ya están bajados
+    try { recalcAllStocks(); recalcClientCredits(); } catch(eR) { console.error('recalc error:', eR); }
+    try { renderProds(); renderInvs(); renderClis(); renderProvs(); renderComps(); updDash(); } catch(eRnd) { console.error('render error:', eRnd); }
+    try { updateStockBadge(); } catch(e) {}
+    try { renderProdCatChips(); } catch(e) {}
+
+    _syncMarkDirty(false);
+    window._syncPendingFlag = false;
+    toast('✅ Sincronizado');
+
   } catch(e) {
     console.error('Error sync:', e);
-    toast('❌ Error al sincronizar');
+    // Mostrar el error real para poder diagnosticar
+    const msg = e && e.message ? e.message.substring(0,80) : 'Error desconocido';
+    toast('❌ Error al sincronizar: '+msg);
   }
   if (btn) btn.textContent = '🔄';
 }
