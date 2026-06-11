@@ -1028,7 +1028,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.23</strong> · 11/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.24</strong> · 11/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -2612,6 +2612,9 @@ function saveProd() {
       return new Date().toISOString(); // primera vez que se hace visible → aparece como nuevo
     })(),
     oferta: document.getElementById('p-oferta').checked,
+    ofertaDesde: document.getElementById('p-oferta').checked
+      ? ((S.editId && (S.products.find(p=>p.id===S.editId)||{}).ofertaDesde) || new Date().toISOString())
+      : null,
     soloFlyer: document.getElementById('p-soloflyer').checked,
     enFlyer: S.editId ? ((S.products.find(p=>p.id===S.editId)||{}).enFlyer||false) : false,
     marca: '',
@@ -3022,6 +3025,8 @@ function togOferta(id) {
   const p = S.products.find(x=>x.id===id);
   if(!p) return;
   p.oferta = !p.oferta;
+  if(p.oferta) p.ofertaDesde = new Date().toISOString();
+  else delete p.ofertaDesde;
   try{ _markDirty('products', p.id); }catch(e){}
   save(['products']);
   renderProds(document.getElementById('prod-search').value);
@@ -7235,7 +7240,9 @@ function tiendaRender() {
       + '</div>';
   }
   if(!q && cat==='todas') {
-    const ofertas = prods.filter(p=>p.oferta).reverse();
+    const ofertas = prods.filter(p=>p.oferta).sort(function(a,b){
+      return ((b.ofertaDesde||'')<(a.ofertaDesde||'') ? -1 : 1);
+    });
     if(ofertas.length) {
       html += '<div style="background:#fff7ed;border-radius:16px;padding:0;border:1.5px solid #fed7aa;margin-bottom:12px;overflow:hidden;box-shadow:0 2px 10px rgba(247,144,30,.1)">';
       html += '<div style="background:#f7901e;padding:10px 14px;font-size:14px;font-weight:800;color:#fff">🔥 OFERTAS</div>';
@@ -7265,7 +7272,11 @@ function tiendaRender() {
       const last = p.priceHistory[p.priceHistory.length-1];
       const horas = (now - new Date(last.date).getTime()) / 3600000;
       return horas <= 48 && last.price < p.price;
-    }).reverse();
+    }).sort(function(a,b){
+      const da = a.priceHistory[a.priceHistory.length-1].date||'';
+      const db = b.priceHistory[b.priceHistory.length-1].date||'';
+      return db < da ? -1 : 1;
+    });
     if(aumentos.length) {
       html += '<div style="background:#fff5f5;border-radius:16px;padding:0;border:1.5px solid #fecaca;margin-bottom:12px;overflow:hidden;box-shadow:0 2px 10px rgba(220,38,38,.08)">';
       html += '<div style="background:#dc2626;padding:10px 14px;font-size:14px;font-weight:800;color:#fff">📈 Subieron de precio <span style="font-size:11px;color:rgba(255,255,255,.85);font-weight:400">últimas 48hs</span></div>';
@@ -7292,7 +7303,7 @@ function tiendaRender() {
     const nuevos = prods.filter(p => {
       if(!p.visibleSince) return false;
       return (ahora - new Date(p.visibleSince).getTime()) <= unaSemana;
-    }).reverse();
+    }).sort(function(a,b){ return (b.visibleSince||'') < (a.visibleSince||'') ? -1 : 1; });
     if(nuevos.length) {
       html += '<div style="background:#f0fdf4;border-radius:16px;padding:0;border:1.5px solid #bbf7d0;margin-bottom:12px;overflow:hidden;box-shadow:0 2px 10px rgba(22,163,74,.08)">';
       html += '<div style="background:#16a34a;padding:10px 14px;font-size:14px;font-weight:800;color:#fff">🆕 Agregados recientemente</div>';
