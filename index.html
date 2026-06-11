@@ -1028,7 +1028,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.19</strong> · 10/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.20</strong> · 11/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -4621,9 +4621,17 @@ function renderInvs() {
     }
     const cardHtml = (()=>{
     const saldo = inv.status==='pagada' ? 0 : (inv.saldo||0);
-    // Considerar crédito del cliente para el badge y el monto a mostrar
+    // Calcular crédito RESIDUAL: descontar lo que el crédito ya "cubre" en facturas
+    // anteriores (más antiguas) del mismo cliente que también están pendientes.
     const _cliCard = S.clients.find(c=>c.id===inv.clientId);
-    const _credCard = (_cliCard && _cliCard.credito > 0) ? _cliCard.credito : 0;
+    const _credTotal = (_cliCard && _cliCard.credito > 0) ? _cliCard.credito : 0;
+    const _creditoUsadoAntes = S.invoices
+      .filter(i => i.clientId===inv.clientId && i.id!==inv.id && i.status!=='pagada' && i.status!=='cancelada' && i.type!=='presupuesto' && (i.date < inv.date || (i.date===inv.date && i.id < inv.id)))
+      .reduce((usado, i) => {
+        const disp = Math.max(0, _credTotal - usado);
+        return usado + Math.min(i.saldo||0, disp);
+      }, 0);
+    const _credCard = Math.max(0, _credTotal - _creditoUsadoAntes);
     const _saldoConCredito = Math.max(0, saldo - _credCard);
     const _cubiertoPorCredito = saldo > 0 && _credCard >= saldo;
     const _parcialPorCredito = saldo > 0 && _credCard > 0 && _credCard < saldo;
