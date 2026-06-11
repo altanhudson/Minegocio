@@ -1028,7 +1028,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.18</strong> · 10/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.19</strong> · 10/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -4621,7 +4621,19 @@ function renderInvs() {
     }
     const cardHtml = (()=>{
     const saldo = inv.status==='pagada' ? 0 : (inv.saldo||0);
-    const badge = inv.type==='presupuesto'?'<span class="badge badge-blue">Presup.</span>':(sb[inv.status]||'');
+    // Considerar crédito del cliente para el badge y el monto a mostrar
+    const _cliCard = S.clients.find(c=>c.id===inv.clientId);
+    const _credCard = (_cliCard && _cliCard.credito > 0) ? _cliCard.credito : 0;
+    const _saldoConCredito = Math.max(0, saldo - _credCard);
+    const _cubiertoPorCredito = saldo > 0 && _credCard >= saldo;
+    const _parcialPorCredito = saldo > 0 && _credCard > 0 && _credCard < saldo;
+    const badge = inv.type==='presupuesto'
+      ? '<span class="badge badge-blue">Presup.</span>'
+      : _cubiertoPorCredito
+        ? '<span class="badge badge-green">Cubierto ✓</span>'
+        : _parcialPorCredito
+          ? '<span class="badge badge-orange" style="background:#f59e0b">Cubre parcial</span>'
+          : (sb[inv.status]||'');
     const btnStyle = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 4px;cursor:pointer;background:var(--surface);border:none;flex:1;border-right:1px solid var(--border)';
     const prodLines = inv.items.map((item, idx)=> {
       const armado = inv.itemsArmados && inv.itemsArmados[idx];
@@ -4632,22 +4644,22 @@ function renderInvs() {
       +'<span style="font-weight:700;color:var(--accent);white-space:nowrap;font-size:14px">$'+(item.qty*item.price).toFixed(0)+'</span>'
       +'</div>';
     }).join('');
-    const _bc = inv.status==='pagada'?'#16a34a':(inv.pagos&&inv.pagos.length&&inv.saldo>0)?'#eab308':'#dc2626';
+    const _bc = inv.status==='pagada'||_cubiertoPorCredito?'#16a34a':_parcialPorCredito?'#f59e0b':(inv.pagos&&inv.pagos.length&&inv.saldo>0)?'#eab308':'#dc2626';
     return '<div class="card" style="overflow:hidden;border-left:4px solid '+_bc+'">' 
     +'<div data-action="toggleInv" data-id="'+inv.id+'" style="cursor:pointer">'
     +'<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:12px 14px 6px">'
     +'<div style="font-weight:900;font-size:18px;color:var(--text);flex:1;line-height:1.2">'+inv.clientName+'</div>'
     +(()=>{
       const deudaAnterior = S.invoices.filter(i=>i.clientId===inv.clientId&&i.id!==inv.id&&i.status!=='pagada'&&i.status!=='cancelada'&&i.type!=='presupuesto'&&i.type===inv.type).reduce((s,i)=>s+(i.saldo||0),0);
-      const totalDeuda = saldo + deudaAnterior;
-      const creditoAplicado = inv.total - (inv.saldo||0) - ((inv.pagos||[]).filter(p=>p.method!=='a favor').reduce((s,p)=>s+p.monto,0));
-      const montoMostrar = (inv.saldo||0) < inv.total ? (inv.saldo||0) : inv.total;
+      const totalDeuda = _saldoConCredito + deudaAnterior;
+      const montoMostrar = _cubiertoPorCredito ? 0 : _parcialPorCredito ? _saldoConCredito : ((inv.saldo||0) < inv.total ? (inv.saldo||0) : inv.total);
       return '<div style="text-align:right;flex-shrink:0;padding-left:8px">'
-        +'<div style="font-weight:800;font-size:16px;color:var(--accent)">$'+montoMostrar.toFixed(0)+'</div>'
-        +(montoMostrar < inv.total?'<div style="font-size:11px;color:var(--text3)">Total: $'+inv.total.toFixed(0)+'</div>':'')
+        +'<div style="font-weight:800;font-size:16px;color:'+(_cubiertoPorCredito?'#16a34a':'var(--accent)')+'">$'+montoMostrar.toFixed(0)+'</div>'
+        +(montoMostrar < inv.total&&!_cubiertoPorCredito?'<div style="font-size:11px;color:var(--text3)">Total: $'+inv.total.toFixed(0)+'</div>':'')
+        +(_cubiertoPorCredito?'<div style="font-size:11px;color:#16a34a;font-weight:600">Saldo a favor cubre</div>':'')
         +(deudaAnterior>0?'<div style="font-size:12px;color:var(--accent3);font-weight:600">Ant: $'+deudaAnterior.toFixed(0)+'</div>':'')
-        +(saldo>0&&deudaAnterior>0?'<div style="font-size:13px;color:var(--accent3);font-weight:700">Total: $'+totalDeuda.toFixed(0)+'</div>':''
-        +(inv.aFavor>0?'<div style="font-size:13px;color:var(--green)">A favor: $'+inv.aFavor.toFixed(0)+'</div>':''))
+        +(_saldoConCredito>0&&deudaAnterior>0?'<div style="font-size:13px;color:var(--accent3);font-weight:700">Total: $'+totalDeuda.toFixed(0)+'</div>':'')
+        +(inv.aFavor>0?'<div style="font-size:13px;color:var(--green)">A favor: $'+inv.aFavor.toFixed(0)+'</div>':'')
         +'</div></div>';
     })()
     +'<div style="display:flex;align-items:center;gap:8px;padding:0 14px 10px">'
