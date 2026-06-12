@@ -853,7 +853,6 @@ select option{background:var(--surface2)}
       <div class="tab active" onclick="swCompTab('historial',this)">Historial</div>
       <div class="tab" onclick="swCompTab('comparador',this)">Comparador</div>
       <div class="tab" onclick="swCompTab('lista',this)">Lista compras</div>
-      <div class="tab" onclick="swCompTab('sugerir',this)">🧠 Sugerir</div>
     </div>
     <div id="comp-hist-search-wrap" style="position:relative;margin-bottom:10px">
       <input type="text" id="comp-search" placeholder="🔍 Buscar por proveedor..." autocomplete="off" oninput="renderComps()" style="width:100%;font-size:15px;padding:10px 44px 10px 14px;border:1.5px solid var(--accent2);border-radius:12px;background:var(--surface);font-family:Inter,sans-serif;outline:none">
@@ -864,30 +863,6 @@ select option{background:var(--surface2)}
       <div style="font-size:14px;color:var(--text3);margin-bottom:10px">Productos faltantes en facturas pendientes de entrega</div>
       <div id="lista-compras-content"></div>
       <button class="btn btn-ghost btn-full" style="margin-top:10px" onclick="shareListaCompras()">&#128205; Compartir lista</button>
-    </div>
-    <div id="comp-sugerir" style="display:none">
-      <div style="background:var(--surface2);border-radius:14px;padding:16px;margin-bottom:12px">
-        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:12px">🧠 Sugeridor de pedido</div>
-        <div style="margin-bottom:10px">
-          <label style="font-size:13px;color:var(--text3);display:block;margin-bottom:4px">Proveedor</label>
-          <select id="sug-prov" onchange="sugRender()" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface);font-size:14px;font-family:Inter,sans-serif">
-            <option value="">— Todos los productos —</option>
-          </select>
-        </div>
-        <div style="margin-bottom:10px">
-          <label style="font-size:13px;color:var(--text3);display:block;margin-bottom:4px">¿Cómo querés calcular?</label>
-          <div style="display:flex;gap:8px">
-            <button id="sug-modo-unidades" onclick="sugSetModo('unidades')" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #3483fa;background:#3483fa;color:#fff;font-size:13px;font-weight:700;cursor:pointer">📦 Por unidades</button>
-            <button id="sug-modo-semanas" onclick="sugSetModo('semanas')" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;font-weight:700;cursor:pointer">📅 Por semanas</button>
-          </div>
-        </div>
-        <div style="margin-bottom:10px">
-          <label style="font-size:13px;color:var(--text3);display:block;margin-bottom:4px" id="sug-campo-label">Total de unidades a comprar</label>
-          <input type="number" id="sug-total" value="50" min="1" inputmode="numeric" oninput="sugRender()" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface);font-size:14px;font-family:Inter,sans-serif">
-        </div>
-        <button onclick="sugRender()" style="width:100%;padding:12px;background:#1e3a5f;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;font-family:Inter,sans-serif">🔍 Calcular sugerencia</button>
-      </div>
-      <div id="sug-result"></div>
     </div>
     <div id="comp-comp" style="display:none">
       <div class="search-bar"><span style="color:var(--text3)">&#128269;</span><input type="text" placeholder="Buscar producto..." oninput="renderComp(this.value)"></div>
@@ -5493,172 +5468,8 @@ document.getElementById('page-compras').addEventListener('click', function(e){
   else if(el.dataset.action==='confirmComp') { e.stopPropagation(); confirmComp(el.dataset.id); }
   else if(el.dataset.action==='deleteComp') { e.stopPropagation(); deleteComp(el.dataset.id); }
 });
-function swCompTab(tab,el){
-  document.querySelectorAll('#page-compras .tab').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('comp-hist').style.display=tab==='historial'?'':'none';
-  document.getElementById('comp-comp').style.display=tab==='comparador'?'':'none';
-  document.getElementById('comp-lista').style.display=tab==='lista'?'':'none';
-  document.getElementById('comp-sugerir').style.display=tab==='sugerir'?'':'none';
-  document.getElementById('comp-hist-search-wrap').style.display=tab==='historial'?'':'none';  if(tab==='comparador') renderComp();
-  if(tab==='lista') renderListaCompras();
-  if(tab==='sugerir') sugInit();
-}
+function swCompTab(tab,el){document.querySelectorAll('#page-compras .tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');document.getElementById('comp-hist').style.display=tab==='historial'?'':'none';document.getElementById('comp-comp').style.display=tab==='comparador'?'':'none';document.getElementById('comp-lista').style.display=tab==='lista'?'':'none';document.getElementById('comp-hist-search-wrap').style.display=tab==='historial'?'':'none';if(tab==='comparador')renderComp();if(tab==='lista')renderListaCompras();}
 
-// ===== SUGERIDOR DE PEDIDO =====
-let _sugModo = 'unidades'; // 'unidades' | 'semanas'
-function sugSetModo(modo) {
-  _sugModo = modo;
-  document.getElementById('sug-modo-unidades').style.background = modo==='unidades' ? '#3483fa' : 'var(--surface)';
-  document.getElementById('sug-modo-unidades').style.color = modo==='unidades' ? '#fff' : 'var(--text)';
-  document.getElementById('sug-modo-unidades').style.borderColor = modo==='unidades' ? '#3483fa' : 'var(--border)';
-  document.getElementById('sug-modo-semanas').style.background = modo==='semanas' ? '#3483fa' : 'var(--surface)';
-  document.getElementById('sug-modo-semanas').style.color = modo==='semanas' ? '#fff' : 'var(--text)';
-  document.getElementById('sug-modo-semanas').style.borderColor = modo==='semanas' ? '#3483fa' : 'var(--border)';
-  document.getElementById('sug-campo-label').textContent = modo==='semanas' ? 'Semanas que querés cubrir' : 'Total de unidades a comprar';
-  document.getElementById('sug-total').value = modo==='semanas' ? '2' : '50';
-  document.getElementById('sug-total').placeholder = modo==='semanas' ? 'ej: 2' : 'ej: 50';
-  sugRender();
-}
-
-function sugInit() {
-  const sel = document.getElementById('sug-prov');
-  const current = sel.value;
-  // Poblar proveedores
-  sel.innerHTML = '<option value="">— Todos los productos —</option>';
-  (S.proveedores||[]).sort((a,b)=>(a.name||'').localeCompare(b.name||'')).forEach(pv=>{
-    const opt = document.createElement('option');
-    opt.value = pv.id;
-    opt.textContent = pv.name||pv.id;
-    if(pv.id===current) opt.selected=true;
-    sel.appendChild(opt);
-  });
-  sugRender();
-}
-
-function sugRender() {
-  const provId = document.getElementById('sug-prov').value;
-  const valor = parseInt(document.getElementById('sug-total').value)||0;
-  if(!valor) { res.innerHTML='<div style="color:var(--text3);text-align:center;padding:20px">Ingresá un valor</div>'; return; }
-
-  // Calcular semanas de historial
-  const fechas = S.invoices
-    .filter(i=>i.type!=='presupuesto'&&i.status!=='cancelada')
-    .map(i=>i.date||'').filter(Boolean).sort();
-  if(!fechas.length) { res.innerHTML='<div style="color:var(--text3);text-align:center;padding:20px">Sin historial de ventas</div>'; return; }
-  const semanas = Math.max(1, (new Date(fechas[fechas.length-1])-new Date(fechas[0]))/(7*24*3600*1000));
-
-  // Calcular ventas por producto
-  const ventas = {};
-  S.invoices.filter(i=>i.type!=='presupuesto'&&i.status!=='cancelada').forEach(inv=>{
-    (inv.items||[]).forEach(item=>{
-      if(!item.prodId) return;
-      ventas[item.prodId] = (ventas[item.prodId]||0) + (item.qty||0);
-    });
-  });
-
-  const datos = prods.map(p=>{
-    const v = ventas[p.id]||0;
-    const xsem = v/semanas;
-    const stock = p.stock||0;
-    const agotaEn = xsem > 0 ? stock/xsem : 999;
-    return {p, v, xsem, stock, agotaEn};
-  }).filter(d=>d.v>0 || d.stock>=0);
-
-  datos.sort((a,b)=>a.agotaEn-b.agotaEn);
-
-  let sugeridos;
-  let duracion;
-  let labelResumen;
-
-  if(_sugModo === 'semanas') {
-    // Modo semanas: calcular cuánto pedir para cubrir X semanas
-    const semanasObjetivo = valor;
-    sugeridos = datos.map(d=>{
-      const necesario = Math.max(0, Math.round(d.xsem * semanasObjetivo - d.stock));
-      return {...d, sugerido: necesario};
-    });
-    const totalSug = sugeridos.reduce((s,d)=>s+d.sugerido, 0);
-    duracion = semanasObjetivo;
-    labelResumen = 'Para cubrir <strong>'+semanasObjetivo+' semana'+(semanasObjetivo!==1?'s':'')+'</strong> · total estimado <strong>'+totalSug+' unidades</strong>';
-  } else {
-    // Modo unidades: distribuir proporcionalmente
-    const totalUnidades = valor;
-    const sumXsem = datos.reduce((s,d)=>s+d.xsem, 0);
-    if(sumXsem <= 0) { res.innerHTML='<div style="color:var(--text3);text-align:center;padding:20px">Sin ventas registradas para estos productos</div>'; return; }
-    const sumStock = datos.reduce((s,d)=>s+Math.max(0,d.stock), 0);
-    const k = (totalUnidades + sumStock) / sumXsem;
-    sugeridos = datos.map(d=>({...d, sugerido: Math.max(0, Math.round(k * d.xsem - d.stock))}));
-    let totalSug = sugeridos.reduce((s,d)=>s+d.sugerido, 0);
-    let diff = totalUnidades - totalSug;
-    if(diff !== 0) {
-      const conVentas = sugeridos.filter(d=>d.xsem>0).sort((a,b)=>b.xsem-a.xsem);
-      for(let i=0; i<Math.abs(diff) && i<conVentas.length; i++) {
-        conVentas[i%conVentas.length].sugerido += diff>0 ? 1 : (conVentas[i%conVentas.length].sugerido>0 ? -1 : 0);
-      }
-    }
-    duracion = sumXsem > 0 ? (totalUnidades + sumStock)/sumXsem : 0;
-    labelResumen = 'Distribución para <strong>'+totalUnidades+' unidades</strong> · duración estimada ~<strong>'+duracion.toFixed(1)+' semanas</strong>';
-  }
-
-  const amostrar = sugeridos.filter(d=>d.sugerido>0);
-
-  if(!amostrar.length) {
-    res.innerHTML='<div style="background:#f0fdf4;border-radius:12px;padding:16px;text-align:center;color:#16a34a;font-weight:700">✓ Stock suficiente, no hace falta pedir ahora</div>';
-    return;
-  }
-
-  let html = '<div style="font-size:13px;color:var(--text3);margin-bottom:10px">'+labelResumen+'</div>';
-  html += '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">';
-
-  amostrar.forEach(d=>{
-    const agotaStr = d.agotaEn >= 99 ? 'Sin ventas' : d.agotaEn < 0.5 ? '⚠️ Agotado' : d.agotaEn < 1.5 ? '⚠️ '+d.agotaEn.toFixed(1)+' sem' : d.agotaEn.toFixed(1)+' sem';
-    const urgente = d.agotaEn < 1.5;
-    html += '<div style="background:var(--surface);border:1.5px solid '+(urgente?'#dc2626':'var(--border)')+';border-radius:12px;padding:12px">'
-      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
-      +'<div style="font-size:14px;font-weight:700;color:var(--text);flex:1;padding-right:8px">'+d.p.name+'</div>'
-      +'<div style="background:#3483fa;color:#fff;border-radius:8px;padding:4px 12px;font-size:16px;font-weight:800">'+d.sugerido+'</div>'
-      +'</div>'
-      +'<div style="display:flex;gap:12px;font-size:12px;color:var(--text3)">'
-      +'<span>Stock: <strong>'+d.stock+'</strong></span>'
-      +'<span>Venta: <strong>'+d.xsem.toFixed(1)+'/sem</strong></span>'
-      +'<span>Se agota: <strong style="color:'+(urgente?'#dc2626':'var(--text3)')+'">'+agotaStr+'</strong></span>'
-      +'</div>'
-      +'</div>';
-  });
-
-  html += '</div>';
-  html += '<button onclick="sugCrearCompra()" style="width:100%;background:#3483fa;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:800;cursor:pointer">📋 Crear compra con esta sugerencia</button>';
-
-  // Guardar sugerencia actual para crear la compra
-  window._sugActual = amostrar;
-  window._sugProvId = provId;
-
-  res.innerHTML = html;
-}
-
-function sugCrearCompra() {
-  if(!window._sugActual || !window._sugActual.length) return;
-  const prov = window._sugProvId ? S.proveedores.find(p=>p.id===window._sugProvId) : null;
-  // Abrir modal de nueva compra pre-cargado
-  openComp();
-  // Esperar a que el modal esté abierto y pre-cargar proveedor e ítems
-  setTimeout(function(){
-    if(prov) {
-      const provSel = document.getElementById('nc-prov');
-      if(provSel) { provSel.value=prov.id; }
-    }
-    window._sugActual.forEach(function(d){
-      // Agregar cada producto sugerido al carrito de la compra
-      const pid = d.p.id;
-      if(!window._ncItems) window._ncItems={};
-      window._ncItems[pid] = {qty: d.sugerido, cost: d.p.cost||0};
-    });
-    // Re-renderizar la lista de productos de la compra si existe la función
-    try { if(typeof ncRenderProds==='function') ncRenderProds(); } catch(e){}
-    toast('✓ Productos cargados — revisá y completá los precios');
-  }, 400);
-}
 function renderComp(q){q=(q||'').toLowerCase();const el=document.getElementById('comp-list');const map={};S.compras.forEach(c=>c.items.forEach(item=>{if(!item.prodId||!item.cost)return;if(!map[item.prodId])map[item.prodId]=[];map[item.prodId].push({provName:c.provName,cost:item.cost,date:c.date});}));let ents=Object.entries(map);if(q)ents=ents.filter(([pid])=>{const p=S.products.find(x=>x.id===pid);return p&&p.name.toLowerCase().includes(q);});if(!ents.length){el.innerHTML='<div class="empty"><div class="ei">&#128269;</div><h3>Sin datos</h3><p>Registra compras para comparar precios</p></div>';return;}el.innerHTML=ents.map(([pid,purchases])=>{const prod=S.products.find(p=>p.id===pid);if(!prod)return'';const bp={};purchases.forEach(p=>{if(!bp[p.provName]||p.date>bp[p.provName].date)bp[p.provName]=p;});const pl=Object.entries(bp).sort((a,b)=>a[1].cost-b[1].cost);const mn=pl[0]?pl[0][1].cost:0;return'<div class="card" style="margin-bottom:10px"><div style="padding:12px 14px;border-bottom:1px solid var(--border)"><div style="font-weight:700;font-size:14px">'+(prod.emoji||'&#128230;')+' '+prod.name+'</div><div style="font-size:13px;color:var(--text3);margin-top:2px">Venta: <span style="color:var(--accent)">$'+prod.price.toFixed(2)+'</span> - Costo actual: $'+prod.cost.toFixed(2)+'</div></div>'+pl.map(([pn,d],i)=>'<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)"><div style="font-size:18px">'+(i===0?'&#127945;':i===1?'&#127946;':'&#127947;')+'</div><div style="flex:1"><div style="font-size:15px;font-weight:600">'+pn+'</div><div style="font-size:13px;color:var(--text3)">'+fmtDate(d.date)+'</div></div><div style="text-align:right"><div style="font-family:Inter,sans-serif;font-weight:800;font-size:15px;color:'+(d.cost===mn?'var(--green)':'var(--text)')+'">$'+d.cost.toFixed(2)+'</div>'+(d.cost>mn?'<div style="font-size:12px;color:var(--accent3)">+$'+(d.cost-mn).toFixed(2)+' mas caro</div>':'<div style="font-size:12px;color:var(--green)">Mas barato</div>')+'</div></div>').join('')+'</div>';}).join('');}
 function fmtDate(s){if(!s)return'';const[y,m,d]=s.split('-');const ms=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];return d+' '+ms[parseInt(m)-1]+' '+y;}
 
