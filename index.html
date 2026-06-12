@@ -881,6 +881,7 @@ select option{background:var(--surface2)}
       </div>
       <div id="sug-result"></div>
     </div>
+    <div id="comp-comp" style="display:none">
       <div class="search-bar"><span style="color:var(--text3)">&#128269;</span><input type="text" placeholder="Buscar producto..." oninput="renderComp(this.value)"></div>
       <div id="comp-list"></div>
     </div>
@@ -1044,7 +1045,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.27</strong> · 12/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.28</strong> · 12/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -5493,8 +5494,7 @@ function swCompTab(tab,el){
   document.getElementById('comp-comp').style.display=tab==='comparador'?'':'none';
   document.getElementById('comp-lista').style.display=tab==='lista'?'':'none';
   document.getElementById('comp-sugerir').style.display=tab==='sugerir'?'':'none';
-  document.getElementById('comp-hist-search-wrap').style.display=tab==='historial'?'':'none';
-  if(tab==='comparador') renderComp();
+  document.getElementById('comp-hist-search-wrap').style.display=tab==='historial'?'':'none';  if(tab==='comparador') renderComp();
   if(tab==='lista') renderListaCompras();
   if(tab==='sugerir') sugInit();
 }
