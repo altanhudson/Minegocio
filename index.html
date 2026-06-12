@@ -1028,7 +1028,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.24</strong> · 11/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.26</strong> · 11/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -4602,7 +4602,7 @@ function renderInvDiaResumen() {
 function renderInvs() {
   try{renderInvDiaResumen();}catch(e){}
   const el=document.getElementById('inv-list');
-  let list=[...S.invoices].sort((a,b)=>b.date.localeCompare(a.date));
+  let list=[...S.invoices].sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id));
   if(S.invFilter!=='all') list=list.filter(i=>S.invFilter==='presupuesto'?i.type==='presupuesto':S.invFilter==='cigarrillos'?i.type==='cigarrillos':S.invFilter==='tienda'?(i.notes&&i.notes.includes('tienda online')):i.status===S.invFilter);
   // Aplicar búsqueda
   const sq = (document.getElementById('inv-search')||{}).value||'';
@@ -4783,14 +4783,28 @@ function openShareInvoice(id) {
   }, 400);
 }
 
+// Crédito residual disponible para una factura específica,
+// descontando lo ya usado en facturas anteriores del mismo cliente.
+function _creditoResidualParaFac(inv) {
+  const cli = S.clients.find(c=>c.id===inv.clientId);
+  const credTotal = cli && cli.credito > 0 ? cli.credito : 0;
+  if(credTotal <= 0) return 0;
+  const usado = S.invoices
+    .filter(i => i.clientId===inv.clientId && i.id!==inv.id && i.status!=='pagada' && i.status!=='cancelada' && i.type!=='presupuesto' && (i.date < inv.date || (i.date===inv.date && i.id < inv.id)))
+    .reduce(function(u, i) {
+      const disp = Math.max(0, credTotal - u);
+      return u + Math.min(i.saldo||0, disp);
+    }, 0);
+  return Math.max(0, credTotal - usado);
+}
+
 function openQPago(id) {
   const inv = S.invoices.find(i=>i.id===id);
   if(!inv) return;
   S.editId = id;
-  window._qpagoInvId = id; // ID dedicado para el cobro — no se pisa
+  window._qpagoInvId = id;
   document.getElementById('mqpago-title').textContent = 'Pago - '+id;
-  const cli = S.clients.find(c=>c.id===inv.clientId);
-  const credito = cli ? Math.max(0, cli.credito||0) : 0;
+  const credito = _creditoResidualParaFac(inv);
   const debe = Math.max(0, (inv.saldo||0) - credito);
   document.getElementById('mqpago-info').innerHTML =
     '<div style="display:flex;justify-content:space-between"><span>Total factura</span><strong>$'+inv.total.toFixed(2)+'</strong></div>'
@@ -4805,10 +4819,9 @@ function calcQPago() {
   const inv = S.invoices.find(i=>i.id===(window._qpagoInvId||S.editId));
   if(!inv) return;
   const monto = parseFloat(document.getElementById('qp-monto').value)||0;
-  const cliQ = S.clients.find(c=>c.id===inv.clientId);
-  const creditoDisp = cliQ ? Math.max(0, cliQ.credito||0) : 0;
+  const creditoDisp = _creditoResidualParaFac(inv);
   const debe = inv.saldo||0;
-  const totalEfectivo = monto + creditoDisp; // lo que realmente cancela
+  const totalEfectivo = monto + creditoDisp;
   const resta = debe - totalEfectivo;
   let html = '';
   if(resta > 0) html = '<span style="color:var(--accent3)">Queda pendiente: $'+resta.toFixed(2)+'</span>';
@@ -4821,16 +4834,17 @@ function saveQPago() {
   const inv = S.invoices.find(i=>i.id===(window._qpagoInvId||S.editId));
   if(!inv) { toast('Error: factura no encontrada'); return; }
   const monto = parseFloat(document.getElementById('qp-monto').value)||0;
-  if(!monto) { toast('Ingresá un monto'); return; }
+  if(!monto && _creditoResidualParaFac(inv) <= 0) { toast('Ingresá un monto'); return; }
   const method = document.getElementById('qp-method').value || 'efectivo';
   const cliQ = S.clients.find(c=>c.id===inv.clientId);
-  const creditoDisp = cliQ ? Math.max(0, cliQ.credito||0) : 0;
+  const creditoDisp = _creditoResidualParaFac(inv);
   if(!inv.pagos) inv.pagos = [];
   // Aplicar crédito disponible como pago adicional
   const montoTotal = monto + creditoDisp;
   if(creditoDisp > 0) {
     inv.pagos.push({monto: creditoDisp, method: 'a favor', date: localDateStr()});
-    if(cliQ) cliQ.credito = 0;
+    // Descontar solo el crédito residual usado del crédito total del cliente
+    if(cliQ) cliQ.credito = Math.max(0, (cliQ.credito||0) - creditoDisp);
   }
   inv.pagos.push({monto, method, date: localDateStr()});
   const totalPagado = inv.pagos.reduce((s,p)=>s+p.monto,0);
