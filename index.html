@@ -934,6 +934,10 @@ select option{background:var(--surface2)}
   </div>
 
   <div class="page" id="page-proveedores">
+    <div class="search-bar" style="margin-bottom:10px">
+      <span style="color:var(--text3)">&#128269;</span>
+      <input type="search" id="prov-search" placeholder="Buscar proveedor..." oninput="renderProvs()">
+    </div>
     <div id="prov-list"><div class="empty"><div class="ei">&#127981;</div><h3>Sin proveedores</h3><p>Toca + para agregar</p></div></div>
   </div>
 
@@ -1028,7 +1032,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.32</strong> · 12/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.33</strong> · 13/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -1896,11 +1900,14 @@ function barcodeConfirm() {
   if(!_barcodeFoundProd) return;
   const qty = parseFloat(document.getElementById('barcode-qty').value)||0;
   if(qty <= 0) { toast('Ingresá una cantidad'); return; }
-  // Agregar a ncItems
   if(!ncItems[_barcodeFoundProd.id]) ncItems[_barcodeFoundProd.id] = {qty:0, cost:_barcodeFoundProd.cost||0};
   ncItems[_barcodeFoundProd.id].qty += qty;
   ncUpdateTotal();
-  toast(_barcodeFoundProd.name+': +'+qty);
+  // Limpiar campo y dar feedback claro antes de continuar
+  document.getElementById('barcode-qty').value = '';
+  const btn = document.querySelector('[onclick="barcodeConfirm()"]');
+  if(btn){ const orig=btn.textContent; btn.textContent='✓ Guardado'; btn.style.background='#16a34a'; setTimeout(()=>{ btn.textContent=orig; btn.style.background=''; },800); }
+  toast('✓ '+_barcodeFoundProd.name+': +'+qty+' agregado');
   barcodeContinue();
 }
 
@@ -1916,7 +1923,7 @@ function barcodeAssignSearch(q) {
   const list = document.getElementById('barcode-assign-list');
   if(!q.trim()) { list.innerHTML = ''; return; }
   const prods = S.products.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())).slice(0,8);
-  list.innerHTML = prods.map(p=>'<div onclick="barcodeAssignTo(\''+p.id+'\')" style="padding:10px 12px;cursor:pointer;font-size:14px;border-bottom:1px solid var(--border)">'+p.name+'</div>').join('');
+  list.innerHTML = prods.map(p=>'<div onclick="barcodeAssignTo(\''+p.id+'\')" style="padding:10px 12px;cursor:pointer;font-size:14px;border-bottom:1px solid #e5e7eb;background:#ffffff;color:#1a1a2e;font-weight:500">'+p.name+'</div>').join('');
 }
 
 function barcodeAssignTo(prodId) {
@@ -2968,8 +2975,7 @@ function renderProds(q) {
     return [
       '<div class="prod-card" id="pc-'+pid+'" style="'+(window._flyerRapidoActivo&&window._flyerRapidoSeleccion&&window._flyerRapidoSeleccion.has(pid)?'outline:3px solid #ff6b35;background:#fff3e0':'')+'">',
         '<div class="prod-img" data-action="openProd" data-id="'+pid+'">',
-          '<span>'+(p.emoji||'&#128230;')+'</span>',
-          (p.image?'<img src="'+p.image+'" data-action="openImg">':''),
+          (p.image?'<img src="'+p.image+'" data-action="openImg">':'<span>'+(p.emoji||'&#128230;')+'</span>'),
           '<span class="badge '+sc+'" style="position:absolute;top:6px;right:6px;font-size:12px">'+st+'</span>',
           (!hasPx?'<span style="position:absolute;bottom:6px;left:6px;background:rgba(232,255,71,.15);color:var(--accent);font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px">SIN PRECIO</span>':''),
         '</div>',
@@ -4645,7 +4651,7 @@ function renderInvs() {
       : _cubiertoPorCredito
         ? '<span class="badge badge-green">Cubierto ✓</span>'
         : _parcialPorCredito
-          ? '<span class="badge badge-orange" style="background:#f59e0b">Cubre parcial</span>'
+          ? '<span class="badge" style="background:#d97706;color:#fff">Cubre parcial</span>'
           : (sb[inv.status]||'');
     const btnStyle = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 4px;cursor:pointer;background:var(--surface);border:none;flex:1;border-right:1px solid var(--border)';
     const prodLines = inv.items.map((item, idx)=> {
@@ -5236,8 +5242,11 @@ function openProv(id){S.editId=id||null;if(id){const pv=S.proveedores.find(x=>x.
 function saveProv(){const name=document.getElementById('pv-name').value.trim();if(!name){toast('Ingresa el nombre');return;}const pv={id:S.editId||'PROV-'+String(S.nProv++).padStart(3,'0'),name,phone:document.getElementById('pv-phone').value,days:document.getElementById('pv-days').value,email:document.getElementById('pv-email').value,tax:document.getElementById('pv-tax').value,notes:document.getElementById('pv-notes').value,color:S.editId?(S.proveedores.find(p=>p.id===S.editId)||{}).color||PCOLS[0]:PCOLS[S.proveedores.length%PCOLS.length]};if(S.editId){const i=S.proveedores.findIndex(p=>p.id===S.editId);S.proveedores[i]=pv;}else S.proveedores.push(pv);try{_markDirty('proveedores', pv.id);}catch(e){}renderProvs();save(['proveedores','nProv']);closeM('mprov');toast('Proveedor guardado');}
 function renderProvs(){
   const el=document.getElementById('prov-list');
-  if(!S.proveedores.length){el.innerHTML='<div class="empty"><div class="ei">&#127981;</div><h3>Sin proveedores</h3><p>Agrega tus proveedores habituales</p></div>';return;}
-  el.innerHTML='<div class="card"><div style="padding:0">'+S.proveedores.map(pv=>{
+  const q=(document.getElementById('prov-search')||{}).value||'';
+  let provs=S.proveedores;
+  if(q.trim()) provs=provs.filter(pv=>pv.name.toLowerCase().includes(q.toLowerCase()));
+  if(!provs.length){el.innerHTML='<div class="empty"><div class="ei">&#127981;</div><h3>'+(q?'Sin resultados':'Sin proveedores')+'</h3><p>'+(q?'Probá con otro nombre':'Agrega tus proveedores habituales')+'</p></div>';return;}
+  el.innerHTML='<div class="card"><div style="padding:0">'+provs.map(pv=>{
     const comps=S.compras.filter(c=>c.provId===pv.id);
     const tot=comps.reduce((s,c)=>s+c.total,0);
     const init=pv.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
@@ -7734,7 +7743,7 @@ async function _tiendaGuardarYAbrir() {
     if(typeof window._fbSaveDirty === 'function') {
       await Promise.race([
         window._fbSaveDirty(S),
-        new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('timeout')); }, 15000); })
+        new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('timeout')); }, 8000); })
       ]);
     }
     ok = true;
