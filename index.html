@@ -374,7 +374,7 @@ select option{background:var(--surface2)}
 .prod-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .prod-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column}
 .prod-img{aspect-ratio:1;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:42px;position:relative;overflow:hidden}
-.prod-img img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+.prod-img img{width:100%;height:100%;object-fit:contain;position:absolute;inset:0;background:#f7f8fc}
 .prod-body{padding:10px;flex:1;display:flex;flex-direction:column;cursor:pointer}
 .prod-name{font-size:15px;font-weight:600;line-height:1.3;margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .prod-price{font-family:'Inter',sans-serif;font-size:16px;font-weight:800;color:var(--accent);margin-top:auto}
@@ -1032,7 +1032,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.33</strong> · 13/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.34</strong> · 13/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
