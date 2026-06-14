@@ -1036,7 +1036,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.38</strong> · 14/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.39</strong> · 14/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -4688,7 +4688,8 @@ function renderInvs() {
       +'</div>';
     }).join('');
     const _bc = inv.status==='pagada'||_cubiertoPorCredito?'#16a34a':_parcialPorCredito?'#f59e0b':(inv.pagos&&inv.pagos.length&&inv.saldo>0)?'#eab308':'#dc2626';
-    return '<div class="card" style="overflow:hidden;border-left:4px solid '+_bc+'">' 
+    const _bgc = inv.status==='pagada'||_cubiertoPorCredito?'rgba(22,163,74,0.06)':_parcialPorCredito?'rgba(245,158,11,0.06)':(inv.pagos&&inv.pagos.length&&inv.saldo>0)?'rgba(234,179,8,0.06)':'rgba(220,38,38,0.06)';
+    return '<div class="card" style="overflow:hidden;border:2px solid '+_bc+';background:'+_bgc+'">' 
     +'<div data-action="toggleInv" data-id="'+inv.id+'" style="cursor:pointer">'
     +'<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:12px 14px 6px">'
     +'<div style="font-weight:900;font-size:18px;color:var(--text);flex:1;line-height:1.2">'+inv.clientName+'</div>'
