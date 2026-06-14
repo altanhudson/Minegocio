@@ -1036,7 +1036,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.39</strong> · 14/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.40</strong> · 14/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -2988,8 +2988,24 @@ function renderProds(q) {
         + '</div>';
     }
 
+    const tieneVariantes = p.variantes && p.variantes.length > 0;
     const sc = p.stock<0?'badge-red':low?'badge-orange':p.stock===0?'badge-gray':'badge-green';
-    const st = p.stock<0?'Faltan '+Math.abs(p.stock):p.stock===0?'Sin stock':(p.stock+' uds');
+    const st = tieneVariantes
+      ? (p.stock===0?'Sin stock':(p.stock+' uds'))
+      : (p.stock<0?'Faltan '+Math.abs(p.stock):p.stock===0?'Sin stock':(p.stock+' uds'));
+    // Para variantes: líneas de stock por variante bajo el nombre del producto
+    const stockVariantesHtml = tieneVariantes
+      ? '<div style="margin:4px 10px 6px;display:flex;flex-direction:column;gap:2px">'
+        + p.variantes.map(function(v){
+          const qty = (p.stockVariantes||{})[v]||0;
+          const vc = qty<=0?'var(--accent3)':qty<=3?'var(--orange,#fb923c)':'var(--green)';
+          return '<div style="display:flex;justify-content:space-between;font-size:12px">'
+            +'<span style="color:var(--text2)">'+v+'</span>'
+            +'<span style="font-weight:700;color:'+vc+'">'+qty+' uds</span>'
+            +'</div>';
+        }).join('')
+        +'</div>'
+      : '';
     const hasPx = p.price>0;
     return [
       '<div class="prod-card" id="pc-'+pid+'" style="'+(window._flyerRapidoActivo&&window._flyerRapidoSeleccion&&window._flyerRapidoSeleccion.has(pid)?'outline:3px solid #ff6b35;background:#fff3e0':'')+'">',
@@ -3001,6 +3017,7 @@ function renderProds(q) {
         '</div>',
         '<div class="prod-body" data-action="openProd" data-id="'+pid+'">',
           '<div class="prod-name">'+p.name+'</div>',
+          stockVariantesHtml,
           '<div class="prod-price'+(hasPx?'':' prod-no-price')+'">'+(hasPx?'$'+p.price.toFixed(2):'sin precio')+'</div>',
           (p.wholesalePrice&&p.wholesaleQty?'<div style="font-size:12px;color:var(--accent2)">Mayor: $'+p.wholesalePrice.toFixed(2)+' x'+p.wholesaleQty+'</div>':''),
           (p.cost>0?'<div style="font-size:12px;color:'+(p.price>0&&(((p.price-p.cost)/p.price)*100)<10?'var(--accent3)':'var(--text3)')+'">Margen: '+(p.price>0?(((p.price-p.cost)/p.price)*100).toFixed(0)+'%':'---')+'</div>':''),
@@ -6108,6 +6125,8 @@ function recalcAllStocks() {
   const invoicesList = S.invoices || [];
 
   S.products.forEach(function(p) {
+    const tieneVariantes = p.variantes && p.variantes.length > 0;
+
     // Recopilar ajustes de este producto ordenados por ts
     const prodAjustes = [];
     ajustesList.forEach(function(aju) {
@@ -6127,35 +6146,73 @@ function recalcAllStocks() {
       baseDate = last.date || '';
     }
 
-    var stock = baseStock;
-
-    // Aplicar compras posteriores al último ajuste
-    comprasList.forEach(function(c) {
-      if (c.draft) return;
-      var cTs = c.ts || 0;
-      var cDate = c.date || '';
-      var after = baseTs > 0 ? cTs > baseTs : (baseDate ? cDate > baseDate || (cDate === baseDate && cTs >= baseTs) : true);
-      if (baseTs === 0 && baseDate === '') after = true;
-      if (!after) return;
-      (c.items || []).forEach(function(item) {
-        if (item.prodId === p.id) stock += (item.qty || 0);
+    if (!tieneVariantes) {
+      // === PRODUCTO SIN VARIANTES: lógica original ===
+      var stock = baseStock;
+      comprasList.forEach(function(c) {
+        if (c.draft) return;
+        var cTs = c.ts || 0, cDate = c.date || '';
+        var after = baseTs > 0 ? cTs > baseTs : (baseDate ? cDate > baseDate || (cDate === baseDate && cTs >= baseTs) : true);
+        if (baseTs === 0 && baseDate === '') after = true;
+        if (!after) return;
+        (c.items || []).forEach(function(item) {
+          if (item.prodId === p.id) stock += (item.qty || 0);
+        });
       });
-    });
-
-    // Aplicar ventas posteriores al último ajuste
-    invoicesList.forEach(function(inv) {
-      if (inv.type === 'presupuesto') return;
-      var iTs = inv.ts || 0;
-      var iDate = inv.date || '';
-      var after = baseTs > 0 ? iTs > baseTs : (baseDate ? iDate > baseDate || (iDate === baseDate && iTs >= baseTs) : true);
-      if (baseTs === 0 && baseDate === '') after = true;
-      if (!after) return;
-      (inv.items || []).forEach(function(item) {
-        if (item.prodId === p.id) stock -= (item.qty || 0);
+      invoicesList.forEach(function(inv) {
+        if (inv.type === 'presupuesto') return;
+        var iTs = inv.ts || 0, iDate = inv.date || '';
+        var after = baseTs > 0 ? iTs > baseTs : (baseDate ? iDate > baseDate || (iDate === baseDate && iTs >= baseTs) : true);
+        if (baseTs === 0 && baseDate === '') after = true;
+        if (!after) return;
+        (inv.items || []).forEach(function(item) {
+          if (item.prodId === p.id) stock -= (item.qty || 0);
+        });
       });
-    });
+      p.stock = stock;
 
-    p.stock = stock;
+    } else {
+      // === PRODUCTO CON VARIANTES: stock por variante ===
+      var sv = {};
+      p.variantes.forEach(function(v) { sv[v] = baseStock; }); // base igual para todas (ajuste global)
+
+      comprasList.forEach(function(c) {
+        if (c.draft) return;
+        var cTs = c.ts || 0, cDate = c.date || '';
+        var after = baseTs > 0 ? cTs > baseTs : (baseDate ? cDate > baseDate || (cDate === baseDate && cTs >= baseTs) : true);
+        if (baseTs === 0 && baseDate === '') after = true;
+        if (!after) return;
+        (c.items || []).forEach(function(item) {
+          if (item.prodId !== p.id) return;
+          var v = item.variante || '';
+          if (v && p.variantes.indexOf(v) >= 0) {
+            sv[v] = (sv[v] || 0) + (item.qty || 0);
+          } else if (!v) {
+            // compra sin variante especificada: suma al total general (fallback)
+            p.variantes.forEach(function(vv) { sv[vv] = (sv[vv] || 0); });
+          }
+        });
+      });
+
+      invoicesList.forEach(function(inv) {
+        if (inv.type === 'presupuesto') return;
+        var iTs = inv.ts || 0, iDate = inv.date || '';
+        var after = baseTs > 0 ? iTs > baseTs : (baseDate ? iDate > baseDate || (iDate === baseDate && iTs >= baseTs) : true);
+        if (baseTs === 0 && baseDate === '') after = true;
+        if (!after) return;
+        (inv.items || []).forEach(function(item) {
+          if (item.prodId !== p.id) return;
+          var v = item.variante || '';
+          if (v && p.variantes.indexOf(v) >= 0) {
+            sv[v] = (sv[v] || 0) - (item.qty || 0);
+          }
+        });
+      });
+
+      p.stockVariantes = sv;
+      // stock general = suma de variantes (para compatibilidad con código que lee p.stock)
+      p.stock = Object.values(sv).reduce(function(s,n){ return s+n; }, 0);
+    }
   });
 }
 // ========== FIN RECALC STOCK ==========
