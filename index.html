@@ -1008,6 +1008,7 @@ select option{background:var(--surface2)}
         <button onclick="backupData()" class="btn btn-primary btn-full">&#11015;&#65039; Descargar backup</button>
         <button onclick="normalizarCategorias()" class="btn btn-full" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);margin-top:8px">🔤 Normalizar categorías (mayúsculas)</button>
         <button onclick="resetStockCero()" class="btn btn-full" style="background:rgba(220,38,38,.1);border:1px solid var(--accent3);color:var(--accent3);margin-top:8px">🔄 Reset stock a cero (todos los productos)</button>
+        <button onclick="repararURLsImagenes()" class="btn btn-full" style="background:rgba(234,179,8,.1);border:1px solid #ca8a04;color:#92400e;margin-top:8px">&#128247; Reparar im&#225;genes cortadas</button>
       </div>
     </div>
     <div class="card" style="margin-bottom:12px">
@@ -1032,7 +1033,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.34</strong> · 13/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.36</strong> · 13/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -2224,6 +2225,20 @@ function localDateStr() {
   const d = new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
+function repararURLsImagenes() {
+  const conToken = S.products.filter(p => p.image && p.image.includes('token='));
+  if(!conToken.length) { toast('✓ No hay imágenes con token para reparar'); return; }
+  if(!confirm('Se van a reparar ' + conToken.length + ' imágenes quitando el token de la URL. Los datos de productos no cambian. ¿Continuar?')) return;
+  let reparadas = 0;
+  conToken.forEach(p => {
+    // Quitar &token=... del final de la URL
+    p.image = p.image.replace(/&token=[^&]+/, '').replace(/\?token=[^&]+/, '?alt=media');
+    _markDirty('products', p.id);
+    reparadas++;
+  });
+  renderProds();
+  toast('✓ ' + reparadas + ' imágenes reparadas — sincronizá para guardar');
+}
 function resetStockCero() {
   if(!confirm('¿Poner en CERO el stock de todos los productos? Esta acción no se puede deshacer.')) return;
   S.products.forEach(p => p.stock = 0);
@@ -2975,7 +2990,8 @@ function renderProds(q) {
     return [
       '<div class="prod-card" id="pc-'+pid+'" style="'+(window._flyerRapidoActivo&&window._flyerRapidoSeleccion&&window._flyerRapidoSeleccion.has(pid)?'outline:3px solid #ff6b35;background:#fff3e0':'')+'">',
         '<div class="prod-img" data-action="openProd" data-id="'+pid+'">',
-          (p.image?'<img src="'+p.image+'" data-action="openImg">':'<span>'+(p.emoji||'&#128230;')+'</span>'),
+          '<span style="'+(p.image?'visibility:hidden':'')+'">'+( p.emoji||'&#128230;')+'</span>',
+          (p.image?'<img src="'+p.image+'" data-action="openImg">':''),
           '<span class="badge '+sc+'" style="position:absolute;top:6px;right:6px;font-size:12px">'+st+'</span>',
           (!hasPx?'<span style="position:absolute;bottom:6px;left:6px;background:rgba(232,255,71,.15);color:var(--accent);font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px">SIN PRECIO</span>':''),
         '</div>',
