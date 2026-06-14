@@ -749,7 +749,8 @@ select option{background:var(--surface2)}
           <div id="pi-fav" class="pago-info-row" style="display:none"><span style="color:var(--text2)">Queda a favor</span><span id="pi-fav-amt" style="color:var(--green);font-weight:700"></span></div>
         </div>
       </div>
-      <div class="form-group" style="margin-top:14px"><label class="fl">Notas</label><textarea id="i-notes" placeholder="Notas para el cliente..."></textarea></div>
+      <div class="form-group" style="margin-top:14px"><label class="fl">Nota para el cliente</label><textarea id="i-notes" placeholder="Notas para el cliente (aparece en la factura)..."></textarea></div>
+      <div class="form-group" style="margin-top:10px"><label class="fl">📝 Nota interna 🔒</label><textarea id="i-nota-interna" placeholder="Solo la ves vos, no va en la factura..." style="border-color:#ca8a04;background:#fffbeb"></textarea></div>
     </div>
   </div>
 
@@ -1035,7 +1036,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.37</strong> · 14/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.38</strong> · 14/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -3264,6 +3265,7 @@ function openInv(id, defaultType) {
     document.getElementById('i-cli-search').value=inv.clientName||'';
     document.getElementById('i-date').value=inv.date;
     document.getElementById('i-notes').value=inv.notes||'';
+    document.getElementById('i-nota-interna').value=inv.notaInterna||'';
     document.getElementById('i-desc-ret').checked=!!inv.descRetiro;
     document.getElementById('i-desc-ext').value=inv.descExtraPct||0;
     document.getElementById('i-pago').value='';
@@ -3277,6 +3279,7 @@ function openInv(id, defaultType) {
     document.getElementById('i-cli-search').value='';
     S.editClientId = null;
     document.getElementById('i-notes').value='';
+    document.getElementById('i-nota-interna').value='';
     document.getElementById('i-desc-ret').checked=false;
     document.getElementById('i-desc-ext').value=0;
     document.getElementById('i-pago').value='';
@@ -4476,6 +4479,8 @@ function saveInv() {
     date:(document.getElementById('i-date-res')&&document.getElementById('i-date-res').value) ? document.getElementById('i-date-res').value : document.getElementById('i-date').value,
     ts: S.editId ? (S.invoices.find(x=>x.id===S.editId)||{}).ts||Date.now() : Date.now(),
     status, notes:document.getElementById('i-notes').value,
+    notaInterna:document.getElementById('i-nota-interna').value,
+    preparado: S.editId ? ((S.invoices.find(x=>x.id===S.editId)||{}).preparado||false) : false,
     items:[...S.invItems], subtotal:sub,
     descRetiro:ret, descExtraPct:extPct, descExtra:extAmt, total,
     pagos:[], // se completa abajo
@@ -4701,9 +4706,12 @@ function renderInvs() {
         +'</div></div>';
     })()
     +'<div style="display:flex;align-items:center;gap:8px;padding:0 14px 10px">'
-    +badge+(inv.type==='cigarrillos'?'<span class="badge" style="background:#1a2a4a;color:#fff;margin-left:0">🚬 Cigarrillos</span>':'')+'<span style="font-size:13px;color:var(--text2);font-weight:600">'+inv.date.split('-').reverse().join('/')+' · '+inv.items.length+' prod.</span>'
+    +badge+(inv.type==='cigarrillos'?'<span class="badge" style="background:#1a2a4a;color:#fff;margin-left:0">🚬 Cigarrillos</span>':'')
+    +(inv.preparado?'<span class="badge" style="background:#16a34a;color:#fff">✓ Preparado</span>':'')
+    +'<span style="font-size:13px;color:var(--text2);font-weight:600">'+inv.date.split('-').reverse().join('/')+' · '+inv.items.length+' prod.</span>'
     +'<span style="margin-left:auto;font-size:14px;color:var(--text3)" id="inv-arrow-'+inv.id+'">▼</span>'
     +'</div>'
+    +(inv.notaInterna?'<div style="margin:0 14px 10px;background:#fffbeb;border:1px solid #ca8a04;border-radius:8px;padding:8px 10px;font-size:13px;color:#92400e">📝 '+inv.notaInterna+'</div>':'')
     +'</div>'
     +'<div id="inv-detail-'+inv.id+'" style="display:none;padding:8px 14px;background:var(--bg);border-top:1px solid var(--border)">'
     +prodLines
@@ -4711,6 +4719,7 @@ function renderInvs() {
     +'<div style="display:flex;border-top:1px solid var(--border)">'
     +'<button data-action="shareInv" data-id="'+inv.id+'" style="'+btnStyle+'"><span style="font-size:20px">📤</span><span style="font-size:12px;font-weight:700;color:var(--text2)">Enviar</span></button>'
     +(saldo>0?'<button data-action="qpago" data-id="'+inv.id+'" style="'+btnStyle+'"><span style="font-size:20px">💰</span><span style="font-size:12px;font-weight:700;color:var(--accent)">Cobrar</span></button>':'')
+    +'<button data-action="togPreparado" data-id="'+inv.id+'" style="'+btnStyle+'"><span style="font-size:20px">'+(inv.preparado?'✅':'📦')+'</span><span style="font-size:12px;font-weight:700;color:'+(inv.preparado?'#16a34a':'var(--text2)')+'">Preparado</span></button>'
     +'<button data-action="verInv" data-id="'+inv.id+'" style="'+btnStyle+'"><span style="font-size:20px">✏️</span><span style="font-size:12px;font-weight:700;color:var(--text2)">Ver/Editar</span></button>'
     +'<button data-action="delInv" data-id="'+inv.id+'" style="'+btnStyle+';border-right:none"><span style="font-size:20px">🗑️</span><span style="font-size:12px;font-weight:700;color:var(--accent3)">Borrar</span></button>'
     +'</div></div>';
@@ -4763,6 +4772,13 @@ document.getElementById('page-facturas').addEventListener('click', function(e){
   else if(action==='openInv') openInv(id);
   else if(action==='verInv') verInv(id);
   else if(action==='delInv') delInv(id);
+  else if(action==='togPreparado') {
+    const inv=S.invoices.find(i=>i.id===id); if(!inv) return;
+    inv.preparado=!inv.preparado;
+    _markDirty('invoices',id); save(['invoices']);
+    renderInvs();
+    toast(inv.preparado?'✓ Marcado como preparado':'Desmarcado');
+  }
   else if(action==='shareInv') openShareInvoice(id);
   else if(action==='qpago') openQPago(id);
 });
