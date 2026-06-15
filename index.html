@@ -806,7 +806,7 @@ select option{background:var(--surface2)}
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
       <div id="prod-cat-chips" style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex:1;padding:2px 0">
-        <div class="chip" id="chip-noprice" onclick="setPF('noprice',this)">Sin precio</div>
+        <div class="chip" id="chip-noprice" onclick="setPF('notienda',this)">🚫 Fuera de tienda</div>
         <div class="chip" id="chip-flyer" onclick="setPF('flyer',this)">📢 Flyer</div>
         <div class="chip" id="chip-tienda" onclick="setPF('tienda',this)">👁️ Tienda</div>
         <div class="chip" id="chip-oferta" onclick="setPF('oferta',this)">🔥 Oferta</div>
@@ -1036,7 +1036,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.42</strong> · 14/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.44</strong> · 14/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -2825,7 +2825,7 @@ function renderProds(q) {
     }
   }
   if(q) list = list.filter(p => p.name.toLowerCase().includes(q)||(p.category||'').toLowerCase().includes(q)||(p.marca||'').toLowerCase().includes(q));
-  if(pf==='noprice') list = list.filter(p=>!p.price);
+  if(pf==='notienda') list = list.filter(p=>p.visible===false);
   else if(pf==='flyer') list = list.filter(p=>!!p.enFlyer);
   else if(pf==='tienda') list = list.filter(p=>p.visible!==false);
   else if(pf==='oferta') list = list.filter(p=>!!p.oferta);
@@ -7684,15 +7684,14 @@ function tiendaRenderVariantePopup(prodId) {
   const botonesVariantes = (p.variantes||[]).map(function(v) {
     const qty = TC[prodId+'|'+v]||0;
     const sel = qty > 0;
-    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
-      +'<button onclick="tiendaAddVariante(\''+prodId+'\',\''+v.replace(/\\/g,'\\\\').replace(/'/g,'\\\'')+'\')" style="flex:1;background:'+(sel?'#3483fa':'#f0f4ff')+';border:1.5px solid #3483fa;color:'+(sel?'#fff':'#3483fa')+';border-radius:12px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;text-align:left">'+v+'</button>'
-      +(qty>0
-        ? '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
-          +'<button onclick="tiendaDecVariante(\''+prodId+'\',\''+v.replace(/\\/g,'\\\\').replace(/'/g,'\\\'')+'\')" style="background:#eef0f5;color:#3483fa;border:none;border-radius:8px;width:32px;height:32px;font-size:20px;cursor:pointer;font-weight:700">−</button>'
-          +'<span style="font-weight:800;font-size:16px;color:#333;min-width:18px;text-align:center">'+qty+'</span>'
-          +'<button onclick="tiendaAddVariante(\''+prodId+'\',\''+v.replace(/\\/g,'\\\\').replace(/'/g,'\\\'')+'\')" style="background:#3483fa;color:#fff;border:none;border-radius:8px;width:32px;height:32px;font-size:20px;cursor:pointer;font-weight:700">+</button>'
-          +'</div>'
-        : '')
+    const vEsc = v.replace(/\\/g,'\\\\').replace(/'/g,'\\\'');
+    return '<div data-variante="'+v+'" style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
+      +'<button data-varbtn onclick="tiendaAddVariante(\''+prodId+'\',\''+vEsc+'\')" style="flex:1;background:'+(sel?'#3483fa':'#f0f4ff')+';border:1.5px solid #3483fa;color:'+(sel?'#fff':'#3483fa')+';border-radius:12px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;text-align:left">'+v+'</button>'
+      +'<div data-varctr style="display:'+(qty>0?'flex':'none')+';align-items:center;gap:6px;flex-shrink:0">'
+        +'<button onclick="tiendaDecVariante(\''+prodId+'\',\''+vEsc+'\')" style="background:#eef0f5;color:#3483fa;border:none;border-radius:8px;width:32px;height:32px;font-size:20px;cursor:pointer;font-weight:700">−</button>'
+        +'<span style="font-weight:800;font-size:16px;color:#333;min-width:18px;text-align:center">'+qty+'</span>'
+        +'<button onclick="tiendaAddVariante(\''+prodId+'\',\''+vEsc+'\')" style="background:#3483fa;color:#fff;border:none;border-radius:8px;width:32px;height:32px;font-size:20px;cursor:pointer;font-weight:700">+</button>'
+      +'</div>'
       +'</div>';
   }).join('');
   ov.innerHTML = '<div style="background:#fff;border-radius:18px;padding:24px 20px;max-width:340px;width:100%;box-shadow:0 8px 30px rgba(0,0,0,.25);max-height:85vh;display:flex;flex-direction:column">'
@@ -7701,7 +7700,7 @@ function tiendaRenderVariantePopup(prodId) {
     +'<div style="overflow-y:auto;flex:1;padding-right:2px">'
     +botonesVariantes
     +'</div>'
-    +'<button onclick="tiendaCerrarVariante()" style="margin-top:12px;flex-shrink:0;width:100%;background:'+(totalEnCarrito>0?'#3483fa':'#f0f4ff')+';border:none;color:'+(totalEnCarrito>0?'#fff':'#999')+';border-radius:12px;padding:14px;font-size:15px;font-weight:800;cursor:pointer">'
+    +'<button data-varlisto onclick="tiendaCerrarVariante()" style="margin-top:12px;flex-shrink:0;width:100%;background:'+(totalEnCarrito>0?'#3483fa':'#f0f4ff')+';border:none;color:'+(totalEnCarrito>0?'#fff':'#999')+';border-radius:12px;padding:14px;font-size:15px;font-weight:800;cursor:pointer">'
     +(totalEnCarrito>0?'✓ Listo ('+totalEnCarrito+' en carrito)':'Cancelar')
     +'</button>'
     +'</div>';
@@ -7716,8 +7715,7 @@ function tiendaAddVariante(prodId, variante) {
   if(hint) hint.style.display = 'none';
   tiendaActBadge();
   tiendaActTotal();
-  // Re-renderizar el popup para mostrar la cantidad actualizada
-  tiendaRenderVariantePopup(prodId);
+  tiendaUpdateVarianteRow(prodId, variante);
 }
 function tiendaDecVariante(prodId, variante) {
   const p = S.products.find(x=>x.id===prodId);
@@ -7727,7 +7725,46 @@ function tiendaDecVariante(prodId, variante) {
   if(TC[key] <= 0) delete TC[key];
   tiendaActBadge();
   tiendaActTotal();
-  tiendaRenderVariantePopup(prodId);
+  tiendaUpdateVarianteRow(prodId, variante);
+}
+function tiendaUpdateVarianteRow(prodId, variante) {
+  // Actualiza solo la fila de la variante y el botón Listo sin re-renderizar todo
+  const p = S.products.find(x=>x.id===prodId);
+  if(!p) return;
+  const qty = TC[prodId+'|'+variante]||0;
+  const vEsc = variante.replace(/\\/g,'\\\\').replace(/'/g,'\\\'');
+
+  // Actualizar fila de la variante — buscamos por data-variante
+  const ov = document.getElementById('tienda-variante-overlay');
+  if(!ov) return;
+  const rows = ov.querySelectorAll('[data-variante]');
+  rows.forEach(function(row) {
+    if(row.dataset.variante !== variante) return;
+    const btn = row.querySelector('[data-varbtn]');
+    const ctr = row.querySelector('[data-varctr]');
+    if(btn) {
+      btn.style.background = qty>0 ? '#3483fa' : '#f0f4ff';
+      btn.style.color = qty>0 ? '#fff' : '#3483fa';
+    }
+    if(ctr) {
+      if(qty > 0) {
+        ctr.style.display = 'flex';
+        const span = ctr.querySelector('span');
+        if(span) span.textContent = qty;
+      } else {
+        ctr.style.display = 'none';
+      }
+    }
+  });
+
+  // Actualizar botón Listo
+  const totalEnCarrito = (p.variantes||[]).reduce(function(s,v){ return s+(TC[prodId+'|'+v]||0); }, 0);
+  const btnListo = ov.querySelector('[data-varlisto]');
+  if(btnListo) {
+    btnListo.style.background = totalEnCarrito>0 ? '#3483fa' : '#f0f4ff';
+    btnListo.style.color = totalEnCarrito>0 ? '#fff' : '#999';
+    btnListo.textContent = totalEnCarrito>0 ? '✓ Listo ('+totalEnCarrito+' en carrito)' : 'Cancelar';
+  }
 }
 function tiendaCerrarVariante() {
   const ov = document.getElementById('tienda-variante-overlay');
