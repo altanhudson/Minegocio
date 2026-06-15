@@ -2648,6 +2648,7 @@ function openProd(id) {
 
 function saveProd() {
   try {
+  const name = document.getElementById('p-name').value.trim();
   if(!name) { toast('Ingresa el nombre'); return; }
   const prod = {
     id: S.editId || ('PROD-'+String(S.nProd++).padStart(3,'0')+'-'+Date.now().toString(36).slice(-4).toUpperCase()),
