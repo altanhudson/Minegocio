@@ -1036,7 +1036,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.41</strong> · 14/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.42</strong> · 14/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -2700,8 +2700,9 @@ function saveProd() {
     if(pg==='nueva-factura') { cartRenderList(document.getElementById('cart-search')?document.getElementById('cart-search').value:''); }
     else if(pg==='nueva-compra') {
       // Limpiar entradas de ncItems que no corresponden a productos reales
-      Object.keys(ncItems).forEach(pid => {
-        if(!S.products.find(p=>p.id===pid)) delete ncItems[pid];
+      Object.keys(ncItems).forEach(key => {
+        const pid = key.split('|||')[0];
+        if(!S.products.find(p=>p.id===pid)) delete ncItems[key];
       });
       ncRenderList(document.getElementById('nc-search')?document.getElementById('nc-search').value:'');
     }
@@ -3713,6 +3714,37 @@ function cartRenderList(q) {
     return;
   }
   el.innerHTML = prods.map((p,i) => {
+    const tieneVar = p.variantes && p.variantes.length > 0;
+    if (tieneVar) {
+      // Producto con variantes: una fila por variante
+      const headerHtml = '<div style="padding:11px 16px 6px;background:var(--surface);'+(i>0?'border-top:1px solid var(--border)':'')+'">'
+        +'<div style="font-weight:700;font-size:14px">'+p.name+'</div>'
+        +'<div style="font-size:12px;color:var(--text3)">$'+(p.price||0).toFixed(2)+(p.wholesalePrice&&p.wholesaleQty?' · Mayor: $'+p.wholesalePrice.toFixed(0)+' x'+p.wholesaleQty:'')+'</div>'
+        +'</div>';
+      const variantesHtml = p.variantes.map(function(v){
+        const idxV = S.invItems.findIndex(x=>x.prodId===p.id && (x.variante||'')===v);
+        const qtyV = idxV>=0 ? S.invItems[idxV].qty : 0;
+        const hasQtyV = qtyV > 0;
+        const priceV = idxV>=0 ? S.invItems[idxV].price : (p.price||0);
+        const stockV = (p.stockVariantes||{})[v]||0;
+        const vid = p.id+'__'+v.replace(/[^a-zA-Z0-9]/g,'_');
+        return '<div style="display:flex;align-items:center;padding:8px 16px 8px 28px;background:'+(hasQtyV?'#f0faf9':'var(--surface)')+';border-top:1px solid var(--border);'+(hasQtyV?'border-left:3px solid var(--accent)':'')+'">'
+          +'<div style="flex:1;min-width:0">'
+          +'<div style="font-weight:600;font-size:13px;color:var(--text2)">'+v+'</div>'
+          +'<div style="font-size:12px;margin-top:2px;color:'+(hasQtyV&&qtyV>stockV?'var(--accent3)':'var(--text3)')+'">Stock: '+stockV+(hasQtyV?' → '+(stockV-qtyV):'')+(hasQtyV?' · <span style="color:var(--accent);font-weight:700">$'+(qtyV*priceV).toFixed(0)+'</span>':'')+'</div>'
+          +'</div>'
+          +'<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;align-items:flex-end">'
+          +'<input data-pid="'+p.id+'" data-variante="'+v+'" data-price="'+priceV+'" type="number" inputmode="decimal" step="any" placeholder="0" value="'+(hasQtyV?qtyV:'')+'" min="0"'
+          +' onfocus="this.select()" oninput="cartQtyChangeVar(this)"'
+          +' style="width:64px;height:44px;text-align:center;font-size:18px;font-weight:700;border:2px solid '+(hasQtyV?'var(--accent)':'var(--border)')+';border-radius:10px;background:'+(hasQtyV?'#fff':'var(--surface)')+';color:'+(hasQtyV?'var(--accent)':'var(--text)')+';font-family:Inter,sans-serif;outline:none">'
+          +'<input data-pid="'+p.id+'" data-variante="'+v+'" type="number" inputmode="decimal" placeholder="$Precio" value="'+(hasQtyV?priceV:'')+'" min="0"'
+          +' onfocus="this.select()" oninput="cartPriceChangeVar(this)"'
+          +' style="width:84px;height:30px;text-align:center;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text3);font-family:Inter,sans-serif;outline:none;display:'+(hasQtyV?'block':'none')+'">'
+          +'</div>'
+          +'</div>';
+      }).join('');
+      return headerHtml + variantesHtml;
+    }
     const idx = S.invItems.findIndex(x=>x.prodId===p.id);
     const qty = idx>=0 ? S.invItems[idx].qty : 0;
     const hasQty = qty > 0;
@@ -3772,6 +3804,31 @@ function cartPriceChange(input) {
   }
 }
 
+function cartQtyChangeVar(input) {
+  const pid = input.dataset.pid;
+  const variante = input.dataset.variante;
+  const qty = parseFloat(input.value)||0;
+  const p = S.products.find(x=>x.id===pid);
+  if(!p) return;
+  const existing = S.invItems.findIndex(i=>i.prodId===pid && (i.variante||'')===variante);
+  if(qty > 0) {
+    const usePrice = parseFloat(input.dataset.price)||p.price||0;
+    if(existing>=0) { S.invItems[existing].qty=qty; if(!S.invItems[existing].price) S.invItems[existing].price=usePrice; }
+    else { S.invItems.push({desc:p.name+' ('+variante+')',qty:qty,price:usePrice,prodId:p.id,variante:variante,retailPrice:usePrice,wholesalePrice:p.wholesalePrice||0,wholesaleQty:p.wholesaleQty||0}); }
+  } else {
+    if(existing>=0) S.invItems.splice(existing,1);
+  }
+  calcTotals();
+  nfUpdateFooter();
+  try{cartRenderList(document.getElementById("cart-search")?document.getElementById("cart-search").value:"");}catch(e){}
+}
+function cartPriceChangeVar(input) {
+  const pid = input.dataset.pid;
+  const variante = input.dataset.variante;
+  const price = parseFloat(input.value)||0;
+  const existing = S.invItems.findIndex(i=>i.prodId===pid && (i.variante||'')===variante);
+  if(existing>=0) { S.invItems[existing].price=price; calcTotals(); nfUpdateFooter(); }
+}
 function cartQtyChange(input) {
   const pid = input.dataset.pid;
   const price = parseFloat(input.dataset.price)||0;
@@ -3875,6 +3932,30 @@ function ncRenderList(q) {
   if(ql) prods = prods.filter(p=>p.name.toLowerCase().includes(ql));
   if(!prods.length) { el.innerHTML='<div style="text-align:center;padding:40px;color:var(--text3)">Sin resultados</div><div style="padding:0 16px 16px"><button onclick="ncNuevoProd()" style="background:var(--surface);border:2px dashed var(--border);border-radius:12px;padding:12px 20px;font-size:14px;font-weight:600;color:var(--accent2);cursor:pointer;width:100%">+ Producto nuevo</button></div>'; return; }
   el.innerHTML = prods.map((p,i) => {
+    const tieneVar = p.variantes && p.variantes.length > 0;
+    if (tieneVar) {
+      const headerHtml = '<div style="padding:11px 16px 6px;background:var(--surface);'+(i>0?'border-top:1px solid var(--border)':'')+'">'
+        +'<div style="font-weight:700;font-size:14px">'+p.name+'</div>'
+        +'<div style="font-size:12px;color:var(--text3)">Costo actual: $'+(p.cost||0)+'</div>'
+        +'</div>';
+      const variantesHtml = p.variantes.map(function(v){
+        const key = p.id+'|||'+v;
+        const item = ncItems[key] || {qty:'', cost: p.cost||''};
+        const hasQ = item.qty > 0;
+        const stockV = (p.stockVariantes||{})[v]||0;
+        return '<div style="display:flex;align-items:center;padding:8px 16px 8px 28px;background:'+(hasQ?'#f0f8ff':'var(--surface)')+';border-top:1px solid var(--border)">'
+          +'<div style="flex:1;min-width:0">'
+          +'<div style="font-weight:600;font-size:13px;color:var(--text2)">'+v+'</div>'
+          +'<div style="font-size:12px;color:var(--text3);margin-top:2px">Stock: '+stockV+(hasQ?' → '+(stockV+(item.qty||0)):'')+(hasQ?' · <span style="color:var(--accent2);font-weight:700">$'+(item.qty*(item.cost||p.cost||0)).toFixed(0)+'</span>':'')+'</div>'
+          +'</div>'
+          +'<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;align-items:flex-end">'
+          +'<input data-ncpid="'+p.id+'" data-ncvar="'+v+'" data-field="qty" type="number" inputmode="decimal" step="0.1" placeholder="Cant." value="'+(hasQ?item.qty:'')+'" min="0" onfocus="this.select()" oninput="ncQtyChangeVar(this)" onchange="ncQtyChangeVar(this)" style="width:64px;height:40px;text-align:center;font-size:16px;font-weight:700;caret-color:var(--accent2);border:2px solid '+(hasQ?'var(--accent2)':'var(--border)')+';border-radius:10px;background:'+(hasQ?'#fff':'var(--surface)')+';color:'+(hasQ?'var(--accent2)':'var(--text)')+';font-family:Inter,sans-serif;outline:none">'
+          +'<input data-ncpid="'+p.id+'" data-ncvar="'+v+'" data-field="cost" type="number" inputmode="decimal" placeholder="$Costo" value="'+(item.cost||'')+'" min="0" onfocus="this.select()" onchange="ncCostChangeVar(this)" style="width:80px;height:34px;text-align:center;font-size:14px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-family:Inter,sans-serif;outline:none;color:var(--text3)">'
+          +'</div>'
+          +'</div>';
+      }).join('');
+      return headerHtml + variantesHtml;
+    }
     const item = ncItems[p.id] || {qty:'', cost: p.cost||''};
     const hasQty = item.qty > 0;
     return '<div style="display:flex;align-items:center;padding:11px 16px;background:'+(hasQty?'#f0f8ff':'var(--surface)')+';'+(i>0?'border-top:1px solid var(--border)':'')+'">'
@@ -3894,6 +3975,30 @@ function ncRenderList(q) {
   + '</div>';
 }
 
+function ncQtyChangeVar(input) {
+  const pid = input.dataset.ncpid;
+  const variante = input.dataset.ncvar;
+  const key = pid+'|||'+variante;
+  const qty = parseFloat(input.value)||0;
+  if(!ncItems[key]) {
+    const costInput = input.parentElement && input.parentElement.querySelector('[data-field="cost"]');
+    const costVal = costInput ? (parseFloat(costInput.value)||0) : 0;
+    const prod = S.products.find(p=>p.id===pid);
+    ncItems[key] = {qty:0, cost: costVal || (prod?prod.cost:0) || 0};
+  }
+  ncItems[key].qty = qty;
+  ncUpdateFooter();
+  try{ncRenderList(document.getElementById('nc-prov-search')?'' :'');}catch(e){}
+}
+function ncCostChangeVar(input) {
+  const pid = input.dataset.ncpid;
+  const variante = input.dataset.ncvar;
+  const key = pid+'|||'+variante;
+  const cost = parseFloat(input.value)||0;
+  if(!ncItems[key]) ncItems[key] = {qty:0, cost:0};
+  ncItems[key].cost = cost;
+  ncUpdateFooter();
+}
 function ncQtyChange(input) {
   const pid = input.dataset.ncpid;
   const qty = parseFloat(input.value)||0;
@@ -3950,20 +4055,29 @@ function ncVolverAEditar(fromOpen) {
   if(S.editId && !fromOpen) { showPage('compras'); S.editId=null; ncItems={}; return; }
   const el = document.getElementById('nc-prod-list');
   if(el) {
-    const agregados = Object.keys(ncItems).filter(pid=>ncItems[pid].qty>0);
+    const agregados = Object.keys(ncItems).filter(key=>ncItems[key].qty>0);
     if(!agregados.length) { showPage('nueva-compra'); return; }
-    const prods = agregados.map(pid=>S.products.find(x=>x.id===pid)).filter(Boolean);
-    el.innerHTML = prods.map((p,i)=>{
-      const item = ncItems[p.id];
+    el.innerHTML = agregados.map((key,i)=>{
+      const parts = key.split('|||');
+      const pid = parts[0];
+      const variante = parts[1] || '';
+      const p = S.products.find(x=>x.id===pid);
+      if(!p) return '';
+      const item = ncItems[key];
+      const nombre = variante ? p.name+' ('+variante+')' : p.name;
+      const stockRef = variante ? ((p.stockVariantes||{})[variante]||0) : (p.stock||0);
+      const changeFn = variante ? 'ncQtyChangeVar' : 'ncQtyChange';
+      const costFn = variante ? 'ncCostChangeVar' : 'ncCostChange';
+      const dataVar = variante ? ' data-ncvar="'+variante+'"' : '';
       return '<div style="display:flex;align-items:center;padding:11px 16px;background:#f0f8ff;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
         +'<div style="flex:1;min-width:0">'
-        +'<div style="font-weight:600;font-size:14px">'+p.name+'</div>'
-        +'<div style="font-size:13px;color:var(--text3);margin-top:2px">Stock: '+(p.stock||0)+'</div>'
+        +'<div style="font-weight:600;font-size:14px">'+nombre+'</div>'
+        +'<div style="font-size:13px;color:var(--text3);margin-top:2px">Stock: '+stockRef+'</div>'
         +'</div>'
         +'<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;align-items:flex-end">'
-        +'<input data-ncpid="'+p.id+'" data-field="qty" type="number" inputmode="decimal" step="0.1" value="'+item.qty+'" min="0" onfocus="this.select()" oninput="ncQtyChange(this)" onchange="ncQtyChange(this)" style="width:72px;height:40px;text-align:center;font-size:17px;font-weight:700;caret-color:var(--accent2);border:2px solid var(--accent2);border-radius:10px;background:#fff;color:var(--accent2);font-family:Inter,sans-serif;outline:none">'
-        +'<input data-ncpid="'+p.id+'" data-field="cost" type="number" inputmode="decimal" placeholder="$Costo" value="'+(item.cost||'')+'" min="0" onfocus="this.select()" onchange="ncCostChange(this)" style="width:80px;height:36px;text-align:center;font-size:15px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-family:Inter,sans-serif;outline:none;color:var(--text3)">'
-        +'<button onclick="ncRemItem(\''+p.id+'\')" style="background:none;border:none;color:var(--accent3);font-size:18px;cursor:pointer;padding:4px">✕</button>'
+        +'<input data-ncpid="'+pid+'"'+dataVar+' data-field="qty" type="number" inputmode="decimal" step="0.1" value="'+item.qty+'" min="0" onfocus="this.select()" oninput="'+changeFn+'(this)" onchange="'+changeFn+'(this)" style="width:72px;height:40px;text-align:center;font-size:17px;font-weight:700;caret-color:var(--accent2);border:2px solid var(--accent2);border-radius:10px;background:#fff;color:var(--accent2);font-family:Inter,sans-serif;outline:none">'
+        +'<input data-ncpid="'+pid+'"'+dataVar+' data-field="cost" type="number" inputmode="decimal" placeholder="$Costo" value="'+(item.cost||'')+'" min="0" onfocus="this.select()" onchange="'+costFn+'(this)" style="width:80px;height:36px;text-align:center;font-size:15px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-family:Inter,sans-serif;outline:none;color:var(--text3)">'
+        +'<button onclick="ncRemItem(\''+key+'\')" style="background:none;border:none;color:var(--accent3);font-size:18px;cursor:pointer;padding:4px">✕</button>'
         +'</div></div>';
     }).join('')
     + '<div style="padding:12px 16px"><button onclick="ncAgregarMas()" style="background:var(--surface);border:2px dashed var(--border);border-radius:12px;padding:10px 16px;font-size:14px;font-weight:600;color:var(--accent2);cursor:pointer;width:100%">+ Agregar m&#225;s productos</button></div>';
@@ -3996,10 +4110,10 @@ function ncVerResumen() {
   showPage('resumen-compra');
 }
 
-function ncRemItem(pid) {
-  delete ncItems[pid];
-  ncRenderList(document.getElementById('nc-search')?document.getElementById('nc-search').value:'');
-  ncUpdateTotal();
+function ncRemItem(key) {
+  delete ncItems[key];
+  ncVolverAEditar(true);
+  ncUpdateFooter();
 }
 function ncProvSearch(q) {
   const drop = document.getElementById('nc-prov-drop');
@@ -4020,14 +4134,25 @@ async function ncSaveComp() {
   if(_savingComp) { toast('Guardando...'); return; }
   _savingComp = true;
   setTimeout(()=>{ _savingComp = false; }, 3000);
-  const items = Object.entries(ncItems).filter(([pid,item])=>item.qty>=0.01 && S.products.find(p=>p.id===pid));
+  const items = Object.entries(ncItems).filter(([key,item])=>{
+    const pid = key.split('|||')[0];
+    return item.qty>=0.01 && S.products.find(p=>p.id===pid);
+  });
   if(!items.length) { _savingComp = false; toast('Sin productos'); return; }
   const provId = ncProvId || document.getElementById('nc-prov').value;
   if(!provId) { toast('Falta seleccionar el proveedor'); return; }
   const prov = S.proveedores.find(p=>p.id===provId);
   const isDraft = document.getElementById('nc-draft').checked;
-  const compItems = items.map(([pid,item])=>({prodId:pid, name:(S.products.find(x=>x.id===pid)||{}).name||pid, qty:item.qty, cost:item.cost||0}));
-  const total = items.reduce((s,[pid,item])=>s+item.qty*(item.cost||0),0);
+  const compItems = items.map(([key,item])=>{
+    const parts = key.split('|||');
+    const pid = parts[0];
+    const variante = parts[1] || '';
+    const prod = S.products.find(x=>x.id===pid)||{};
+    const itemObj = {prodId:pid, name:prod.name||pid, qty:item.qty, cost:item.cost||0};
+    if(variante) { itemObj.variante = variante; itemObj.name = (prod.name||pid)+' ('+variante+')'; }
+    return itemObj;
+  });
+  const total = items.reduce((s,[key,item])=>s+item.qty*(item.cost||0),0);
 
   // Determinar ID
   const compId = window.ncEditId || ('COMP-'+String(S.nComp).padStart(4,'0')+'-'+Date.now().toString(36).slice(-4).toUpperCase());
@@ -4170,18 +4295,10 @@ function cartSetQty(pid, val) {
 }
 
 function nfUpdateFooter() {
-  // Read from DOM inputs directly as source of truth
+  // S.invItems es la fuente de verdad (soporta items con y sin variante)
   let total = 0, uds = 0;
-  document.querySelectorAll('#nf-prod-list input[data-pid]').forEach(function(inp) {
-    if(!inp.id || !inp.id.startsWith('cqty-')) return;
-    const qty = parseInt(inp.value)||0;
-    const price = parseFloat(inp.dataset.price)||0;
-    if(qty > 0) { total += qty * price; uds += qty; }
-  });
-  // Also count from S.invItems for items not visible in current search
   S.invItems.forEach(function(item) {
-    const el = document.getElementById('cqty-'+item.prodId);
-    if(!el) { total += item.qty*(item.price||0); uds += item.qty; }
+    if(item.qty > 0) { total += item.qty*(item.price||0); uds += item.qty; }
   });
   const fi = document.getElementById('nf-footer-items');
   const ft = document.getElementById('nf-footer-total');
@@ -5348,7 +5465,10 @@ function openComp(id) {
     document.getElementById('nc-notes').value = c.notes || '';
     document.getElementById('nc-draft').checked = !!c.draft;
     c.items.forEach(item => {
-      if(item.prodId) ncItems[item.prodId] = { qty: item.qty||0, cost: item.cost||0 };
+      if(item.prodId) {
+        const key = item.variante ? item.prodId+'|||'+item.variante : item.prodId;
+        ncItems[key] = { qty: item.qty||0, cost: item.cost||0 };
+      }
     });
   }
   showPage('nueva-compra');
