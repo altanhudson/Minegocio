@@ -1046,7 +1046,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.46</strong> · 14/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.47</strong> · 15/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -3431,6 +3431,7 @@ function renderInvPagos() {
     +'</div>';
 }
 let prodHistId = null;
+let prodHistVariante = null;
 let prodHTabActivo = 'todos';
 function prodHTab(tab, el) {
   prodHTabActivo = tab;
@@ -3439,23 +3440,60 @@ function prodHTab(tab, el) {
   renderProdMovimientos(prodHistId);
 }
 let _prodHistorialOrigen = 'productos';
-function verProdHistorial(id, origen) {
+function abrirHistorialProd(id) {
+  const p = S.products.find(x=>x.id===id);
+  if(!p) return;
+  const tieneVar = p.variantes && p.variantes.length > 0;
+  if(!tieneVar) { verProdHistorial(id, 'stock'); return; }
+  // Mostrar overlay de selección de variante
+  let ov = document.getElementById('hist-variante-overlay');
+  if(!ov) {
+    ov = document.createElement('div');
+    ov.id = 'hist-variante-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:20px';
+    document.body.appendChild(ov);
+  }
+  ov.style.display = 'flex';
+  ov.innerHTML = '<div style="background:var(--surface);border-radius:18px;padding:24px 20px;max-width:340px;width:100%;box-shadow:0 8px 30px rgba(0,0,0,.25);max-height:85vh;display:flex;flex-direction:column">'
+    +'<div style="font-size:17px;font-weight:800;color:var(--text);margin-bottom:4px;text-align:center">¿Qué variante?</div>'
+    +'<div style="font-size:14px;font-weight:600;color:var(--accent);margin-bottom:16px;text-align:center">'+p.name+'</div>'
+    +'<div style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:8px">'
+    + p.variantes.map(function(v){
+      const qty = (p.stockVariantes||{})[v]||0;
+      const vc = qty<=0?'var(--accent3)':qty<=3?'var(--orange,#fb923c)':'var(--green)';
+      const vEsc = v.replace(/\\/g,'\\\\').replace(/'/g,'\\\'');
+      return '<button onclick="verHistorialVariante(\''+id+'\',\''+vEsc+'\')" style="display:flex;justify-content:space-between;align-items:center;background:var(--surface2);border:1.5px solid var(--border);border-radius:12px;padding:13px;font-size:15px;font-weight:600;cursor:pointer;color:var(--text);text-align:left">'
+        +'<span>'+v+'</span>'
+        +'<span style="font-weight:800;color:'+vc+'">'+qty+' uds</span>'
+        +'</button>';
+    }).join('')
+    +'</div>'
+    +'<button onclick="document.getElementById(\'hist-variante-overlay\').style.display=\'none\'" style="margin-top:12px;flex-shrink:0;width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:12px;padding:13px;font-size:15px;font-weight:700;cursor:pointer">Cancelar</button>'
+    +'</div>';
+}
+function verHistorialVariante(id, variante) {
+  const ov = document.getElementById('hist-variante-overlay');
+  if(ov) ov.style.display = 'none';
+  verProdHistorial(id, 'stock', variante);
+}
+function verProdHistorial(id, origen, variante) {
   if(origen) _prodHistorialOrigen = origen;
   const p = S.products.find(x=>x.id===id);
   if(!p) return;
   prodHistId = id;
+  prodHistVariante = variante || null;
   prodHTabActivo = 'todos';
   document.querySelectorAll('#page-prod-historial .tab').forEach(t=>t.classList.remove('active'));
   const tabTodos = document.getElementById('prodh-tab-todos');
   if(tabTodos) tabTodos.classList.add('active');
-  document.getElementById('prodh-nombre').textContent = (p.emoji||'📦')+' '+p.name;
+  document.getElementById('prodh-nombre').textContent = (p.emoji||'📦')+' '+p.name+(variante?' · '+variante:'');
   const stockEl = document.getElementById('prodh-stock-actual');
   if(stockEl) stockEl.textContent = '';
   // Stock badge
   const stockNum = document.getElementById('prodh-stock-num');
   const stockBadge = document.getElementById('prodh-stock-badge');
   if(stockNum && stockBadge) {
-    const s = p.stock||0;
+    const s = variante ? ((p.stockVariantes||{})[variante]||0) : (p.stock||0);
     const color = s < 0 ? 'var(--accent3)' : s === 0 ? 'var(--text3)' : 'var(--green)';
     const borderColor = s < 0 ? '#fca5a5' : s === 0 ? 'var(--border)' : '#6ee7b7';
     stockNum.textContent = s;
@@ -3468,12 +3506,14 @@ function verProdHistorial(id, origen) {
 function renderProdMovimientos(id) {
   const p = S.products.find(x=>x.id===id);
   if(!p) return;
+  const filtroVar = prodHistVariante; // si está seteada, filtrar solo esta variante
   // Ventas (salidas)
   const ventas = [];
   S.invoices.forEach(inv => {
     if(inv.type==='presupuesto') return;
     (inv.items||[]).forEach(item => {
       if(item.prodId === id || item.desc === p.name) {
+        if(filtroVar && (item.variante||'') !== filtroVar) return;
         ventas.push({ tipo:'venta', date: inv.date, ts: inv.ts||parseInt((inv.id||'').replace(/\D/g,''))||0, ref: inv.id, desc: inv.clientName, qty: -(item.qty||1), price: item.price||0 });
       }
     });
@@ -3484,6 +3524,7 @@ function renderProdMovimientos(id) {
     if(comp.draft) return;
     (comp.items||[]).forEach(item => {
       if(item.prodId === id) {
+        if(filtroVar && (item.variante||'') !== filtroVar) return;
         compras.push({ tipo:'compra', date: comp.date, ts: comp.ts||0, ref: comp.id, desc: comp.provName||'Proveedor', qty: item.qty||0, price: item.cost||0 });
       }
     });
@@ -3492,7 +3533,10 @@ function renderProdMovimientos(id) {
   const ajustes = [];
   (S.ajustes||[]).forEach(aj=>{
     (aj.items||[]).forEach(item=>{
-      if(item.prodId===id) ajustes.push({tipo:'ajuste', date:aj.date, ts: aj.ts||0, ref:aj.id, desc:'Ajuste manual', qty:item.diff||0, price:0});
+      if(item.prodId===id) {
+        if(filtroVar && (item.variante||'') !== filtroVar) return;
+        ajustes.push({tipo:'ajuste', date:aj.date, ts: aj.ts||0, ref:aj.id, desc:'Ajuste manual', qty:item.diff||0, price:0});
+      }
     });
   });
   // Todos juntos — ordenar por fecha desc, y por ts desc si mismo día
@@ -3525,13 +3569,14 @@ function renderProdMovimientos(id) {
     return (a.ts||0) - (b.ts||0);
   });
   const totalMovs = movsAsc.reduce((s,m)=> m.tipo==='ajuste' ? 0 : s+m.qty, 0);
+  const stockRef = filtroVar ? ((p.stockVariantes||{})[filtroVar]||0) : (p.stock||0);
   // Para calcular el stock inicial necesitamos recorrer desde el último ajuste
   let stockAcum = 0;
   const lastAjusteIdx = movsAsc.reduce((last, m, i) => m.tipo==='ajuste' ? i : last, -1);
   if(lastAjusteIdx >= 0) {
     // Stock en el momento del último ajuste = stockNuevo del ajuste
     const lastAju = movsAsc[lastAjusteIdx];
-    const ajuItem = (S.ajustes.find(a=>a.id===lastAju.ref)||{items:[]}).items.find(i=>i.prodId===id);
+    const ajuItem = (S.ajustes.find(a=>a.id===lastAju.ref)||{items:[]}).items.find(i=>i.prodId===id && (filtroVar?(i.variante||'')===filtroVar:true));
     stockAcum = ajuItem ? ajuItem.stockNuevo : 0;
     // Sumar movimientos posteriores al último ajuste
     for(let i = lastAjusteIdx+1; i < movsAsc.length; i++) {
@@ -3541,9 +3586,9 @@ function renderProdMovimientos(id) {
   } else {
     // Sin ajustes: calcular desde movimientos
     const totalMovsAsc = movsAsc.reduce((s,m)=>s+m.qty, 0);
-    stockAcum = (p.stock||0) - totalMovsAsc;
+    stockAcum = (stockRef) - totalMovsAsc;
     movsAsc.forEach(m => stockAcum += m.qty);
-    stockAcum = p.stock||0; // simplificar — el stock actual es la verdad
+    stockAcum = stockRef; // simplificar — el stock actual es la verdad
   }
   
   const stockPorMov = new Map();
@@ -3565,7 +3610,7 @@ function renderProdMovimientos(id) {
   } else {
     // Sin ajustes: calcular desde stock inicial estimado
     const totalAll = movsAsc.reduce((s,m)=>s+m.qty,0);
-    let running = (p.stock||0) - totalAll;
+    let running = (stockRef) - totalAll;
     movsAsc.forEach((m, i) => {
       running += m.qty;
       stockPorMov.set(i, running);
@@ -6521,7 +6566,7 @@ function renderStockMovimientos(q) {
             + p.variantes.map(function(v){ return v+': '+((p.stockVariantes||{})[v]||0); }).join(' · ')
             + '</div>'
           : '';
-        return '<div data-pid="'+p.id+'" onclick="verProdHistorial(this.dataset.pid,\'stock\')" style="display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
+        return '<div data-pid="'+p.id+'" onclick="abrirHistorialProd(this.dataset.pid)" style="display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
           +'<div style="font-size:22px">'+(p.emoji||'📦')+'</div>'
           +'<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px;color:var(--text)">'+p.name+'</div>'
           +(p.category?'<div style="font-size:12px;color:var(--text3)">'+p.category+'</div>':'')
