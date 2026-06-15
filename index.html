@@ -1005,6 +1005,16 @@ select option{background:var(--surface2)}
   <div class="page" id="page-config">
     <div style="font-family:Inter,sans-serif;font-size:20px;font-weight:800;margin-bottom:20px">&#9881;&#65039; Configuración</div>
     <div class="card" style="margin-bottom:12px">
+      <div class="card-header"><span class="card-title">🛒 Tienda online</span></div>
+      <div style="padding:14px 16px">
+        <div style="font-size:14px;color:var(--text3);margin-bottom:12px">Pedidos recibidos después de este horario se facturan para el día siguiente.</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <label style="font-size:14px;font-weight:600;flex:1">Horario de corte</label>
+          <input type="time" id="cfg-horario-corte" value="18:00" onchange="saveCfgHorarioCorte(this.value)" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface);font-size:15px;font-weight:700;color:var(--text);outline:none">
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:12px">
       <div class="card-header"><span class="card-title">&#128190; Backup de datos</span></div>
       <div style="padding:14px 16px">
         <div style="font-size:14px;color:var(--text3);margin-bottom:12px">Descargá una copia de todos tus datos como archivo JSON en tu celu.</div>
@@ -1036,7 +1046,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.45</strong> · 14/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.46</strong> · 14/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -1584,7 +1594,13 @@ function showPage(p) {
   if(nav) nav.style.display = ['nueva-factura','resumen-factura','nueva-compra','resumen-compra','reparto','cobrar-reparto'].includes(p) ? 'none' : '';
   if(p==='dashboard') updDash();
   if(p==='estadisticas') { estTab='ventas'; renderEstadisticas(); }
-  if(p==='config') { try{ renderBannersList(); }catch(e){} }
+  if(p==='config') {
+    try{ renderBannersList(); }catch(e){}
+    try{
+      const inp = document.getElementById('cfg-horario-corte');
+      if(inp && S.config && S.config.horarioCorte) inp.value = S.config.horarioCorte;
+    }catch(e){}
+  }
 }
 
 
@@ -2228,6 +2244,25 @@ function localDateStr() {
   const d = new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
+function saveCfgHorarioCorte(val) {
+  S.config = S.config||{};
+  S.config.horarioCorte = val;
+  try{_markDirty('config','main');}catch(e){}
+  try{save(['config']);}catch(e){}
+  toast('Horario de corte guardado: '+val);
+}
+function tiendaFechaFactura() {
+  const corte = (S.config&&S.config.horarioCorte)||'18:00';
+  const [hCorte, mCorte] = corte.split(':').map(Number);
+  const now = new Date();
+  const hNow = now.getHours(), mNow = now.getMinutes();
+  const pasoCrte = hNow > hCorte || (hNow === hCorte && mNow >= mCorte);
+  if(pasoCrte) {
+    const mañana = new Date(now); mañana.setDate(mañana.getDate()+1);
+    return mañana.getFullYear()+'-'+String(mañana.getMonth()+1).padStart(2,'0')+'-'+String(mañana.getDate()).padStart(2,'0');
+  }
+  return localDateStr();
+}
 function repararURLsImagenes() {
   const conToken = S.products.filter(p => p.image && p.image.includes('token='));
   if(!conToken.length) { toast('✓ No hay imágenes con token para reparar'); return; }
@@ -2612,7 +2647,7 @@ function openProd(id) {
 }
 
 function saveProd() {
-  const name = document.getElementById('p-name').value.trim();
+  try {
   if(!name) { toast('Ingresa el nombre'); return; }
   const prod = {
     id: S.editId || ('PROD-'+String(S.nProd++).padStart(3,'0')+'-'+Date.now().toString(36).slice(-4).toUpperCase()),
@@ -2710,6 +2745,7 @@ function saveProd() {
     }
     showPage(pg);
   }
+  } catch(err) { toast('Error al guardar: '+err.message); console.error('saveProd error:', err); }
 }
 
 function applyMarcaUpdateBtn(btn) {
@@ -8002,7 +8038,7 @@ async function tiendaConfirmar() {
     id:'FAC-'+String(S.nInv++).padStart(4,'0')+'-'+Date.now().toString(36).slice(-4).toUpperCase(),
     type:'factura', status:'pendiente',
     clientId:cli.id, clientName:cli.name,
-    date:localDateStr(), ts:Date.now(),
+    date:tiendaFechaFactura(), ts:Date.now(),
     items:invItems, subtotal:invTotal,
     descRetiro:0, descExtraPct:0, descExtra:0, total:invTotal,
     pagos:[], saldo:invTotal, aFavor:0,
