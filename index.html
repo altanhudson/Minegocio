@@ -1005,6 +1005,17 @@ select option{background:var(--surface2)}
   <div class="page" id="page-config">
     <div style="font-family:Inter,sans-serif;font-size:20px;font-weight:800;margin-bottom:20px">&#9881;&#65039; Configuración</div>
     <div class="card" style="margin-bottom:12px">
+      <div class="card-header"><span class="card-title">🧾 Factura</span></div>
+      <div style="padding:14px 16px">
+        <div style="font-size:14px;color:var(--text3);margin-bottom:12px">Cómo se comparten las facturas con los clientes.</div>
+        <label style="font-size:14px;font-weight:600;display:block;margin-bottom:8px">Formato al compartir</label>
+        <div style="display:flex;gap:8px">
+          <button id="cfg-fmt-imagen" onclick="saveCfgFormatoFactura('imagen')" style="flex:1;padding:12px;border-radius:10px;border:2px solid #3483fa;background:#3483fa;color:#fff;font-size:14px;font-weight:700;cursor:pointer">🖼️ Imagen</button>
+          <button id="cfg-fmt-texto" onclick="saveCfgFormatoFactura('texto')" style="flex:1;padding:12px;border-radius:10px;border:2px solid var(--border);background:var(--surface);color:var(--text);font-size:14px;font-weight:700;cursor:pointer">📝 Texto</button>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:12px">
       <div class="card-header"><span class="card-title">🛒 Tienda online</span></div>
       <div style="padding:14px 16px">
         <div style="font-size:14px;color:var(--text3);margin-bottom:12px">Pedidos recibidos después de este horario se facturan para el día siguiente.</div>
@@ -1046,7 +1057,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.48</strong> · 15/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.49</strong> · 15/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -1430,7 +1441,7 @@ select option{background:var(--surface2)}
         <button class="btn btn-primary" style="flex:1" id="share-wa-btn" onclick="shareInvoiceImg('whatsapp')">&#128132; WhatsApp</button>
         <button class="btn btn-ghost btn-full" style="flex:1" onclick="shareInvoiceImg('download')">&#8595; Guardar imagen</button>
       </div>
-      <button class="btn btn-ghost btn-full" style="margin-top:8px;font-size:13px;color:var(--text3)" onclick="shareInvoiceText()">Compartir como texto</button>
+      <button class="btn btn-ghost btn-full" style="margin-top:8px;font-size:13px;color:var(--text3);display:none" onclick="shareInvoiceText()">Compartir como texto</button>
     </div>
   </div>
 </div>
@@ -1599,6 +1610,19 @@ function showPage(p) {
     try{
       const inp = document.getElementById('cfg-horario-corte');
       if(inp && S.config && S.config.horarioCorte) inp.value = S.config.horarioCorte;
+    }catch(e){}
+    try{
+      const fmt = (S.config && S.config.formatoFactura) || 'imagen';
+      const bI = document.getElementById('cfg-fmt-imagen');
+      const bT = document.getElementById('cfg-fmt-texto');
+      if(bI && bT) {
+        bI.style.background = fmt==='imagen'?'#3483fa':'var(--surface)';
+        bI.style.color = fmt==='imagen'?'#fff':'var(--text)';
+        bI.style.borderColor = fmt==='imagen'?'#3483fa':'var(--border)';
+        bT.style.background = fmt==='texto'?'#3483fa':'var(--surface)';
+        bT.style.color = fmt==='texto'?'#fff':'var(--text)';
+        bT.style.borderColor = fmt==='texto'?'#3483fa':'var(--border)';
+      }
     }catch(e){}
   }
 }
@@ -2243,6 +2267,24 @@ function mostrarRecordatorioBackup() {
 function localDateStr() {
   const d = new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function saveCfgFormatoFactura(fmt) {
+  S.config = S.config||{};
+  S.config.formatoFactura = fmt;
+  // Actualizar estilos de botones
+  const bI = document.getElementById('cfg-fmt-imagen');
+  const bT = document.getElementById('cfg-fmt-texto');
+  if(bI && bT) {
+    bI.style.background = fmt==='imagen'?'#3483fa':'var(--surface)';
+    bI.style.color = fmt==='imagen'?'#fff':'var(--text)';
+    bI.style.borderColor = fmt==='imagen'?'#3483fa':'var(--border)';
+    bT.style.background = fmt==='texto'?'#3483fa':'var(--surface)';
+    bT.style.color = fmt==='texto'?'#fff':'var(--text)';
+    bT.style.borderColor = fmt==='texto'?'#3483fa':'var(--border)';
+  }
+  try{_markDirty('config','main');}catch(e){}
+  try{save(['config']);}catch(e){}
+  toast('Formato de factura: '+(fmt==='imagen'?'Imagen':'Texto'));
 }
 function saveCfgHorarioCorte(val) {
   S.config = S.config||{};
@@ -5020,6 +5062,23 @@ function openShareInvoice(id) {
   _cachedInvId = null;
   renderInvoiceHTML(inv);
   document.getElementById('mshare').classList.add('open');
+  // Ajustar botones según formato configurado
+  const fmt = (S.config && S.config.formatoFactura) || 'imagen';
+  const btnWa = document.getElementById('share-wa-btn');
+  const btnImg = document.querySelector('[onclick="shareInvoiceImg(\'download\')"]');
+  const btnTexto = document.querySelector('[onclick="shareInvoiceText()"]');
+  const renderEl = document.getElementById('invoice-render');
+  if(fmt === 'texto') {
+    if(btnWa) { btnWa.setAttribute('onclick','shareInvoiceText()'); btnWa.innerHTML = '📤 Compartir por WhatsApp'; }
+    if(btnImg) btnImg.style.display = 'none';
+    if(btnTexto) btnTexto.style.display = 'none';
+    if(renderEl) renderEl.style.display = 'none';
+  } else {
+    if(btnWa) { btnWa.setAttribute('onclick','shareInvoiceImg(\'whatsapp\')'); btnWa.innerHTML = '📲 WhatsApp'; }
+    if(btnImg) btnImg.style.display = '';
+    if(btnTexto) btnTexto.style.display = 'none';
+    if(renderEl) renderEl.style.display = '';
+  }
   // Pregenerar canvas en segundo plano
   setTimeout(function() {
     const invEl = document.getElementById('invoice-render');
