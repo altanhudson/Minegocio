@@ -1057,7 +1057,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.51</strong> · 16/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.53</strong> · 17/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -2710,9 +2710,9 @@ function saveProd() {
       if(!isVisible) return null;
       const orig = S.editId ? (S.products.find(p=>p.id===S.editId)||{}) : {};
       const wasVisible = orig.visible === true;
-      // Solo es "nuevo" si antes NO estaba visible (transición a visible por primera vez)
-      if(wasVisible) return orig.visibleSince || null; // ya estaba visible → mantener o null (no aparece como nuevo)
-      return new Date().toISOString(); // primera vez que se hace visible → aparece como nuevo
+      // Si vuelve a ser visible (estaba oculto), siempre actualizar visibleSince a hoy
+      if(!wasVisible) return new Date().toISOString();
+      return orig.visibleSince || new Date().toISOString(); // ya estaba visible → mantener
     })(),
     oferta: document.getElementById('p-oferta').checked,
     ofertaDesde: document.getElementById('p-oferta').checked
@@ -4972,7 +4972,7 @@ function renderInvs() {
     })()
     +'<div style="display:flex;align-items:center;gap:8px;padding:0 14px 10px">'
     +badge+(inv.type==='cigarrillos'?'<span class="badge" style="background:#1a2a4a;color:#fff;margin-left:0">🚬 Cigarrillos</span>':'')
-    +(inv.preparado?'<span class="badge" style="background:#16a34a;color:#fff">✓ Preparado</span>':'')
+    
     +'<span style="font-size:13px;color:var(--text2);font-weight:600">'+inv.date.split('-').reverse().join('/')+' · '+inv.items.length+' prod.</span>'
     +'<span style="margin-left:auto;font-size:14px;color:var(--text3)" id="inv-arrow-'+inv.id+'">▼</span>'
     +'</div>'
@@ -7408,8 +7408,8 @@ function tiendaProdCardGrid(p) {
     : (TC[p.id]||0);
   const step = p.fracMin && p.fracMin > 1 ? p.fracMin : 1;
   const imgHtml = p.image
-    ? '<img src="'+p.image+'" style="width:100%;height:110px;border-radius:10px;object-fit:contain;display:block;background:#f7f8fc;margin-bottom:8px">'
-    : '<div style="width:100%;height:100px;border-radius:10px;background:#f7f8fc;display:flex;align-items:center;justify-content:center;font-size:40px;margin-bottom:8px">'+(p.emoji||'📦')+'</div>';
+    ? '<img src="'+p.image+'" style="width:calc(100% + 24px);height:140px;border-radius:16px 16px 0 0;object-fit:contain;display:block;background:#ffffff;margin:-12px -12px 10px -12px">'
+    : '<div style="width:calc(100% + 24px);height:130px;border-radius:16px 16px 0 0;background:#f7f8fc;display:flex;align-items:center;justify-content:center;font-size:48px;margin:-12px -12px 10px -12px">'+(p.emoji||'📦')+'</div>';
   const ctrl = hasVar
     ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="width:100%;background:#3483fa;color:#fff;border:none;border-radius:10px;padding:9px;font-weight:800;font-size:14px;cursor:pointer;margin-top:8px">+ Agregar'+(qty>0?' ('+qty+' en carrito)':'')+'</button>'
     : (qty===0
