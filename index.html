@@ -1057,7 +1057,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.65</strong> · 18/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.66</strong> · 18/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -6918,23 +6918,33 @@ function renderListaCompras() {
     + '<button onclick="listaCompartir()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer">📤 WhatsApp</button>'
     + '<button onclick="listaEliminar()" style="background:var(--accent3);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer">🗑️ Borrar</button>'
     + '</div></div>';
-  const renderItems = (items) => items.map(({prod, qty, prodId}) =>
-    '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">'
-    + '<span style="flex:1;font-size:15px">' + prod.name + '</span>'
-    + '<input type="number" min="1" value="' + qty + '" onchange="listaEditQty(&quot;' + prodId + '&quot;,this.value)" style="width:56px;text-align:center;font-size:15px;font-weight:700;border:1px solid var(--border);border-radius:8px;padding:4px;background:var(--surface)">'
-    + '<span style="font-size:13px;color:var(--text3)">u.</span>'
-    + '<button onclick="listaDelItem(&quot;' + prodId + '&quot;)" style="background:none;border:none;cursor:pointer;font-size:16px;padding:2px 4px">🗑️</button>'
-    + '</div>'
-  ).join('');
+  const renderItems = (items) => items.map(({prod, qty, prodId}) => {
+    const costo = prod.cost || 0;
+    const subtotal = qty * costo;
+    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">'
+      + '<input type="number" min="1" value="' + qty + '" onchange="listaEditQty(&quot;' + prodId + '&quot;,this.value)" style="width:52px;text-align:center;font-size:15px;font-weight:800;border:1px solid var(--border);border-radius:8px;padding:4px;background:var(--surface);color:var(--accent2);flex-shrink:0">'
+      + '<span style="flex:1;font-size:14px;font-weight:500">'+prod.name+'</span>'
+      + (costo>0?'<span style="font-size:13px;font-weight:700;color:var(--text2);white-space:nowrap">$'+subtotal.toLocaleString('es-AR')+'</span>':'')
+      + '<button onclick="listaDelItem(&quot;'+prodId+'&quot;)" style="background:none;border:none;cursor:pointer;font-size:16px;padding:2px 4px;flex-shrink:0">🗑️</button>'
+      + '</div>';
+  }).join('');
   Object.entries(porProv).forEach(([pvId, items]) => {
     const pv = S.proveedores.find(x => x.id === pvId);
+    const totalProv = items.reduce((s,{prod,qty})=>s+(qty*(prod.cost||0)),0);
     html += '<div style="background:var(--surface2);border-radius:var(--r);padding:14px;margin-bottom:12px">'
-      + '<div style="font-size:15px;font-weight:700;color:var(--accent);margin-bottom:10px">📦 ' + (pv?pv.name:pvId) + '</div>'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+      + '<div style="font-size:15px;font-weight:700;color:var(--accent)">📦 '+(pv?pv.name:pvId)+'</div>'
+      + (totalProv>0?'<div style="font-size:15px;font-weight:800;color:var(--text)">$'+totalProv.toLocaleString('es-AR')+'</div>':'')
+      + '</div>'
       + renderItems(items) + '</div>';
   });
   if (sinProv.length > 0) {
+    const totalSinProv = sinProv.reduce((s,{prod,qty})=>s+(qty*(prod.cost||0)),0);
     html += '<div style="background:var(--surface2);border-radius:var(--r);padding:14px;margin-bottom:12px">'
-      + '<div style="font-size:15px;font-weight:700;color:var(--text3);margin-bottom:10px">📦 Sin proveedor asignado</div>'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+      + '<div style="font-size:15px;font-weight:700;color:var(--text3)">📦 Sin proveedor asignado</div>'
+      + (totalSinProv>0?'<div style="font-size:15px;font-weight:800;color:var(--text)">$'+totalSinProv.toLocaleString('es-AR')+'</div>':'')
+      + '</div>'
       + renderItems(sinProv) + '</div>';
   }
   el.innerHTML = html;
