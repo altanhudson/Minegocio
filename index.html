@@ -1057,7 +1057,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.64</strong> · 18/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.65</strong> · 18/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -6470,9 +6470,9 @@ function recalcAllStocks() {
       var stock = baseStock;
       comprasList.forEach(function(c) {
         if (c.draft) return;
-        var cTs = c.ts || 0, cDate = c.date || '';
-        var after = baseTs > 0 ? cTs > baseTs : (baseDate ? cDate > baseDate || (cDate === baseDate && cTs >= baseTs) : true);
-        if (baseTs === 0 && baseDate === '') after = true;
+        var cDate = c.date || '';
+        // Posterior al ajuste = fecha mayor, o misma fecha con ts posterior al ajuste
+        var after = baseDate ? (cDate > baseDate || (cDate === baseDate && (c.ts||0) > baseTs)) : true;
         if (!after) return;
         (c.items || []).forEach(function(item) {
           if (item.prodId === p.id) stock += (item.qty || 0);
@@ -6480,9 +6480,8 @@ function recalcAllStocks() {
       });
       invoicesList.forEach(function(inv) {
         if (inv.type === 'presupuesto') return;
-        var iTs = inv.ts || 0, iDate = inv.date || '';
-        var after = baseTs > 0 ? iTs > baseTs : (baseDate ? iDate > baseDate || (iDate === baseDate && iTs >= baseTs) : true);
-        if (baseTs === 0 && baseDate === '') after = true;
+        var iDate = inv.date || '';
+        var after = baseDate ? (iDate > baseDate || (iDate === baseDate && (inv.ts||0) > baseTs)) : true;
         if (!after) return;
         (inv.items || []).forEach(function(item) {
           if (item.prodId === p.id) stock -= (item.qty || 0);
@@ -6521,14 +6520,13 @@ function recalcAllStocks() {
       // Aplicar compras posteriores al ajuste de cada variante
       comprasList.forEach(function(c) {
         if (c.draft) return;
-        var cTs = c.ts || 0, cDate = c.date || '';
+        var cDate = c.date || '';
         (c.items || []).forEach(function(item) {
           if (item.prodId !== p.id) return;
           var v = item.variante || '';
           if (!v || p.variantes.indexOf(v) < 0) return;
           var bTs = svBaseTs[v], bDate = svBaseDate[v];
-          var after = bTs > 0 ? cTs > bTs : (bDate ? cDate > bDate || (cDate === bDate && cTs >= bTs) : true);
-          if (bTs === 0 && bDate === '') after = true;
+          var after = bDate ? (cDate > bDate || (cDate === bDate && (c.ts||0) > bTs)) : true;
           if (after) sv[v] = (sv[v] || 0) + (item.qty || 0);
         });
       });
@@ -6536,14 +6534,13 @@ function recalcAllStocks() {
       // Aplicar ventas posteriores al ajuste de cada variante
       invoicesList.forEach(function(inv) {
         if (inv.type === 'presupuesto') return;
-        var iTs = inv.ts || 0, iDate = inv.date || '';
+        var iDate = inv.date || '';
         (inv.items || []).forEach(function(item) {
           if (item.prodId !== p.id) return;
           var v = item.variante || '';
           if (!v || p.variantes.indexOf(v) < 0) return;
           var bTs = svBaseTs[v], bDate = svBaseDate[v];
-          var after = bTs > 0 ? iTs > bTs : (bDate ? iDate > bDate || (iDate === bDate && iTs >= bTs) : true);
-          if (bTs === 0 && bDate === '') after = true;
+          var after = bDate ? (iDate > bDate || (iDate === bDate && (inv.ts||0) > bTs)) : true;
           if (after) sv[v] = (sv[v] || 0) - (item.qty || 0);
         });
       });
