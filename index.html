@@ -1057,7 +1057,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.66</strong> · 18/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.67</strong> · 18/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -3734,7 +3734,7 @@ function renderIItem(idx, item) {
   const wrap = existing || document.createElement('div');
   wrap.className='inv-item-box'; wrap.id='irow-'+idx;
   const selProd=item.prodId?S.products.find(p=>p.id===item.prodId):null;
-  const name = selProd?selProd.name:(item.desc||'Item');
+  const name = selProd ? (selProd.name + (item.variante ? ' <span style="background:#e0f2fe;color:#0369a1;font-size:12px;font-weight:700;padding:1px 7px;border-radius:10px;margin-left:4px">'+item.variante+'</span>' : '')) : (item.desc||'Item');
   const subtotal = (item.qty||1)*(item.price||0);
   wrap.innerHTML=
     '<div style="display:flex;align-items:center;gap:10px">'
