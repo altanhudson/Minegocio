@@ -1057,7 +1057,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.61</strong> · 17/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.62</strong> · 17/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -7408,8 +7408,8 @@ function tiendaProdCardGrid(p) {
     : (TC[p.id]||0);
   const step = p.fracMin && p.fracMin > 1 ? p.fracMin : 1;
   const imgHtml = p.image
-    ? '<img src="'+p.image+'" style="width:calc(100% + 24px);height:140px;border-radius:16px 16px 0 0;object-fit:contain;display:block;background:#ffffff;margin:-12px -12px 10px -12px">'
-    : '<div style="width:calc(100% + 24px);height:130px;border-radius:16px 16px 0 0;background:#f7f8fc;display:flex;align-items:center;justify-content:center;font-size:48px;margin:-12px -12px 10px -12px">'+(p.emoji||'📦')+'</div>';
+    ? '<img src="'+p.image+'" onclick="'+(p.desc?'tiendaAbrirDetalle(\''+p.id+'\')':'')+'" style="width:calc(100% + 24px);height:140px;border-radius:16px 16px 0 0;object-fit:contain;display:block;background:#ffffff;margin:-12px -12px 10px -12px;'+(p.desc?'cursor:pointer':'')+'">'
+    : '<div onclick="'+(p.desc?'tiendaAbrirDetalle(\''+p.id+'\')':'')+'" style="width:calc(100% + 24px);height:130px;border-radius:16px 16px 0 0;background:#f7f8fc;display:flex;align-items:center;justify-content:center;font-size:48px;margin:-12px -12px 10px -12px;'+(p.desc?'cursor:pointer':'')+'">'+(p.emoji||'📦')+'</div>';
   const ctrl = hasVar
     ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="width:100%;background:#3483fa;color:#fff;border:none;border-radius:10px;padding:9px;font-weight:800;font-size:14px;cursor:pointer;margin-top:8px">+ Agregar'+(qty>0?' ('+qty+' en carrito)':'')+'</button>'
     : (qty===0
@@ -7427,10 +7427,42 @@ function tiendaProdCardGrid(p) {
   return '<div data-prod-id="'+p.id+'" style="background:#fff;border-radius:16px;padding:12px;border:1px solid '+(p.oferta?'#e53e3e50':qty>0?'#3483fa40':'#eef0f5')+';box-shadow:0 2px 10px rgba(0,0,0,.06);position:relative">'
     +ofertaBadge
     +imgHtml
-    +'<div style="font-size:13px;font-weight:600;margin-bottom:4px;line-height:1.3;color:#1a1a2e">'+p.name+'</div>'
+    +'<div onclick="'+(p.desc?'tiendaAbrirDetalle(\''+p.id+'\')':'')+'" style="font-size:13px;font-weight:600;margin-bottom:4px;line-height:1.3;color:#1a1a2e;'+(p.desc?'cursor:pointer;text-decoration:underline dotted #aaa':'')+'">'+(p.desc?'<span title="Ver descripción">':'')+''+p.name+(p.desc?'</span>':'')+'</div>'
     +precioGridHtml
     +mayorHtml
     +ctrl
+    +'</div>';
+}
+function tiendaAbrirDetalle(pid) {
+  const p = S.products.find(x=>x.id===pid);
+  if(!p || !p.desc) return;
+  let ov = document.getElementById('tienda-detalle-overlay');
+  if(!ov) {
+    ov = document.createElement('div');
+    ov.id = 'tienda-detalle-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;padding:0';
+    ov.onclick = function(e){ if(e.target===ov) ov.style.display='none'; };
+    document.body.appendChild(ov);
+  }
+  const hasVar = p.variantes && p.variantes.length;
+  const qty = hasVar
+    ? Object.entries(TC).filter(function(e){ return tcProdId(e[0])===p.id; }).reduce(function(s,e){ return s+e[1]; },0)
+    : (TC[p.id]||0);
+  ov.style.display = 'flex';
+  ov.innerHTML = '<div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:85vh;overflow-y:auto;padding:0 0 20px 0">'
+    // Imagen
+    +(p.image?'<img src="'+p.image+'" style="width:100%;height:200px;object-fit:contain;background:#f7f8fc;border-radius:20px 20px 0 0">':'<div style="width:100%;height:160px;background:#f7f8fc;display:flex;align-items:center;justify-content:center;font-size:64px;border-radius:20px 20px 0 0">'+(p.emoji||'📦')+'</div>')
+    // Contenido
+    +'<div style="padding:16px 20px">'
+    +'<div style="font-size:18px;font-weight:800;color:#1a1a2e;margin-bottom:6px">'+p.name+'</div>'
+    +'<div style="font-size:22px;font-weight:800;color:#3483fa;margin-bottom:12px">$'+(+p.price).toFixed(0)+'</div>'
+    +(p.wholesalePrice&&p.wholesaleQty?'<div style="font-size:13px;color:#2e7d32;font-weight:700;margin-bottom:12px">$'+(+p.wholesalePrice).toFixed(0)+' a partir de '+p.wholesaleQty+' uds</div>':'')
+    +'<div style="font-size:14px;color:#444;line-height:1.6;margin-bottom:20px">'+p.desc+'</div>'
+    // Botón agregar
+    +'<button onclick="tiendaAdd(\''+p.id+'\');document.getElementById(\'tienda-detalle-overlay\').style.display=\'none\'" style="width:100%;background:#3483fa;color:#fff;border:none;border-radius:12px;padding:14px;font-weight:800;font-size:16px;cursor:pointer">'
+    +(qty>0?'✓ Agregar más ('+qty+' en carrito)':'+ Agregar al carrito')
+    +'</button>'
+    +'</div>'
     +'</div>';
 }
 function tiendaInit() {
