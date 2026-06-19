@@ -1057,7 +1057,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.69</strong> · 18/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.70</strong> · 18/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -6857,6 +6857,44 @@ function generarListaCompras() {
   renderListaCompras();
 }
 
+function listaNotaProv(pvId, val) {
+  if(!S.listaCompras) return;
+  if(!S.listaCompras.notas) S.listaCompras.notas = {};
+  S.listaCompras.notas[pvId] = val;
+  save(['listaCompras']);
+}
+function listaNotaCopiar(pvId) {
+  const el = document.getElementById('nota-prov-'+pvId);
+  if(!el || !el.value) { toast('No hay nota para copiar'); return; }
+  navigator.clipboard.writeText(el.value).then(()=>toast('✓ Nota copiada')).catch(()=>{
+    // Fallback para Android
+    el.select();
+    document.execCommand('copy');
+    toast('✓ Nota copiada');
+  });
+}
+function listaNotaBorrar(pvId) {
+  if(!S.listaCompras || !S.listaCompras.notas) return;
+  delete S.listaCompras.notas[pvId];
+  save(['listaCompras']);
+  renderListaCompras();
+}
+function listaDelProv(pvId) {
+  if(!S.listaCompras || !S.listaCompras.items) return;
+  if(!confirm('¿Borrar todos los productos de este proveedor de la lista?')) return;
+  // Buscar todos los productos de ese proveedor y eliminarlos
+  Object.keys(S.listaCompras.items).forEach(prodId => {
+    const p = S.products.find(x=>x.id===prodId);
+    if(p && p.suppliers && p.suppliers.includes(pvId)) {
+      delete S.listaCompras.items[prodId];
+      if(S.listaCompras.estados) delete S.listaCompras.estados[prodId];
+    }
+  });
+  if(S.listaCompras.notas) delete S.listaCompras.notas[pvId];
+  save(['listaCompras']);
+  renderListaCompras();
+  toast('Proveedor eliminado de la lista');
+}
 function listaToggleEstado(prodId, estado) {
   if(!S.listaCompras) return;
   if(!S.listaCompras.estados) S.listaCompras.estados = {};
@@ -6949,12 +6987,22 @@ function renderListaCompras() {
   Object.entries(porProv).forEach(([pvId, items]) => {
     const pv = S.proveedores.find(x => x.id === pvId);
     const totalProv = items.reduce((s,{prod,qty})=>s+(qty*(prod.cost||0)),0);
+    const notaProv = (S.listaCompras.notas||{})[pvId] || '';
     html += '<div style="background:var(--surface2);border-radius:var(--r);padding:14px;margin-bottom:12px">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
       + '<div style="font-size:15px;font-weight:700;color:var(--accent)">📦 '+(pv?pv.name:pvId)+'</div>'
+      + '<div style="display:flex;align-items:center;gap:8px">'
       + (totalProv>0?'<div style="font-size:15px;font-weight:800;color:var(--text)">$'+totalProv.toLocaleString('es-AR')+'</div>':'')
-      + '</div>'
-      + renderItems(items) + '</div>';
+      + '<button onclick="listaDelProv(&quot;'+pvId+'&quot;)" style="background:rgba(220,38,38,.1);border:1px solid #dc2626;color:#dc2626;border-radius:8px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer">🗑️ Borrar</button>'
+      + '</div></div>'
+      + renderItems(items)
+      + '<div style="margin-top:10px">'
+      + '<textarea id="nota-prov-'+pvId+'" placeholder="Notas para este proveedor..." onchange="listaNotaProv(&quot;'+pvId+'&quot;,this.value)" oninput="this.style.height=\'auto\';this.style.height=this.scrollHeight+\'px\'" style="width:100%;min-height:60px;resize:none;overflow:hidden;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;background:var(--surface);color:var(--text);font-family:Inter,sans-serif;box-sizing:border-box">'+notaProv+'</textarea>'
+      + '<div style="display:flex;justify-content:flex-end;gap:6px;margin-top:4px">'
+      + '<button onclick="listaNotaCopiar(&quot;'+pvId+'&quot;)" style="background:none;border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:12px;color:var(--text2);cursor:pointer">📋 Copiar</button>'
+      + '<button onclick="listaNotaBorrar(&quot;'+pvId+'&quot;)" style="background:none;border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:12px;color:var(--text3);cursor:pointer">✕ Borrar nota</button>'
+      + '</div></div>'
+      + '</div>';
   });
   if (sinProv.length > 0) {
     const totalSinProv = sinProv.reduce((s,{prod,qty})=>s+(qty*(prod.cost||0)),0);
