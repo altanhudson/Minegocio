@@ -1047,7 +1047,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.73</strong> · 19/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.74</strong> · 19/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -6876,6 +6876,23 @@ function generarListaCompras() {
   renderListaCompras();
 }
 
+function listaOcultarProv(pvId) {
+  if(!S.listaCompras) S.listaCompras = {};
+  if(!S.listaCompras.ocultos) S.listaCompras.ocultos = [];
+  if(!S.listaCompras.ocultos.includes(pvId)) S.listaCompras.ocultos.push(pvId);
+  save(['listaCompras']);
+  renderListaCompras();
+  toast('Proveedor ocultado para esta sesión');
+}
+function listaOrdenProv(pvId, num) {
+  if(!S.listaCompras) S.listaCompras = {};
+  if(!S.listaCompras.orden) S.listaCompras.orden = {};
+  const n = parseInt(num);
+  if(isNaN(n) || n <= 0) delete S.listaCompras.orden[pvId];
+  else S.listaCompras.orden[pvId] = n;
+  save(['listaCompras']);
+  renderListaCompras();
+}
 function listaNotaProv(pvId, val) {
   if(!S.listaCompras) return;
   if(!S.listaCompras.notas) S.listaCompras.notas = {};
@@ -7004,7 +7021,13 @@ function renderListaCompras() {
     return;
   }
 
-  const renderItems = (items) => items.map(({prod, qty, prodId, displayName}) => {
+  const ocultosList = (S.listaCompras && S.listaCompras.ocultos) || [];
+  let html = '';
+  if(ocultosList.length > 0) {
+    html += '<div style="text-align:center;margin-bottom:10px">'
+      + '<button onclick="if(S.listaCompras)S.listaCompras.ocultos=[];try{save([\'listaCompras\']);}catch(e){}renderListaCompras();" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 14px;font-size:13px;color:var(--text2);cursor:pointer">\ud83d\udc41\ufe0f Mostrar '+ocultosList.length+' proveedor'+(ocultosList.length>1?'es':'')+ ' oculto'+(ocultosList.length>1?'s':'')+'</button>'
+      + '</div>';
+  }
     const costo = prod.cost || 0;
     const subtotal = qty * costo;
     const estado = estados[prodId] || '';
@@ -7020,16 +7043,26 @@ function renderListaCompras() {
       + '</div>';
   }).join('');
 
-  let html = '';
-
-  Object.entries(porProv).forEach(([pvId, items]) => {
+  const ocultos = (S.listaCompras && S.listaCompras.ocultos) || [];
+  const orden = (S.listaCompras && S.listaCompras.orden) || {};
+  // Ordenar proveedores por número asignado (sin número van al final)
+  const provOrdenado = Object.entries(porProv).sort(([a],[b]) => {
+    const na = orden[a] || 9999;
+    const nb = orden[b] || 9999;
+    return na - nb;
+  });
+  provOrdenado.forEach(([pvId, items]) => {
+    if(ocultos.includes(pvId)) return; // Ocultar si está en la lista de ocultos
     const pv = S.proveedores.find(x => x.id === pvId);
     const totalProv = items.reduce((s,{prod,qty})=>s+(qty*(prod.cost||0)),0);
     const notaProv = notas[pvId] || '';
+    const numOrden = orden[pvId] || '';
     html += '<div style="background:var(--surface2);border-radius:var(--r);padding:14px;margin-bottom:12px">'
-      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
-      + '<div style="font-size:15px;font-weight:700;color:var(--accent)">\ud83d\udce6 '+(pv?pv.name:pvId)+'</div>'
-      + (totalProv>0?'<div style="font-size:15px;font-weight:800;color:var(--text)">$'+totalProv.toLocaleString('es-AR')+'</div>':'')
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
+      + '<input type="number" min="1" max="99" placeholder="#" value="'+numOrden+'" onchange="listaOrdenProv(\''+pvId+'\',this.value)" style="width:40px;text-align:center;font-size:14px;font-weight:800;border:1.5px solid var(--border);border-radius:8px;padding:4px;background:var(--surface);color:var(--accent2);flex-shrink:0">'
+      + '<div style="font-size:15px;font-weight:700;color:var(--accent);flex:1">\ud83d\udce6 '+(pv?pv.name:pvId)+'</div>'
+      + (totalProv>0?'<div style="font-size:14px;font-weight:800;color:var(--text)">$'+totalProv.toLocaleString('es-AR')+'</div>':'')
+      + '<button onclick="listaOcultarProv(\''+pvId+'\')" title="Ocultar hoy" style="background:none;border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:12px;color:var(--text3);cursor:pointer">\ud83d\udc41\ufe0f Ocultar</button>'
       + '</div>'
       + renderItems(items)
       + '<div style="margin-top:10px">'
