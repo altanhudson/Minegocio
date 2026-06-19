@@ -1057,7 +1057,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.68</strong> · 18/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.69</strong> · 18/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -6965,6 +6965,26 @@ function renderListaCompras() {
       + '</div>'
       + renderItems(sinProv) + '</div>';
   }
+  // Total general al final
+  const todosItems = [...Object.values(porProv).flat(), ...sinProv];
+  const totalGeneral = todosItems.reduce((s,{prod,qty})=>s+(qty*(prod.cost||0)),0);
+  const totalItems = Object.keys(lista.items).length;
+  const comprados = Object.values(S.listaCompras.estados||{}).filter(e=>e==='ok').length;
+  const noDisponibles = Object.values(S.listaCompras.estados||{}).filter(e=>e==='falta').length;
+  html += '<div style="background:var(--surface);border:2px solid var(--accent);border-radius:var(--r);padding:16px;margin-top:4px">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+    + '<div style="font-size:16px;font-weight:800;color:var(--text)">💰 Total estimado</div>'
+    + '<div style="font-size:22px;font-weight:900;color:var(--accent)">$'+totalGeneral.toLocaleString('es-AR')+'</div>'
+    + '</div>'
+    + '<div style="display:flex;gap:12px;font-size:13px;flex-wrap:wrap">'
+    + '<span style="color:var(--text3)">📋 '+totalItems+' productos</span>'
+    + (comprados>0?'<span style="color:#16a34a">✓ '+comprados+' comprados</span>':'')
+    + (noDisponibles>0?'<span style="color:#dc2626">✕ '+noDisponibles+' no disponibles</span>':'')
+    + '</div>'
+    + '<div style="margin-top:10px;padding:8px;background:var(--surface2);border-radius:8px;text-align:center;font-size:12px;color:var(--text3)">'
+    + '🔑 Verificación: <strong style="color:var(--text);font-size:14px">$'+totalGeneral.toLocaleString('es-AR')+' · '+totalItems+' prod.</strong>'
+    + '</div>'
+    + '</div>';
   el.innerHTML = html;
 }
 
