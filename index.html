@@ -1047,7 +1047,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.74</strong> · 19/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.75</strong> · 19/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -6986,11 +6986,12 @@ function renderListaCompras() {
   const el = document.getElementById('lista-compras-content');
   if(!el) return;
 
-  // Vista en tiempo real del stock negativo
   const porProv = {};
   const sinProv = [];
   const estados = (S.listaCompras && S.listaCompras.estados) || {};
   const notas = (S.listaCompras && S.listaCompras.notas) || {};
+  const ocultos = (S.listaCompras && S.listaCompras.ocultos) || [];
+  const orden = (S.listaCompras && S.listaCompras.orden) || {};
 
   S.products.forEach(function(p) {
     const tieneVar = p.variantes && p.variantes.length > 0;
@@ -7021,40 +7022,44 @@ function renderListaCompras() {
     return;
   }
 
-  const ocultosList = (S.listaCompras && S.listaCompras.ocultos) || [];
+  const renderItems = function(items) {
+    return items.map(function(item) {
+      const prod = item.prod, qty = item.qty, prodId = item.prodId, displayName = item.displayName;
+      const costo = prod.cost || 0;
+      const subtotal = qty * costo;
+      const estado = estados[prodId] || '';
+      const esOk = estado === 'ok';
+      const esFalta = estado === 'falta';
+      const rowStyle = esOk ? 'opacity:0.5;' : esFalta ? 'opacity:0.6;' : '';
+      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);'+rowStyle+'">'
+        + '<span style="width:36px;text-align:center;font-size:15px;font-weight:800;color:var(--accent2);flex-shrink:0">'+qty+'</span>'
+        + '<button onclick="listaToggleEstado(\''+prodId+'\',\'ok\')" style="width:30px;height:30px;border-radius:50%;border:2px solid '+(esOk?'#16a34a':'#d1d5db')+';background:'+(esOk?'#16a34a':'transparent')+';color:'+(esOk?'#fff':'#9ca3af')+';font-size:14px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">\u2713</button>'
+        + '<button onclick="listaToggleEstado(\''+prodId+'\',\'falta\')" style="width:30px;height:30px;border-radius:50%;border:2px solid '+(esFalta?'#dc2626':'#d1d5db')+';background:'+(esFalta?'#dc2626':'transparent')+';color:'+(esFalta?'#fff':'#9ca3af')+';font-size:14px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">\u2715</button>'
+        + '<span style="flex:1;font-size:14px;font-weight:500;'+(esOk?'text-decoration:line-through':'')+'">' +displayName+'</span>'
+        + (costo>0?'<span style="font-size:13px;font-weight:700;color:var(--text2);white-space:nowrap">$'+subtotal.toLocaleString('es-AR')+'</span>':'')
+        + '</div>';
+    }).join('');
+  };
+
   let html = '';
-  if(ocultosList.length > 0) {
+
+  if(ocultos.length > 0) {
     html += '<div style="text-align:center;margin-bottom:10px">'
-      + '<button onclick="if(S.listaCompras)S.listaCompras.ocultos=[];try{save([\'listaCompras\']);}catch(e){}renderListaCompras();" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 14px;font-size:13px;color:var(--text2);cursor:pointer">\ud83d\udc41\ufe0f Mostrar '+ocultosList.length+' proveedor'+(ocultosList.length>1?'es':'')+ ' oculto'+(ocultosList.length>1?'s':'')+'</button>'
+      + '<button onclick="if(S.listaCompras)S.listaCompras.ocultos=[];try{save([\'listaCompras\']);}catch(e){}renderListaCompras();" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 14px;font-size:13px;color:var(--text2);cursor:pointer">\ud83d\udc41\ufe0f Mostrar '+ocultos.length+' proveedor'+(ocultos.length>1?'es':'')+' oculto'+(ocultos.length>1?'s':'')+'</button>'
       + '</div>';
   }
-    const costo = prod.cost || 0;
-    const subtotal = qty * costo;
-    const estado = estados[prodId] || '';
-    const esOk = estado === 'ok';
-    const esFalta = estado === 'falta';
-    const rowStyle = esOk ? 'opacity:0.5;' : esFalta ? 'opacity:0.6;' : '';
-    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);'+rowStyle+'">'
-      + '<span style="width:36px;text-align:center;font-size:15px;font-weight:800;color:var(--accent2);flex-shrink:0">'+qty+'</span>'
-      + '<button onclick="listaToggleEstado(\''+prodId+'\',\'ok\')" style="width:30px;height:30px;border-radius:50%;border:2px solid '+(esOk?'#16a34a':'#d1d5db')+';background:'+(esOk?'#16a34a':'transparent')+';color:'+(esOk?'#fff':'#9ca3af')+';font-size:14px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">\u2713</button>'
-      + '<button onclick="listaToggleEstado(\''+prodId+'\',\'falta\')" style="width:30px;height:30px;border-radius:50%;border:2px solid '+(esFalta?'#dc2626':'#d1d5db')+';background:'+(esFalta?'#dc2626':'transparent')+';color:'+(esFalta?'#fff':'#9ca3af')+';font-size:14px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">\u2715</button>'
-      + '<span style="flex:1;font-size:14px;font-weight:500;'+(esOk?'text-decoration:line-through':'')+'">' +displayName+'</span>'
-      + (costo>0?'<span style="font-size:13px;font-weight:700;color:var(--text2);white-space:nowrap">$'+subtotal.toLocaleString('es-AR')+'</span>':'')
-      + '</div>';
-  }).join('');
 
-  const ocultos = (S.listaCompras && S.listaCompras.ocultos) || [];
-  const orden = (S.listaCompras && S.listaCompras.orden) || {};
-  // Ordenar proveedores por número asignado (sin número van al final)
-  const provOrdenado = Object.entries(porProv).sort(([a],[b]) => {
-    const na = orden[a] || 9999;
-    const nb = orden[b] || 9999;
+  const provOrdenado = Object.entries(porProv).sort(function(a,b){
+    const na = orden[a[0]] || 9999;
+    const nb = orden[b[0]] || 9999;
     return na - nb;
   });
-  provOrdenado.forEach(([pvId, items]) => {
-    if(ocultos.includes(pvId)) return; // Ocultar si está en la lista de ocultos
-    const pv = S.proveedores.find(x => x.id === pvId);
-    const totalProv = items.reduce((s,{prod,qty})=>s+(qty*(prod.cost||0)),0);
+
+  provOrdenado.forEach(function(entry) {
+    const pvId = entry[0], items = entry[1];
+    if(ocultos.includes(pvId)) return;
+    const pv = S.proveedores.find(function(x){ return x.id === pvId; });
+    const totalProv = items.reduce(function(s,i){ return s+(i.qty*(i.prod.cost||0)); },0);
     const notaProv = notas[pvId] || '';
     const numOrden = orden[pvId] || '';
     html += '<div style="background:var(--surface2);border-radius:var(--r);padding:14px;margin-bottom:12px">'
@@ -7062,7 +7067,7 @@ function renderListaCompras() {
       + '<input type="number" min="1" max="99" placeholder="#" value="'+numOrden+'" onchange="listaOrdenProv(\''+pvId+'\',this.value)" style="width:40px;text-align:center;font-size:14px;font-weight:800;border:1.5px solid var(--border);border-radius:8px;padding:4px;background:var(--surface);color:var(--accent2);flex-shrink:0">'
       + '<div style="font-size:15px;font-weight:700;color:var(--accent);flex:1">\ud83d\udce6 '+(pv?pv.name:pvId)+'</div>'
       + (totalProv>0?'<div style="font-size:14px;font-weight:800;color:var(--text)">$'+totalProv.toLocaleString('es-AR')+'</div>':'')
-      + '<button onclick="listaOcultarProv(\''+pvId+'\')" title="Ocultar hoy" style="background:none;border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:12px;color:var(--text3);cursor:pointer">\ud83d\udc41\ufe0f Ocultar</button>'
+      + '<button onclick="listaOcultarProv(\''+pvId+'\')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:12px;color:var(--text3);cursor:pointer">Ocultar</button>'
       + '</div>'
       + renderItems(items)
       + '<div style="margin-top:10px">'
@@ -7075,7 +7080,7 @@ function renderListaCompras() {
   });
 
   if (sinProv.length > 0) {
-    const totalSinProv = sinProv.reduce((s,{prod,qty})=>s+(qty*(prod.cost||0)),0);
+    const totalSinProv = sinProv.reduce(function(s,i){ return s+(i.qty*(i.prod.cost||0)); },0);
     html += '<div style="background:var(--surface2);border-radius:var(--r);padding:14px;margin-bottom:12px">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
       + '<div style="font-size:15px;font-weight:700;color:var(--text3)">\ud83d\udce6 Sin proveedor asignado</div>'
@@ -7084,11 +7089,11 @@ function renderListaCompras() {
       + renderItems(sinProv) + '</div>';
   }
 
-  const todosItems = [...Object.values(porProv).flat(), ...sinProv];
-  const totalGeneral = todosItems.reduce((s,{prod,qty})=>s+(qty*(prod.cost||0)),0);
+  const todosItems = Object.values(porProv).reduce(function(a,b){ return a.concat(b); },[]).concat(sinProv);
+  const totalGeneral = todosItems.reduce(function(s,i){ return s+(i.qty*(i.prod.cost||0)); },0);
   const totalItems = todosItems.length;
-  const comprados = Object.values(estados).filter(e=>e==='ok').length;
-  const noDisponibles = Object.values(estados).filter(e=>e==='falta').length;
+  const comprados = Object.values(estados).filter(function(e){ return e==='ok'; }).length;
+  const noDisponibles = Object.values(estados).filter(function(e){ return e==='falta'; }).length;
   html += '<div style="background:var(--surface);border:2px solid var(--accent);border-radius:var(--r);padding:16px;margin-top:4px">'
     + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
     + '<div style="font-size:16px;font-weight:800;color:var(--text)">\ud83d\udcb0 Total estimado</div>'
