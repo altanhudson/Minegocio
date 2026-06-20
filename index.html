@@ -1047,7 +1047,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.82</strong> · 20/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.83</strong> · 20/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -8377,6 +8377,23 @@ function tiendaVaciarCarrito() {
 async function tiendaConfirmar() {
   const items = Object.entries(TC).filter(([,q])=>q>0);
   if(!items.length){alert('Agregá al menos un producto');return;}
+
+  // Verificar si hay productos con variantes pero sin variante elegida
+  for(const [id, qty] of items) {
+    const pid = tcProdId(id);
+    const variante = tcVariante(id);
+    const p = S.products.find(x=>x.id===pid);
+    if(p && p.variantes && p.variantes.length > 0 && !variante) {
+      // Sacar este producto del carrito y abrir el selector de variantes
+      delete TC[id];
+      tiendaActBadge();
+      tiendaActTotal();
+      // Mostrar mensaje y abrir selector
+      alert('Para confirmar tu pedido, necesitamos que elijas la variante de "'+p.name+'". ¡Ya casi terminamos!');
+      tiendaAbrirVariante(pid);
+      return;
+    }
+  }
   let total=0;
   let lineas = items.map(([id,qty])=>{
     const p=S.products.find(x=>x.id===tcProdId(id));
@@ -8410,7 +8427,9 @@ async function tiendaConfirmar() {
     if(!p) return null;
     const unit = tiendaGetPrice(p, qty);
     const desc = p.name + (variante ? ' - '+variante : '');
-    return {prodId:pid, desc, qty, price:unit, retailPrice:p.price, wholesalePrice:p.wholesalePrice||0, wholesaleQty:p.wholesaleQty||0};
+    const itemObj = {prodId:pid, desc, qty, price:unit, retailPrice:p.price, wholesalePrice:p.wholesalePrice||0, wholesaleQty:p.wholesaleQty||0};
+    if(variante) itemObj.variante = variante;
+    return itemObj;
   }).filter(Boolean);
   const invTotal = invItems.reduce((s,i)=>s+i.qty*i.price,0);
   const inv = {
