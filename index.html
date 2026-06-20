@@ -1047,7 +1047,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.81</strong> · 19/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.82</strong> · 20/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -8427,12 +8427,10 @@ async function tiendaConfirmar() {
   try{ _markDirty('invoices', inv.id); _markDirty('clients', cli.id); }catch(e){}
   try{ recalcAllStocks(); recalcClientCredits(); }catch(e){}
   try{renderInvs();}catch(e){} try{renderProds();}catch(e){} try{updDash();}catch(e){}
-  // Guardar en localStorage (inmediato, respaldo en este dispositivo)
   save(['invoices','clients','products','nInv'], true);
-  // Cerrar el carrito si estaba abierto (sin destruir su estructura)
   try { document.getElementById('tienda-carrito').style.display='none'; } catch(e){}
-  // Subir a Firebase y abrir WhatsApp SOLO cuando el servidor confirme
   window._tcPendingUrl = url;
+  window._tcPendingInvId = inv.id; // guardar ID para remarcar dirty antes de subir
   _tiendaGuardarYAbrir();
 }
 
@@ -8451,8 +8449,13 @@ async function _tiendaGuardarYAbrir() {
     +'<div style="color:#555;font-size:14px;line-height:1.45">Esperá un momentito 🙏<br>No cierres esta pantalla.</div>'
     +'</div>';
   let ok = false;
+  const invId = window._tcPendingInvId; // ID de la factura a guardar
   try {
     if(typeof window._fbSaveDirty !== 'function') throw new Error('Firebase no disponible');
+    // Marcar dirty explícitamente antes de subir, por si ya fue consumido
+    if(invId) {
+      try{ _markDirty('invoices', invId); }catch(e){}
+    }
     await Promise.race([
       window._fbSaveDirty(S),
       new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('timeout')); }, 8000); })
