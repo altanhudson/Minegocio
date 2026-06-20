@@ -1047,7 +1047,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.78</strong> · 19/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.79</strong> · 19/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -2717,9 +2717,9 @@ function saveProd() {
       if(!isVisible) return null;
       const orig = S.editId ? (S.products.find(p=>p.id===S.editId)||{}) : {};
       const wasVisible = orig.visible === true;
-      // Si vuelve a ser visible (estaba oculto) O si nunca tuvo visibleSince → fecha de hoy
-      if(!wasVisible || !orig.visibleSince) return new Date().toISOString();
-      return orig.visibleSince; // ya estaba visible y tiene fecha → mantener
+      // Solo actualizar si estaba oculto y ahora se activa
+      if(!wasVisible) return new Date().toISOString();
+      return orig.visibleSince || null; // ya estaba visible → conservar aunque sea null
     })(),
     oferta: document.getElementById('p-oferta').checked,
     ofertaDesde: document.getElementById('p-oferta').checked
