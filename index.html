@@ -1047,7 +1047,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.80</strong> · 19/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.81</strong> · 19/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -7048,19 +7048,20 @@ function renderListaCompras() {
     return;
   }
 
-  const renderItems = function(items) {
+  const renderItems = function(items, pvId) {
     return items.map(function(item) {
       const prod = item.prod, qty = item.qty, prodId = item.prodId, displayName = item.displayName;
       const costo = prod.cost || 0;
       const subtotal = qty * costo;
-      const estado = estados[prodId] || '';
+      const estadoKey = prodId + '|' + (pvId||'sin');
+      const estado = estados[estadoKey] || '';
       const esOk = estado === 'ok';
       const esFalta = estado === 'falta';
       const rowStyle = esOk ? 'opacity:0.5;' : esFalta ? 'opacity:0.6;' : '';
       return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);'+rowStyle+'">'
         + '<span style="width:36px;text-align:center;font-size:15px;font-weight:800;color:var(--accent2);flex-shrink:0">'+qty+'</span>'
-        + '<button onclick="listaToggleEstado(\''+prodId+'\',\'ok\')" style="width:30px;height:30px;border-radius:50%;border:2px solid '+(esOk?'#16a34a':'#d1d5db')+';background:'+(esOk?'#16a34a':'transparent')+';color:'+(esOk?'#fff':'#9ca3af')+';font-size:14px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">\u2713</button>'
-        + '<button onclick="listaToggleEstado(\''+prodId+'\',\'falta\')" style="width:30px;height:30px;border-radius:50%;border:2px solid '+(esFalta?'#dc2626':'#d1d5db')+';background:'+(esFalta?'#dc2626':'transparent')+';color:'+(esFalta?'#fff':'#9ca3af')+';font-size:14px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">\u2715</button>'
+        + '<button onclick="listaToggleEstado(\''+estadoKey+'\',\'ok\')" style="width:30px;height:30px;border-radius:50%;border:2px solid '+(esOk?'#16a34a':'#d1d5db')+';background:'+(esOk?'#16a34a':'transparent')+';color:'+(esOk?'#fff':'#9ca3af')+';font-size:14px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">\u2713</button>'
+        + '<button onclick="listaToggleEstado(\''+estadoKey+'\',\'falta\')" style="width:30px;height:30px;border-radius:50%;border:2px solid '+(esFalta?'#dc2626':'#d1d5db')+';background:'+(esFalta?'#dc2626':'transparent')+';color:'+(esFalta?'#fff':'#9ca3af')+';font-size:14px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">\u2715</button>'
         + '<span style="flex:1;font-size:14px;font-weight:500;'+(esOk?'text-decoration:line-through':'')+'">' +displayName+'</span>'
         + (costo>0?'<span style="font-size:13px;font-weight:700;color:var(--text2);white-space:nowrap">$'+subtotal.toLocaleString('es-AR')+'</span>':'')
         + '</div>';
@@ -7095,7 +7096,7 @@ function renderListaCompras() {
       + (totalProv>0?'<div style="font-size:14px;font-weight:800;color:var(--text)">$'+totalProv.toLocaleString('es-AR')+'</div>':'')
       + '<button onclick="listaOcultarProv(\''+pvId+'\')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:12px;color:var(--text3);cursor:pointer">Ocultar</button>'
       + '</div>'
-      + renderItems(items)
+      + renderItems(items, pvId)
       + '<div style="margin-top:10px">'
       + '<textarea id="nota-prov-'+pvId+'" placeholder="Notas para este proveedor..." onchange="listaNotaProv(\''+pvId+'\',this.value)" oninput="this.style.height=\'auto\';this.style.height=this.scrollHeight+\'px\';" style="width:100%;min-height:60px;resize:none;overflow:hidden;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;background:var(--surface);color:var(--text);font-family:Inter,sans-serif;box-sizing:border-box">'+notaProv+'</textarea>'
       + '<div style="display:flex;justify-content:flex-end;gap:6px;margin-top:4px">'
@@ -7112,7 +7113,7 @@ function renderListaCompras() {
       + '<div style="font-size:15px;font-weight:700;color:var(--text3)">\ud83d\udce6 Sin proveedor asignado</div>'
       + (totalSinProv>0?'<div style="font-size:15px;font-weight:800;color:var(--text)">$'+totalSinProv.toLocaleString('es-AR')+'</div>':'')
       + '</div>'
-      + renderItems(sinProv) + '</div>';
+      + renderItems(sinProv, 'sin') + '</div>';
   }
 
   const todosItems = Object.values(porProv).reduce(function(a,b){ return a.concat(b); },[]).concat(sinProv);
@@ -7125,12 +7126,13 @@ function renderListaCompras() {
     + '<div style="font-size:16px;font-weight:800;color:var(--text)">\ud83d\udcb0 Total estimado</div>'
     + '<div style="font-size:22px;font-weight:900;color:var(--accent)">$'+totalGeneral.toLocaleString('es-AR')+'</div>'
     + '</div>'
-    + '<div style="display:flex;gap:12px;font-size:13px;flex-wrap:wrap">'
+    + '<div style="display:flex;gap:12px;font-size:13px;flex-wrap:wrap;margin-bottom:10px">'
     + '<span style="color:var(--text3)">\ud83d\udccb '+totalItems+' productos</span>'
     + (comprados>0?'<span style="color:#16a34a">\u2713 '+comprados+' comprados</span>':'')
     + (noDisponibles>0?'<span style="color:#dc2626">\u2715 '+noDisponibles+' no disponibles</span>':'')
     + '</div>'
-    + '<div style="margin-top:10px;padding:8px;background:var(--surface2);border-radius:8px;text-align:center;font-size:12px;color:var(--text3)">'
+    + ((comprados+noDisponibles)>0?'<button onclick="if(S.listaCompras){S.listaCompras.estados={};try{save([\'listaCompras\']);}catch(e){}}renderListaCompras();" style="width:100%;background:none;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;color:var(--text3);cursor:pointer;margin-bottom:10px">\ud83e\uddf9 Limpiar tildes</button>':'')
+    + '<div style="padding:8px;background:var(--surface2);border-radius:8px;text-align:center;font-size:12px;color:var(--text3)">'
     + '\ud83d\udd11 Verificaci\u00f3n: <strong style="color:var(--text);font-size:14px">$'+totalGeneral.toLocaleString('es-AR')+' \u00b7 '+totalItems+' prod.</strong>'
     + '</div>'
     + '</div>';
