@@ -212,7 +212,18 @@
         const cfgSnap = await getDoc(v2config());
         const existing = cfgSnap.exists() ? cfgSnap.data() : {};
         const merged = {...existing, ...cfgUpdates};
-        CONFIG_FIELDS.forEach(f => { if(data[f] !== undefined) merged[f] = data[f]; });
+        CONFIG_FIELDS.forEach(f => {
+          if(data[f] !== undefined) {
+            if(f === 'listaCompras' && merged[f] && data[f]) {
+              const ex = merged[f], nv = data[f];
+              merged[f] = Object.assign({}, ex, nv, {
+                notas: Object.assign({}, ex.notas||{}, nv.notas||{}),
+                estados: Object.assign({}, ex.estados||{}, nv.estados||{}),
+                orden: Object.assign({}, ex.orden||{}, nv.orden||{})
+              });
+            } else { merged[f] = data[f]; }
+          }
+        });
         batches.push(setDoc(v2config(), cleanUndefined(merged)));
         _dirty.config = false;
       }
@@ -248,7 +259,18 @@
         const cfgSnap = await getDoc(v2config());
         const existing = cfgSnap.exists() ? cfgSnap.data() : {};
         const merged = {...existing};
-        CONFIG_FIELDS.forEach(f => { if(data[f] !== undefined) merged[f] = data[f]; });
+        CONFIG_FIELDS.forEach(f => {
+          if(data[f] !== undefined) {
+            if(f === 'listaCompras' && merged[f] && data[f]) {
+              const ex = merged[f], nv = data[f];
+              merged[f] = Object.assign({}, ex, nv, {
+                notas: Object.assign({}, ex.notas||{}, nv.notas||{}),
+                estados: Object.assign({}, ex.estados||{}, nv.estados||{}),
+                orden: Object.assign({}, ex.orden||{}, nv.orden||{})
+              });
+            } else { merged[f] = data[f]; }
+          }
+        });
         batches.push(setDoc(v2config(), cleanUndefined(merged)));
         _clearConfig = true;
       }
@@ -1047,7 +1069,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.83</strong> · 20/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.84</strong> · 20/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
