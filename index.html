@@ -888,8 +888,11 @@ select option{background:var(--surface2)}
     </div>
     <div id="comp-hist"><div class="empty"><div class="ei">&#128717;</div><h3>Sin compras</h3><p>Toca + para registrar una compra</p></div></div>
     <div id="comp-lista" style="display:none">
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button class="btn btn-ghost btn-full" style="flex:1" onclick="abrirSugeridor()">🔮 Sugerir pedido</button>
+        <button class="btn btn-ghost btn-full" style="flex:1" onclick="shareListaCompras()">&#128205; Compartir lista</button>
+      </div>
       <div id="lista-compras-content"></div>
-      <button class="btn btn-ghost btn-full" style="margin-top:10px" onclick="shareListaCompras()">&#128205; Compartir lista</button>
     </div>
     <div id="comp-comp" style="display:none">
       <div class="search-bar"><span style="color:var(--text3)">&#128269;</span><input type="text" placeholder="Buscar producto..." oninput="renderComp(this.value)"></div>
@@ -1072,7 +1075,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.87</strong> · 21/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.88</strong> · 21/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -6964,6 +6967,152 @@ function saveStockAjuste() {
 }
 
 // -- LISTA DE COMPRAS --
+function abrirSugeridor() {
+  let ov = document.getElementById('sugeridor-overlay');
+  if(!ov) {
+    ov = document.createElement('div');
+    ov.id = 'sugeridor-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;padding:0';
+    ov.onclick = function(e){ if(e.target===ov) ov.style.display='none'; };
+    document.body.appendChild(ov);
+  }
+  const provOptions = S.proveedores.map(function(pv){
+    return '<option value="'+pv.id+'">'+pv.name+'</option>';
+  }).join('');
+  ov.style.display = 'flex';
+  ov.innerHTML = '<div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:20px 16px 32px">'
+    + '<div style="font-size:17px;font-weight:800;margin-bottom:4px">🔮 Sugeridor de pedido</div>'
+    + '<div style="font-size:13px;color:var(--text3);margin-bottom:16px">Calculá qué necesitás comprar según tu ritmo de ventas</div>'
+    + '<div style="margin-bottom:12px">'
+    + '<label style="font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px">Proveedor</label>'
+    + '<select id="sug-prov" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:15px;background:var(--surface);color:var(--text)"><option value="">Elegir proveedor...</option>'+provOptions+'</select>'
+    + '</div>'
+    + '<div style="margin-bottom:16px">'
+    + '<label style="font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px">Días a cubrir</label>'
+    + '<div style="display:flex;gap:8px">'
+    + '<button onclick="document.getElementById(\'sug-dias\').value=7" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;background:var(--surface2)">7 días</button>'
+    + '<button onclick="document.getElementById(\'sug-dias\').value=15" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;background:var(--surface2)">15 días</button>'
+    + '<button onclick="document.getElementById(\'sug-dias\').value=30" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;background:var(--surface2)">30 días</button>'
+    + '<input id="sug-dias" type="number" min="1" max="90" placeholder="Días" value="15" style="width:70px;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:15px;text-align:center;background:var(--surface);color:var(--text)">'
+    + '</div>'
+    + '</div>'
+    + '<button onclick="calcularSugeridor()" style="width:100%;background:linear-gradient(135deg,#1a3a6b,#3483fa);color:#fff;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:800;cursor:pointer;margin-bottom:8px">Calcular</button>'
+    + '<div id="sug-resultado" style="margin-top:14px"></div>'
+    + '<button onclick="document.getElementById(\'sugeridor-overlay\').style.display=\'none\'" style="width:100%;background:none;border:1px solid var(--border);border-radius:12px;padding:12px;font-size:14px;color:var(--text2);cursor:pointer;margin-top:8px">Cerrar</button>'
+    + '</div>';
+}
+
+function calcularSugeridor() {
+  const pvId = document.getElementById('sug-prov').value;
+  const dias = parseInt(document.getElementById('sug-dias').value)||15;
+  const resEl = document.getElementById('sug-resultado');
+
+  if(!pvId) { resEl.innerHTML = '<div style="color:var(--accent3);font-size:14px">Elegí un proveedor primero</div>'; return; }
+
+  // Productos de ese proveedor
+  const prods = S.products.filter(function(p){
+    return p.suppliers && p.suppliers.includes(pvId);
+  });
+  if(!prods.length) { resEl.innerHTML = '<div style="color:var(--text3);font-size:14px">No hay productos asignados a este proveedor</div>'; return; }
+
+  // Calcular ventas de los últimos 30 días
+  const hoy = new Date();
+  const hace30 = new Date(hoy); hace30.setDate(hace30.getDate()-30);
+  const hace30str = hace30.toISOString().slice(0,10);
+
+  const ventasProd = {};
+  S.invoices.forEach(function(inv) {
+    if(inv.type==='presupuesto') return;
+    if((inv.date||'')<hace30str) return;
+    (inv.items||[]).forEach(function(item){
+      const pid = item.prodId;
+      if(!pid) return;
+      ventasProd[pid] = (ventasProd[pid]||0) + (item.qty||0);
+    });
+  });
+
+  // Calcular sugerencia por producto
+  const sugerencias = [];
+  prods.forEach(function(p) {
+    const tieneVar = p.variantes && p.variantes.length > 0;
+    if(tieneVar) {
+      p.variantes.forEach(function(v) {
+        // Ventas de esta variante en 30 días
+        let ventasVar = 0;
+        S.invoices.forEach(function(inv){
+          if(inv.type==='presupuesto') return;
+          if((inv.date||'')<hace30str) return;
+          (inv.items||[]).forEach(function(item){
+            if(item.prodId===p.id && (item.variante||'')=== v) ventasVar += (item.qty||0);
+          });
+        });
+        const promDiario = ventasVar / 30;
+        const necesito = Math.ceil(promDiario * dias);
+        const stockActual = (p.stockVariantes||{})[v]||0;
+        const aComprar = Math.max(0, necesito - stockActual);
+        if(aComprar > 0 || necesito > 0) {
+          sugerencias.push({
+            name: p.name+' ('+v+')',
+            promDiario, necesito, stockActual, aComprar, costo: p.cost||0
+          });
+        }
+      });
+    } else {
+      const ventasMes = ventasProd[p.id]||0;
+      const promDiario = ventasMes / 30;
+      const necesito = Math.ceil(promDiario * dias);
+      const stockActual = p.stock||0;
+      const aComprar = Math.max(0, necesito - stockActual);
+      if(aComprar > 0 || necesito > 0) {
+        sugerencias.push({
+          name: p.name,
+          promDiario, necesito, stockActual, aComprar, costo: p.cost||0
+        });
+      }
+    }
+  });
+
+  const conCompra = sugerencias.filter(function(s){ return s.aComprar>0; });
+  const sinNecesidad = sugerencias.filter(function(s){ return s.aComprar<=0 && s.necesito>0; });
+  const sinMovimiento = prods.filter(function(p){ return !(ventasProd[p.id]||0) && !(p.variantes&&p.variantes.length); });
+
+  if(!sugerencias.length) {
+    resEl.innerHTML = '<div style="color:var(--text3);font-size:14px;text-align:center;padding:16px">Sin movimiento en los últimos 30 días para este proveedor</div>';
+    return;
+  }
+
+  const totalEstimado = conCompra.reduce(function(s,i){ return s+i.aComprar*i.costo; },0);
+
+  let html = '<div style="font-size:14px;font-weight:700;color:var(--accent);margin-bottom:10px">Para '+dias+' días necesitás:</div>';
+
+  if(conCompra.length) {
+    html += conCompra.map(function(s){
+      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">'
+        + '<div style="flex:1">'
+        + '<div style="font-size:14px;font-weight:600">'+s.name+'</div>'
+        + '<div style="font-size:12px;color:var(--text3)">'+s.promDiario.toFixed(1)+'/día · stock: '+s.stockActual+'</div>'
+        + '</div>'
+        + '<div style="text-align:right">'
+        + '<div style="font-size:16px;font-weight:800;color:var(--accent2)">'+s.aComprar+' u.</div>'
+        + (s.costo>0?'<div style="font-size:12px;color:var(--text3)">$'+(s.aComprar*s.costo).toLocaleString('es-AR')+'</div>':'')
+        + '</div>'
+        + '</div>';
+    }).join('');
+
+    if(totalEstimado>0) {
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;margin-top:4px;border-top:2px solid var(--accent)">'
+        + '<span style="font-size:15px;font-weight:800">Total estimado</span>'
+        + '<span style="font-size:18px;font-weight:900;color:var(--accent)">$'+totalEstimado.toLocaleString('es-AR')+'</span>'
+        + '</div>';
+    }
+  }
+
+  if(sinNecesidad.length) {
+    html += '<div style="font-size:12px;color:var(--text3);margin-top:10px">✓ Con stock suficiente: '+sinNecesidad.map(function(s){return s.name;}).join(', ')+'</div>';
+  }
+
+  resEl.innerHTML = html;
+}
 function borrarListaCompras() {
   if(!confirm('¿Borrar la lista de compras completa?')) return;
   S.listaCompras = null;
