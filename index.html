@@ -1075,7 +1075,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.88</strong> · 21/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.89</strong> · 21/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -6990,9 +6990,9 @@ function abrirSugeridor() {
     + '<div style="margin-bottom:16px">'
     + '<label style="font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px">Días a cubrir</label>'
     + '<div style="display:flex;gap:8px">'
-    + '<button onclick="document.getElementById(\'sug-dias\').value=7" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;background:var(--surface2)">7 días</button>'
-    + '<button onclick="document.getElementById(\'sug-dias\').value=15" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;background:var(--surface2)">15 días</button>'
-    + '<button onclick="document.getElementById(\'sug-dias\').value=30" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;background:var(--surface2)">30 días</button>'
+    + '<button id="sug-btn-7" onclick="document.getElementById(\'sug-dias\').value=7;document.querySelectorAll(\'.sug-dias-btn\').forEach(function(b){b.style.background=\'var(--surface2)\';b.style.color=\'var(--text)\'});this.style.background=\'#3483fa\';this.style.color=\'#fff\'" class="sug-dias-btn" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;background:var(--surface2)">7 días</button>'
+    + '<button id="sug-btn-15" onclick="document.getElementById(\'sug-dias\').value=15;document.querySelectorAll(\'.sug-dias-btn\').forEach(function(b){b.style.background=\'var(--surface2)\';b.style.color=\'var(--text)\'});this.style.background=\'#3483fa\';this.style.color=\'#fff\'" class="sug-dias-btn" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;background:#3483fa;color:#fff">15 días</button>'
+    + '<button id="sug-btn-30" onclick="document.getElementById(\'sug-dias\').value=30;document.querySelectorAll(\'.sug-dias-btn\').forEach(function(b){b.style.background=\'var(--surface2)\';b.style.color=\'var(--text)\'});this.style.background=\'#3483fa\';this.style.color=\'#fff\'" class="sug-dias-btn" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;background:var(--surface2)">30 días</button>'
     + '<input id="sug-dias" type="number" min="1" max="90" placeholder="Días" value="15" style="width:70px;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:15px;text-align:center;background:var(--surface);color:var(--text)">'
     + '</div>'
     + '</div>'
@@ -7112,6 +7112,52 @@ function calcularSugeridor() {
   }
 
   resEl.innerHTML = html;
+}
+function shareListaCompras() {
+  const el = document.getElementById('lista-compras-content');
+  if(!el || !el.innerText.trim()) { toast('La lista está vacía'); return; }
+  // Construir texto de la lista
+  let texto = '📋 Lista de compras Surtimar\n\n';
+  const estados = (S.listaCompras && S.listaCompras.estados) || {};
+  const porProv = {};
+  const sinProv = [];
+  S.products.forEach(function(p) {
+    const tieneVar = p.variantes && p.variantes.length > 0;
+    if (tieneVar) {
+      p.variantes.forEach(function(v) {
+        const sv = (p.stockVariantes||{})[v]||0;
+        if (sv >= 0) return;
+        const key = p.id+'|'+v;
+        const itemObj = {name:p.name+' ('+v+')', qty:Math.abs(sv), key};
+        const suppliers = p.suppliers && p.suppliers.length > 0 ? p.suppliers : null;
+        if (!suppliers) sinProv.push(itemObj);
+        else suppliers.forEach(function(pvId){ if(!porProv[pvId]) porProv[pvId]=[]; porProv[pvId].push(itemObj); });
+      });
+    } else {
+      if ((p.stock||0) >= 0) return;
+      const key = p.id;
+      const itemObj = {name:p.name, qty:Math.abs(p.stock||0), key};
+      const suppliers = p.suppliers && p.suppliers.length > 0 ? p.suppliers : null;
+      if (!suppliers) sinProv.push(itemObj);
+      else suppliers.forEach(function(pvId){ if(!porProv[pvId]) porProv[pvId]=[]; porProv[pvId].push(itemObj); });
+    }
+  });
+  Object.entries(porProv).forEach(function(entry) {
+    const pvId = entry[0], items = entry[1];
+    const pv = S.proveedores.find(function(x){ return x.id===pvId; });
+    texto += '📦 '+(pv?pv.name:pvId)+'\n';
+    items.forEach(function(i){ texto += '  • '+i.qty+' '+i.name+'\n'; });
+    texto += '\n';
+  });
+  if(sinProv.length) {
+    texto += '📦 Sin proveedor\n';
+    sinProv.forEach(function(i){ texto += '  • '+i.qty+' '+i.name+'\n'; });
+  }
+  if(navigator.share) {
+    navigator.share({text: texto}).catch(function(){});
+  } else {
+    navigator.clipboard.writeText(texto).then(function(){ toast('✓ Lista copiada'); }).catch(function(){ toast('No se pudo compartir'); });
+  }
 }
 function borrarListaCompras() {
   if(!confirm('¿Borrar la lista de compras completa?')) return;
