@@ -1075,7 +1075,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.91</strong> · 21/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.92</strong> · 22/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -4442,6 +4442,12 @@ function cartPlus(e, pid) {
   document.activeElement && document.activeElement.blur();
   const p = S.products.find(x=>x.id===pid);
   if(!p) return;
+  if(p.variantes && p.variantes.length > 0) {
+    toast('Este producto tiene variantes — elegí la cantidad desde la lista');
+    const el = document.querySelector('[data-pid="'+pid+'"]');
+    if(el) el.scrollIntoView({behavior:'smooth', block:'center'});
+    return;
+  }
   const existing = S.invItems.findIndex(i=>i.prodId===pid);
   if(existing >= 0) { S.invItems[existing].qty++; chkW(existing); }
   else { S.invItems.push({desc:p.name,qty:1,price:p.price,prodId:p.id,retailPrice:p.price,wholesalePrice:p.wholesalePrice||0,wholesaleQty:p.wholesaleQty||0}); chkW(S.invItems.length-1); }
@@ -4487,6 +4493,12 @@ function cartSetQtyById(pid, val) {
 function cartAddProduct(pid) {
   const p = S.products.find(x=>x.id===pid);
   if(!p) return;
+  if(p.variantes && p.variantes.length > 0) {
+    toast('Este producto tiene variantes — elegí la cantidad desde la lista');
+    const el = document.querySelector('[data-pid="'+pid+'"]');
+    if(el) el.scrollIntoView({behavior:'smooth', block:'center'});
+    return;
+  }
   const existing = S.invItems.findIndex(i=>i.prodId===pid);
   if(existing >= 0) { S.invItems[existing].qty++; chkW(existing); }
   else { S.invItems.push({desc:p.name,qty:1,price:p.price,prodId:p.id,retailPrice:p.price,wholesalePrice:p.wholesalePrice||0,wholesaleQty:p.wholesaleQty||0}); chkW(S.invItems.length-1); }
