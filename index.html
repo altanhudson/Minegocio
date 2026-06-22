@@ -1069,7 +1069,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.85</strong> · 21/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.86</strong> · 21/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -6957,18 +6957,78 @@ function listaConfirmarCompra(pvId) {
     return;
   }
 
-  // Confirmar
+  // Mostrar overlay de resumen en vez de confirm() de Android
   const total = compItems.reduce(function(s,i){ return s+i.qty*i.cost; },0);
-  const resumen = compItems.map(function(i){ return i.qty+' × '+i.name+(i.cost?' $'+i.cost:''); }).join('\n');
-  if(!confirm('Registrar compra en '+pv.name+':\n\n'+resumen+'\n\nTotal: $'+total.toLocaleString('es-AR'))) return;
+  let ov = document.getElementById('lista-compra-overlay');
+  if(!ov) {
+    ov = document.createElement('div');
+    ov.id = 'lista-compra-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;padding:0';
+    document.body.appendChild(ov);
+  }
+  ov.style.display = 'flex';
 
-  // Crear la compra
+  // Items extras que se pueden agregar (no en lista, manual)
+  window._listaCompraItems = compItems.slice();
+  window._listaCompraPvId = pvId;
+  window._listaCompraPvNombre = pv.name;
+
+  function renderOverlay() {
+    const tot = window._listaCompraItems.reduce(function(s,i){ return s+i.qty*i.cost; },0);
+    ov.innerHTML = '<div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:85vh;overflow-y:auto;padding:20px 16px 24px">'
+      + '<div style="font-size:17px;font-weight:800;margin-bottom:4px">Resumen de compra</div>'
+      + '<div style="font-size:14px;color:var(--accent);font-weight:600;margin-bottom:14px">' + window._listaCompraPvNombre + '</div>'
+      + window._listaCompraItems.map(function(item, idx) {
+          return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">'
+            + '<span style="flex:1;font-size:14px">' + item.name + '</span>'
+            + '<input type="number" value="'+item.qty+'" min="0" onchange="window._listaCompraItems['+idx+'].qty=parseFloat(this.value)||0" style="width:50px;text-align:center;font-size:14px;font-weight:700;border:1px solid var(--border);border-radius:8px;padding:4px;background:var(--surface2);color:var(--accent2)">'
+            + '<input type="number" value="'+(item.cost||'')+'" placeholder="$costo" onchange="window._listaCompraItems['+idx+'].cost=parseFloat(this.value)||0" style="width:70px;text-align:center;font-size:13px;border:1px solid var(--border);border-radius:8px;padding:4px;background:var(--surface2);color:var(--text3)">'
+            + '<button onclick="window._listaCompraItems.splice('+idx+',1);renderListaOverlay()" style="background:none;border:none;color:var(--accent3);font-size:16px;cursor:pointer">✕</button>'
+            + '</div>';
+        }).join('')
+      + '<div style="margin-top:12px;padding:6px 0;font-size:13px;color:var(--text3)">¿Compraste algo más?</div>'
+      + '<div style="display:flex;gap:8px;margin-bottom:14px">'
+      + '<input id="lista-extra-nombre" type="text" placeholder="Nombre del producto" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface);color:var(--text)">'
+      + '<input id="lista-extra-qty" type="number" placeholder="Cant" min="1" style="width:55px;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface);color:var(--text);text-align:center">'
+      + '<input id="lista-extra-cost" type="number" placeholder="$" min="0" style="width:65px;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface);color:var(--text);text-align:center">'
+      + '<button onclick="listaAgregarExtra()" style="background:var(--accent2);color:#fff;border:none;border-radius:8px;padding:8px 10px;font-size:13px;font-weight:700;cursor:pointer">+ Agregar</button>'
+      + '</div>'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">'
+      + '<span style="font-size:15px;font-weight:700">Total</span>'
+      + '<span style="font-size:20px;font-weight:900;color:var(--accent)">$'+tot.toLocaleString('es-AR')+'</span>'
+      + '</div>'
+      + '<button onclick="listaEjecutarCompra()" style="width:100%;background:#16a34a;color:#fff;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:800;cursor:pointer;margin-bottom:10px">\u2713 Confirmar compra</button>'
+      + '<button onclick="document.getElementById(\'lista-compra-overlay\').style.display=\'none\'" style="width:100%;background:none;border:1px solid var(--border);border-radius:12px;padding:12px;font-size:15px;color:var(--text2);cursor:pointer">Cancelar</button>'
+      + '</div>';
+  }
+  window.renderListaOverlay = renderOverlay;
+  renderOverlay();
+}
+
+function listaAgregarExtra() {
+  const nombre = (document.getElementById('lista-extra-nombre')||{}).value||'';
+  const qty = parseFloat((document.getElementById('lista-extra-qty')||{}).value)||0;
+  const cost = parseFloat((document.getElementById('lista-extra-cost')||{}).value)||0;
+  if(!nombre || qty<=0) { toast('Ingresá nombre y cantidad'); return; }
+  window._listaCompraItems.push({prodId:null, name:nombre, qty, cost});
+  document.getElementById('lista-extra-nombre').value='';
+  document.getElementById('lista-extra-qty').value='';
+  document.getElementById('lista-extra-cost').value='';
+  if(window.renderListaOverlay) window.renderListaOverlay();
+}
+
+function listaEjecutarCompra() {
+  const pvId = window._listaCompraPvId;
+  const pvNombre = window._listaCompraPvNombre;
+  const compItems = (window._listaCompraItems||[]).filter(function(i){ return i.qty>0; });
+  if(!compItems.length) { toast('Sin productos'); return; }
+  const total = compItems.reduce(function(s,i){ return s+i.qty*(i.cost||0); },0);
   const compId = 'COMP-'+String(S.nComp).padStart(4,'0')+'-'+Date.now().toString(36).slice(-4).toUpperCase();
   S.nComp++;
   const comp = {
     id: compId,
     provId: pvId,
-    provName: pv.name,
+    provName: pvNombre,
     date: localDateStr(),
     ts: Date.now(),
     ref: '',
@@ -6977,23 +7037,21 @@ function listaConfirmarCompra(pvId) {
     total,
     draft: false
   };
-
-  // Actualizar costos
+  // Actualizar costos de productos existentes
   compItems.forEach(function(item) {
+    if(!item.prodId) return;
     const p = S.products.find(x=>x.id===item.prodId);
-    if(p && item.cost>0) {
-      p.cost = item.cost;
-      try{_markDirty('products', p.id);}catch(e){}
-    }
+    if(p && item.cost>0) { p.cost=item.cost; try{_markDirty('products',p.id);}catch(e){} }
   });
-
   S.compras.unshift(comp);
-  try{_markDirty('compras', compId);}catch(e){}
+  try{_markDirty('compras',compId);}catch(e){}
   try{recalcAllStocks();recalcClientCredits();}catch(e){}
   try{renderProds();}catch(e){}
   try{updDash();}catch(e){}
   save(['compras','products','nComp']);
-  toast('✓ Compra registrada en '+pv.name);
+  const ov = document.getElementById('lista-compra-overlay');
+  if(ov) ov.style.display='none';
+  toast('✓ Compra registrada en '+pvNombre);
   renderListaCompras();
 }
 function listaOcultarProv(pvId) {
@@ -7054,14 +7112,40 @@ function listaDelProv(pvId) {
 function listaToggleEstado(prodId, estado) {
   if(!S.listaCompras) return;
   if(!S.listaCompras.estados) S.listaCompras.estados = {};
-  // Si ya tiene ese estado, lo saca (toggle)
   if(S.listaCompras.estados[prodId] === estado) {
     delete S.listaCompras.estados[prodId];
   } else {
     S.listaCompras.estados[prodId] = estado;
   }
   save(['listaCompras']);
-  renderListaCompras();
+  // Actualizar visualmente sin re-renderizar (para no pisar cantidades editadas)
+  const esOk = S.listaCompras.estados[prodId] === 'ok';
+  const esFalta = S.listaCompras.estados[prodId] === 'falta';
+  const inputId = 'lista-qty-'+prodId.replace(/[^a-zA-Z0-9]/g,'_');
+  const inp = document.getElementById(inputId);
+  if(inp) {
+    inp.style.borderColor = esOk ? '#16a34a' : 'var(--border)';
+    inp.style.background = esOk ? 'rgba(22,163,74,.08)' : 'var(--surface)';
+    inp.style.color = esOk ? '#16a34a' : 'var(--accent2)';
+  }
+  // Actualizar botones ✓ y ✕
+  const row = inp ? inp.closest('div') : null;
+  if(row) {
+    const btns = row.querySelectorAll('button');
+    if(btns[0]) { // ✓
+      btns[0].style.borderColor = esOk ? '#16a34a' : '#d1d5db';
+      btns[0].style.background = esOk ? '#16a34a' : 'transparent';
+      btns[0].style.color = esOk ? '#fff' : '#9ca3af';
+    }
+    if(btns[1]) { // ✕
+      btns[1].style.borderColor = esFalta ? '#dc2626' : '#d1d5db';
+      btns[1].style.background = esFalta ? '#dc2626' : 'transparent';
+      btns[1].style.color = esFalta ? '#fff' : '#9ca3af';
+    }
+    row.style.opacity = esFalta ? '0.5' : '';
+    const nombre = row.querySelector('span[style*="flex:1"]');
+    if(nombre) nombre.style.textDecoration = '';
+  }
 }
 function listaEditQty(prodId, val) {
   const qty = parseInt(val);
