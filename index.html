@@ -1075,7 +1075,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.90</strong> · 21/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.91</strong> · 21/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -7105,6 +7105,13 @@ function calcularSugeridor() {
         + '<span style="font-size:18px;font-weight:900;color:var(--accent)">$'+totalEstimado.toLocaleString('es-AR')+'</span>'
         + '</div>';
     }
+
+  // Botón copiar
+  const pvNombre = (S.proveedores.find(function(p){return p.id===pvId;})||{}).name||pvId;
+  const textoParaCopiar = 'Pedido '+pvNombre+' ('+dias+' días):\n'
+    + conCompra.map(function(s){ return '• '+s.aComprar+' '+s.name; }).join('\n')
+    + (totalEstimado>0?'\nTotal est.: $'+totalEstimado.toLocaleString('es-AR'):'');
+  html += '<button onclick="navigator.clipboard.writeText('+JSON.stringify(textoParaCopiar)+').then(function(){var t=document.createElement(\'div\');t.textContent=\'✓ Copiado\';t.style.cssText=\'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#16a34a;color:#fff;padding:8px 20px;border-radius:20px;font-weight:700;z-index:99999\';document.body.appendChild(t);setTimeout(function(){t.remove();},2000);})" style="width:100%;background:none;border:1px solid var(--border);border-radius:10px;padding:10px;font-size:14px;font-weight:600;color:var(--text2);cursor:pointer;margin-top:8px">📋 Copiar resultado</button>';
   }
 
   if(sinNecesidad.length) {
@@ -7577,7 +7584,7 @@ function renderListaCompras() {
       + '<div style="font-size:15px;font-weight:700;color:#fff;flex:1">\ud83d\udce6 '+(pv?pv.name:pvId)+'</div>'
       + (totalProv>0?'<div style="font-size:13px;font-weight:800;color:#bfdbfe">$'+totalProv.toLocaleString('es-AR')+'</div>':'')
       + '<button onclick="listaConfirmarCompra(\''+pvId+'\')" style="background:rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">\u2713 Comprar</button>'
-      + '<button onclick="listaOcultarProv(\''+pvId+'\')" style="background:rgba(255,255,255,.15);border:none;color:rgba(255,255,255,.7);border-radius:8px;padding:6px 8px;font-size:11px;cursor:pointer;flex-shrink:0">Ocultar</button>'
+      + '<button onclick="listaOcultarProv(\''+pvId+'\')" style="background:rgba(255,255,255,.15);border:none;color:rgba(255,255,255,.7);border-radius:8px;padding:6px 8px;font-size:11px;cursor:pointer;flex-shrink:0">'+items.length+' prod.</button>'
       + '</div>'
       + '<div style="padding:10px 14px">'
       + renderItems(items, pvId)
