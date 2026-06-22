@@ -699,7 +699,10 @@ select option{background:var(--surface2)}
         <div style="font-size:13px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.5px" id="nc-footer-items">0 productos</div>
         <div style="font-family:Inter,sans-serif;font-size:22px;font-weight:800;color:#fff" id="nc-footer-total">$0</div>
       </div>
-      <button onclick="ncVerResumen()" style="background:#fff;color:var(--accent2);border:none;border-radius:12px;padding:12px 22px;font-size:15px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif">Ver resumen →</button>
+      <div style="display:flex;gap:8px">
+        <button onclick="ncItemRapido()" style="background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:12px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif">+ Ítem</button>
+        <button onclick="ncVerResumen()" style="background:#fff;color:var(--accent2);border:none;border-radius:12px;padding:12px 22px;font-size:15px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif">Ver resumen →</button>
+      </div>
     </div>
   </div>
 
@@ -1069,7 +1072,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.86</strong> · 21/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.87</strong> · 21/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -4206,6 +4209,68 @@ function ncUpdateFooter() {
   if(ft) ft.textContent = '$'+total.toFixed(0);
 }
 
+function ncItemRapido() {
+  let ov = document.getElementById('nc-item-rapido-overlay');
+  if(!ov) {
+    ov = document.createElement('div');
+    ov.id = 'nc-item-rapido-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:20px';
+    ov.onclick = function(e){ if(e.target===ov) ov.style.display='none'; };
+    document.body.appendChild(ov);
+  }
+  ov.style.display = 'flex';
+  ov.innerHTML = '<div style="background:var(--surface);border-radius:16px;padding:20px;width:100%;max-width:340px">'
+    + '<div style="font-size:16px;font-weight:800;margin-bottom:14px">+ Ítem rápido</div>'
+    + '<div style="position:relative;margin-bottom:10px">'
+    + '<input id="ncir-nombre" type="text" placeholder="Nombre del producto" oninput="ncirBuscar(this.value)" autocomplete="off" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:15px;background:var(--surface);color:var(--text);box-sizing:border-box">'
+    + '<div id="ncir-sugs" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;z-index:10;max-height:160px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.15)"></div>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;margin-bottom:14px">'
+    + '<input id="ncir-qty" type="number" placeholder="Cantidad" min="0" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:15px;background:var(--surface);color:var(--text);text-align:center">'
+    + '<input id="ncir-cost" type="number" placeholder="$Costo" min="0" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:15px;background:var(--surface);color:var(--text);text-align:center">'
+    + '</div>'
+    + '<button onclick="ncirAgregar()" style="width:100%;background:var(--accent2);color:#fff;border:none;border-radius:10px;padding:12px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:8px">+ Agregar a la compra</button>'
+    + '<button onclick="document.getElementById(\'nc-item-rapido-overlay\').style.display=\'none\'" style="width:100%;background:none;border:1px solid var(--border);border-radius:10px;padding:10px;font-size:14px;color:var(--text2);cursor:pointer">Cancelar</button>'
+    + '</div>';
+  setTimeout(function(){ const el=document.getElementById('ncir-nombre'); if(el) el.focus(); },100);
+}
+function ncirBuscar(q) {
+  const sugs = document.getElementById('ncir-sugs');
+  if(!sugs) return;
+  window._ncirProdId = null;
+  if(!q || q.length < 2) { sugs.style.display='none'; return; }
+  const ql = q.toLowerCase();
+  const matches = S.products.filter(function(p){ return p.name.toLowerCase().includes(ql); }).slice(0,8);
+  if(!matches.length) { sugs.style.display='none'; return; }
+  sugs.style.display = 'block';
+  sugs.innerHTML = matches.map(function(p){
+    return '<div onclick="ncirSeleccionar(\''+p.id+'\',\''+p.name.replace(/'/g,"\\'")+'\','+(p.cost||0)+')" style="padding:10px 12px;font-size:14px;cursor:pointer;border-bottom:1px solid var(--border)">'
+      + '<span style="font-weight:600">'+p.name+'</span>'
+      + (p.cost?'<span style="font-size:12px;color:var(--text3);margin-left:8px">costo $'+p.cost+'</span>':'')
+      + '</div>';
+  }).join('');
+}
+function ncirSeleccionar(prodId, nombre, costo) {
+  window._ncirProdId = prodId;
+  const inp = document.getElementById('ncir-nombre');
+  if(inp) inp.value = nombre;
+  const costInp = document.getElementById('ncir-cost');
+  if(costInp && costo) costInp.value = costo;
+  const sugs = document.getElementById('ncir-sugs');
+  if(sugs) sugs.style.display = 'none';
+}
+function ncirAgregar() {
+  const nombre = (document.getElementById('ncir-nombre')||{}).value||'';
+  const qty = parseFloat((document.getElementById('ncir-qty')||{}).value)||0;
+  const cost = parseFloat((document.getElementById('ncir-cost')||{}).value)||0;
+  if(!nombre || qty<=0) { toast('Ingresá nombre y cantidad'); return; }
+  const prodId = window._ncirProdId || null;
+  const key = prodId ? prodId : ('LIBRE-'+Date.now());
+  ncItems[key] = {qty, cost, nombre};
+  ncUpdateFooter();
+  document.getElementById('nc-item-rapido-overlay').style.display='none';
+  toast('✓ '+nombre+' agregado');
+}
 function ncAgregarMas() { ncRenderList(''); }
 function ncVolverAEditar(fromOpen) {
   if(S.editId && !fromOpen) { showPage('compras'); S.editId=null; ncItems={}; return; }
@@ -4291,6 +4356,7 @@ async function ncSaveComp() {
   _savingComp = true;
   setTimeout(()=>{ _savingComp = false; }, 3000);
   const items = Object.entries(ncItems).filter(([key,item])=>{
+    if(key.startsWith('LIBRE-')) return item.qty>=0.01; // ítem libre siempre pasa
     const pid = key.split('|||')[0];
     return item.qty>=0.01 && S.products.find(p=>p.id===pid);
   });
@@ -4300,6 +4366,9 @@ async function ncSaveComp() {
   const prov = S.proveedores.find(p=>p.id===provId);
   const isDraft = document.getElementById('nc-draft').checked;
   const compItems = items.map(([key,item])=>{
+    if(key.startsWith('LIBRE-')) {
+      return {prodId:null, name:item.nombre||'Ítem libre', qty:item.qty, cost:item.cost||0};
+    }
     const parts = key.split('|||');
     const pid = parts[0];
     const variante = parts[1] || '';
@@ -6987,11 +7056,14 @@ function listaConfirmarCompra(pvId) {
             + '</div>';
         }).join('')
       + '<div style="margin-top:12px;padding:6px 0;font-size:13px;color:var(--text3)">¿Compraste algo más?</div>'
-      + '<div style="display:flex;gap:8px;margin-bottom:14px">'
-      + '<input id="lista-extra-nombre" type="text" placeholder="Nombre del producto" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface);color:var(--text)">'
+      + '<div style="position:relative;margin-bottom:14px">'
+      + '<div style="display:flex;gap:6px">'
+      + '<input id="lista-extra-nombre" type="text" placeholder="Buscar o escribir producto..." oninput="listaExtraBuscar(this.value)" autocomplete="off" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface);color:var(--text)">'
       + '<input id="lista-extra-qty" type="number" placeholder="Cant" min="1" style="width:55px;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface);color:var(--text);text-align:center">'
       + '<input id="lista-extra-cost" type="number" placeholder="$" min="0" style="width:65px;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface);color:var(--text);text-align:center">'
-      + '<button onclick="listaAgregarExtra()" style="background:var(--accent2);color:#fff;border:none;border-radius:8px;padding:8px 10px;font-size:13px;font-weight:700;cursor:pointer">+ Agregar</button>'
+      + '<button onclick="listaAgregarExtra()" style="background:var(--accent2);color:#fff;border:none;border-radius:8px;padding:8px 10px;font-size:13px;font-weight:700;cursor:pointer">+</button>'
+      + '</div>'
+      + '<div id="lista-extra-sugs" style="display:none;position:absolute;top:100%;left:0;right:80px;background:var(--surface);border:1px solid var(--border);border-radius:8px;z-index:100;max-height:160px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.15)"></div>'
       + '</div>'
       + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">'
       + '<span style="font-size:15px;font-weight:700">Total</span>'
@@ -7005,12 +7077,47 @@ function listaConfirmarCompra(pvId) {
   renderOverlay();
 }
 
+function listaExtraBuscar(q) {
+  const sugs = document.getElementById('lista-extra-sugs');
+  if(!sugs) return;
+  window._listaExtraProdId = null;
+  if(!q || q.length < 2) { sugs.style.display='none'; return; }
+  const ql = q.toLowerCase();
+  const matches = S.products.filter(function(p){ return p.name.toLowerCase().includes(ql); }).slice(0,8);
+  if(!matches.length) { sugs.style.display='none'; return; }
+  sugs.style.display = 'block';
+  sugs.innerHTML = matches.map(function(p){
+    return '<div onclick="listaExtraSeleccionar(\''+p.id+'\',\''+p.name.replace(/'/g,"\\'")+'\',' + (p.cost||0) + ')" style="padding:10px 12px;font-size:14px;cursor:pointer;border-bottom:1px solid var(--border)">'
+      + '<span style="font-weight:600">'+p.name+'</span>'
+      + (p.cost?'<span style="font-size:12px;color:var(--text3);margin-left:8px">$'+p.cost+'</span>':'')
+      + '</div>';
+  }).join('');
+}
+function listaExtraSeleccionar(prodId, nombre, costo) {
+  window._listaExtraProdId = prodId;
+  const inp = document.getElementById('lista-extra-nombre');
+  if(inp) inp.value = nombre;
+  const costInp = document.getElementById('lista-extra-cost');
+  if(costInp && costo) costInp.value = costo;
+  const sugs = document.getElementById('lista-extra-sugs');
+  if(sugs) sugs.style.display = 'none';
+}
 function listaAgregarExtra() {
   const nombre = (document.getElementById('lista-extra-nombre')||{}).value||'';
   const qty = parseFloat((document.getElementById('lista-extra-qty')||{}).value)||0;
   const cost = parseFloat((document.getElementById('lista-extra-cost')||{}).value)||0;
   if(!nombre || qty<=0) { toast('Ingresá nombre y cantidad'); return; }
-  window._listaCompraItems.push({prodId:null, name:nombre, qty, cost});
+  const prodId = window._listaExtraProdId || null;
+  const itemObj = {prodId, name:nombre, qty, cost};
+  // Si es producto del catálogo, buscar variante si la tiene
+  if(prodId) {
+    const p = S.products.find(function(x){ return x.id===prodId; });
+    if(p && p.variantes && p.variantes.length>0) {
+      toast('Este producto tiene variantes — especificá cuál en el nombre');
+    }
+  }
+  window._listaCompraItems.push(itemObj);
+  window._listaExtraProdId = null;
   document.getElementById('lista-extra-nombre').value='';
   document.getElementById('lista-extra-qty').value='';
   document.getElementById('lista-extra-cost').value='';
@@ -7269,23 +7376,22 @@ function renderListaCompras() {
     const totalProv = items.reduce(function(s,i){ return s+(i.qty*(i.prod.cost||0)); },0);
     const notaProv = notas[pvId] || '';
     const numOrden = orden[pvId] || '';
-    html += '<div style="background:var(--surface2);border-radius:var(--r);padding:14px;margin-bottom:12px">'
-      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
-      + '<input type="number" min="1" max="99" placeholder="#" value="'+numOrden+'" onchange="listaOrdenProv(\''+pvId+'\',this.value)" style="width:40px;text-align:center;font-size:14px;font-weight:800;border:1.5px solid var(--border);border-radius:8px;padding:4px;background:var(--surface);color:var(--accent2);flex-shrink:0">'
-      + '<div style="font-size:15px;font-weight:700;color:var(--accent);flex:1">\ud83d\udce6 '+(pv?pv.name:pvId)+'</div>'
-      + (totalProv>0?'<div style="font-size:13px;font-weight:800;color:var(--text)">$'+totalProv.toLocaleString('es-AR')+'</div>':'')
-      + '<button onclick="listaConfirmarCompra(\''+pvId+'\')" style="background:#16a34a;border:none;color:#fff;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">\u2713 Comprar</button>'
+    html += '<div style="background:var(--surface2);border-radius:var(--r);overflow:hidden;margin-bottom:12px">'
+      + '<div style="display:flex;align-items:center;gap:8px;padding:12px 14px;background:linear-gradient(135deg,#1a3a6b,#3483fa)">'
+      + '<input type="number" min="1" max="99" placeholder="#" value="'+numOrden+'" onchange="listaOrdenProv(\''+pvId+'\',this.value)" style="width:38px;text-align:center;font-size:13px;font-weight:800;border:1.5px solid rgba(255,255,255,.4);border-radius:7px;padding:3px;background:rgba(255,255,255,.15);color:#fff;flex-shrink:0">'
+      + '<div style="font-size:15px;font-weight:700;color:#fff;flex:1">\ud83d\udce6 '+(pv?pv.name:pvId)+'</div>'
+      + (totalProv>0?'<div style="font-size:13px;font-weight:800;color:#bfdbfe">$'+totalProv.toLocaleString('es-AR')+'</div>':'')
+      + '<button onclick="listaConfirmarCompra(\''+pvId+'\')" style="background:rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">\u2713 Comprar</button>'
+      + '<button onclick="listaOcultarProv(\''+pvId+'\')" style="background:rgba(255,255,255,.15);border:none;color:rgba(255,255,255,.7);border-radius:8px;padding:6px 8px;font-size:11px;cursor:pointer;flex-shrink:0">Ocultar</button>'
       + '</div>'
-      + '<div style="display:flex;justify-content:flex-end;margin-bottom:6px">'
-      + '<button onclick="listaOcultarProv(\''+pvId+'\')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:3px 8px;font-size:11px;color:var(--text3);cursor:pointer">Ocultar proveedor</button>'
-      + '</div>'
-      + '</div>'
+      + '<div style="padding:10px 14px">'
       + renderItems(items, pvId)
-      + '<textarea id="nota-prov-'+pvId+'" placeholder="Notas para este proveedor..." onchange="listaNotaProv(\''+pvId+'\',this.value)" oninput="this.style.height=\'auto\';this.style.height=this.scrollHeight+\'px\';" style="width:100%;min-height:60px;resize:none;overflow:hidden;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;background:var(--surface);color:var(--text);font-family:Inter,sans-serif;box-sizing:border-box">'+notaProv+'</textarea>'
+      + '<textarea id="nota-prov-'+pvId+'" placeholder="Notas para este proveedor..." onchange="listaNotaProv(\''+pvId+'\',this.value)" oninput="this.style.height=\'auto\';this.style.height=this.scrollHeight+\'px\';" style="width:100%;min-height:60px;resize:none;overflow:hidden;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;background:var(--surface);color:var(--text);font-family:Inter,sans-serif;box-sizing:border-box;margin-top:8px">'+notaProv+'</textarea>'
       + '<div style="display:flex;justify-content:flex-end;gap:6px;margin-top:4px">'
       + '<button onclick="listaNotaCopiar(\''+pvId+'\')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:12px;color:var(--text2);cursor:pointer">\ud83d\udccb Copiar</button>'
       + '<button onclick="listaNotaBorrar(\''+pvId+'\')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:12px;color:var(--text3);cursor:pointer">\u2715 Borrar nota</button>'
-      + '</div></div>'
+      + '</div>'
+      + '</div>'
       + '</div>';
   });
 
