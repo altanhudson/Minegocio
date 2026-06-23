@@ -1075,7 +1075,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.93</strong> · 22/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.94</strong> · 22/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -7544,21 +7544,17 @@ function renderListaCompras() {
     }
   });
 
-  // Limpiar estados de items que ya no están en la lista (salieron de negativo y volvieron)
-  let estadosModificados = false;
-  Object.keys(estados).forEach(function(k) {
-    // La key del estado tiene formato prodId|pvId — extraemos el prodId (parte antes del último |)
-    // pero la key del item es prodId o prodId|variante
-    // Comparamos si alguna keyActual está contenida en la key del estado
-    const keyItem = k.split('|').slice(0,-1).join('|') || k.split('|')[0];
-    if(!keysActuales.has(keyItem) && !keysActuales.has(k.split('|')[0])) {
-      delete estados[k];
-      estadosModificados = true;
-    }
-  });
-  if(estadosModificados && S.listaCompras) {
-    S.listaCompras.estados = estados;
-    try{save(['listaCompras']);}catch(e){}
+  // Limpiar estados de items que ya no están en la lista — solo en memoria, sin save
+  if(S.listaCompras && S.listaCompras.estados) {
+    Object.keys(S.listaCompras.estados).forEach(function(k) {
+      // key del estado: prodId|pvId. key del item: prodId o prodId|variante
+      // Si ninguna keyActual empieza con la primera parte de la key del estado, limpiar
+      const partes = k.split('|');
+      const prodPart = partes[0];
+      const varPart = partes.length > 2 ? partes[0]+'|'+partes[1] : null;
+      const estaEnLista = keysActuales.has(prodPart) || (varPart && keysActuales.has(varPart));
+      if(!estaEnLista) delete S.listaCompras.estados[k];
+    });
   }
 
   if (Object.keys(porProv).length === 0 && sinProv.length === 0) {
