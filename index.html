@@ -1075,7 +1075,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.95</strong> · 22/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.96</strong> · 22/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -3975,8 +3975,8 @@ function cartQtyChangeVar(input) {
   const existing = S.invItems.findIndex(i=>i.prodId===pid && (i.variante||'')===variante);
   if(qty > 0) {
     const usePrice = parseFloat(input.dataset.price)||p.price||0;
-    if(existing>=0) { S.invItems[existing].qty=qty; if(!S.invItems[existing].price) S.invItems[existing].price=usePrice; }
-    else { S.invItems.push({desc:p.name+' ('+variante+')',qty:qty,price:usePrice,prodId:p.id,variante:variante,retailPrice:usePrice,wholesalePrice:p.wholesalePrice||0,wholesaleQty:p.wholesaleQty||0}); }
+    if(existing>=0) { S.invItems[existing].qty=qty; if(!S.invItems[existing].price) S.invItems[existing].price=usePrice; chkW(existing); }
+    else { S.invItems.push({desc:p.name+' ('+variante+')',qty:qty,price:usePrice,prodId:p.id,variante:variante,retailPrice:usePrice,wholesalePrice:p.wholesalePrice||0,wholesaleQty:p.wholesaleQty||0}); chkW(S.invItems.length-1); }
   } else {
     if(existing>=0) S.invItems.splice(existing,1);
   }
