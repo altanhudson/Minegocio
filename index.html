@@ -1075,7 +1075,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.92</strong> · 22/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.93</strong> · 22/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -7517,6 +7517,7 @@ function renderListaCompras() {
   const notas = (S.listaCompras && S.listaCompras.notas) || {};
   const ocultos = (S.listaCompras && S.listaCompras.ocultos) || [];
   const orden = (S.listaCompras && S.listaCompras.orden) || {};
+  const keysActuales = new Set();
 
   S.products.forEach(function(p) {
     const tieneVar = p.variantes && p.variantes.length > 0;
@@ -7525,7 +7526,7 @@ function renderListaCompras() {
         const sv = (p.stockVariantes||{})[v]||0;
         if (sv >= 0) return;
         const key = p.id+'|'+v;
-        const qty = Math.abs(sv);
+        keysActuales.add(key);
         const itemObj = {prod:p, qty, prodId:key, displayName:p.name+' ('+v+')'};
         const suppliers = p.suppliers && p.suppliers.length > 0 ? p.suppliers : null;
         if (!suppliers) sinProv.push(itemObj);
@@ -7534,6 +7535,7 @@ function renderListaCompras() {
     } else {
       if ((p.stock||0) >= 0) return;
       const key = p.id;
+      keysActuales.add(key);
       const qty = Math.abs(p.stock||0);
       const itemObj = {prod:p, qty, prodId:key, displayName:p.name};
       const suppliers = p.suppliers && p.suppliers.length > 0 ? p.suppliers : null;
@@ -7541,6 +7543,23 @@ function renderListaCompras() {
       else suppliers.forEach(function(pvId){ if(!porProv[pvId]) porProv[pvId]=[]; porProv[pvId].push(itemObj); });
     }
   });
+
+  // Limpiar estados de items que ya no están en la lista (salieron de negativo y volvieron)
+  let estadosModificados = false;
+  Object.keys(estados).forEach(function(k) {
+    // La key del estado tiene formato prodId|pvId — extraemos el prodId (parte antes del último |)
+    // pero la key del item es prodId o prodId|variante
+    // Comparamos si alguna keyActual está contenida en la key del estado
+    const keyItem = k.split('|').slice(0,-1).join('|') || k.split('|')[0];
+    if(!keysActuales.has(keyItem) && !keysActuales.has(k.split('|')[0])) {
+      delete estados[k];
+      estadosModificados = true;
+    }
+  });
+  if(estadosModificados && S.listaCompras) {
+    S.listaCompras.estados = estados;
+    try{save(['listaCompras']);}catch(e){}
+  }
 
   if (Object.keys(porProv).length === 0 && sinProv.length === 0) {
     el.innerHTML = '<div class="empty"><div class="ei">\u2705</div><h3>Todo en orden</h3><p>No hay productos con stock negativo</p></div>';
