@@ -1075,7 +1075,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.97</strong> · 22/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.98</strong> · 22/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -7262,7 +7262,7 @@ function listaConfirmarCompra(pvId) {
       + '<div style="font-size:17px;font-weight:800;margin-bottom:4px">Resumen de compra</div>'
       + '<div style="font-size:14px;color:var(--accent);font-weight:600;margin-bottom:14px">' + window._listaCompraPvNombre + '</div>'
       + window._listaCompraItems.map(function(item, idx) {
-          return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">'
+          return '<div data-itemidx="'+idx+'" style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">'
             + '<span style="flex:1;font-size:14px">' + item.name + '</span>'
             + '<input type="number" value="'+item.qty+'" min="0" onchange="window._listaCompraItems['+idx+'].qty=parseFloat(this.value)||0" style="width:50px;text-align:center;font-size:14px;font-weight:700;border:1px solid var(--border);border-radius:8px;padding:4px;background:var(--surface2);color:var(--accent2)">'
             + '<input type="number" value="'+(item.cost||'')+'" placeholder="$costo" onchange="window._listaCompraItems['+idx+'].cost=parseFloat(this.value)||0" style="width:70px;text-align:center;font-size:13px;border:1px solid var(--border);border-radius:8px;padding:4px;background:var(--surface2);color:var(--text3)">'
@@ -7341,6 +7341,17 @@ function listaAgregarExtra() {
 function listaEjecutarCompra() {
   const pvId = window._listaCompraPvId;
   const pvNombre = window._listaCompraPvNombre;
+  // Leer valores actuales de los inputs del overlay (pueden haber sido editados)
+  const rows = document.querySelectorAll('#lista-compra-overlay [data-itemidx]');
+  rows.forEach(function(row) {
+    const idx = parseInt(row.dataset.itemidx);
+    const qtyInp = row.querySelector('input[type="number"]:first-of-type');
+    const costInp = row.querySelector('input[type="number"]:last-of-type');
+    if(window._listaCompraItems[idx]) {
+      if(qtyInp) window._listaCompraItems[idx].qty = parseFloat(qtyInp.value)||0;
+      if(costInp) window._listaCompraItems[idx].cost = parseFloat(costInp.value)||0;
+    }
+  });
   const compItems = (window._listaCompraItems||[]).filter(function(i){ return i.qty>0; });
   if(!compItems.length) { toast('Sin productos'); return; }
   const total = compItems.reduce(function(s,i){ return s+i.qty*(i.cost||0); },0);
