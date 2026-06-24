@@ -1075,7 +1075,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.98</strong> · 22/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.99</strong> · 24/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -7377,9 +7377,20 @@ function listaEjecutarCompra() {
   });
   S.compras.unshift(comp);
   try{_markDirty('compras',compId);}catch(e){}
+  // Limpiar cantidades guardadas de los productos comprados
+  if(S.listaCompras && S.listaCompras.cantidades) {
+    compItems.forEach(function(item) {
+      if(!item.prodId) return;
+      const key = item.variante ? item.prodId : item.prodId;
+      Object.keys(S.listaCompras.cantidades).forEach(function(k){
+        if(k.split('|')[0] === item.prodId) delete S.listaCompras.cantidades[k];
+      });
+    });
+  }
   try{recalcAllStocks();recalcClientCredits();}catch(e){}
   try{renderProds();}catch(e){}
   try{updDash();}catch(e){}
+  try{if(typeof renderComps==='function')renderComps();}catch(e){}
   save(['compras','products','nComp']);
   const ov = document.getElementById('lista-compra-overlay');
   if(ov) ov.style.display='none';
@@ -7457,6 +7468,14 @@ function listaDelProv(pvId) {
   save(['listaCompras']);
   renderListaCompras();
   toast('Proveedor eliminado de la lista');
+}
+function listaGuardarCantidad(estadoKey, val) {
+  if(!S.listaCompras) S.listaCompras = {};
+  if(!S.listaCompras.cantidades) S.listaCompras.cantidades = {};
+  const n = parseFloat(val);
+  if(isNaN(n) || n <= 0) delete S.listaCompras.cantidades[estadoKey];
+  else S.listaCompras.cantidades[estadoKey] = n;
+  // Solo memoria — no guardamos a Firebase para no interferir con el sync
 }
 function listaToggleEstado(prodId, estado) {
   if(!S.listaCompras) return;
@@ -7603,12 +7622,15 @@ function renderListaCompras() {
       const rowStyle = esFalta ? 'opacity:0.5;' : '';
       const inputId = 'lista-qty-'+estadoKey.replace(/[^a-zA-Z0-9]/g,'_');
       const costoId = 'lista-cost-'+estadoKey.replace(/[^a-zA-Z0-9]/g,'_');
+      // Usar cantidad guardada si existe, sino el déficit
+      const cantGuardada = (S.listaCompras && S.listaCompras.cantidades && S.listaCompras.cantidades[estadoKey]);
+      const qtyMostrar = (cantGuardada !== undefined && cantGuardada !== null) ? cantGuardada : qtyBase;
       return '<div style="display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid var(--border);'+rowStyle+'">'
-        + '<input id="'+inputId+'" type="number" inputmode="decimal" min="0" value="'+qtyBase+'" data-prodid="'+prodId+'" data-pvid="'+(pvId||'sin')+'" style="width:50px;text-align:center;font-size:15px;font-weight:800;border:1.5px solid '+(esOk?'#16a34a':'var(--border)')+';border-radius:8px;padding:4px;background:'+(esOk?'rgba(22,163,74,.08)':'var(--surface)')+';color:'+(esOk?'#16a34a':'var(--accent2)')+';flex-shrink:0">'
+        + '<input id="'+inputId+'" type="number" inputmode="decimal" min="0" value="'+qtyMostrar+'" data-prodid="'+prodId+'" data-pvid="'+(pvId||'sin')+'" onfocus="this.select()" onchange="listaGuardarCantidad(\''+estadoKey+'\',this.value)" style="width:50px;text-align:center;font-size:15px;font-weight:800;border:1.5px solid '+(esOk?'#16a34a':'var(--border)')+';border-radius:8px;padding:4px;background:'+(esOk?'rgba(22,163,74,.08)':'var(--surface)')+';color:'+(esOk?'#16a34a':'var(--accent2)')+';flex-shrink:0">'
         + '<button onclick="listaToggleEstado(\''+estadoKey+'\',\'ok\')" style="width:30px;height:30px;border-radius:50%;border:2px solid '+(esOk?'#16a34a':'#d1d5db')+';background:'+(esOk?'#16a34a':'transparent')+';color:'+(esOk?'#fff':'#9ca3af')+';font-size:14px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">\u2713</button>'
         + '<button onclick="listaToggleEstado(\''+estadoKey+'\',\'falta\')" style="width:30px;height:30px;border-radius:50%;border:2px solid '+(esFalta?'#dc2626':'#d1d5db')+';background:'+(esFalta?'#dc2626':'transparent')+';color:'+(esFalta?'#fff':'#9ca3af')+';font-size:14px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">\u2715</button>'
         + '<span style="flex:1;font-size:14px;font-weight:500;'+(esFalta?'text-decoration:line-through':'')+'">' +displayName+'</span>'
-        + '<input id="'+costoId+'" type="number" inputmode="decimal" min="0" placeholder="$costo" value="'+(costo||'')+'" data-prodid="'+prodId+'" style="width:72px;text-align:center;font-size:12px;border:1px solid var(--border);border-radius:8px;padding:3px;background:var(--surface2);color:var(--text3);flex-shrink:0">'
+        + '<input id="'+costoId+'" type="number" inputmode="decimal" min="0" placeholder="$costo" value="'+(costo||'')+'" data-prodid="'+prodId+'" onfocus="this.select()" style="width:72px;text-align:center;font-size:12px;border:1px solid var(--border);border-radius:8px;padding:3px;background:var(--surface2);color:var(--text3);flex-shrink:0">'
         + '</div>';
     }).join('');
   };
