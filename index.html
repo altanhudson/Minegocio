@@ -1075,7 +1075,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.96</strong> · 22/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.97</strong> · 22/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -7392,6 +7392,23 @@ function listaOrdenProv(pvId, num) {
   save(['listaCompras']);
   renderListaCompras();
 }
+function listaNotaGuardar(pvId) {
+  const el = document.getElementById('nota-prov-'+pvId);
+  if(!el) return;
+  const val = el.value;
+  if(!S.listaCompras) S.listaCompras = {};
+  if(!S.listaCompras.notas) S.listaCompras.notas = {};
+  S.listaCompras.notas[pvId] = val;
+  save(['listaCompras']);
+  // Feedback visual
+  const btn = document.getElementById('nota-btn-'+pvId);
+  if(btn) {
+    const orig = btn.textContent;
+    btn.textContent = '✓ Anotado';
+    btn.style.background = '#16a34a';
+    setTimeout(function(){ btn.textContent = orig; btn.style.background = 'var(--accent2)'; }, 2000);
+  }
+}
 function listaNotaProv(pvId, val) {
   if(!S.listaCompras) return;
   if(!S.listaCompras.notas) S.listaCompras.notas = {};
@@ -7616,10 +7633,11 @@ function renderListaCompras() {
       + '</div>'
       + '<div style="padding:10px 14px">'
       + renderItems(items, pvId)
-      + '<textarea id="nota-prov-'+pvId+'" placeholder="Notas para este proveedor..." onchange="listaNotaProv(\''+pvId+'\',this.value)" oninput="this.style.height=\'auto\';this.style.height=this.scrollHeight+\'px\';" style="width:100%;min-height:60px;resize:none;overflow:hidden;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;background:var(--surface);color:var(--text);font-family:Inter,sans-serif;box-sizing:border-box;margin-top:8px">'+notaProv+'</textarea>'
+      + '<textarea id="nota-prov-'+pvId+'" placeholder="Notas para este proveedor..." oninput="this.style.height=\'auto\';this.style.height=this.scrollHeight+\'px\';" style="width:100%;min-height:60px;resize:none;overflow:hidden;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;font-weight:700;background:var(--surface);color:var(--text);font-family:Inter,sans-serif;box-sizing:border-box;margin-top:8px">'+notaProv+'</textarea>'
       + '<div style="display:flex;justify-content:flex-end;gap:6px;margin-top:4px">'
+      + '<button onclick="listaNotaGuardar(\''+pvId+'\')" style="background:var(--accent2);border:none;border-radius:8px;padding:4px 12px;font-size:12px;font-weight:700;color:#fff;cursor:pointer" id="nota-btn-'+pvId+'">Anotar</button>'
       + '<button onclick="listaNotaCopiar(\''+pvId+'\')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:12px;color:var(--text2);cursor:pointer">\ud83d\udccb Copiar</button>'
-      + '<button onclick="listaNotaBorrar(\''+pvId+'\')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:12px;color:var(--text3);cursor:pointer">\u2715 Borrar nota</button>'
+      + '<button onclick="listaNotaBorrar(\''+pvId+'\')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:12px;color:var(--text3);cursor:pointer">\u2715 Borrar</button>'
       + '</div>'
       + '</div>'
       + '</div>';
