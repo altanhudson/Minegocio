@@ -593,14 +593,18 @@ select option{background:var(--surface2)}
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
       <button onclick="showPage('dashboard')" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:16px;cursor:pointer">←</button>
       <h2 style="font-size:18px;font-weight:800;margin:0">📊 Estadísticas</h2>
-      <select id="est-periodo" onchange="renderEstadisticas()" style="margin-left:auto;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 10px;font-size:14px;font-family:inherit;cursor:pointer;outline:none">
+      <select id="est-periodo" onchange="onEstPeriodoChange()" style="margin-left:auto;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 10px;font-size:14px;font-family:inherit;cursor:pointer;outline:none">
         <option value="hoy">Hoy</option>
         <option value="semana">Esta semana</option>
         <option value="mes" selected>Este mes</option>
         <option value="trim">Este trimestre</option>
         <option value="año">Este año</option>
         <option value="todo">Todo</option>
+        <option value="mes-especifico">Mes específico...</option>
       </select>
+    </div>
+    <div id="est-mes-especifico-wrap" style="display:none;margin-bottom:12px">
+      <input type="month" id="est-mes-input" onchange="renderEstadisticas()" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface2);color:var(--text);font-family:inherit;box-sizing:border-box">
     </div>
     <!-- Tabs -->
     <div style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-bottom:14px;padding-bottom:2px">
@@ -1075,7 +1079,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.99</strong> · 24/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.100</strong> · 24/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -1656,6 +1660,21 @@ function setEstTab(tab, el) {
   renderEstadisticas();
 }
 
+function onEstPeriodoChange() {
+  const val = document.getElementById('est-periodo').value;
+  const wrap = document.getElementById('est-mes-especifico-wrap');
+  if(wrap) wrap.style.display = val === 'mes-especifico' ? 'block' : 'none';
+  if(val !== 'mes-especifico') renderEstadisticas();
+  else {
+    // Pre-cargar con el mes anterior
+    const inp = document.getElementById('est-mes-input');
+    if(inp && !inp.value) {
+      const d = new Date(); d.setMonth(d.getMonth()-1);
+      inp.value = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    }
+    renderEstadisticas();
+  }
+}
 function getEstPeriodo() {
   const sel = document.getElementById('est-periodo');
   const val = sel ? sel.value : 'mes';
@@ -1667,16 +1686,40 @@ function getEstPeriodo() {
   if(val==='mes') return now.getFullYear()+'-'+pad(now.getMonth()+1)+'-01';
   if(val==='trim') { const d = new Date(now); d.setMonth(now.getMonth()-3); return toStr(d); }
   if(val==='año') return now.getFullYear()+'-01-01';
+  if(val==='mes-especifico') {
+    const inp = document.getElementById('est-mes-input');
+    if(inp && inp.value) return inp.value+'-01';
+    // Default: mes anterior
+    const d = new Date(); d.setMonth(d.getMonth()-1);
+    return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-01';
+  }
   return '2000-01-01';
 }
+// Función para obtener el fin del período (para mes específico)
+function getEstPeriodoFin() {
+  const sel = document.getElementById('est-periodo');
+  const val = sel ? sel.value : 'mes';
+  if(val==='mes-especifico') {
+    const inp = document.getElementById('est-mes-input');
+    const mesStr = (inp && inp.value) ? inp.value : (()=>{
+      const d = new Date(); d.setMonth(d.getMonth()-1);
+      return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    })();
+    // Último día del mes
+    const [y,m] = mesStr.split('-').map(Number);
+    const ultimo = new Date(y, m, 0);
+    return y+'-'+String(m).padStart(2,'0')+'-'+String(ultimo.getDate()).padStart(2,'0');
+  }
+  return '9999-12-31'; // sin fin para otros períodos
+}
 
-function estFiltrarInvs(desde) {
+function estFiltrarInvs(desde, hasta) {
+  hasta = hasta || '9999-12-31';
   return S.invoices.filter(i => {
     if(i.type==='presupuesto') return false;
-    // fecha puede venir como DD/MM/YYYY o YYYY-MM-DD
     const raw = i.date || '';
     const norm = raw.includes('/') ? raw.split('/').reverse().join('-') : raw;
-    return norm >= desde;
+    return norm >= desde && norm <= hasta;
   });
 }
 
@@ -1686,12 +1729,13 @@ function renderEstadisticas() {
   const cont = document.getElementById('est-content');
   if(!cont) return;
   const desde = getEstPeriodo();
-  const invs = estFiltrarInvs(desde);
+  const hasta = getEstPeriodoFin();
+  const invs = estFiltrarInvs(desde, hasta);
   const compras = (S.compras||[]).filter(c => {
     if(c.draft) return false;
     const raw = c.date || '';
     const norm = raw.includes('/') ? raw.split('/').reverse().join('-') : raw;
-    return norm >= desde;
+    return norm >= desde && norm <= hasta;
   });
 
   if(estTab==='ventas') renderEstVentas(cont, invs, compras);
@@ -8984,7 +9028,8 @@ async function tiendaConfirmar() {
   let cli = TC_CLI;
   if(!cli) {
     const color = '#'+Math.floor(Math.random()*0xffffff).toString(16).padStart(6,'0');
-    cli = {id:'CLI-WEB-'+Date.now(), name: TN+' (web)', phone: TC_PHONE, email:'', type:'minorista', color, credito:0};
+    const nombreVisitante = 'Visitante +549'+TC_PHONE.replace(/^549/,'').replace(/^0/,'');
+    cli = {id:'CLI-WEB-'+Date.now(), name: nombreVisitante, phone: TC_PHONE, email:'', type:'minorista', color, credito:0};
     S.clients.push(cli);
     S.nCli++;
     try{renderClis();}catch(e){}
