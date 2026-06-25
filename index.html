@@ -1079,7 +1079,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.100</strong> · 24/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.101</strong> · 25/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -8621,9 +8621,17 @@ function tiendaRender() {
     const ahora = Date.now();
     const unaSemana = 7 * 24 * 3600 * 1000;
     const nuevos = prods.filter(p => {
-      if(!p.visibleSince) return false;
-      return (ahora - new Date(p.visibleSince).getTime()) <= unaSemana;
-    }).sort(function(a,b){ return (b.visibleSince||'') < (a.visibleSince||'') ? -1 : 1; });
+      // Solo productos cuyo ID fue creado en los últimos 7 días
+      // Los IDs tienen formato PROD-TIMESTAMP o PROD-XXX-TIMESTAMP
+      const parts = (p.id||'').split('-');
+      const ts = parseInt(parts[parts.length-1]);
+      if(!ts || isNaN(ts) || ts < 1000000000000) return false; // no es timestamp válido
+      return (ahora - ts) <= unaSemana;
+    }).sort(function(a,b){
+      const tsA = parseInt((a.id||'').split('-').pop()) || 0;
+      const tsB = parseInt((b.id||'').split('-').pop()) || 0;
+      return tsB - tsA;
+    });
     if(nuevos.length) {
       html += '<div style="background:#f0fdf4;border-radius:16px;padding:0;border:1.5px solid #bbf7d0;margin-bottom:12px;overflow:hidden;box-shadow:0 2px 10px rgba(22,163,74,.08)">';
       html += '<div style="background:#16a34a;padding:10px 14px;font-size:14px;font-weight:800;color:#fff">🆕 Agregados recientemente</div>';
