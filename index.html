@@ -1079,7 +1079,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.102</strong> · 25/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.103</strong> · 25/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -5387,6 +5387,7 @@ function saveQPago() {
   }
   inv.aFavor = 0;
   inv.status = inv.saldo <= 0 ? 'pagada' : 'pendiente';
+  inv.updatedAt = Date.now(); // crítico para que el sync no pise con versión vieja
   if(!S.cobranzas) S.cobranzas = [];
   S.cobranzas.push({
     id: 'COB-'+Date.now(),
@@ -6553,6 +6554,8 @@ async function syncManual() {
         if(!local) return remote;
         const localTime = local.updatedAt ? new Date(local.updatedAt).getTime() : 0;
         const remoteTime = remote.updatedAt ? new Date(remote.updatedAt).getTime() : 0;
+        // Si ambos tienen updatedAt=0 (ninguno fue modificado recientemente), preferir local
+        if(localTime === 0 && remoteTime === 0) return local;
         return localTime > remoteTime ? local : remote;
       }).filter(Boolean);
     });
