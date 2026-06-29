@@ -568,6 +568,10 @@ select option{background:var(--surface2)}
         <div style="font-size:18px;font-weight:900;color:var(--accent2);font-family:Inter,sans-serif" id="dash-comp-hoy">$0</div>
       </div>
     </div>
+    <div class="card" style="padding:14px;text-align:center;margin-bottom:14px">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">💰 Valor del inventario</div>
+      <div style="font-size:22px;font-weight:900;color:var(--accent);font-family:Inter,sans-serif" id="dash-inv-valor">$0</div>
+    </div>
     <div class="card" style="cursor:pointer" onclick="showPage('estadisticas')">
       <div class="card-header"><span class="card-title">📊 Estadísticas</span><span style="font-size:12px;color:var(--text3)">Ver métricas detalladas →</span></div>
     </div>
@@ -1079,7 +1083,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.105</strong> · 26/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.106</strong> · 26/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -5052,12 +5056,12 @@ function renderInvDiaResumen() {
     +'</div>';
 }
 function unificarFacturasTienda(clientId, fecha) {
-  // Buscar facturas de tienda del mismo cliente y fecha
+  // Buscar facturas del mismo cliente y fecha (manuales y de tienda)
   const facts = S.invoices
-    .filter(i => i.clientId===clientId && i.date===fecha && (i.notes||'').includes('tienda online') && i.type!=='presupuesto' && i.status!=='cancelada')
-    .sort((a,b) => (a.ts||0)-(b.ts||0)); // orden cronológico: la más reciente gana
+    .filter(i => i.clientId===clientId && i.date===fecha && i.type!=='presupuesto' && i.status!=='cancelada')
+    .sort((a,b) => (a.ts||0)-(b.ts||0));
   if(facts.length < 2) { toast('No hay facturas para unificar'); return; }
-  if(!confirm('Unificar '+facts.length+' pedidos de tienda del mismo cliente en una sola factura?')) return;
+  if(!confirm('Unificar '+facts.length+' facturas del mismo cliente en una sola?')) return;
 
   // Construir ítems unificados: la factura más reciente pisa a las anteriores
   const itemMap = {}; // key: prodId+(variante||'') → item
@@ -5112,16 +5116,16 @@ function renderInvs() {
     let sep = '';
     if(inv.date !== lastDate) {
       lastDate = inv.date;
-      // Detectar si hay 2+ facturas de tienda del mismo cliente en esta fecha
-      const facsTiendaHoy = list.filter(i => i.date===inv.date && (i.notes||'').includes('tienda online'));
+      // Detectar si hay 2+ facturas del mismo cliente en esta fecha (manual o tienda)
+      const facsHoy = list.filter(i => i.date===inv.date && i.type!=='presupuesto' && i.status!=='cancelada');
       const clientesConDuplicados = {};
-      facsTiendaHoy.forEach(i => {
+      facsHoy.forEach(i => {
         if(!clientesConDuplicados[i.clientId]) clientesConDuplicados[i.clientId] = {count:0, name:i.clientName};
         clientesConDuplicados[i.clientId].count++;
       });
       const duplicados = Object.entries(clientesConDuplicados).filter(([,v])=>v.count>=2);
       const unificarBtns = duplicados.map(([cid,v])=>
-        '<button onclick="unificarFacturasTienda(\''+cid+'\',\''+inv.date+'\')" style="background:#fff3cd;border:1px solid #f59e0b;color:#92400e;border-radius:8px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer;margin-left:6px">⚠️ Unificar pedidos de '+v.name.split(' ')[0]+'</button>'
+        '<button onclick="unificarFacturasTienda(\''+cid+'\',\''+inv.date+'\')" style="background:#fff3cd;border:1px solid #f59e0b;color:#92400e;border-radius:8px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer;margin-left:6px">⚠️ Unificar facturas de '+v.name.split(' ')[0]+'</button>'
       ).join('');
       sep = '<div style="display:flex;align-items:center;gap:8px;margin-top:'+(ii>0?'14':'0')+'px;margin-bottom:4px;flex-wrap:wrap"><div style="flex:1;height:1px;background:var(--border)"></div><span style="font-size:13px;font-weight:800;color:var(--text2);white-space:nowrap;background:var(--surface2);padding:3px 12px;border-radius:20px;border:1px solid var(--border)">'+fmtDay(inv.date)+'</span><div style="flex:1;height:1px;background:var(--border)"></div>'+(unificarBtns||'')+'</div>';
     }
@@ -5744,6 +5748,21 @@ function updDash() {
   const chEl = document.getElementById('dash-comp-hoy');
   if(fhEl) fhEl.textContent = '$'+Math.round(factHoy).toLocaleString('es-AR');
   if(chEl) chEl.textContent = '$'+Math.round(compHoy).toLocaleString('es-AR');
+  // Valor del inventario
+  const invEl = document.getElementById('dash-inv-valor');
+  if(invEl) {
+    const valorInv = S.products.reduce(function(s, p) {
+      const costo = p.cost || 0;
+      if(costo <= 0) return s;
+      const tieneVar = p.variantes && p.variantes.length > 0;
+      if(tieneVar) {
+        const sv = p.stockVariantes || {};
+        return s + Object.values(sv).reduce(function(sv2, q) { return sv2 + Math.max(0, q) * costo; }, 0);
+      }
+      return s + Math.max(0, p.stock || 0) * costo;
+    }, 0);
+    invEl.textContent = '$'+Math.round(valorInv).toLocaleString('es-AR');
+  }
   // Resumen día en facturas
   const dm = document.getElementById('dash-metricas');
   if(dm) dm.innerHTML = '';
@@ -8573,7 +8592,8 @@ function tiendaRender() {
           : '<div style="font-size:28px;margin-bottom:4px">'+(p.emoji||'📦')+'</div>';
         html += '<div style="font-size:12px;font-weight:600;margin-bottom:4px;line-height:1.3;color:#333">'+p.name+'</div>';
         if(prevPrice && prevPrice !== p.price) html += '<div style="font-size:11px;color:#999;text-decoration:line-through">$'+prevPrice.toFixed(0)+'</div>';
-        html += '<div style="font-size:16px;font-weight:800;color:#3483fa">$'+p.price.toFixed(0)+'</div>';
+        const precioOferta = (p.wholesalePrice && p.wholesalePrice > 0 && p.wholesalePrice < p.price) ? p.wholesalePrice : p.price;
+        html += '<div style="font-size:16px;font-weight:800;color:#3483fa">$'+precioOferta.toFixed(0)+'</div>';
         html += qty===0
           ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="margin-top:8px;width:100%;background:#3483fa;color:#fff;border:none;border-radius:8px;padding:6px;font-weight:700;font-size:12px;cursor:pointer">Agregar</button>'
           : '<div style="margin-top:8px;display:flex;align-items:center;justify-content:center;gap:6px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#eef0f5;color:#3483fa;border:none;border-radius:6px;width:28px;height:28px;font-size:16px;cursor:pointer;font-weight:700">−</button><span style="font-weight:700;color:#333">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:6px;width:28px;height:28px;font-size:16px;cursor:pointer;font-weight:700">+</button></div>';
