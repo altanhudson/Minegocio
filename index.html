@@ -48,7 +48,7 @@
   // Dos dispositivos nunca pueden pisarse porque escriben documentos distintos.
 
   const COLS = ['products','invoices','clients','compras','proveedores','cobranzas','ajustes','listacompras'];
-  const CONFIG_FIELDS = ['nInv','nCli','nProd','nComp','nProv','nGrupo','gruposMay','tiendaModo','banners'];
+  const CONFIG_FIELDS = ['nInv','nCli','nProd','nComp','nProv','nGrupo','gruposMay','tiendaModo','banners','config'];
   const V2_PREFIX = 'v2'; // prefijo para colecciones nuevas
   const colLegacy = name => doc(db, 'collections', name); // colección vieja (solo lectura)
 
@@ -1083,7 +1083,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.108</strong> · 26/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.109</strong> · 26/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -1483,7 +1483,7 @@ const S = {
   invItems:[], compItems:[], photo:null,
   nInv:1, nCli:1, nProd:601, nComp:1, nProv:1, nGrupo:1,
   excludedCats:['cigarrillos','cigarrillo','tabaco'],
-  banners:[], listacompras:[],
+  banners:[], listacompras:[], config:{},
 };
 const SK = 'mneg_v2';
 
@@ -2355,9 +2355,8 @@ function saveCfgFormatoFactura(fmt) {
 function saveCfgHorarioCorte(val) {
   S.config = S.config||{};
   S.config.horarioCorte = val;
-  try{ window._dirty = window._dirty||{}; window._dirty.config = true; }catch(e){}
+  try{ _markDirty('config'); }catch(e){}
   try{save(['config']);}catch(e){}
-  // Subir inmediatamente a Firebase
   try{ if(typeof window._fbSaveDirty === 'function') window._fbSaveDirty(S); }catch(e){}
   toast('Horario de corte guardado: '+val);
 }
