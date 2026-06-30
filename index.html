@@ -47,8 +47,8 @@
   // Cada registro es su propio documento en Firestore.
   // Dos dispositivos nunca pueden pisarse porque escriben documentos distintos.
 
-  const COLS = ['products','invoices','clients','compras','proveedores','cobranzas','ajustes'];
-  const CONFIG_FIELDS = ['nInv','nCli','nProd','nComp','nProv','nGrupo','listaCompras','gruposMay','tiendaModo','banners'];
+  const COLS = ['products','invoices','clients','compras','proveedores','cobranzas','ajustes','listacompras'];
+  const CONFIG_FIELDS = ['nInv','nCli','nProd','nComp','nProv','nGrupo','gruposMay','tiendaModo','banners'];
   const V2_PREFIX = 'v2'; // prefijo para colecciones nuevas
   const colLegacy = name => doc(db, 'collections', name); // colección vieja (solo lectura)
 
@@ -71,7 +71,7 @@
   const _dirty = {
     products: new Set(), invoices: new Set(), clients: new Set(),
     compras: new Set(), proveedores: new Set(), cobranzas: new Set(),
-    ajustes: new Set(), config: false
+    ajustes: new Set(), listacompras: new Set(), config: false
   };
   window._markDirty = function(col, id) {
     if(col === 'config') { _dirty.config = true; }
@@ -1083,7 +1083,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.106</strong> · 26/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.108</strong> · 26/06/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -1483,7 +1483,7 @@ const S = {
   invItems:[], compItems:[], photo:null,
   nInv:1, nCli:1, nProd:601, nComp:1, nProv:1, nGrupo:1,
   excludedCats:['cigarrillos','cigarrillo','tabaco'],
-  banners:[],
+  banners:[], listacompras:[],
 };
 const SK = 'mneg_v2';
 
@@ -2355,8 +2355,10 @@ function saveCfgFormatoFactura(fmt) {
 function saveCfgHorarioCorte(val) {
   S.config = S.config||{};
   S.config.horarioCorte = val;
-  try{_markDirty('config','main');}catch(e){}
+  try{ window._dirty = window._dirty||{}; window._dirty.config = true; }catch(e){}
   try{save(['config']);}catch(e){}
+  // Subir inmediatamente a Firebase
+  try{ if(typeof window._fbSaveDirty === 'function') window._fbSaveDirty(S); }catch(e){}
   toast('Horario de corte guardado: '+val);
 }
 function tiendaFechaFactura() {
@@ -6506,6 +6508,17 @@ async function initApp() {
 
   // Badge de sync pendiente: mostrar si hay datos locales más nuevos que Firebase
   _syncMarkDirty(false); // al iniciar no hay cambios pendientes
+  // Reconstruir S.listaCompras (objeto UI) desde S.listacompras (colección)
+  try {
+    const lcDoc = (S.listacompras||[]).find(function(d){ return d && d.id==='main'; });
+    if(lcDoc) {
+      S.listaCompras = {
+        notas: lcDoc.notas||{}, estados: lcDoc.estados||{},
+        cantidades: lcDoc.cantidades||{}, orden: lcDoc.orden||{},
+        ocultos: lcDoc.ocultos||[], updatedAt: lcDoc.updatedAt
+      };
+    }
+  } catch(e) {}
   try { recalcAllStocks(); recalcClientCredits(); } catch(e) { console.error('recalc error:', e); }
   try { updTiendaModoUI(); } catch(e) {}
 }
@@ -6565,7 +6578,7 @@ async function syncManual() {
     S.editId = null;
 
     // 3. Merge inteligente
-    const _COLS = ['products','invoices','clients','compras','proveedores','cobranzas','ajustes'];
+    const _COLS = ['products','invoices','clients','compras','proveedores','cobranzas','ajustes','listacompras'];
     _COLS.forEach(function(col) {
       if(!fbData[col]) return;
       const localById = {};
@@ -6581,6 +6594,17 @@ async function syncManual() {
     Object.keys(fbData).forEach(function(k){
       if(!_COLS.includes(k)) S[k] = fbData[k];
     });
+    // Sincronizar S.listaCompras (objeto usado por la UI) desde S.listacompras (colección)
+    try {
+      const lcDoc = (S.listacompras||[]).find(function(d){ return d && d.id==='main'; });
+      if(lcDoc) {
+        S.listaCompras = {
+          notas: lcDoc.notas||{}, estados: lcDoc.estados||{},
+          cantidades: lcDoc.cantidades||{}, orden: lcDoc.orden||{},
+          ocultos: lcDoc.ocultos||[], updatedAt: lcDoc.updatedAt
+        };
+      }
+    } catch(e) {}
 
     // 4. Guardar en localStorage — si falla (cuota llena) no es crítico
     try { localStorage.setItem(SK, JSON.stringify(fbData)); } catch(eLs) { console.warn('localStorage lleno:', eLs); }
@@ -7464,11 +7488,29 @@ function listaEjecutarCompra() {
   toast('✓ Compra registrada en '+pvNombre);
   renderListaCompras();
 }
+// Función central: sincroniza S.listaCompras → colección S.listacompras y marca dirty
+function _listaCompraGuardar() {
+  if(!S.listaCompras) S.listaCompras = {};
+  S.listaCompras.updatedAt = new Date().toISOString();
+  if(!Array.isArray(S.listacompras)) S.listacompras = [];
+  let doc = S.listacompras.find(function(d){ return d && d.id==='main'; });
+  if(!doc) { doc = {id:'main'}; S.listacompras.push(doc); }
+  doc.notas = S.listaCompras.notas||{};
+  doc.estados = S.listaCompras.estados||{};
+  doc.cantidades = S.listaCompras.cantidades||{};
+  doc.orden = S.listaCompras.orden||{};
+  doc.ocultos = S.listaCompras.ocultos||[];
+  doc.updatedAt = S.listaCompras.updatedAt;
+  try{ _markDirty('listacompras','main'); }catch(e){}
+  try{ save(['listacompras']); }catch(e){}
+  // Subir inmediatamente a Firebase para que el otro celular lo vea al sincronizar
+  try{ if(typeof window._fbSaveDirty === 'function') window._fbSaveDirty(S); }catch(e){}
+}
 function listaOcultarProv(pvId) {
   if(!S.listaCompras) S.listaCompras = {};
   if(!S.listaCompras.ocultos) S.listaCompras.ocultos = [];
   if(!S.listaCompras.ocultos.includes(pvId)) S.listaCompras.ocultos.push(pvId);
-  save(['listaCompras']);
+  _listaCompraGuardar();
   renderListaCompras();
   toast('Proveedor ocultado para esta sesión');
 }
@@ -7478,7 +7520,7 @@ function listaOrdenProv(pvId, num) {
   const n = parseInt(num);
   if(isNaN(n) || n <= 0) delete S.listaCompras.orden[pvId];
   else S.listaCompras.orden[pvId] = n;
-  save(['listaCompras']);
+  _listaCompraGuardar();
   renderListaCompras();
 }
 function listaNotaGuardar(pvId) {
@@ -7488,8 +7530,7 @@ function listaNotaGuardar(pvId) {
   if(!S.listaCompras) S.listaCompras = {};
   if(!S.listaCompras.notas) S.listaCompras.notas = {};
   S.listaCompras.notas[pvId] = val;
-  save(['listaCompras']);
-  // Feedback visual
+  _listaCompraGuardar();
   const btn = document.getElementById('nota-btn-'+pvId);
   if(btn) {
     const orig = btn.textContent;
@@ -7502,13 +7543,12 @@ function listaNotaProv(pvId, val) {
   if(!S.listaCompras) return;
   if(!S.listaCompras.notas) S.listaCompras.notas = {};
   S.listaCompras.notas[pvId] = val;
-  save(['listaCompras']);
+  _listaCompraGuardar();
 }
 function listaNotaCopiar(pvId) {
   const el = document.getElementById('nota-prov-'+pvId);
   if(!el || !el.value) { toast('No hay nota para copiar'); return; }
   navigator.clipboard.writeText(el.value).then(()=>toast('✓ Nota copiada')).catch(()=>{
-    // Fallback para Android
     el.select();
     document.execCommand('copy');
     toast('✓ Nota copiada');
@@ -7517,13 +7557,12 @@ function listaNotaCopiar(pvId) {
 function listaNotaBorrar(pvId) {
   if(!S.listaCompras || !S.listaCompras.notas) return;
   delete S.listaCompras.notas[pvId];
-  save(['listaCompras']);
+  _listaCompraGuardar();
   renderListaCompras();
 }
 function listaDelProv(pvId) {
   if(!S.listaCompras || !S.listaCompras.items) return;
   if(!confirm('¿Borrar todos los productos de este proveedor de la lista?')) return;
-  // Buscar todos los productos de ese proveedor y eliminarlos
   Object.keys(S.listaCompras.items).forEach(prodId => {
     const p = S.products.find(x=>x.id===prodId);
     if(p && p.suppliers && p.suppliers.includes(pvId)) {
@@ -7532,7 +7571,7 @@ function listaDelProv(pvId) {
     }
   });
   if(S.listaCompras.notas) delete S.listaCompras.notas[pvId];
-  save(['listaCompras']);
+  _listaCompraGuardar();
   renderListaCompras();
   toast('Proveedor eliminado de la lista');
 }
@@ -7542,7 +7581,7 @@ function listaGuardarCantidad(estadoKey, val) {
   const n = parseFloat(val);
   if(isNaN(n) || n <= 0) delete S.listaCompras.cantidades[estadoKey];
   else S.listaCompras.cantidades[estadoKey] = n;
-  // Solo memoria — no guardamos a Firebase para no interferir con el sync
+  _listaCompraGuardar();
 }
 function listaToggleEstado(prodId, estado) {
   if(!S.listaCompras) return;
@@ -7552,7 +7591,7 @@ function listaToggleEstado(prodId, estado) {
   } else {
     S.listaCompras.estados[prodId] = estado;
   }
-  save(['listaCompras']);
+  _listaCompraGuardar();
   // Actualizar visualmente sin re-renderizar (para no pisar cantidades editadas)
   const esOk = S.listaCompras.estados[prodId] === 'ok';
   const esFalta = S.listaCompras.estados[prodId] === 'falta';
@@ -7706,7 +7745,7 @@ function renderListaCompras() {
 
   if(ocultos.length > 0) {
     html += '<div style="text-align:center;margin-bottom:10px">'
-      + '<button onclick="if(S.listaCompras)S.listaCompras.ocultos=[];try{save([\'listaCompras\']);}catch(e){}renderListaCompras();" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 14px;font-size:13px;color:var(--text2);cursor:pointer">\ud83d\udc41\ufe0f Mostrar '+ocultos.length+' proveedor'+(ocultos.length>1?'es':'')+' oculto'+(ocultos.length>1?'s':'')+'</button>'
+      + '<button onclick="if(S.listaCompras)S.listaCompras.ocultos=[];_listaCompraGuardar();renderListaCompras();" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 14px;font-size:13px;color:var(--text2);cursor:pointer">\ud83d\udc41\ufe0f Mostrar '+ocultos.length+' proveedor'+(ocultos.length>1?'es':'')+' oculto'+(ocultos.length>1?'s':'')+'</button>'
       + '</div>';
   }
 
@@ -7768,7 +7807,7 @@ function renderListaCompras() {
     + (comprados>0?'<span style="color:#16a34a">\u2713 '+comprados+' comprados</span>':'')
     + (noDisponibles>0?'<span style="color:#dc2626">\u2715 '+noDisponibles+' no disponibles</span>':'')
     + '</div>'
-    + ((comprados+noDisponibles)>0?'<button onclick="if(S.listaCompras){S.listaCompras.estados={};try{save([\'listaCompras\']);}catch(e){}}renderListaCompras();" style="width:100%;background:none;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;color:var(--text3);cursor:pointer;margin-bottom:10px">\ud83e\uddf9 Limpiar tildes</button>':'')
+    + ((comprados+noDisponibles)>0?'<button onclick="if(S.listaCompras){S.listaCompras.estados={};_listaCompraGuardar();}renderListaCompras();" style="width:100%;background:none;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;color:var(--text3);cursor:pointer;margin-bottom:10px">\ud83e\uddf9 Limpiar tildes</button>':'')
     + '<div style="padding:8px;background:var(--surface2);border-radius:8px;text-align:center;font-size:12px;color:var(--text3)">'
     + '\ud83d\udd11 Verificaci\u00f3n: <strong style="color:var(--text);font-size:14px">$'+totalGeneral.toLocaleString('es-AR')+' \u00b7 '+totalItems+' prod.</strong>'
     + '</div>'
