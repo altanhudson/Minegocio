@@ -1083,7 +1083,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.109</strong> · 26/06/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.110</strong> · 02/07/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -5365,7 +5365,7 @@ function calcQPago() {
   document.getElementById('qp-result').innerHTML = html;
 }
 
-function saveQPago() {
+async function saveQPago() {
   const inv = S.invoices.find(i=>i.id===window._qpagoInvId);
   if(!inv) { toast('Error: factura no encontrada'); return; }
   const monto = parseFloat(document.getElementById('qp-monto').value)||0;
@@ -5408,8 +5408,10 @@ function saveQPago() {
   try{_markDirty('invoices', inv.id); if(inv.clientId) _markDirty('clients', inv.clientId); if(S.cobranzas && S.cobranzas.length) _markDirty('cobranzas', S.cobranzas[S.cobranzas.length-1].id);}catch(e){}
   try{renderInvs();}catch(e){} try{renderClis();}catch(e){} try{updDash();}catch(e){}
   try{save(['invoices','clients','cobranzas'], true);}catch(e){}
-  // Subir inmediatamente a Firebase sin esperar sync manual
-  try{ if(typeof window._fbSaveDirty === 'function') window._fbSaveDirty(S); }catch(e){}
+  // Esperar (await) que la subida termine ANTES de permitir el siguiente pago en cadena.
+  // Sin este await, un segundo pago podía dispararse mientras el primero seguía subiendo,
+  // y el _dirty.invoices.clear() del primero podía perder el tracking del segundo.
+  try{ if(typeof window._fbSaveDirty === 'function') await window._fbSaveDirty(S); }catch(e){}
   // Si la ficha del cliente está abierta, actualizarla
   if(typeof cliDetId !== 'undefined' && cliDetId === inv.clientId) {
     try{ verCliDetalle(cliDetId); }catch(e){}
