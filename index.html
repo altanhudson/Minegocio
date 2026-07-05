@@ -1083,7 +1083,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.111</strong> · 04/07/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.112</strong> · 04/07/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -6249,25 +6249,28 @@ function pagocliConfirm() {
 
     const aplicar = Math.min(restante, saldo);
     if (!inv.pagos) inv.pagos = [];
-    inv.pagos.push({ monto: aplicar, forma: 'efectivo', fecha: localDateStr() });
+    inv.pagos.push({ monto: aplicar, method: 'efectivo', date: localDateStr() });
     restante -= aplicar;
 
     const nuevoPagado = (inv.pagos).reduce((a, p) => a + p.monto, 0);
     if (nuevoPagado >= inv.total) { inv.status = 'pagada'; inv.saldo = 0; } else { inv.saldo = inv.total - nuevoPagado; }
+    inv.updatedAt = Date.now(); // crítico: sin esto el sync pisa la factura con la versión sin pagos
+    try{ _markDirty('invoices', inv.id); }catch(e){}
     facturasAct++;
   });
 
   // Si sobra, registrar crédito en el cliente
   if (restante > 0) {
     const cli = S.clients.find(c => c.id === pagocliSelected.id);
-    if (cli) cli.credito = (cli.credito || 0) + restante;
+    if (cli) { cli.credito = (cli.credito || 0) + restante; try{ _markDirty('clients', cli.id); }catch(e){} }
   }
 
   // Registrar cobranza global
   const method = document.getElementById('pagocli-method') ? document.getElementById('pagocli-method').value : 'efectivo';
   if(!S.cobranzas) S.cobranzas = [];
+  const cobId = 'COB-'+Date.now();
   S.cobranzas.push({
-    id: 'COB-'+Date.now(),
+    id: cobId,
     clientId: pagocliSelected.id,
     clientName: pagocliSelected.name,
     monto: monto,
@@ -6276,6 +6279,7 @@ function pagocliConfirm() {
     facturas: pendientes.slice(0, facturasAct).map(i=>i.id),
     aFavor: restante > 0 ? restante : 0
   });
+  try{ _markDirty('cobranzas', cobId); }catch(e){}
 
   save(['invoices','clients','cobranzas'], true);
   renderInvs();
@@ -6286,6 +6290,10 @@ function pagocliConfirm() {
   let msg = facturasAct + ' factura(s) actualizadas';
   if (restante > 0) msg += ' · $' + restante.toFixed(0) + ' a favor del cliente';
   toast(msg);
+
+  // Subir inmediatamente a Firebase — sin esto el pago solo existe en localStorage
+  // hasta el próximo sync manual, y en el medio otro celular puede pisarlo.
+  try{ if(typeof window._fbSaveDirty === 'function') window._fbSaveDirty(S); }catch(e){}
 }
 
 
