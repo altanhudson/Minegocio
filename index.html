@@ -875,12 +875,14 @@ select option{background:var(--surface2)}
   <div class="page" id="page-clientes">
     <div class="tabs" style="margin-bottom:12px">
       <div class="tab active" id="cli-tab-lista" onclick="swCliTab('lista',this)">Clientes</div>
+      <div class="tab" id="cli-tab-sugeridor" onclick="swCliTab('sugeridor',this)">📋 Sugeridor</div>
       <div class="tab" id="cli-tab-ranking" onclick="swCliTab('ranking',this)">🏆 Ranking</div>
     </div>
     <div id="cli-tab-lista-content">
       <div class="search-bar"><span style="color:var(--text3)">&#128269;</span><input type="text" id="cli-search" placeholder="Buscar cliente..." oninput="renderClis(this.value)"></div>
       <div id="cli-list"></div>
     </div>
+    <div id="cli-tab-sugeridor-content" style="display:none"></div>
     <div id="cli-tab-ranking-content" style="display:none"></div>
   </div>
 
@@ -1083,7 +1085,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.112</strong> · 04/07/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.113</strong> · 05/07/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -3367,8 +3369,10 @@ function swCliTab(tab, el) {
   document.querySelectorAll('#page-clientes .tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('cli-tab-lista-content').style.display = tab==='lista'?'':'none';
+  document.getElementById('cli-tab-sugeridor-content').style.display = tab==='sugeridor'?'':'none';
   document.getElementById('cli-tab-ranking-content').style.display = tab==='ranking'?'':'none';
   if(tab==='ranking') renderRanking();
+  if(tab==='sugeridor') renderCliSugeridor();
 }
 
 let rankingMode = 'uds';
@@ -7229,6 +7233,95 @@ function calcularSugeridor() {
   if(sinNecesidad.length) {
     html += '<div style="font-size:12px;color:var(--text3);margin-top:10px">✓ Con stock suficiente: '+sinNecesidad.map(function(s){return s.name;}).join(', ')+'</div>';
   }
+
+  resEl.innerHTML = html;
+}
+
+// ===== SUGERIDOR POR CLIENTE (solo lectura, no modifica stock/facturas/saldos) =====
+function renderCliSugeridor() {
+  const el = document.getElementById('cli-tab-sugeridor-content');
+  if(!el) return;
+  const clientesOrdenados = (S.clients||[]).slice().sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
+  const opts = clientesOrdenados.map(function(c){ return '<option value="'+c.id+'">'+c.name+'</option>'; }).join('');
+  el.innerHTML = '<div style="font-size:13px;color:var(--text3);margin-bottom:14px">Calculá qué mercadería dejarle a un cliente según lo que te compró históricamente. No modifica stock ni facturas.</div>'
+    + '<div style="margin-bottom:12px">'
+    + '<label style="font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px">Cliente</label>'
+    + '<select id="clisug-cli" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:15px;background:var(--surface);color:var(--text)"><option value="">Elegir cliente...</option>'+opts+'</select>'
+    + '</div>'
+    + '<div style="margin-bottom:12px">'
+    + '<label style="font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px">Período de referencia (días hacia atrás)</label>'
+    + '<div style="display:flex;gap:8px">'
+    + '<button onclick="document.getElementById(\'clisug-ref\').value=30;this.parentNode.querySelectorAll(\'button\').forEach(function(b){b.style.background=\'var(--surface2)\';b.style.color=\'var(--text)\'});this.style.background=\'#3483fa\';this.style.color=\'#fff\'" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface2)">30</button>'
+    + '<button onclick="document.getElementById(\'clisug-ref\').value=40;this.parentNode.querySelectorAll(\'button\').forEach(function(b){b.style.background=\'var(--surface2)\';b.style.color=\'var(--text)\'});this.style.background=\'#3483fa\';this.style.color=\'#fff\'" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:#3483fa;color:#fff">40</button>'
+    + '<button onclick="document.getElementById(\'clisug-ref\').value=60;this.parentNode.querySelectorAll(\'button\').forEach(function(b){b.style.background=\'var(--surface2)\';b.style.color=\'var(--text)\'});this.style.background=\'#3483fa\';this.style.color=\'#fff\'" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface2)">60</button>'
+    + '<input id="clisug-ref" type="number" min="1" value="40" style="width:60px;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:15px;text-align:center;background:var(--surface);color:var(--text)">'
+    + '</div>'
+    + '</div>'
+    + '<div style="margin-bottom:16px">'
+    + '<label style="font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px">Días a cubrir (tu ausencia)</label>'
+    + '<div style="display:flex;gap:8px">'
+    + '<button onclick="document.getElementById(\'clisug-dias\').value=7;this.parentNode.querySelectorAll(\'button\').forEach(function(b){b.style.background=\'var(--surface2)\';b.style.color=\'var(--text)\'});this.style.background=\'#16a34a\';this.style.color=\'#fff\'" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface2)">7</button>'
+    + '<button onclick="document.getElementById(\'clisug-dias\').value=15;this.parentNode.querySelectorAll(\'button\').forEach(function(b){b.style.background=\'var(--surface2)\';b.style.color=\'var(--text)\'});this.style.background=\'#16a34a\';this.style.color=\'#fff\'" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:#16a34a;color:#fff">15</button>'
+    + '<button onclick="document.getElementById(\'clisug-dias\').value=30;this.parentNode.querySelectorAll(\'button\').forEach(function(b){b.style.background=\'var(--surface2)\';b.style.color=\'var(--text)\'});this.style.background=\'#16a34a\';this.style.color=\'#fff\'" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface2)">30</button>'
+    + '<input id="clisug-dias" type="number" min="1" value="15" style="width:60px;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:15px;text-align:center;background:var(--surface);color:var(--text)">'
+    + '</div>'
+    + '</div>'
+    + '<button onclick="calcularCliSugeridor()" style="width:100%;background:linear-gradient(135deg,#1a3a6b,#3483fa);color:#fff;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:800;cursor:pointer;margin-bottom:8px">Calcular</button>'
+    + '<div id="clisug-resultado" style="margin-top:14px"></div>';
+}
+
+function calcularCliSugeridor() {
+  const cliId = document.getElementById('clisug-cli').value;
+  const ref = parseInt(document.getElementById('clisug-ref').value)||40;
+  const dias = parseInt(document.getElementById('clisug-dias').value)||15;
+  const resEl = document.getElementById('clisug-resultado');
+  if(!cliId) { resEl.innerHTML = '<div style="color:var(--accent3);font-size:14px">Elegí un cliente primero</div>'; return; }
+
+  const cli = S.clients.find(function(c){ return c.id===cliId; });
+  const hoy = new Date();
+  const desde = new Date(hoy); desde.setDate(desde.getDate()-ref);
+  const desdeStr = desde.toISOString().slice(0,10);
+
+  // Sumar lo que compró este cliente en el período de referencia, por producto+variante
+  const comprado = {};
+  S.invoices.forEach(function(inv){
+    if(inv.clientId!==cliId) return;
+    if(inv.type==='presupuesto' || inv.status==='cancelada') return;
+    if((inv.date||'')<desdeStr) return;
+    (inv.items||[]).forEach(function(item){
+      const key = (item.prodId||'') + (item.variante?('|'+item.variante):'');
+      const nombre = item.desc || (function(){ const p=S.products.find(x=>x.id===item.prodId); return p?p.name:item.prodId; })();
+      if(!comprado[key]) comprado[key] = {nombre, qty:0};
+      comprado[key].qty += (item.qty||0);
+    });
+  });
+
+  const keys = Object.keys(comprado);
+  if(!keys.length) {
+    resEl.innerHTML = '<div style="color:var(--text3);font-size:14px;text-align:center;padding:16px">'+(cli?cli.name:'El cliente')+' no compró nada en los últimos '+ref+' días</div>';
+    return;
+  }
+
+  const sugerencias = keys.map(function(k){
+    const promDiario = comprado[k].qty / ref;
+    const necesita = Math.ceil(promDiario * dias);
+    return {nombre: comprado[k].nombre, comprado: comprado[k].qty, promDiario, necesita};
+  }).filter(function(s){ return s.necesita>0; }).sort(function(a,b){ return b.necesita-a.necesita; });
+
+  let html = '<div style="font-size:14px;font-weight:700;color:var(--accent);margin-bottom:10px">Para '+dias+' días, dejarle a '+(cli?cli.name:'')+':</div>';
+  html += sugerencias.map(function(s){
+    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">'
+      + '<div style="flex:1">'
+      + '<div style="font-size:14px;font-weight:600">'+s.nombre+'</div>'
+      + '<div style="font-size:12px;color:var(--text3)">'+s.promDiario.toFixed(2)+'/día · compró '+s.comprado+' en '+ref+'d</div>'
+      + '</div>'
+      + '<div style="font-size:16px;font-weight:800;color:var(--accent2)">'+s.necesita+' u.</div>'
+      + '</div>';
+  }).join('');
+
+  const textoCopiar = 'Pedido sugerido '+(cli?cli.name:'')+' ('+dias+' días):\n'
+    + sugerencias.map(function(s){ return '• '+s.necesita+' '+s.nombre; }).join('\n');
+  html += '<button onclick="navigator.clipboard.writeText('+JSON.stringify(textoCopiar)+').then(function(){var t=document.createElement(\'div\');t.textContent=\'✓ Copiado\';t.style.cssText=\'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#16a34a;color:#fff;padding:8px 20px;border-radius:20px;font-weight:700;z-index:99999\';document.body.appendChild(t);setTimeout(function(){t.remove();},2000);})" style="width:100%;background:none;border:1px solid var(--border);border-radius:10px;padding:10px;font-size:14px;font-weight:600;color:var(--text2);cursor:pointer;margin-top:12px">📋 Copiar resultado</button>';
 
   resEl.innerHTML = html;
 }
