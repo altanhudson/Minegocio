@@ -221,6 +221,14 @@
                 estados: Object.assign({}, ex.estados||{}, nv.estados||{}),
                 orden: Object.assign({}, ex.orden||{}, nv.orden||{})
               });
+            } else if(f === 'config' && merged[f] && data[f]) {
+              const ex = merged[f], nv = data[f];
+              const histEx = Array.isArray(ex.histInventario) ? ex.histInventario : [];
+              const histNv = Array.isArray(nv.histInventario) ? nv.histInventario : [];
+              const histCombinado = {};
+              histEx.concat(histNv).forEach(function(r){ if(r && r.fecha) histCombinado[r.fecha] = r; });
+              const histFinal = Object.values(histCombinado).sort(function(a,b){ return a.fecha.localeCompare(b.fecha); });
+              merged[f] = Object.assign({}, ex, nv, { histInventario: histFinal });
             } else { merged[f] = data[f]; }
           }
         });
@@ -268,6 +276,14 @@
                 estados: Object.assign({}, ex.estados||{}, nv.estados||{}),
                 orden: Object.assign({}, ex.orden||{}, nv.orden||{})
               });
+            } else if(f === 'config' && merged[f] && data[f]) {
+              const ex = merged[f], nv = data[f];
+              const histEx = Array.isArray(ex.histInventario) ? ex.histInventario : [];
+              const histNv = Array.isArray(nv.histInventario) ? nv.histInventario : [];
+              const histCombinado = {};
+              histEx.concat(histNv).forEach(function(r){ if(r && r.fecha) histCombinado[r.fecha] = r; });
+              const histFinal = Object.values(histCombinado).sort(function(a,b){ return a.fecha.localeCompare(b.fecha); });
+              merged[f] = Object.assign({}, ex, nv, { histInventario: histFinal });
             } else { merged[f] = data[f]; }
           }
         });
@@ -1085,7 +1101,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.114</strong> · 05/07/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.115</strong> · 05/07/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -5737,6 +5753,33 @@ function cancelInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv)return;if
 function delInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv)return;const hasPago=inv.pagos&&inv.pagos.reduce((s,p)=>s+p.monto,0)>0;if(!confirm('Eliminar la factura '+id+(hasPago?' (tiene pagos registrados)':'')+' y devolver el stock?'))return;S.invoices=S.invoices.filter(i=>i.id!==id);try{if(window._fbDeleteDoc)_fbDeleteDoc('invoices',id);}catch(e){}try{recalcAllStocks();recalcClientCredits();}catch(e){} renderInvs();renderProds();updDash();save(['invoices','products']);toast('Factura eliminada y stock restaurado');}
 
 // === DASHBOARD ===
+function calcValorInventario() {
+  return S.products.reduce(function(s, p) {
+    const costo = p.cost || 0;
+    if(costo <= 0) return s;
+    const tieneVar = p.variantes && p.variantes.length > 0;
+    if(tieneVar) {
+      const sv = p.stockVariantes || {};
+      return s + Object.values(sv).reduce(function(sv2, q) { return sv2 + Math.max(0, q) * costo; }, 0);
+    }
+    return s + Math.max(0, p.stock || 0) * costo;
+  }, 0);
+}
+function registrarValorInventarioSemanal(valorInv) {
+  if(!S.config) S.config = {};
+  if(!Array.isArray(S.config.histInventario)) S.config.histInventario = [];
+  const hist = S.config.histInventario;
+  const ultimo = hist.length ? hist[hist.length-1] : null;
+  const hoy = localDateStr();
+  if(ultimo) {
+    const dias = (new Date(hoy) - new Date(ultimo.fecha)) / 86400000;
+    if(dias < 7) return; // todavía no pasó una semana desde el último registro
+  }
+  hist.push({fecha: hoy, valor: Math.round(valorInv)});
+  if(hist.length > 104) hist.shift(); // limitar a ~2 años de registros semanales
+  try{ _markDirty('config'); }catch(e){}
+  try{ save(['config']); }catch(e){}
+}
 function updDash() {
   const now = new Date();
   const todayStr = localDateStr();
@@ -5757,19 +5800,9 @@ function updDash() {
   if(chEl) chEl.textContent = '$'+Math.round(compHoy).toLocaleString('es-AR');
   // Valor del inventario
   const invEl = document.getElementById('dash-inv-valor');
-  if(invEl) {
-    const valorInv = S.products.reduce(function(s, p) {
-      const costo = p.cost || 0;
-      if(costo <= 0) return s;
-      const tieneVar = p.variantes && p.variantes.length > 0;
-      if(tieneVar) {
-        const sv = p.stockVariantes || {};
-        return s + Object.values(sv).reduce(function(sv2, q) { return sv2 + Math.max(0, q) * costo; }, 0);
-      }
-      return s + Math.max(0, p.stock || 0) * costo;
-    }, 0);
-    invEl.textContent = '$'+Math.round(valorInv).toLocaleString('es-AR');
-  }
+  const valorInv = calcValorInventario();
+  if(invEl) invEl.textContent = '$'+Math.round(valorInv).toLocaleString('es-AR');
+  registrarValorInventarioSemanal(valorInv);
   // Resumen día en facturas
   const dm = document.getElementById('dash-metricas');
   if(dm) dm.innerHTML = '';
