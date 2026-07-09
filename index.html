@@ -1101,7 +1101,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.119</strong> · 05/07/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.120</strong> · 05/07/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -8922,7 +8922,20 @@ function tiendaRender() {
   }
   if(T_VISTA_TIPO === 'grilla') {
     if(cat === 'todas' && !q) {
-      prods.sort((a,b)=>{const cA=(a.category||'').trim();const cB=(b.category||'').trim();const cc=cA.localeCompare(cB,'es');return cc!==0?cc:a.name.localeCompare(b.name,'es');});
+      // Rotar el punto de partida del orden alfabético según la semana del año,
+      // para que la categoría que aparece primero cambie con el tiempo (refresh visual sin curación manual)
+      const cats = [...new Set(prods.map(p=>(p.category||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
+      const semanaDelAnio = Math.floor((Date.now() - new Date(new Date().getFullYear(),0,1)) / (7*24*3600*1000));
+      const offset = cats.length ? semanaDelAnio % cats.length : 0;
+      const catsRotadas = cats.slice(offset).concat(cats.slice(0, offset));
+      const ordenCat = {}; catsRotadas.forEach((c,i)=>{ ordenCat[c]=i; });
+      prods.sort((a,b)=>{
+        const cA=(a.category||'').trim();const cB=(b.category||'').trim();
+        const oA = cA ? (ordenCat[cA]??999) : 1000;
+        const oB = cB ? (ordenCat[cB]??999) : 1000;
+        if(oA!==oB) return oA-oB;
+        return a.name.localeCompare(b.name,'es');
+      });
       let lastCat = null; let gridItems = '';
       for(const p of prods) {
         const pCat = (p.category||'').trim();
