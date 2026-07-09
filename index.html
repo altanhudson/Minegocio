@@ -1101,7 +1101,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.117</strong> · 05/07/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.118</strong> · 05/07/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -7672,15 +7672,16 @@ function listaEjecutarCompra() {
   });
   S.compras.unshift(comp);
   try{_markDirty('compras',compId);}catch(e){}
-  // Limpiar cantidades guardadas de los productos comprados
+  // Limpiar cantidades guardadas de los productos comprados y persistir el borrado
   if(S.listaCompras && S.listaCompras.cantidades) {
+    let huboBorrado = false;
     compItems.forEach(function(item) {
       if(!item.prodId) return;
-      const key = item.variante ? item.prodId : item.prodId;
       Object.keys(S.listaCompras.cantidades).forEach(function(k){
-        if(k.split('|')[0] === item.prodId) delete S.listaCompras.cantidades[k];
+        if(k.split('|')[0] === item.prodId) { delete S.listaCompras.cantidades[k]; huboBorrado = true; }
       });
     });
+    if(huboBorrado) { try{ _listaCompraGuardar(); }catch(e){} }
   }
   try{recalcAllStocks();recalcClientCredits();}catch(e){}
   try{renderProds();}catch(e){}
