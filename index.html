@@ -1101,7 +1101,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.121</strong> · 14/07/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.122</strong> · 14/07/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -6535,6 +6535,33 @@ async function initApp() {
     console.error('ADVERTENCIA: no se pudo cargar ningún dato (ni local ni Firebase). Revisar conexión y sincronizar.');
     setTimeout(function(){ try{ toast('⚠️ No se encontraron datos — verificá tu conexión y sincronizá'); }catch(e){} }, 500);
   }
+
+  // FIX CRÍTICO: los contadores de ID (nCli, nProd, nProv, nComp, nInv) deben estar
+  // siempre por encima del ID más alto ya existente. Si quedan atrás (por ejemplo,
+  // porque el bloque de datos de prueba que los fijaba fue eliminado), un registro
+  // nuevo puede generar un ID ya usado y PISAR un cliente/producto/factura real.
+  // Esto corrige el contador a partir de los datos reales cada vez que se inicia la app.
+  (function fixCounters() {
+    function maxNum(arr, prefix) {
+      let max = 0;
+      (arr||[]).forEach(function(r) {
+        if(!r || !r.id) return;
+        const m = String(r.id).match(new RegExp('^'+prefix+'-0*(\\\\d+)'));
+        if(m) { const n = parseInt(m[1]); if(n > max) max = n; }
+      });
+      return max;
+    }
+    const minCli = maxNum(S.clients, 'CLI') + 1;
+    const minProd = maxNum(S.products, 'PROD') + 1;
+    const minProv = maxNum(S.proveedores, 'PROV') + 1;
+    const minComp = maxNum(S.compras, 'COMP') + 1;
+    const minInv = maxNum(S.invoices, 'FAC') + 1;
+    if((S.nCli||0) < minCli) { console.warn('Corrigiendo nCli:', S.nCli, '->', minCli); S.nCli = minCli; }
+    if((S.nProd||0) < minProd) { console.warn('Corrigiendo nProd:', S.nProd, '->', minProd); S.nProd = minProd; }
+    if((S.nProv||0) < minProv) { console.warn('Corrigiendo nProv:', S.nProv, '->', minProv); S.nProv = minProv; }
+    if((S.nComp||0) < minComp) { console.warn('Corrigiendo nComp:', S.nComp, '->', minComp); S.nComp = minComp; }
+    if((S.nInv||0) < minInv) { console.warn('Corrigiendo nInv:', S.nInv, '->', minInv); S.nInv = minInv; }
+  })();
 
   // MIGRACIÓN: categoría galletitas donde corresponde
   (function migrateProducts() {
