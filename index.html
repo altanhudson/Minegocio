@@ -1101,7 +1101,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.124</strong> · 19/07/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.125</strong> · 20/07/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -7824,12 +7824,16 @@ function listaDelProv(pvId) {
   renderListaCompras();
   toast('Proveedor eliminado de la lista');
 }
-function listaGuardarCantidad(estadoKey, val) {
+function listaGuardarCantidad(estadoKey, val, base) {
   if(!S.listaCompras) S.listaCompras = {};
   if(!S.listaCompras.cantidades) S.listaCompras.cantidades = {};
   const n = parseFloat(val);
-  if(isNaN(n) || n <= 0) delete S.listaCompras.cantidades[estadoKey];
-  else S.listaCompras.cantidades[estadoKey] = n;
+  const b = parseFloat(base);
+  // Se guarda junto al déficit que había al editar. Si después el déficit cambia,
+  // la edición queda obsoleta y vuelve a mostrarse el faltante real (antes la
+  // cantidad editada quedaba fija para siempre y tapaba el faltante verdadero).
+  if(isNaN(n) || n <= 0 || n === b) delete S.listaCompras.cantidades[estadoKey];
+  else S.listaCompras.cantidades[estadoKey] = { v: n, base: isNaN(b) ? null : b };
   _listaCompraGuardar();
 }
 function listaToggleEstado(prodId, estado) {
@@ -7979,9 +7983,13 @@ function renderListaCompras() {
       const costoId = 'lista-cost-'+estadoKey.replace(/[^a-zA-Z0-9]/g,'_');
       // Usar cantidad guardada si existe, sino el déficit
       const cantGuardada = (S.listaCompras && S.listaCompras.cantidades && S.listaCompras.cantidades[estadoKey]);
-      const qtyMostrar = (cantGuardada !== undefined && cantGuardada !== null) ? cantGuardada : qtyBase;
+      // Solo se respeta la cantidad editada si el faltante NO cambió desde que se editó.
+      // El formato viejo (número suelto, sin referencia del faltante) se ignora a propósito:
+      // era el que quedaba pegado y mostraba 3 cuando en realidad faltaban 34.
+      const qtyMostrar = (cantGuardada && typeof cantGuardada === 'object' && cantGuardada.base === qtyBase && cantGuardada.v > 0)
+        ? cantGuardada.v : qtyBase;
       return '<div style="display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid var(--border);'+rowStyle+'">'
-        + '<input id="'+inputId+'" type="number" inputmode="decimal" min="0" value="'+qtyMostrar+'" data-prodid="'+prodId+'" data-pvid="'+(pvId||'sin')+'" onfocus="this.select()" onchange="listaGuardarCantidad(\''+estadoKey+'\',this.value)" style="width:50px;text-align:center;font-size:15px;font-weight:800;border:1.5px solid '+(esOk?'#16a34a':'var(--border)')+';border-radius:8px;padding:4px;background:'+(esOk?'rgba(22,163,74,.08)':'var(--surface)')+';color:'+(esOk?'#16a34a':'var(--accent2)')+';flex-shrink:0">'
+        + '<input id="'+inputId+'" type="number" inputmode="decimal" min="0" value="'+qtyMostrar+'" data-prodid="'+prodId+'" data-pvid="'+(pvId||'sin')+'" onfocus="this.select()" onchange="listaGuardarCantidad(\''+estadoKey+'\',this.value,'+qtyBase+')" style="width:50px;text-align:center;font-size:15px;font-weight:800;border:1.5px solid '+(esOk?'#16a34a':'var(--border)')+';border-radius:8px;padding:4px;background:'+(esOk?'rgba(22,163,74,.08)':'var(--surface)')+';color:'+(esOk?'#16a34a':'var(--accent2)')+';flex-shrink:0">'
         + '<button onclick="listaToggleEstado(\''+estadoKey+'\',\'ok\')" style="width:30px;height:30px;border-radius:50%;border:2px solid '+(esOk?'#16a34a':'#d1d5db')+';background:'+(esOk?'#16a34a':'transparent')+';color:'+(esOk?'#fff':'#9ca3af')+';font-size:14px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">\u2713</button>'
         + '<button onclick="listaToggleEstado(\''+estadoKey+'\',\'falta\')" style="width:30px;height:30px;border-radius:50%;border:2px solid '+(esFalta?'#dc2626':'#d1d5db')+';background:'+(esFalta?'#dc2626':'transparent')+';color:'+(esFalta?'#fff':'#9ca3af')+';font-size:14px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">\u2715</button>'
         + '<span style="flex:1;font-size:14px;font-weight:500;'+(esFalta?'text-decoration:line-through':'')+'">' +displayName+'</span>'
