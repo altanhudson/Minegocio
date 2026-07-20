@@ -1101,7 +1101,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.122</strong> · 14/07/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.124</strong> · 19/07/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -5082,6 +5082,15 @@ function unificarFacturasTienda(clientId, fecha) {
     .filter(i => i.clientId===clientId && i.date===fecha && i.type!=='presupuesto' && i.status!=='cancelada')
     .sort((a,b) => (a.ts||0)-(b.ts||0));
   if(facts.length < 2) { toast('No hay facturas para unificar'); return; }
+
+  // No mezclar pagadas con pendientes: el historial de pagos de las que se borran
+  // se perdería, y una factura "pagada" resultante podría en realidad tener saldo.
+  const estados = new Set(facts.map(i => i.status));
+  if(estados.size > 1) {
+    toast('⚠️ No se puede: hay facturas pagadas y pendientes mezcladas. Cobrá o dejá parejo el estado primero.');
+    return;
+  }
+
   if(!confirm('Unificar '+facts.length+' facturas del mismo cliente en una sola?')) return;
 
   // Construir ítems unificados: la factura más reciente pisa a las anteriores
@@ -5098,8 +5107,19 @@ function unificarFacturasTienda(clientId, fecha) {
   // Tomar la factura más reciente como base, borrar las demás
   const base = facts[facts.length-1];
   base.items = itemsUnificados;
-  base.total = totalUnificado;
-  base.saldo = base.status==='pagada' ? 0 : totalUnificado;
+  // El subtotal debe recalcularse junto con el total. Si no, queda el subtotal viejo
+  // de la factura base y aparece un "Subtotal" fantasma en la factura compartida.
+  base.subtotal = totalUnificado;
+  // Recalcular descuentos sobre el nuevo subtotal (antes se ignoraban al unificar)
+  const retUnif = (base.descRetiro||0) > 0
+    ? itemsUnificados.filter(i=>!isExcluded(i)).reduce((s,i)=>s+(i.qty||0)*(i.price||0),0) * 0.05
+    : 0;
+  const extPctUnif = base.descExtraPct||0;
+  const extUnif = totalUnificado * (extPctUnif/100);
+  base.descRetiro = retUnif;
+  base.descExtra = extUnif;
+  base.total = totalUnificado - retUnif - extUnif;
+  base.saldo = base.status==='pagada' ? 0 : base.total;
   _markDirty('invoices', base.id);
 
   // Borrar las facturas más viejas
