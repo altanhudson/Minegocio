@@ -1101,7 +1101,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.128</strong> · 20/07/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.129</strong> · 20/07/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -4810,9 +4810,19 @@ function chkW(idx) {
     if(te) { te.style.color = isW ? 'var(--accent2)' : 'var(--text3)'; te.textContent = isW ? '⭐ Precio mayorista' : 'Mayor: $'+item.wholesalePrice.toFixed(0)+' x'+item.wholesaleQty+' uds'; te.style.display = ''; }
     item.price = pr;
   }
-  // Warn si qty > stock
-  if(prod && q > prod.stock && prod.stock > 0) {
-    toast('Solo hay ' + prod.stock + ' uds de ' + item.desc);
+  // Warn si qty > stock. Al editar una factura ya guardada, las unidades que esa
+  // factura ya se llevó (S._editOrigItems) todavía están descontadas del stock actual
+  // — hay que sumárselas de vuelta para saber cuánto se puede poner realmente,
+  // si no el mensaje asusta con un número que ya no refleja lo disponible real.
+  if(prod) {
+    let stockDisponible = prod.stock;
+    if(S._editOrigItems) {
+      const orig = S._editOrigItems.find(o => o.prodId===item.prodId && (o.variante||'')===(item.variante||''));
+      if(orig) stockDisponible += (orig.qty||0);
+    }
+    if(q > stockDisponible) {
+      toast('Solo hay ' + stockDisponible + ' uds disponibles de ' + item.desc);
+    }
   }
 }
 
