@@ -1101,7 +1101,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.127</strong> · 20/07/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.128</strong> · 20/07/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -8589,8 +8589,9 @@ function tiendaProdCardGrid(p) {
   const imgHtml = p.image
     ? '<img src="'+p.image+'" onclick="'+(p.desc?'tiendaAbrirDetalle(\''+p.id+'\')':'')+'" style="width:calc(100% + 24px);height:140px;border-radius:16px 16px 0 0;object-fit:contain;display:block;background:#ffffff;margin:-12px -12px 10px -12px;'+(p.desc?'cursor:pointer':'')+'">'
     : '<div onclick="'+(p.desc?'tiendaAbrirDetalle(\''+p.id+'\')':'')+'" style="width:calc(100% + 24px);height:130px;border-radius:16px 16px 0 0;background:#f7f8fc;display:flex;align-items:center;justify-content:center;font-size:48px;margin:-12px -12px 10px -12px;'+(p.desc?'cursor:pointer':'')+'">'+(p.emoji||'📦')+'</div>';
-  const btnBulto = (p.bultoQty && p.bultoQty>1)
-    ? '<button data-tid="'+p.id+'" onclick="tiendaAddBulto(this.dataset.tid)" style="width:100%;background:#fff;color:#3483fa;border:1.5px solid #3483fa;border-radius:10px;padding:7px;font-weight:800;font-size:13px;cursor:pointer;margin-top:6px">📦 Bulto x'+p.bultoQty+'</button>'
+  const _bq = bultoDe(p);
+  const btnBulto = _bq>1
+    ? '<button data-tid="'+p.id+'" onclick="tiendaAddBulto(this.dataset.tid)" style="width:100%;background:#fff;color:#3483fa;border:1.5px solid #3483fa;border-radius:10px;padding:7px;font-weight:800;font-size:13px;cursor:pointer;margin-top:6px">📦 Bulto x'+_bq+'</button>'
     : '';
   const ctrl = hasVar
     ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="width:100%;background:#3483fa;color:#fff;border:none;border-radius:10px;padding:9px;font-weight:800;font-size:14px;cursor:pointer;margin-top:8px">+ Agregar'+(qty>0?' ('+qty+' en carrito)':'')+'</button>'+btnBulto
@@ -8598,7 +8599,7 @@ function tiendaProdCardGrid(p) {
         ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="width:100%;background:#3483fa;color:#fff;border:none;border-radius:10px;padding:9px;font-weight:800;font-size:14px;cursor:pointer;margin-top:8px">+ Agregar'+(step>1?' x'+step:'')+'</button>'+btnBulto
         : '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#eef0f5;color:#3483fa;border:none;border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;font-weight:700">−</button><span style="font-weight:800;font-size:16px;color:#1a1a2e">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;font-weight:700">+</button></div>'
           +btnBulto
-          +(p.wholesalePrice&&p.wholesaleQty&&qty>=p.wholesaleQty?'<div style="font-size:11px;color:#2e7d32;font-weight:700;text-align:center;margin-top:4px">⭐ Precio mayorista aplicado</div>':''));
+          +(p.wholesalePrice&&p.wholesaleQty&&tiendaGetPrice(p,qty)===p.wholesalePrice?'<div style="font-size:11px;color:#2e7d32;font-weight:700;text-align:center;margin-top:4px">⭐ Precio mayorista aplicado</div>':''));
   const mayorHtml = p.wholesalePrice&&p.wholesaleQty
     ? '<div style="font-size:11px;color:#2e7d32;font-weight:700;margin-top:3px">$'+(+p.wholesalePrice).toFixed(0)+' a partir de '+p.wholesaleQty+' uds</div>'
     : '';
@@ -8828,8 +8829,9 @@ function tiendaProdCard(p) {
   const imgHtml = p.image
     ? '<img src="'+p.image+'" style="width:64px;height:64px;border-radius:4px;object-fit:cover;flex-shrink:0">'
     : '<div style="width:64px;height:64px;border-radius:4px;background:#fef9e7;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">'+(p.emoji||'📦')+'</div>';
-  const btnBultoL = (p.bultoQty && p.bultoQty>1)
-    ? '<button data-tid="'+p.id+'" onclick="tiendaAddBulto(this.dataset.tid)" style="background:#fff;color:#3483fa;border:1.5px solid #3483fa;border-radius:4px;padding:5px 10px;font-weight:700;font-size:12px;cursor:pointer;margin-top:4px">📦 x'+p.bultoQty+'</button>'
+  const _bqL = bultoDe(p);
+  const btnBultoL = _bqL>1
+    ? '<button data-tid="'+p.id+'" onclick="tiendaAddBulto(this.dataset.tid)" style="background:#fff;color:#3483fa;border:1.5px solid #3483fa;border-radius:4px;padding:5px 10px;font-weight:700;font-size:12px;cursor:pointer;margin-top:4px">📦 x'+_bqL+'</button>'
     : '';
   const ctrl = qty===0
     ? '<div style="display:flex;flex-direction:column;align-items:center">'
@@ -8838,7 +8840,7 @@ function tiendaProdCard(p) {
       +'</div>'
     : '<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div style="display:flex;align-items:center;gap:10px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#eef0f5;color:#3483fa;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">−</button><span style="font-size:16px;font-weight:700;min-width:20px;text-align:center">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">+</button></div>'
     +btnBultoL
-    +(p.wholesalePrice&&p.wholesaleQty&&qty>=p.wholesaleQty?'<div style="font-size:11px;color:#2e7d32;font-weight:700">⭐ Precio mayorista</div>':'')
+    +(p.wholesalePrice&&p.wholesaleQty&&tiendaGetPrice(p,qty)===p.wholesalePrice?'<div style="font-size:11px;color:#2e7d32;font-weight:700">⭐ Precio mayorista</div>':'')
     +'</div>';
   const priceChangeHtml = getPriceChangeHtml(p, '16px', '#3483fa', 'margin-top:2px');
   const precioHtml = priceChangeHtml
@@ -9072,8 +9074,9 @@ function tiendaRenderVariantePopup(prodId) {
     const qty = TC[prodId+'|'+v]||0;
     const sel = qty > 0;
     const vEsc = v.replace(/\\/g,'\\\\').replace(/'/g,'\\\'');
-    const btnBultoV = (p.bultoQty && p.bultoQty>1)
-      ? '<button onclick="tiendaAddBultoVariante(\''+prodId+'\',\''+vEsc+'\')" style="background:#fff;color:#3483fa;border:1.5px solid #3483fa;border-radius:8px;padding:6px 8px;font-size:12px;font-weight:800;cursor:pointer;flex-shrink:0">📦x'+p.bultoQty+'</button>'
+    const _bqV = bultoDe(p);
+    const btnBultoV = _bqV>1
+      ? '<button onclick="tiendaAddBultoVariante(\''+prodId+'\',\''+vEsc+'\')" style="background:#fff;color:#3483fa;border:1.5px solid #3483fa;border-radius:8px;padding:6px 8px;font-size:12px;font-weight:800;cursor:pointer;flex-shrink:0">📦x'+_bqV+'</button>'
       : '';
     return '<div data-variante="'+v+'" style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
       +'<button data-varbtn onclick="tiendaAddVariante(\''+prodId+'\',\''+vEsc+'\')" style="flex:1;background:'+(sel?'#3483fa':'#f0f4ff')+';border:1.5px solid #3483fa;color:'+(sel?'#fff':'#3483fa')+';border-radius:12px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;text-align:left">'+v+'</button>'
@@ -9110,10 +9113,11 @@ function tiendaAddVariante(prodId, variante) {
 }
 function tiendaAddBultoVariante(prodId, variante) {
   const p = S.products.find(x=>x.id===prodId);
-  if(!p || !p.bultoQty || p.bultoQty < 2) { tiendaAddVariante(prodId, variante); return; }
+  const bq = bultoDe(p);
+  if(!p || bq < 2) { tiendaAddVariante(prodId, variante); return; }
   const key = prodId+'|'+variante;
-  // Un bulto = bultoQty unidades de ESA variante. Todo sigue en unidades.
-  TC[key] = (TC[key]||0) + p.bultoQty;
+  // Un bulto = bq unidades de ESA variante. Todo sigue en unidades.
+  TC[key] = (TC[key]||0) + bq;
   const hint = document.getElementById('tienda-hint');
   if(hint) hint.style.display = 'none';
   tiendaActBadge();
@@ -9211,11 +9215,12 @@ function tiendaAddBulto(id) {
   const modo = getTiendaModo();
   if(modo === 'solo_vista' || modo === 'cerrada') { tiendaAdd(id); return; } // delega el mensaje/bloqueo
   const p = S.products.find(x=>x.id===id);
-  if(!p || !p.bultoQty || p.bultoQty < 2) { tiendaAdd(id); return; }
+  const bq = bultoDe(p);
+  if(!p || bq < 2) { tiendaAdd(id); return; }
   if(p.variantes && p.variantes.length) { tiendaSelecVariante(id); return; }
-  // Un bulto = bultoQty unidades. El carrito, el stock y el precio mayorista
+  // Un bulto = bq unidades. El carrito, el stock y el precio mayorista
   // siguen trabajando en unidades: no existe "bulto" como entidad aparte.
-  TC[id] = (TC[id]||0) + p.bultoQty;
+  TC[id] = (TC[id]||0) + bq;
   const hint = document.getElementById('tienda-hint');
   if(hint) hint.style.display = 'none';
   const cartBtn = document.getElementById('tienda-cart-btn');
@@ -9255,6 +9260,13 @@ function tiendaActBadge() {
   else badge.style.display='none';
 }
 
+function bultoDe(p) {
+  // Bulto explícito del producto; si no hay, se usa el "a partir de" del mayorista,
+  // que en la práctica coincide con el bulto en la mayoría de los productos.
+  if(p && p.bultoQty && p.bultoQty > 1) return p.bultoQty;
+  if(p && p.wholesaleQty && p.wholesaleQty > 1) return p.wholesaleQty;
+  return 0;
+}
 function tiendaGetPrice(p, qty) {
   if(!(p.wholesalePrice && p.wholesaleQty)) return p.price;
   const grupoP = (p.grupoMay||'').toLowerCase().trim();
