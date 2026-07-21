@@ -1101,7 +1101,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.125</strong> · 20/07/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.126</strong> · 20/07/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -1231,6 +1231,7 @@ select option{background:var(--surface2)}
           <div class="form-group"><label class="fl">Precio Mayorista</label><input type="number" id="p-wprice" placeholder="0.00" min="0" step="0.01" inputmode="decimal"></div>
           <div class="form-group"><label class="fl">A partir de</label><input type="number" id="p-wqty" placeholder="6 uds" min="1" inputmode="numeric"></div>
         </div>
+        <div class="form-group"><label class="fl">Unidades por bulto (tienda)</label><input type="number" id="p-bulto" placeholder="Vacío = sin botón bulto" min="2" inputmode="numeric"></div>
         <div class="form-group" style="margin-bottom:0"><label class="fl">Precio de Costo</label><input type="number" id="p-cost" placeholder="0.00" min="0" step="0.01" inputmode="decimal"></div>
       </div>
       <div class="form-row">
@@ -2735,7 +2736,7 @@ function resetPhoto(em) {
 // === PRODUCTS ===
 function openProd(id) {
   S.editId = id||null;
-  const flds = ['p-name','p-cat','p-price','p-wprice','p-wqty','p-cost','p-stock','p-minst','p-desc'];
+  const flds = ['p-name','p-cat','p-price','p-wprice','p-wqty','p-bulto','p-cost','p-stock','p-minst','p-desc'];
   if(id) {
     const p = S.products.find(x=>x.id===id);
     document.getElementById('mprod-title').textContent = 'Editar Producto';
@@ -2744,6 +2745,7 @@ function openProd(id) {
     document.getElementById('p-price').value = p.price||'';
     document.getElementById('p-wprice').value = p.wholesalePrice||'';
     document.getElementById('p-wqty').value = p.wholesaleQty||'';
+    document.getElementById('p-bulto').value = p.bultoQty||'';
     document.getElementById('p-cost').value = p.cost||'';
     document.getElementById('p-stock').value = p.stock||'';
     document.getElementById('p-minst').value = p.minStock !== undefined ? p.minStock : 0;
@@ -2802,6 +2804,7 @@ function saveProd() {
     price: parseFloat(document.getElementById('p-price').value)||0,
     wholesalePrice: parseFloat(document.getElementById('p-wprice').value)||0,
     wholesaleQty: parseInt(document.getElementById('p-wqty').value)||0,
+    bultoQty: parseInt(document.getElementById('p-bulto').value)||0,
     cost: parseFloat(document.getElementById('p-cost').value)||0,
     stock: parseInt(document.getElementById('p-stock').value)||0,
     minStock: parseInt(document.getElementById('p-minst').value)||0,
@@ -8586,11 +8589,15 @@ function tiendaProdCardGrid(p) {
   const imgHtml = p.image
     ? '<img src="'+p.image+'" onclick="'+(p.desc?'tiendaAbrirDetalle(\''+p.id+'\')':'')+'" style="width:calc(100% + 24px);height:140px;border-radius:16px 16px 0 0;object-fit:contain;display:block;background:#ffffff;margin:-12px -12px 10px -12px;'+(p.desc?'cursor:pointer':'')+'">'
     : '<div onclick="'+(p.desc?'tiendaAbrirDetalle(\''+p.id+'\')':'')+'" style="width:calc(100% + 24px);height:130px;border-radius:16px 16px 0 0;background:#f7f8fc;display:flex;align-items:center;justify-content:center;font-size:48px;margin:-12px -12px 10px -12px;'+(p.desc?'cursor:pointer':'')+'">'+(p.emoji||'📦')+'</div>';
+  const btnBulto = (!hasVar && p.bultoQty && p.bultoQty>1)
+    ? '<button data-tid="'+p.id+'" onclick="tiendaAddBulto(this.dataset.tid)" style="width:100%;background:#fff;color:#3483fa;border:1.5px solid #3483fa;border-radius:10px;padding:7px;font-weight:800;font-size:13px;cursor:pointer;margin-top:6px">📦 Bulto x'+p.bultoQty+'</button>'
+    : '';
   const ctrl = hasVar
     ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="width:100%;background:#3483fa;color:#fff;border:none;border-radius:10px;padding:9px;font-weight:800;font-size:14px;cursor:pointer;margin-top:8px">+ Agregar'+(qty>0?' ('+qty+' en carrito)':'')+'</button>'
     : (qty===0
-        ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="width:100%;background:#3483fa;color:#fff;border:none;border-radius:10px;padding:9px;font-weight:800;font-size:14px;cursor:pointer;margin-top:8px">+ Agregar'+(step>1?' x'+step:'')+'</button>'
+        ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="width:100%;background:#3483fa;color:#fff;border:none;border-radius:10px;padding:9px;font-weight:800;font-size:14px;cursor:pointer;margin-top:8px">+ Agregar'+(step>1?' x'+step:'')+'</button>'+btnBulto
         : '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#eef0f5;color:#3483fa;border:none;border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;font-weight:700">−</button><span style="font-weight:800;font-size:16px;color:#1a1a2e">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;font-weight:700">+</button></div>'
+          +btnBulto
           +(p.wholesalePrice&&p.wholesaleQty&&qty>=p.wholesaleQty?'<div style="font-size:11px;color:#2e7d32;font-weight:700;text-align:center;margin-top:4px">⭐ Precio mayorista aplicado</div>':''));
   const mayorHtml = p.wholesalePrice&&p.wholesaleQty
     ? '<div style="font-size:11px;color:#2e7d32;font-weight:700;margin-top:3px">$'+(+p.wholesalePrice).toFixed(0)+' a partir de '+p.wholesaleQty+' uds</div>'
@@ -8821,9 +8828,16 @@ function tiendaProdCard(p) {
   const imgHtml = p.image
     ? '<img src="'+p.image+'" style="width:64px;height:64px;border-radius:4px;object-fit:cover;flex-shrink:0">'
     : '<div style="width:64px;height:64px;border-radius:4px;background:#fef9e7;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">'+(p.emoji||'📦')+'</div>';
+  const btnBultoL = (!(p.variantes&&p.variantes.length) && p.bultoQty && p.bultoQty>1)
+    ? '<button data-tid="'+p.id+'" onclick="tiendaAddBulto(this.dataset.tid)" style="background:#fff;color:#3483fa;border:1.5px solid #3483fa;border-radius:4px;padding:5px 10px;font-weight:700;font-size:12px;cursor:pointer;margin-top:4px">📦 x'+p.bultoQty+'</button>'
+    : '';
   const ctrl = qty===0
-    ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:4px;padding:7px 12px;font-weight:600;font-size:13px;cursor:pointer">+ Agregar'+(step>1?' x'+step:'')+'</button>'
+    ? '<div style="display:flex;flex-direction:column;align-items:center">'
+      +'<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:4px;padding:7px 12px;font-weight:600;font-size:13px;cursor:pointer">+ Agregar'+(step>1?' x'+step:'')+'</button>'
+      +btnBultoL
+      +'</div>'
     : '<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div style="display:flex;align-items:center;gap:10px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#eef0f5;color:#3483fa;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">−</button><span style="font-size:16px;font-weight:700;min-width:20px;text-align:center">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">+</button></div>'
+    +btnBultoL
     +(p.wholesalePrice&&p.wholesaleQty&&qty>=p.wholesaleQty?'<div style="font-size:11px;color:#2e7d32;font-weight:700">⭐ Precio mayorista</div>':'')
     +'</div>';
   const priceChangeHtml = getPriceChangeHtml(p, '16px', '#3483fa', 'margin-top:2px');
@@ -9167,6 +9181,27 @@ function tiendaAdd(id) {
   const hint = document.getElementById('tienda-hint');
   if(hint) hint.style.display = 'none';
   // Animar carrito
+  const cartBtn = document.getElementById('tienda-cart-btn');
+  if(cartBtn) {
+    cartBtn.style.transform = 'scale(1.25)';
+    cartBtn.style.transition = 'transform .15s';
+    setTimeout(()=>{ cartBtn.style.transform = 'scale(1)'; }, 200);
+  }
+  tiendaRender();
+  if(T_VISTA==='carrito') tiendaRenderCarrito();
+  tiendaActTotal();
+}
+function tiendaAddBulto(id) {
+  const modo = getTiendaModo();
+  if(modo === 'solo_vista' || modo === 'cerrada') { tiendaAdd(id); return; } // delega el mensaje/bloqueo
+  const p = S.products.find(x=>x.id===id);
+  if(!p || !p.bultoQty || p.bultoQty < 2) { tiendaAdd(id); return; }
+  if(p.variantes && p.variantes.length) { tiendaSelecVariante(id); return; }
+  // Un bulto = bultoQty unidades. El carrito, el stock y el precio mayorista
+  // siguen trabajando en unidades: no existe "bulto" como entidad aparte.
+  TC[id] = (TC[id]||0) + p.bultoQty;
+  const hint = document.getElementById('tienda-hint');
+  if(hint) hint.style.display = 'none';
   const cartBtn = document.getElementById('tienda-cart-btn');
   if(cartBtn) {
     cartBtn.style.transform = 'scale(1.25)';
