@@ -1101,7 +1101,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.129</strong> · 20/07/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.130</strong> · 21/07/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -3855,6 +3855,9 @@ function renderIItem(idx, item) {
     +'<div id="wtag-'+idx+'" style="font-size:12px;color:var(--text3);'+(item.wholesalePrice&&item.wholesaleQty?'':'display:none')+'">'+(item.wholesalePrice&&item.wholesaleQty?'Mayor: $'+item.wholesalePrice.toFixed(0)+' x'+item.wholesaleQty+' uds':'')+'</div>'
     +'</div>'
     +'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
+    +((selProd && bultoDe(selProd)>1)
+       ? '<button onclick="invSubirBulto('+idx+')" title="Subir al siguiente múltiplo de '+bultoDe(selProd)+'" style="height:30px;padding:0 8px;border-radius:8px;border:1.5px solid var(--accent2);background:var(--surface);color:var(--accent2);font-size:12px;font-weight:800;cursor:pointer;flex-shrink:0">📦x'+bultoDe(selProd)+'</button>'
+       : '')
     +'<input type="number" id="iq-'+idx+'" value="'+(item.qty||1)+'" min="0" step="any" inputmode="decimal" data-qidx="'+idx+'" class="qty-input" onfocus="this.select()" style="width:56px;text-align:center;font-size:16px;font-weight:700;border:1.5px solid var(--border);border-radius:8px;padding:6px 0;background:var(--surface)" oninput="iItemQtyInput(this,'+idx+')" onchange="S.invItems['+idx+'].qty=parseFloat(this.value)||1;chkW('+idx+');calcTotals();renderIItem('+idx+',S.invItems['+idx+'])">'
     +'<button data-ridx="'+idx+'" class="cart-del" style="width:30px;height:30px;border-radius:8px;border:none;background:rgba(220,38,38,.1);color:var(--accent3);font-size:14px;cursor:pointer">✕</button>'
     +'</div>'
@@ -3862,6 +3865,22 @@ function renderIItem(idx, item) {
   if(!existing) document.getElementById('inv-items').appendChild(wrap);
 }
 
+function invSubirBulto(idx) {
+  const item = S.invItems[idx];
+  if(!item) return;
+  const prod = item.prodId ? S.products.find(x=>x.id===item.prodId) : null;
+  const bq = bultoDe(prod);
+  if(bq < 2) return;
+  // Sube al siguiente múltiplo del bulto: 1→6, 6→12, 7→12. Así el botón
+  // "va de 6 en 6" en vez de sumar 6 sobre un número suelto.
+  const actual = item.qty || 0;
+  item.qty = (Math.floor(actual / bq) + 1) * bq;
+  const inp = document.getElementById('iq-'+idx);
+  if(inp) inp.value = item.qty;
+  chkW(idx);
+  calcTotals();
+  renderIItem(idx, item);
+}
 function resumePriceChange(input) {
   const idx = parseInt(input.dataset.iidx);
   const newPrice = parseFloat(input.value)||0;
