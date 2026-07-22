@@ -1101,7 +1101,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.131</strong> · 21/07/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.133</strong> · 21/07/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -3855,7 +3855,7 @@ function renderIItem(idx, item) {
     +'<div id="wtag-'+idx+'" style="font-size:12px;color:var(--text3);'+(item.wholesalePrice&&item.wholesaleQty?'':'display:none')+'">'+(item.wholesalePrice&&item.wholesaleQty?'Mayor: $'+item.wholesalePrice.toFixed(0)+' x'+item.wholesaleQty+' uds':'')+'</div>'
     +'</div>'
     +'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
-    +'<input type="number" id="iq-'+idx+'" value="'+(item.qty||1)+'" min="0" step="'+((selProd&&selProd.fracMin&&selProd.fracMin>1)?selProd.fracMin:'any')+'" inputmode="decimal" data-qidx="'+idx+'" class="qty-input" onfocus="this.select()" style="width:56px;text-align:center;font-size:16px;font-weight:700;border:1.5px solid var(--border);border-radius:8px;padding:6px 0;background:var(--surface)" oninput="iItemQtyInput(this,'+idx+')" onchange="S.invItems['+idx+'].qty=parseFloat(this.value)||1;chkW('+idx+');calcTotals();renderIItem('+idx+',S.invItems['+idx+'])">'
+    +'<input type="number" id="iq-'+idx+'" value="'+(item.qty||1)+'" min="0" step="any" inputmode="decimal" data-qidx="'+idx+'" class="qty-input" onfocus="this.select()" style="width:56px;text-align:center;font-size:16px;font-weight:700;border:1.5px solid var(--border);border-radius:8px;padding:6px 0;background:var(--surface)" oninput="iItemQtyInput(this,'+idx+')" onchange="S.invItems['+idx+'].qty=parseFloat(this.value)||1;chkW('+idx+');calcTotals();renderIItem('+idx+',S.invItems['+idx+'])">'
     +'<button data-ridx="'+idx+'" class="cart-del" style="width:30px;height:30px;border-radius:8px;border:none;background:rgba(220,38,38,.1);color:var(--accent3);font-size:14px;cursor:pointer">✕</button>'
     +'</div>'
     +'</div>';
@@ -3937,6 +3937,17 @@ function ncAplicarATodos() {
   });
   toast('Cantidad '+qty+' aplicada a '+inputs.length+' productos');
 }
+function cartFocusQty(el, esVariante) {
+  // Si el producto se vende de a X (fracMin) y el campo está vacío, se precarga
+  // con esa cantidad mínima. Queda seleccionada para poder sobrescribirla.
+  const fm = parseInt(el.dataset.fracmin) || 1;
+  const vacio = el.value === '' || parseFloat(el.value) === 0;
+  if(fm > 1 && vacio) {
+    el.value = fm;
+    if(esVariante) cartQtyChangeVar(el); else cartQtyChange(el);
+  }
+  el.select();
+}
 function cartRenderList(q) {
   const el = document.getElementById('nf-prod-list');
   if(!el) return;
@@ -3969,8 +3980,8 @@ function cartRenderList(q) {
           +'<div style="font-size:12px;margin-top:2px;color:'+(hasQtyV&&qtyV>stockV?'var(--accent3)':'var(--text3)')+'">Stock: '+stockV+(hasQtyV?' → '+(stockV-qtyV):'')+(hasQtyV?' · <span style="color:var(--accent);font-weight:700">$'+(qtyV*priceV).toFixed(0)+'</span>':'')+'</div>'
           +'</div>'
           +'<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;align-items:flex-end">'
-          +'<input data-pid="'+p.id+'" data-variante="'+v+'" data-price="'+priceV+'" type="number" inputmode="decimal" step="any" placeholder="0" value="'+(hasQtyV?qtyV:'')+'" min="0"'
-          +' onfocus="this.select()" oninput="cartQtyChangeVar(this)"'
+          +'<input data-pid="'+p.id+'" data-variante="'+v+'" data-price="'+priceV+'" data-fracmin="'+(p.fracMin||1)+'" type="number" inputmode="decimal" step="any" placeholder="'+((p.fracMin&&p.fracMin>1)?p.fracMin:'0')+'" value="'+(hasQtyV?qtyV:'')+'" min="0"'
+          +' onfocus="cartFocusQty(this,true)" oninput="cartQtyChangeVar(this)"'
           +' style="width:64px;height:44px;text-align:center;font-size:18px;font-weight:700;border:2px solid '+(hasQtyV?'var(--accent)':'var(--border)')+';border-radius:10px;background:'+(hasQtyV?'#fff':'var(--surface)')+';color:'+(hasQtyV?'var(--accent)':'var(--text)')+';font-family:Inter,sans-serif;outline:none">'
           +'<input data-pid="'+p.id+'" data-variante="'+v+'" type="number" inputmode="decimal" placeholder="$Precio" value="'+(hasQtyV?priceV:'')+'" min="0"'
           +' onfocus="this.select()" oninput="cartPriceChangeVar(this)"'
@@ -3993,8 +4004,8 @@ function cartRenderList(q) {
       +(p.stock!==undefined?'<div id="cstock-disp-'+p.id+'" style="font-size:12px;margin-top:2px;color:'+(hasQty&&qty>(p.stock||0)?'var(--accent3)':'var(--text3)')+'">Stock: '+(p.stock||0)+(hasQty?' → '+((p.stock||0)-qty):'')+' uds</div>':'')
       +'</div>'
       +'<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;align-items:flex-end">'
-      +'<input id="cqty-'+p.id+'" data-pid="'+p.id+'" data-price="'+itemPrice+'" type="number" inputmode="decimal" step="any" placeholder="0" value="'+(hasQty?qty:'')+'" min="0"'
-      +' onfocus="this.select()"'
+      +'<input id="cqty-'+p.id+'" data-pid="'+p.id+'" data-price="'+itemPrice+'" data-fracmin="'+(p.fracMin||1)+'" type="number" inputmode="decimal" step="any" placeholder="'+((p.fracMin&&p.fracMin>1)?p.fracMin:'0')+'" value="'+(hasQty?qty:'')+'" min="0"'
+      +' onfocus="cartFocusQty(this)"'
       +' oninput="cartQtyChange(this)"'
       +' style="width:72px;height:48px;text-align:center;font-size:20px;font-weight:700;border:2px solid '+(hasQty?'var(--accent)':'var(--border)')+';border-radius:12px;background:'+(hasQty?'#fff':'var(--surface)')+';color:'+(hasQty?'var(--accent)':'var(--text)')+';font-family:Inter,sans-serif;outline:none">'
       +'<input id="cpreciou-'+p.id+'" data-pid="'+p.id+'" type="number" inputmode="decimal" placeholder="$Precio" value="'+(hasQty?itemPrice:'')+'" min="0"'
@@ -4521,12 +4532,9 @@ function cartPlus(e, pid) {
     if(el) el.scrollIntoView({behavior:'smooth', block:'center'});
     return;
   }
-  // Respetar la cantidad mínima de venta (fracMin), igual que en la tienda:
-  // si el producto se vende de a 6, suma y arranca de a 6.
-  const step = (p.fracMin && p.fracMin > 1) ? p.fracMin : 1;
   const existing = S.invItems.findIndex(i=>i.prodId===pid);
-  if(existing >= 0) { S.invItems[existing].qty += step; chkW(existing); }
-  else { S.invItems.push({desc:p.name,qty:step,price:p.price,prodId:p.id,retailPrice:p.price,wholesalePrice:p.wholesalePrice||0,wholesaleQty:p.wholesaleQty||0}); chkW(S.invItems.length-1); }
+  if(existing >= 0) { S.invItems[existing].qty++; chkW(existing); }
+  else { S.invItems.push({desc:p.name,qty:1,price:p.price,prodId:p.id,retailPrice:p.price,wholesalePrice:p.wholesalePrice||0,wholesaleQty:p.wholesaleQty||0}); chkW(S.invItems.length-1); }
   calcTotals();
   nfUpdateFooter();
   setTimeout(function(){ cartInlineUpdate(pid); }, 50);
@@ -4538,9 +4546,7 @@ function cartMinus(e, pid) {
   const btn = e.currentTarget || e.target;
   const idx = S.invItems.findIndex(x=>x.prodId===pid);
   if(idx<0) return;
-  const pm = S.products.find(x=>x.id===pid);
-  const stepM = (pm && pm.fracMin && pm.fracMin > 1) ? pm.fracMin : 1;
-  if(S.invItems[idx].qty > stepM) { S.invItems[idx].qty -= stepM; chkW(idx); }
+  if(S.invItems[idx].qty>1) { S.invItems[idx].qty--; chkW(idx); }
   else S.invItems.splice(idx,1);
   calcTotals();
   nfUpdateFooter();
@@ -4577,12 +4583,9 @@ function cartAddProduct(pid) {
     if(el) el.scrollIntoView({behavior:'smooth', block:'center'});
     return;
   }
-  // Respetar la cantidad mínima de venta (fracMin), igual que en la tienda:
-  // si el producto se vende de a 6, suma y arranca de a 6.
-  const step = (p.fracMin && p.fracMin > 1) ? p.fracMin : 1;
   const existing = S.invItems.findIndex(i=>i.prodId===pid);
-  if(existing >= 0) { S.invItems[existing].qty += step; chkW(existing); }
-  else { S.invItems.push({desc:p.name,qty:step,price:p.price,prodId:p.id,retailPrice:p.price,wholesalePrice:p.wholesalePrice||0,wholesaleQty:p.wholesaleQty||0}); chkW(S.invItems.length-1); }
+  if(existing >= 0) { S.invItems[existing].qty++; chkW(existing); }
+  else { S.invItems.push({desc:p.name,qty:1,price:p.price,prodId:p.id,retailPrice:p.price,wholesalePrice:p.wholesalePrice||0,wholesaleQty:p.wholesaleQty||0}); chkW(S.invItems.length-1); }
   calcTotals();
   nfUpdateFooter();
 }
