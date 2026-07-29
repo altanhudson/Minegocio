@@ -597,7 +597,6 @@ select option{background:var(--surface2)}
       <div style="padding:10px 14px;display:flex;flex-direction:column;gap:10px">
         <div style="display:flex;gap:6px">
           <button onclick="setTiendaModo('abierta')" id="tmodo-abierta" style="flex:1;padding:8px 4px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:2px solid #16a34a;background:#dcfce7;color:#166534">🟢 Abierta</button>
-          <button onclick="setTiendaModo('solo_vista')" id="tmodo-solo_vista" style="flex:1;padding:8px 4px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:2px solid #d97706;background:#fef3c7;color:#92400e">👁️ Solo vista</button>
           <button onclick="setTiendaModo('cerrada')" id="tmodo-cerrada" style="flex:1;padding:8px 4px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:2px solid #dc2626;background:#fee2e2;color:#991b1b">🔴 Cerrada</button>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -1101,7 +1100,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.134</strong> · 22/07/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.135</strong> · 22/07/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -8502,6 +8501,9 @@ let T_VISTA = 'login'; // login | catalogo | carrito
 
 // ========== MODO TIENDA ==========
 function getTiendaModo() {
+  // 'solo_vista' era un modo viejo que se unificó con 'cerrada'. Si quedó guardado
+  // de antes, se trata como cerrada para no dejar la tienda abierta por error.
+  if(S.tiendaModo === 'solo_vista') return 'cerrada';
   return S.tiendaModo || 'abierta';
 }
 
@@ -8509,7 +8511,7 @@ function setTiendaModo(modo) {
   S.tiendaModo = modo;
   save(['tiendaModo'], true);
   updTiendaModoUI();
-  const labels = {abierta:'Abierta', solo_vista:'Solo vista', cerrada:'Cerrada'};
+  const labels = {abierta:'Abierta', cerrada:'Cerrada'};
   toast('Tienda: ' + labels[modo]);
 }
 
@@ -8518,12 +8520,11 @@ function updTiendaModoUI() {
   const badge = document.getElementById('tienda-modo-badge');
   const configs = {
     abierta: {text:'ACTIVA', bg:'#dcfce7', color:'#166534'},
-    solo_vista: {text:'SOLO VISTA', bg:'#fef3c7', color:'#92400e'},
     cerrada: {text:'CERRADA', bg:'#fee2e2', color:'#991b1b'}
   };
   const cfg = configs[modo] || configs.abierta;
   if(badge) { badge.textContent = cfg.text; badge.style.background = cfg.bg; badge.style.color = cfg.color; }
-  ['abierta','solo_vista','cerrada'].forEach(m => {
+  ['abierta','cerrada'].forEach(m => {
     const btn = document.getElementById('tmodo-'+m);
     if(btn) btn.style.opacity = m === modo ? '1' : '0.45';
   });
@@ -8623,7 +8624,7 @@ function tiendaProdCardGrid(p) {
           +btnBulto
           +(p.wholesalePrice&&p.wholesaleQty&&tiendaGetPrice(p,qty)===p.wholesalePrice?'<div style="font-size:11px;color:#2e7d32;font-weight:700;text-align:center;margin-top:4px">⭐ Precio mayorista aplicado</div>':''));
   const mayorHtml = p.wholesalePrice&&p.wholesaleQty
-    ? '<div style="font-size:11px;color:#2e7d32;font-weight:700;margin-top:3px">$'+(+p.wholesalePrice).toFixed(0)+' a partir de '+p.wholesaleQty+' uds</div>'
+    ? '<div style="font-size:15px;color:#2e7d32;font-weight:800;margin-top:3px">$'+(+p.wholesalePrice).toFixed(0)+' <span style="font-size:11px;font-weight:700">a partir de '+p.wholesaleQty+' uds</span></div>'
     : '';
   const priceChangeHtmlG = getPriceChangeHtml(p, '15px', '#3483fa', 'margin-bottom:2px');
   const precioGridHtml = priceChangeHtmlG
@@ -8702,19 +8703,11 @@ function tiendaInit() {
         if(data) Object.assign(S, data);
         // Verificar modo tienda DESPUÉS de cargar datos
         const modoPost = getTiendaModo();
-        if(modoPost === 'cerrada') {
-          if(btn) { btn.disabled = true; btn.textContent = 'Tienda cerrada'; }
-          const loginEl = document.getElementById('tienda-login');
-          const msgDiv = document.createElement('div');
-          msgDiv.style.cssText = 'text-align:center;padding:40px 20px';
-          msgDiv.innerHTML = '<div style="font-size:48px">🔴</div><div style="font-size:20px;font-weight:700;color:#991b1b;margin:12px 0">Tienda cerrada temporalmente</div><div style="font-size:14px;color:#666">Volvé pronto para hacer tu pedido.</div>';
-          if(loginEl) loginEl.appendChild(msgDiv);
-          return;
-        }
+        // Con la tienda cerrada el cliente igual entra y ve precios: solo no puede pedir.
         if(btn) { btn.disabled = false; btn.textContent = 'Ver productos →'; }
         // Auto-entrar si hay número guardado en este celular
         const savedPhone = localStorage.getItem('tienda_phone');
-        if(savedPhone && modoPost !== 'cerrada') {
+        if(savedPhone) {
           document.getElementById('tienda-phone-input').value = savedPhone;
           tiendaEntrar();
         }
@@ -8738,11 +8731,7 @@ function tiendaModoMensaje() {
     banner.id = 'tienda-modo-banner';
     cat.insertBefore(banner, cat.firstChild);
   }
-  if(modo === 'solo_vista') {
-    banner.innerHTML = '<div style="background:#fef3c7;border:1px solid #f59e0b;color:#92400e;padding:14px 16px;text-align:center;font-size:14px;font-weight:600;line-height:1.5">🗓️ <strong>Estamos en fin de semana</strong><br>Por hoy ya no podemos tomar más pedidos. Volvé mañana a la noche para hacer tu pedido para el lunes.</div>';
-  } else if(modo === 'cerrada') {
-    banner.innerHTML = '<div style="background:#fee2e2;border:1px solid #dc2626;color:#991b1b;padding:14px 16px;text-align:center;font-size:14px;font-weight:600;line-height:1.5">🔴 <strong>Tienda cerrada temporalmente</strong><br>Volvé pronto para hacer tu pedido.</div>';
-  }
+  banner.innerHTML = '<div style="background:#fee2e2;border:1px solid #dc2626;color:#991b1b;padding:14px 16px;text-align:center;font-size:14px;font-weight:600;line-height:1.5">🔴 <strong>Tienda cerrada</strong><br>Podés ver los precios, pero no tomamos pedidos por ahora. Volvé pronto 😊</div>';
 }
 
 function tiendaCerrarSesion() {
@@ -8811,7 +8800,7 @@ function tiendaEntrar() {
     }
   }
   document.getElementById('tienda-footer').style.display='block';
-  if(modoTienda === 'solo_vista') tiendaModoMensaje();
+  if(modoTienda !== 'abierta') tiendaModoMensaje();
   window.T_CAT = 'todas';
   tiendaSetVista('grilla');
   T_VISTA = 'catalogo';
@@ -8866,9 +8855,9 @@ function tiendaProdCard(p) {
     +'</div>';
   const priceChangeHtml = getPriceChangeHtml(p, '16px', '#3483fa', 'margin-top:2px');
   const precioHtml = priceChangeHtml
-    ? priceChangeHtml + (p.wholesalePrice&&p.wholesaleQty?'<div style="font-size:12px;color:#2e7d32;font-weight:700;margin-top:2px">$'+(+p.wholesalePrice).toFixed(0)+' a partir de '+p.wholesaleQty+' uds</div>':'')
+    ? priceChangeHtml + (p.wholesalePrice&&p.wholesaleQty?'<div style="font-size:16px;color:#2e7d32;font-weight:800;margin-top:2px">$'+(+p.wholesalePrice).toFixed(0)+' <span style="font-size:12px;font-weight:700">a partir de '+p.wholesaleQty+' uds</span></div>':'')
     : (p.wholesalePrice&&p.wholesaleQty
-      ? '<div style="font-size:16px;font-weight:800;color:#3483fa;margin-top:2px">$'+(+p.price).toFixed(0)+'</div><div style="font-size:12px;color:#2e7d32;font-weight:700;margin-top:2px">$'+(+p.wholesalePrice).toFixed(0)+' a partir de '+p.wholesaleQty+' uds</div>'
+      ? '<div style="font-size:16px;font-weight:800;color:#3483fa;margin-top:2px">$'+(+p.price).toFixed(0)+'</div><div style="font-size:16px;color:#2e7d32;font-weight:800;margin-top:2px">$'+(+p.wholesalePrice).toFixed(0)+' <span style="font-size:12px;font-weight:700">a partir de '+p.wholesaleQty+' uds</span></div>'
       : '<div style="font-size:16px;font-weight:800;color:#3483fa;margin-top:2px">$'+(+p.price).toFixed(0)+'</div>');
   return '<div data-prod-id="'+p.id+'" style="background:'+(qty>0?'#f0f7ff':'#fff')+';border-radius:14px;padding:12px;display:flex;gap:12px;align-items:center;border:1px solid '+(p.oferta?'#e53e3e50':qty>0?'#3483fa40':'#eef0f5')+';margin-bottom:8px;box-shadow:0 1px 6px rgba(0,0,0,.04);position:relative">'
     +(p.oferta?'<div style="position:absolute;top:-7px;left:12px;background:#e53e3e;color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:20px">OFERTA</div>':'')
@@ -9207,16 +9196,15 @@ function tiendaCerrarVariante() {
 
 function tiendaAdd(id) {
   const modo = getTiendaModo();
-  if(modo === 'solo_vista') {
-    // Mostrar mensaje sin toast molesto
+  if(modo === 'cerrada') {
+    // Aviso claro al tocar: la tienda deja ver precios pero no toma pedidos
     const msg = document.createElement('div');
-    msg.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#92400e;color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:700;z-index:99999;text-align:center;max-width:280px';
-    msg.textContent = 'Los pedidos están pausados por el momento. Volvé el lunes 😊';
+    msg.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#991b1b;color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:700;z-index:99999;text-align:center;max-width:280px';
+    msg.textContent = 'Tienda cerrada — no tomamos pedidos por ahora 😊';
     document.body.appendChild(msg);
     setTimeout(() => msg.remove(), 3000);
     return;
   }
-  if(modo === 'cerrada') return;
   const p = S.products.find(x=>x.id===id);
   // Si tiene variantes → popup selector (nunca agregar directo desde el catálogo)
   if(p && p.variantes && p.variantes.length) { tiendaSelecVariante(id); return; }
@@ -9238,7 +9226,7 @@ function tiendaAdd(id) {
 }
 function tiendaAddBulto(id) {
   const modo = getTiendaModo();
-  if(modo === 'solo_vista' || modo === 'cerrada') { tiendaAdd(id); return; } // delega el mensaje/bloqueo
+  if(modo === 'cerrada') { tiendaAdd(id); return; } // delega el aviso
   const p = S.products.find(x=>x.id===id);
   const bq = bultoDe(p);
   if(!p || bq < 2) { tiendaAdd(id); return; }
@@ -9419,6 +9407,11 @@ function tiendaVaciarCarrito() {
 }
 
 async function tiendaConfirmar() {
+  // Con la tienda cerrada se puede mirar precios pero no enviar pedidos.
+  if(getTiendaModo() === 'cerrada') {
+    alert('La tienda está cerrada en este momento y no podemos tomar pedidos. Podés ver los precios y volver más tarde 😊');
+    return;
+  }
   const items = Object.entries(TC).filter(([,q])=>q>0);
   if(!items.length){alert('Agregá al menos un producto');return;}
 
