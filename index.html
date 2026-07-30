@@ -506,6 +506,15 @@ select option{background:var(--surface2)}
       } else {
         document.body.style.overflow = 'hidden';
       }
+      if(esTienda) {
+        // Tapar la app de facturación con CSS ANTES de que el navegador la pinte.
+        // tiendaInit() corre en DOMContentLoaded, o sea demasiado tarde: se alcanzaba
+        // a ver el admin por un instante al refrescar.
+        var st = document.createElement('style');
+        st.id = 'tienda-hide-admin';
+        st.textContent = '.page,.bottom-nav,.top-bar,.topbar,.fab,#app-shell{display:none !important}body{background:#ededed !important}';
+        (document.head || document.documentElement).appendChild(st);
+      }
     } catch(e) {}
   })();
 </script>
@@ -1100,7 +1109,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.137</strong> · 22/07/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.138</strong> · 22/07/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -8574,6 +8583,9 @@ function tiendaAdminVolver() {
   document.getElementById('tienda-app').style.paddingTop='';
   const bar = document.getElementById('tienda-admin-bar');
   if(bar) bar.remove();
+  // Sacar el CSS que tapa la app (tiene !important y le ganaría al display inline)
+  const hideCss = document.getElementById('tienda-hide-admin');
+  if(hideCss) hideCss.remove();
   document.querySelectorAll('.page,.bottom-nav,.top-bar,.fab').forEach(e=>e.style.display='');
   const shell = document.getElementById('app-shell');
   if(shell) shell.style.display='';
