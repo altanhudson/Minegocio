@@ -1100,7 +1100,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.135</strong> · 22/07/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.136</strong> · 22/07/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -8697,20 +8697,28 @@ function tiendaInit() {
   // Cargar datos de Firebase y habilitar botón cuando estén listos
   const btn = document.getElementById('tienda-entrar-btn');
   if(btn) { btn.disabled = true; btn.textContent = 'Cargando...'; }
+  // Reentrar con el número guardado en este celular. Si la página se recarga
+  // (pull-to-refresh al scrollear hacia arriba), el cliente no debe volver al login.
+  function autoEntrar() {
+    if(btn) { btn.disabled = false; btn.textContent = 'Ver productos →'; }
+    let savedPhone = null;
+    try { savedPhone = localStorage.getItem('tienda_phone'); } catch(e) {}
+    if(savedPhone) {
+      const inp = document.getElementById('tienda-phone-input');
+      if(inp) inp.value = savedPhone;
+      try { tiendaEntrar(); } catch(e) {}
+    }
+  }
   function tryLoad() {
     if(window._fbLoad) {
+      // El .catch es importante: si falla la conexión, sin él el auto-entrar
+      // nunca corría y el cliente quedaba trabado en el login.
       window._fbLoad().then(data => {
         if(data) Object.assign(S, data);
-        // Verificar modo tienda DESPUÉS de cargar datos
-        const modoPost = getTiendaModo();
-        // Con la tienda cerrada el cliente igual entra y ve precios: solo no puede pedir.
-        if(btn) { btn.disabled = false; btn.textContent = 'Ver productos →'; }
-        // Auto-entrar si hay número guardado en este celular
-        const savedPhone = localStorage.getItem('tienda_phone');
-        if(savedPhone) {
-          document.getElementById('tienda-phone-input').value = savedPhone;
-          tiendaEntrar();
-        }
+        autoEntrar();
+      }).catch(e => {
+        console.warn('Tienda: falló la carga desde Firebase', e);
+        autoEntrar();
       });
     } else {
       setTimeout(tryLoad, 500);
@@ -8759,19 +8767,12 @@ function tiendaEntrar() {
   }) || null;
   TN = TC_CLI ? TC_CLI.name : 'visitante';
 
-  // Verificar modo tienda
   const modoTienda = getTiendaModo();
-  if(modoTienda === 'cerrada') {
-    document.getElementById('tienda-login').style.display='none';
-    const cat = document.getElementById('tienda-catalogo');
-    cat.style.display='flex'; cat.style.flexDirection='column';
-    cat.style.alignItems='center'; cat.style.justifyContent='center';
-    cat.style.minHeight='60vh';
-    cat.innerHTML='<div style="text-align:center;padding:30px"><div style="font-size:48px">🔴</div><div style="font-size:20px;font-weight:700;color:#991b1b;margin:12px 0">Tienda cerrada temporalmente</div><div style="font-size:14px;color:#666">Volvé pronto para hacer tu pedido.</div></div>';
-    return;
-  }
 
-  // Recordar número en este celular
+  // Recordar número en este celular. Va ANTES de cualquier otra cosa para que,
+  // si la página se recarga (ej. pull-to-refresh al scrollear arriba), el cliente
+  // vuelva a entrar solo y no tenga que escribir el número de nuevo.
+  // Con la tienda cerrada también se guarda: puede ver precios igual.
   try { localStorage.setItem('tienda_phone', ph); } catch(e) {}
   document.getElementById('tienda-login').style.display='none';
   document.getElementById('tienda-catalogo').style.display='block';
