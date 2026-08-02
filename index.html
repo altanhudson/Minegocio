@@ -1109,7 +1109,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.140</strong> · 01/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.141</strong> · 02/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -8420,6 +8420,7 @@ function renderInvoiceHTML(inv) {
             <button id="tienda-logout-btn" onclick="tiendaCerrarSesion()" style="display:none;background:#fff;border:none;color:#3483fa;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0">Cambiar</button>
           </div>
           <div id="tienda-saldo-info" style="display:none;margin-top:3px"></div>
+          <div id="tienda-nivel-info" style="display:none;margin-top:4px"></div>
         </div>
         <button onclick="tiendaVerCarrito()" style="position:relative;background:#ffe600;border:none;color:#333;border-radius:12px;padding:8px 12px;font-size:20px;cursor:pointer;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.15);flex-shrink:0" id="tienda-cart-btn">
           🛒<span id="tienda-badge" style="display:none;position:absolute;top:-8px;right:-8px;background:#e53e3e;color:#fff;font-size:11px;font-weight:800;padding:2px 6px;border-radius:10px;min-width:18px;text-align:center">0</span>
@@ -8768,6 +8769,163 @@ function tiendaModoMensaje() {
   banner.innerHTML = '<div style="background:#fee2e2;border:1px solid #dc2626;color:#991b1b;padding:14px 16px;text-align:center;font-size:14px;font-weight:600;line-height:1.5">🔴 <strong>Tienda cerrada</strong><br>Podés ver los precios, pero no tomamos pedidos por ahora. Volvé pronto 😊</div>';
 }
 
+// ===== SISTEMA DE FIDELIZACION (niveles por compra en tienda) =====
+// Reglas acordadas: solo suma lo facturado A TRAVES DE LA TIENDA (no manual),
+// se excluyen cigarrillos (dejan ~4,5% de margen, no conviene premiarlos),
+// corte del 1 al ultimo dia del mes, premio con el primer pedido del mes siguiente.
+const FIDE_NIVELES = [
+  { nombre:'ORO',    umbral:2200000, premio:'caja de Yerba Amanda 500g',   emoji:'🥇', grad:'linear-gradient(135deg,#8a6d1f,#d4a935 55%,#f2cf62)' },
+  { nombre:'PLATA',  umbral:1800000, premio:'caja de Turrón Misky',        emoji:'🥈', grad:'linear-gradient(135deg,#5b6472,#8f98a6 55%,#c3cbd4)' },
+  { nombre:'BRONCE', umbral:1400000, premio:'caja de Encendedores Candela',emoji:'🥉', grad:'linear-gradient(135deg,#6b3d20,#a85c33 55%,#c98a5e)' }
+];
+const FIDE_MARCAS_CIG = ['marlboro','philip','chester','lucky','camel','red point','dolchester','parliament','viceroy','rothmans','next ','gauloise','jockey','derby','melbourne','richmond'];
+function fideEsCigarrillo(p) {
+  if(!p) return false;
+  const n = (p.name||'').toLowerCase();
+  const c = (p.category||'').toLowerCase();
+  if(c.indexOf('cigarr')===0 || c.indexOf('tabaco')>=0) return true;
+  return FIDE_MARCAS_CIG.some(function(k){ return n.indexOf(k)>=0; });
+}
+function fideMesActual() {
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+}
+// Cuanto compro un cliente este mes, contando SOLO tienda y sin cigarrillos
+function fideGastoDelMes(clientId, mes) {
+  if(!clientId) return 0;
+  mes = mes || fideMesActual();
+  let total = 0;
+  (S.invoices||[]).forEach(function(inv) {
+    if(inv.clientId !== clientId) return;
+    if(inv.type === 'presupuesto' || inv.status === 'cancelada') return;
+    if((inv.date||'').slice(0,7) !== mes) return;
+    if((inv.notes||'').toLowerCase().indexOf('tienda online') < 0) return; // solo tienda
+    (inv.items||[]).forEach(function(it) {
+      const p = S.products.find(function(x){ return x.id === it.prodId; });
+      if(fideEsCigarrillo(p)) return;
+      total += (it.qty||0) * (it.price||0);
+    });
+  });
+  return total;
+}
+// Puesto del cliente en el ranking del mes (mismo criterio). Nunca expone a otros.
+function fidePuesto(clientId, mes) {
+  mes = mes || fideMesActual();
+  const totales = {};
+  (S.invoices||[]).forEach(function(inv) {
+    if(!inv.clientId) return;
+    if(inv.type === 'presupuesto' || inv.status === 'cancelada') return;
+    if((inv.date||'').slice(0,7) !== mes) return;
+    if((inv.notes||'').toLowerCase().indexOf('tienda online') < 0) return;
+    (inv.items||[]).forEach(function(it) {
+      const p = S.products.find(function(x){ return x.id === it.prodId; });
+      if(fideEsCigarrillo(p)) return;
+      totales[inv.clientId] = (totales[inv.clientId]||0) + (it.qty||0)*(it.price||0);
+    });
+  });
+  const orden = Object.keys(totales).sort(function(a,b){ return totales[b]-totales[a]; });
+  const idx = orden.indexOf(clientId);
+  return idx >= 0 ? { puesto: idx+1, deCuantos: orden.length } : null;
+}
+// Estado completo para pintar: nivel actual, siguiente, cuanto falta, progreso
+function fideEstado(clientId) {
+  const gasto = fideGastoDelMes(clientId);
+  let actual = null, idxActual = -1;
+  for(let i=0; i<FIDE_NIVELES.length; i++) {
+    if(gasto >= FIDE_NIVELES[i].umbral) { actual = FIDE_NIVELES[i]; idxActual = i; break; }
+  }
+  // el siguiente nivel a alcanzar (los niveles estan de mayor a menor)
+  let siguiente = null;
+  if(!actual) siguiente = FIDE_NIVELES[FIDE_NIVELES.length-1];   // sin nivel -> apunta a Bronce
+  else if(idxActual > 0) siguiente = FIDE_NIVELES[idxActual-1];  // tiene nivel -> apunta al de arriba
+  const faltaSiguiente = siguiente ? Math.max(0, siguiente.umbral - gasto) : 0;
+  // progreso hacia el siguiente nivel, tomando como piso el nivel actual
+  let piso = actual ? actual.umbral : 0;
+  let progreso = 100;
+  if(siguiente) {
+    const tramo = siguiente.umbral - piso;
+    progreso = tramo > 0 ? Math.max(0, Math.min(100, (gasto - piso) / tramo * 100)) : 0;
+  }
+  return { gasto, actual, siguiente, faltaSiguiente, progreso };
+}
+function fmtPesos(n) { return '$' + Math.round(n).toLocaleString('es-AR'); }
+
+function tiendaRenderNivel() {
+  const el = document.getElementById('tienda-nivel-info');
+  if(!el) return;
+  if(!TC_CLI || !TC_CLI.id) { el.style.display='none'; return; }
+  const e = fideEstado(TC_CLI.id);
+  const grad = e.actual ? e.actual.grad : 'linear-gradient(135deg,#1a3a6b,#3483fa)';
+  const emoji = e.actual ? e.actual.emoji : '\ud83c\udf81';
+  const texto = e.actual
+    ? 'Nivel ' + e.actual.nombre + (e.siguiente ? ' \u00b7 faltan ' + fmtPesos(e.faltaSiguiente) + ' para ' + e.siguiente.nombre : ' \u00b7 \u00a1nivel m\u00e1ximo!')
+    : 'Sum\u00e1 ' + fmtPesos(e.faltaSiguiente) + ' para llegar a nivel ' + e.siguiente.nombre;
+  el.style.display = 'block';
+  el.innerHTML = '<span onclick="tiendaAbrirNivel()" style="display:inline-flex;align-items:center;gap:6px;background:'+grad+';border-radius:8px;padding:4px 12px 4px 6px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;max-width:100%">'
+    + '<span style="font-size:18px;line-height:1;flex-shrink:0">'+emoji+'</span>'
+    + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+texto+'</span>'
+    + '<span style="opacity:.8;flex-shrink:0">\u203a</span>'
+    + '</span>';
+}
+function tiendaAbrirNivel() {
+  if(!TC_CLI || !TC_CLI.id) return;
+  const e = fideEstado(TC_CLI.id);
+  const r = fidePuesto(TC_CLI.id);
+  const grad = e.actual ? e.actual.grad : 'linear-gradient(135deg,#1a3a6b,#3483fa)';
+  const emoji = e.actual ? e.actual.emoji : '\ud83c\udf81';
+
+  let html = '<div style="background:'+grad+';border-radius:16px;padding:18px 16px 16px">';
+  if(r && r.puesto <= 5) {
+    const ord = r.puesto === 1 ? '1er' : r.puesto + '\u00b0';
+    html += '<div style="background:rgba(255,255,255,.92);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;font-weight:800;color:#4a4034;text-align:center;line-height:1.35">'
+         + '\ud83c\udfc6 \u00a1Felicitaciones! Est\u00e1s en el <b>'+ord+' puesto</b> de nuestros mejores clientes este mes</div>';
+  }
+  html += '<div style="display:flex;align-items:center;gap:10px">'
+       + '<div style="font-size:30px;line-height:1;flex-shrink:0">'+emoji+'</div><div>'
+       + '<div style="color:#fff;font-size:15px;font-weight:800">'
+       + (e.actual ? 'Est\u00e1s en nivel '+e.actual.nombre : 'Sum\u00e1 '+fmtPesos(e.faltaSiguiente)+' para llegar a nivel '+e.siguiente.nombre)
+       + '</div>'
+       + '<div style="color:rgba(255,255,255,.85);font-size:11.5px;font-weight:600;margin-top:2px">Llev\u00e1s '+fmtPesos(e.gasto)+' comprados este mes</div>'
+       + '</div></div>';
+  if(e.siguiente) {
+    html += '<div style="margin-top:12px">'
+         + '<div style="background:rgba(255,255,255,.28);border-radius:20px;height:9px;overflow:hidden"><div style="background:#fff;height:100%;border-radius:20px;width:'+e.progreso.toFixed(0)+'%"></div></div>'
+         + '<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:rgba(255,255,255,.9);font-weight:700">'
+         + '<span>'+(e.actual ? e.actual.emoji+' '+e.actual.nombre : 'Hoy')+'</span>'
+         + '<span>'+e.siguiente.emoji+' '+e.siguiente.nombre+'</span>'
+         + '</div></div>';
+    html += '<div style="background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);border-radius:10px;padding:9px 11px;margin-top:12px;font-size:12.5px;font-weight:700;color:#fff;line-height:1.4">'
+         + 'Te faltan <b>'+fmtPesos(e.faltaSiguiente)+'</b> para llegar a '+e.siguiente.nombre+' y llevarte una '+e.siguiente.premio+' \ud83c\udf81</div>';
+  } else if(e.actual) {
+    html += '<div style="background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);border-radius:10px;padding:9px 11px;margin-top:12px;font-size:12.5px;font-weight:700;color:#fff;line-height:1.4">'
+         + '\u00a1Llegaste al nivel m\u00e1ximo! Te llev\u00e1s una '+e.actual.premio+' \ud83c\udf81</div>';
+  }
+  if(e.actual) {
+    const faltaMantener = Math.max(0, e.actual.umbral - e.gasto);
+    if(faltaMantener > 0) {
+      html += '<div style="background:#fff4ed;border:1.5px solid #f7941d;border-radius:10px;padding:9px 11px;margin-top:8px;font-size:12px;font-weight:700;color:#9a4f0a;line-height:1.4">'
+           + '\u26a0\ufe0f Para mantener tu nivel '+e.actual.nombre+' necesit\u00e1s llegar a '+fmtPesos(e.actual.umbral)+' este mes.</div>';
+    }
+  }
+  html += '<div style="font-size:10.5px;color:rgba(255,255,255,.78);margin-top:10px;font-weight:600">Se calcula del 1 al \u00faltimo d\u00eda del mes \u00b7 solo compras por la tienda \u00b7 no incluye cigarrillos</div>';
+  html += '</div>';
+  html += '<button onclick="tiendaCerrarNivel()" style="width:100%;margin-top:12px;background:#3483fa;color:#fff;border:none;border-radius:12px;padding:12px;font-size:15px;font-weight:800;cursor:pointer">Entendido</button>';
+
+  let ov = document.getElementById('tienda-nivel-overlay');
+  if(!ov) {
+    ov = document.createElement('div');
+    ov.id = 'tienda-nivel-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
+    ov.onclick = function(ev){ if(ev.target === ov) tiendaCerrarNivel(); };
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML = '<div style="background:#fff;border-radius:20px;padding:14px;width:100%;max-width:340px;max-height:90vh;overflow-y:auto">'+html+'</div>';
+  ov.style.display = 'flex';
+}
+function tiendaCerrarNivel() {
+  const ov = document.getElementById('tienda-nivel-overlay');
+  if(ov) ov.style.display = 'none';
+}
 function tiendaCerrarSesion() {
   try { localStorage.removeItem('tienda_phone'); } catch(e) {}
   TC_PHONE = ''; TC_CLI = null; TN = '';
@@ -8778,6 +8936,8 @@ function tiendaCerrarSesion() {
   if(logoutBtn) logoutBtn.style.display = 'none';
   const saldoEl2 = document.getElementById('tienda-saldo-info');
   if(saldoEl2) saldoEl2.style.display = 'none';
+  const nivelEl2 = document.getElementById('tienda-nivel-info');
+  if(nivelEl2) nivelEl2.style.display = 'none';
   TC = {};
   tiendaActBadge();
 }
@@ -8826,6 +8986,7 @@ function tiendaEntrar() {
       saldoEl.style.display = 'none';
     }
   }
+  try { tiendaRenderNivel(); } catch(e) {}
   document.getElementById('tienda-footer').style.display='block';
   if(modoTienda !== 'abierta') tiendaModoMensaje();
   window.T_CAT = 'todas';
@@ -9568,6 +9729,8 @@ async function _tiendaGuardarYAbrir() {
     // Confirmado por Firebase → recién ahora vaciar carrito y abrir WhatsApp
     TC = {};
     tiendaActBadge();
+    // El pedido nuevo cambia el gasto del mes: refrescar la pastilla de nivel
+    try { tiendaRenderNivel(); } catch(e) {}
     ov.innerHTML =
       '<div style="background:#fff;border-radius:18px;padding:36px 26px;text-align:center;max-width:360px;width:100%;box-shadow:0 8px 30px rgba(0,0,0,.25)">'
       +'<div style="font-size:54px;margin-bottom:12px">📲</div>'
