@@ -1109,7 +1109,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.141</strong> · 02/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.142</strong> · 02/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -8861,10 +8861,14 @@ function tiendaRenderNivel() {
     ? 'Nivel ' + e.actual.nombre + (e.siguiente ? ' \u00b7 faltan ' + fmtPesos(e.faltaSiguiente) + ' para ' + e.siguiente.nombre : ' \u00b7 \u00a1nivel m\u00e1ximo!')
     : 'Sum\u00e1 ' + fmtPesos(e.faltaSiguiente) + ' para llegar a nivel ' + e.siguiente.nombre;
   el.style.display = 'block';
-  el.innerHTML = '<span onclick="tiendaAbrirNivel()" style="display:inline-flex;align-items:center;gap:6px;background:'+grad+';border-radius:8px;padding:4px 12px 4px 6px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;max-width:100%">'
-    + '<span style="font-size:18px;line-height:1;flex-shrink:0">'+emoji+'</span>'
-    + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+texto+'</span>'
-    + '<span style="opacity:.8;flex-shrink:0">\u203a</span>'
+  // La pastilla funciona como barra de progreso: el fondo se va "llenando" con el
+  // color del nivel a medida que el cliente avanza hacia el siguiente.
+  const pct = Math.max(0, Math.min(100, e.progreso));
+  el.innerHTML = '<span onclick="tiendaAbrirNivel()" style="position:relative;display:inline-flex;align-items:center;gap:7px;background:rgba(0,0,0,.28);border-radius:10px;padding:7px 13px 7px 8px;font-size:12.5px;font-weight:700;color:#fff;cursor:pointer;max-width:100%;overflow:hidden">'
+    + '<span style="position:absolute;left:0;top:0;bottom:0;width:'+pct.toFixed(1)+'%;background:'+grad+';border-radius:10px 0 0 10px;transition:width .4s"></span>'
+    + '<span style="position:relative;font-size:19px;line-height:1;flex-shrink:0">'+emoji+'</span>'
+    + '<span style="position:relative;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+texto+'</span>'
+    + '<span style="position:relative;opacity:.85;flex-shrink:0">\u203a</span>'
     + '</span>';
 }
 function tiendaAbrirNivel() {
