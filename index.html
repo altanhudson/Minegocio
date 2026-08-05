@@ -1110,7 +1110,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.143</strong> · 02/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.144</strong> · 02/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -7666,7 +7666,7 @@ function generarListaCompras() {
     }
   });
   if (Object.keys(items).length === 0) {
-    toast('No hay productos con stock negativo');
+    toast('No hay productos por debajo de su stock mínimo');
     return;
   }
   S.listaCompras = { generadoEn: Date.now(), items };
@@ -8058,20 +8058,24 @@ function renderListaCompras() {
     if (tieneVar) {
       p.variantes.forEach(function(v) {
         const sv = (p.stockVariantes||{})[v]||0;
-        if (sv >= 0) return;
+        // Con minStock configurado, el faltante se mide contra el mínimo, no contra cero
+        const faltante = p.minStock > 0 ? (p.minStock - sv) : -sv;
+        if (faltante <= 0) return;
         const key = p.id+'|'+v;
         keysActuales.add(key);
-        const qty = Math.abs(sv);
+        const qty = faltante;
         const itemObj = {prod:p, qty, prodId:key, displayName:p.name+' ('+v+')'};
         const suppliers = p.suppliers && p.suppliers.length > 0 ? p.suppliers : null;
         if (!suppliers) sinProv.push(itemObj);
         else suppliers.forEach(function(pvId){ if(!porProv[pvId]) porProv[pvId]=[]; porProv[pvId].push(itemObj); });
       });
     } else {
-      if ((p.stock||0) >= 0) return;
+      const stockActual = p.stock||0;
+      const faltante = p.minStock > 0 ? (p.minStock - stockActual) : -stockActual;
+      if (faltante <= 0) return;
       const key = p.id;
       keysActuales.add(key);
-      const qty = Math.abs(p.stock||0);
+      const qty = faltante;
       const itemObj = {prod:p, qty, prodId:key, displayName:p.name};
       const suppliers = p.suppliers && p.suppliers.length > 0 ? p.suppliers : null;
       if (!suppliers) sinProv.push(itemObj);
@@ -8093,7 +8097,7 @@ function renderListaCompras() {
   }
 
   if (Object.keys(porProv).length === 0 && sinProv.length === 0) {
-    el.innerHTML = '<div class="empty"><div class="ei">\u2705</div><h3>Todo en orden</h3><p>No hay productos con stock negativo</p></div>';
+    el.innerHTML = '<div class="empty"><div class="ei">\u2705</div><h3>Todo en orden</h3><p>No hay productos por debajo de su stock mínimo</p></div>';
     return;
   }
 
