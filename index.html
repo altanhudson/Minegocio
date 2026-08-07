@@ -90,6 +90,15 @@
       return d.ts > visto;
     } catch(e) { return false; }
   };
+  // Devuelve la escritura del "latido" (marca de ultimo cambio) para agregar al batch.
+  // Se usa en TODOS los caminos de subida: si falta en alguno, el otro celular
+  // no se entera de los cambios hechos por ese camino.
+  function _latidoWrite() {
+    return setDoc(doc(db, V2_PREFIX + '_meta', 'latido'), {
+      ts: Date.now(),
+      origen: (window._deviceId || 'desconocido')
+    });
+  }
   window._fbMarcarVisto = function() {
     try { localStorage.setItem('mneg_latido_visto', String(Date.now())); } catch(e) {}
   };
@@ -205,6 +214,7 @@
         const cfg = {};
         CONFIG_FIELDS.forEach(f => { if(data[f] !== undefined) cfg[f] = data[f]; });
         allBatches.push(setDoc(v2config(), cleanUndefined(cfg)));
+        try { allBatches.push(_latidoWrite()); } catch(e) {}
         await Promise.all(allBatches);
         _clearDirty();
         return;
@@ -263,7 +273,10 @@
         _dirty.config = false;
       }
 
-      if(batches.length > 0) await Promise.all(batches);
+      if(batches.length > 0) {
+        try { batches.push(_latidoWrite()); } catch(e) {}
+        await Promise.all(batches);
+      }
 
     } catch(e) { console.error('Firebase save error:', e); throw e; }
   };
@@ -321,12 +334,7 @@
       // el otro celular pueda detectar novedades sin descargar toda la base.
       // Va aparte de config para no interferir con su merge.
       if(batches.length > 0 || _clearConfig) {
-        try {
-          batches.push(setDoc(doc(db, V2_PREFIX + '_meta', 'latido'), {
-            ts: Date.now(),
-            origen: (window._deviceId || 'desconocido')
-          }));
-        } catch(e) {}
+        try { batches.push(_latidoWrite()); } catch(e) {}
       }
       if(batches.length > 0) await Promise.all(batches);
       // Confirmado por el servidor → recién ahora marcar como sincronizado
@@ -1148,7 +1156,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.147</strong> · 07/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.148</strong> · 07/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -6865,14 +6873,22 @@ function _marcarNovedades(hay) {
   const btn = document.getElementById('btn-sync');
   const badge = document.getElementById('sync-badge');
   if(!btn || !badge) return;
-  if(hay && !_syncDirty) {  // si ya hay cambios propios, ese aviso tiene prioridad
+  if(hay && _syncDirty) {
+    // Los dos casos a la vez: cambios propios sin subir Y novedades del otro celular
+    badge.style.display = 'flex';
+    badge.style.background = '#7c3aed';
+    badge.textContent = '\u21c5';
+    btn.style.background = '#ede9fe';
+    btn.style.borderColor = '#7c3aed';
+    btn.title = 'Tenés cambios sin subir y hay novedades del otro dispositivo';
+  } else if(hay) {
     badge.style.display = 'flex';
     badge.style.background = '#2563eb';
     badge.textContent = '\u2193';
     btn.style.background = '#dbeafe';
     btn.style.borderColor = '#2563eb';
     btn.title = 'Hay novedades del otro dispositivo — tocá para sincronizar';
-  } else if(!hay && !_syncDirty) {
+  } else if(!_syncDirty) {
     badge.style.display = 'none';
     badge.style.background = '#dc2626';
     badge.textContent = '!';
@@ -6890,7 +6906,9 @@ async function _chequearNovedades() {
     _marcarNovedades(hay);
   } catch(e) {}
 }
-setInterval(_chequearNovedades, 45000);
+setInterval(_chequearNovedades, 20000);
+// Chequear tambien apenas arranca la app, sin esperar el primer intervalo
+setTimeout(_chequearNovedades, 3000);
 document.addEventListener('visibilitychange', function(){
   if(!document.hidden) _chequearNovedades();   // al volver a la app, chequear enseguida
 });
