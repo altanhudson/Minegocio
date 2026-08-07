@@ -67,6 +67,33 @@
     return doc(db, V2_PREFIX + '_config', 'main');
   }
 
+  // ID unico de este celular, para no avisarme de mis propios cambios
+  try {
+    window._deviceId = localStorage.getItem('mneg_device_id');
+    if(!window._deviceId) {
+      window._deviceId = 'dev-' + Math.random().toString(36).slice(2,10);
+      localStorage.setItem('mneg_device_id', window._deviceId);
+    }
+  } catch(e) { window._deviceId = 'dev-tmp'; }
+
+  // Chequeo liviano de novedades: lee UN documento chico, no la base entera.
+  // IMPORTANTE: solo lee y avisa. No baja datos ni modifica nada, para no
+  // arriesgar pisar algo que se este editando en este momento.
+  window._fbHayNovedades = async function() {
+    try {
+      const snap = await getDoc(doc(db, V2_PREFIX + '_meta', 'latido'));
+      if(!snap.exists()) return false;
+      const d = snap.data() || {};
+      if(!d.ts) return false;
+      if(d.origen === window._deviceId) return false; // cambio propio, no avisar
+      const visto = parseInt(localStorage.getItem('mneg_latido_visto') || '0');
+      return d.ts > visto;
+    } catch(e) { return false; }
+  };
+  window._fbMarcarVisto = function() {
+    try { localStorage.setItem('mneg_latido_visto', String(Date.now())); } catch(e) {}
+  };
+
   // === DIRTY TRACKING: solo escribir lo que este dispositivo modificó ===
   const _dirty = {
     products: new Set(), invoices: new Set(), clients: new Set(),
@@ -289,6 +316,17 @@
         });
         batches.push(setDoc(v2config(), cleanUndefined(merged)));
         _clearConfig = true;
+      }
+      // Sellar SIEMPRE una marca de "ultimo cambio" en un doc chico aparte, para que
+      // el otro celular pueda detectar novedades sin descargar toda la base.
+      // Va aparte de config para no interferir con su merge.
+      if(batches.length > 0 || _clearConfig) {
+        try {
+          batches.push(setDoc(doc(db, V2_PREFIX + '_meta', 'latido'), {
+            ts: Date.now(),
+            origen: (window._deviceId || 'desconocido')
+          }));
+        } catch(e) {}
       }
       if(batches.length > 0) await Promise.all(batches);
       // Confirmado por el servidor → recién ahora marcar como sincronizado
@@ -1110,7 +1148,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.144</strong> · 02/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.146</strong> · 03/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -3092,8 +3130,20 @@ function renderProdCatChips() {
   sel.innerHTML = '<option value="">Categoría...</option>' + cats.map(c=>'<option value="'+c+'"'+(c===current?' selected':'')+'>'+c+'</option>').join('');
 }
 
+// Refresca la lista de compras si esta visible en pantalla. Se llama desde
+// renderProds() para que los cambios de stock/proveedor se vean al instante,
+// sin tener que cambiar de pestaña y volver.
+function _refrescarListaSiVisible() {
+  try {
+    const el = document.getElementById('comp-lista');
+    if(el && el.style.display !== 'none' && typeof renderListaCompras === 'function') {
+      renderListaCompras();
+    }
+  } catch(e) {}
+}
 function renderProds(q) {
   q = (q||'').toLowerCase();
+  setTimeout(_refrescarListaSiVisible, 0);  // mantener la lista de compras al dia
   const grid = document.getElementById('prod-grid');
   let list = [...S.products];
   try{renderProdCatChips();}catch(e){}
@@ -6766,7 +6816,69 @@ function _syncMarkDirty(dirty) {
 }
 window._syncMarkDirty = _syncMarkDirty;
 
+// === AVISO DE NOVEDADES DEL OTRO CELULAR ===
+// Chequea cada 45s si el otro dispositivo subio algo (nota, pedido de tienda, etc).
+// Solo LEE un documento chico y avisa: no baja datos ni pisa nada.
+let _hayNovedades = false;
+function _marcarNovedades(hay) {
+  _hayNovedades = hay;
+  const btn = document.getElementById('btn-sync');
+  const badge = document.getElementById('sync-badge');
+  if(!btn || !badge) return;
+  if(hay && !_syncDirty) {  // si ya hay cambios propios, ese aviso tiene prioridad
+    badge.style.display = 'flex';
+    badge.style.background = '#2563eb';
+    badge.textContent = '\u2193';
+    btn.style.background = '#dbeafe';
+    btn.style.borderColor = '#2563eb';
+    btn.title = 'Hay novedades del otro dispositivo — tocá para sincronizar';
+  } else if(!hay && !_syncDirty) {
+    badge.style.display = 'none';
+    badge.style.background = '#dc2626';
+    badge.textContent = '!';
+    btn.style.background = 'var(--surface2)';
+    btn.style.borderColor = 'var(--border)';
+    btn.title = 'Sincronizado';
+  }
+}
+async function _chequearNovedades() {
+  if(typeof window._fbHayNovedades !== 'function') return;
+  if(document.hidden) return;             // no gastar datos con la app en segundo plano
+  if(window._syncEnCurso) return;         // no pisar un sync en progreso
+  try {
+    const hay = await window._fbHayNovedades();
+    _marcarNovedades(hay);
+  } catch(e) {}
+}
+setInterval(_chequearNovedades, 45000);
+document.addEventListener('visibilitychange', function(){
+  if(!document.hidden) _chequearNovedades();   // al volver a la app, chequear enseguida
+});
+
+// Detecta si hay trabajo sin terminar que el sync podria pisar.
+// Devuelve el texto del riesgo, o null si es seguro sincronizar.
+function _riesgoAlSincronizar() {
+  const pag = S.page || '';
+  if(pag === 'nueva-factura' || pag === 'resumen-factura') {
+    const n = (S.invItems||[]).length;
+    if(n > 0) return 'Estás armando una factura con ' + n + ' producto' + (n>1?'s':'') + ' sin confirmar';
+    if(S.editId) return 'Estás editando una factura sin guardar';
+  }
+  if(pag === 'nueva-compra' || pag === 'resumen-compra') {
+    const n = Object.keys(window.ncItems||{}).length;
+    if(n > 0) return 'Estás cargando una compra con ' + n + ' producto' + (n>1?'s':'') + ' sin confirmar';
+  }
+  // Modales de edicion abiertos (producto, cliente, factura, pago, etc.)
+  const modales = document.querySelectorAll('.modal-overlay.open');
+  if(modales.length > 0) return 'Tenés una ventana de edición abierta sin guardar';
+  return null;
+}
 async function syncManual() {
+  const riesgo = _riesgoAlSincronizar();
+  if(riesgo) {
+    const ok = confirm('⚠️ ' + riesgo + '.\n\nSi sincronizás ahora podés perder esos cambios.\n\n¿Sincronizar igual?');
+    if(!ok) return;
+  }
   const btn = document.getElementById('btn-sync');
   if (btn) btn.textContent = '⏳';
   try {
@@ -6832,9 +6944,13 @@ async function syncManual() {
     try { renderProds(); renderInvs(); renderClis(); renderProvs(); renderComps(); updDash(); } catch(eRnd) { console.error('render error:', eRnd); }
     try { updateStockBadge(); } catch(e) {}
     try { renderProdCatChips(); } catch(e) {}
+    // La lista de compras no se re-renderizaba al sincronizar: por eso habia que
+    // cambiar de pestaña para ver los cambios (notas del otro celular, pedidos nuevos).
+    try { if(document.getElementById('comp-lista') && document.getElementById('comp-lista').style.display !== 'none') renderListaCompras(); } catch(e) {}
 
     _syncMarkDirty(false);
     window._syncPendingFlag = false;
+    try { window._fbMarcarVisto(); _marcarNovedades(false); } catch(e) {}
     toast('✅ Sincronizado');
 
   } catch(e) {
