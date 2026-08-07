@@ -1148,7 +1148,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.146</strong> · 03/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.147</strong> · 07/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -5551,6 +5551,22 @@ function _creditoResidualParaFac(inv) {
   return Math.max(0, credTotal - usado);
 }
 
+// Facturas ANTERIORES del mismo cliente que siguen con saldo pendiente.
+// Sirve para avisar que este pago no las toca (se aplica solo a esta factura).
+function _facturasAnterioresPendientes(inv) {
+  return (S.invoices||[]).filter(function(i) {
+    if(i.clientId !== inv.clientId || i.id === inv.id) return false;
+    if(i.type === 'presupuesto' || i.status === 'cancelada' || i.status === 'pagada') return false;
+    if((i.saldo||0) <= 0) return false;
+    // anterior por fecha, o misma fecha pero creada antes
+    if((i.date||'') < (inv.date||'')) return true;
+    if((i.date||'') === (inv.date||'')) {
+      if(i.ts && inv.ts) return i.ts < inv.ts;
+      return (i.id||'') < (inv.id||'');
+    }
+    return false;
+  });
+}
 function openQPago(id) {
   const inv = S.invoices.find(i=>i.id===id);
   if(!inv) return;
@@ -5559,10 +5575,22 @@ function openQPago(id) {
   document.getElementById('mqpago-title').textContent = 'Pago - '+id;
   const credito = _creditoResidualParaFac(inv);
   const debe = Math.max(0, (inv.saldo||0) - credito);
+  // Avisar si el cliente tiene facturas viejas impagas: este pago NO las salda.
+  const anteriores = _facturasAnterioresPendientes(inv);
+  const deudaAnterior = anteriores.reduce(function(s,i){ return s+(i.saldo||0); }, 0);
+  let avisoAnterior = '';
+  if(deudaAnterior > 0) {
+    avisoAnterior = '<div style="background:#fff4ed;border:1.5px solid #f7941d;border-radius:8px;padding:9px 11px;margin-top:10px;font-size:12.5px;font-weight:700;color:#9a4f0a;line-height:1.4">'
+      + '⚠️ Este cliente debe <b>$'+deudaAnterior.toFixed(0)+'</b> de '+anteriores.length+' factura'+(anteriores.length>1?'s':'')+' anterior'+(anteriores.length>1?'es':'')+'.<br>'
+      + 'Lo que cargues acá se aplica <b>solo a esta factura</b>.'
+      + '<button onclick="_irACobrarCliente(\''+inv.clientId+'\')" style="display:block;width:100%;margin-top:8px;background:#f7941d;color:#fff;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:800;cursor:pointer">Cobrar y repartir entre todas las facturas →</button>'
+      + '</div>';
+  }
   document.getElementById('mqpago-info').innerHTML =
     '<div style="display:flex;justify-content:space-between"><span>Total factura</span><strong>$'+inv.total.toFixed(2)+'</strong></div>'
     +(credito>0?'<div style="display:flex;justify-content:space-between"><span>Saldo a favor</span><strong style="color:var(--green)">-$'+credito.toFixed(2)+'</strong></div>':'')
-    +'<div style="display:flex;justify-content:space-between"><span>Saldo pendiente</span><strong style="color:var(--accent3)">$'+debe.toFixed(2)+'</strong></div>';
+    +'<div style="display:flex;justify-content:space-between"><span>Saldo pendiente</span><strong style="color:var(--accent3)">$'+debe.toFixed(2)+'</strong></div>'
+    +avisoAnterior;
   document.getElementById('qp-monto').value = debe > 0 ? debe.toFixed(2) : '';
   document.getElementById('qp-result').innerHTML = '';
   document.getElementById('mqpago').classList.add('open');
@@ -6324,6 +6352,18 @@ function checkPriceBanner() {
 
 // === PAGO POR CLIENTE ===
 let pagocliSelected = null;
+
+// Atajo desde el modal de pago de una factura: cierra ese modal y abre el de
+// cobranza con el cliente ya elegido, para repartir el pago entre sus facturas.
+function _irACobrarCliente(clientId) {
+  try { closeM('mqpago'); } catch(e) {}
+  setTimeout(function() {
+    try {
+      openPagoCliente();
+      if(clientId) pagocliSelectClient(clientId);
+    } catch(e) { console.error('Error al abrir cobranza:', e); }
+  }, 150);
+}
 
 function openPagoCliente() {
   pagocliSelected = null;
