@@ -48,7 +48,7 @@
   // Dos dispositivos nunca pueden pisarse porque escriben documentos distintos.
 
   const COLS = ['products','invoices','clients','compras','proveedores','cobranzas','ajustes','listacompras'];
-  const CONFIG_FIELDS = ['nInv','nCli','nProd','nComp','nProv','nGrupo','gruposMay','tiendaModo','banners','config'];
+  const CONFIG_FIELDS = ['nInv','nCli','nProd','nComp','nProv','nGrupo','gruposMay','tiendaModo','banners','bannersTs','config'];
   const V2_PREFIX = 'v2'; // prefijo para colecciones nuevas
   const colLegacy = name => doc(db, 'collections', name); // colección vieja (solo lectura)
 
@@ -286,6 +286,18 @@
                 cfgMerge.horarioCorteTs = tsEx;
               }
               merged[f] = cfgMerge;
+            } else if(f === 'banners') {
+              // Igual criterio que el horario: gana el array mas nuevo por su propia
+              // marca de tiempo, no "el ultimo que guardo algo". Sin esto, el celular
+              // que tenia banners viejos en memoria revivia los que ya habias borrado
+              // apenas guardaba cualquier otra cosa (un cobro, una nota, etc).
+              const tsExB = merged['bannersTs'] || 0, tsNvB = data['bannersTs'] || 0;
+              if(tsExB > tsNvB && merged[f] !== undefined) {
+                // conservar el existente (mas nuevo); no tocar merged[f]
+              } else {
+                merged[f] = data[f];
+                merged['bannersTs'] = tsNvB;
+              }
             } else { merged[f] = data[f]; }
           }
         });
@@ -352,6 +364,14 @@
                 cfgMerge.horarioCorteTs = tsEx;
               }
               merged[f] = cfgMerge;
+            } else if(f === 'banners') {
+              const tsExB = merged['bannersTs'] || 0, tsNvB = data['bannersTs'] || 0;
+              if(tsExB > tsNvB && merged[f] !== undefined) {
+                // conservar el existente (mas nuevo)
+              } else {
+                merged[f] = data[f];
+                merged['bannersTs'] = tsNvB;
+              }
             } else { merged[f] = data[f]; }
           }
         });
@@ -1184,7 +1204,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.154</strong> · 11/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.156</strong> · 17/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -1619,7 +1639,7 @@ function save(fields, forceWrite) {
     localStorage.setItem(SK, JSON.stringify({
       products:S.products, clients:S.clients, invoices:S.invoices, gruposMay:S.gruposMay||[],
       compras:S.compras, proveedores:S.proveedores, listaCompras:S.listaCompras||null, cobranzas:S.cobranzas||[], ajustes:S.ajustes||[],
-      banners:S.banners||[], config:S.config||{}, tiendaModo:S.tiendaModo||'abierta', listacompras:S.listacompras||[],
+      banners:S.banners||[], bannersTs:S.bannersTs||0, config:S.config||{}, tiendaModo:S.tiendaModo||'abierta', listacompras:S.listacompras||[],
       nInv:S.nInv, nCli:S.nCli, nProd:S.nProd, nComp:S.nComp, nProv:S.nProv
     }));
   } catch(e) {}
@@ -1629,7 +1649,7 @@ function save(fields, forceWrite) {
     compras:S.compras, proveedores:S.proveedores, gruposMay:S.gruposMay||[],
     nInv:S.nInv, nCli:S.nCli, nProd:S.nProd, nComp:S.nComp, nProv:S.nProv, nGrupo:S.nGrupo,
     listaCompras:S.listaCompras||null, cobranzas:S.cobranzas||[], ajustes:S.ajustes||[],
-    tiendaModo:S.tiendaModo||'abierta', banners:S.banners||[],
+    tiendaModo:S.tiendaModo||'abierta', banners:S.banners||[], bannersTs:S.bannersTs||0,
     config:S.config||{}, listacompras:S.listacompras||[]
   };
   if(window._fbSave) {
@@ -2698,6 +2718,7 @@ function saveBanner() {
   if(!S.banners) S.banners = [];
   const id = 'BAN-' + Date.now().toString(36).toUpperCase();
   S.banners.push({ id: id, img: _bannerImg, prodId: _bannerProdId || null });
+  S.bannersTs = Date.now(); // marca de cambio, para que el merge no lo pise con un array viejo
   try{ _markDirty('config', 'main'); }catch(e){}
   save(['banners'], true);
   renderBannersList();
@@ -2708,6 +2729,7 @@ function saveBanner() {
 function delBanner(id) {
   if(!confirm('¿Eliminar este banner?')) return;
   S.banners = (S.banners||[]).filter(b=>b.id!==id);
+  S.bannersTs = Date.now();
   try{ _markDirty('config', 'main'); }catch(e){}
   save(['banners'], true);
   renderBannersList();
@@ -8913,6 +8935,18 @@ function tiendaAdminEntrar() {
   T_VISTA_TIPO = 'grilla';
   tiendaRender();
   T_VISTA = 'catalogo';
+  // Esta vista usaba S.banners tal cual estaba en memoria de la app de facturación
+  // (a veces desactualizado si hacía rato que no tocabas sincronizar). Se pide
+  // una actualización silenciosa para que la vista admin de la tienda muestre
+  // lo mismo que ve un cliente real, sin bloquear la pantalla mientras llega.
+  if(typeof window._fbLoad === 'function') {
+    window._fbLoad().then(function(data){
+      if(!data) return;
+      Object.assign(S, data);
+      try { recalcAllStocks(); recalcClientCredits(); } catch(e) {}
+      if(T_VISTA === 'catalogo') { try { tiendaRender(); } catch(e) {} }
+    }).catch(function(){});
+  }
   // Botón para volver a la app
   const backBar = document.createElement('div');
   backBar.id = 'tienda-admin-bar';
