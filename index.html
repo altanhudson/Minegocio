@@ -1228,7 +1228,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.157</strong> · 18/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.158</strong> · 18/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -8737,28 +8737,36 @@ function renderInvoiceHTML(inv) {
           return (i.id||'') > (inv.id||'');
         });
         let html2 = '';
+        // Antes esto era un if/else if encadenado: si esta factura tenia CUALQUIER
+        // pago propio (incluso un "a favor" viejo y chico), se cortaba ahi y la deuda
+        // de OTRA factura anterior nunca se mostraba, aunque fuera la mas nueva del
+        // cliente. Ahora son dos bloques independientes que se suman cuando corresponde.
         if(inv.status === 'pagada') {
           // no mostrar nada
-        } else if(tienePagosPropios || pagosAFavor > 0) {
-          // Tiene pagos parciales — mostrar resumen
-          const totalAbonado = totalPagadoReal + pagosAFavor;
-          if(totalAbonado > 0) {
-            html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #166534;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:.5px">Pagos anteriores</span><span style="font-size:18px;font-weight:900;color:#166534">-$'+totalAbonado.toFixed(2)+'</span></div>';
-          }
-          if((inv.saldo||0) > 0) {
+        } else {
+          if(tienePagosPropios || pagosAFavor > 0) {
+            const totalAbonado = totalPagadoReal + pagosAFavor;
+            if(totalAbonado > 0) {
+              html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #166534;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:.5px">Pagos anteriores</span><span style="font-size:18px;font-weight:900;color:#166534">-$'+totalAbonado.toFixed(2)+'</span></div>';
+            }
+            if((inv.saldo||0) > 0) {
+              html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Saldo pendiente</span><span style="font-size:18px;font-weight:900;color:#c05000">$'+(inv.saldo).toFixed(2)+'</span></div>';
+            }
+          } else if(credito > 0) {
+            const totalAPagar = Math.max(0, inv.total - credito);
+            html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #166534;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:.5px">Saldo a favor</span><span style="font-size:18px;font-weight:900;color:#166534">-$'+credito.toFixed(2)+'</span></div>';
+            html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Total a pagar</span><span style="font-size:18px;font-weight:900;color:#c05000">$'+totalAPagar.toFixed(2)+'</span></div>';
+          } else if((inv.saldo||0) > 0) {
             html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Saldo pendiente</span><span style="font-size:18px;font-weight:900;color:#c05000">$'+(inv.saldo).toFixed(2)+'</span></div>';
           }
-        } else if(credito > 0) {
-          // Mostrar crédito residual en CADA factura pendiente (no solo la última)
-          const totalAPagar = Math.max(0, inv.total - credito);
-          html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #166534;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:.5px">Saldo a favor</span><span style="font-size:18px;font-weight:900;color:#166534">-$'+credito.toFixed(2)+'</span></div>';
-          html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Total a pagar</span><span style="font-size:18px;font-weight:900;color:#c05000">$'+totalAPagar.toFixed(2)+'</span></div>';
-        } else if(deudaAnterior > 0 && esUltima) {
-          const totalAPagar = inv.total + deudaAnterior;
-          html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Saldo anterior</span><span style="font-size:18px;font-weight:900;color:#c05000">+$'+deudaAnterior.toFixed(2)+'</span></div>';
-          html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Total a pagar</span><span style="font-size:18px;font-weight:900;color:#c05000">$'+totalAPagar.toFixed(2)+'</span></div>';
-        } else if((inv.saldo||0) > 0) {
-          html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Saldo pendiente</span><span style="font-size:18px;font-weight:900;color:#c05000">$'+(inv.saldo).toFixed(2)+'</span></div>';
+          // Deuda de OTRAS facturas pendientes: se suma siempre que exista y esta
+          // sea la mas reciente del cliente, sin importar que arriba ya se haya
+          // mostrado algo de esta factura.
+          if(deudaAnterior > 0 && esUltima) {
+            const totalConAnterior = (inv.saldo||0) + deudaAnterior;
+            html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Saldo anterior</span><span style="font-size:18px;font-weight:900;color:#c05000">+$'+deudaAnterior.toFixed(2)+'</span></div>';
+            html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Total a pagar</span><span style="font-size:18px;font-weight:900;color:#c05000">$'+totalConAnterior.toFixed(2)+'</span></div>';
+          }
         }
         return html2;
       })()
