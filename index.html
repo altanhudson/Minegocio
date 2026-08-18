@@ -408,6 +408,30 @@
     } catch(e) { console.error('Firebase load error:', e); return null; }
   };
 
+  // Carga liviana para la TIENDA: solo lo que la tienda realmente usa.
+  // Antes bajaba las 8 colecciones enteras (~4.900 documentos) cada vez que un
+  // cliente abria la tienda, incluyendo compras, cobranzas y proveedores que la
+  // tienda nunca lee. Eso disparaba el costo de Firebase y hacia lenta la apertura.
+  //   - products  -> catalogo, precios, stock
+  //   - clients   -> identificar al cliente por telefono y su credito
+  //   - invoices  -> saldo pendiente y nivel de fidelizacion
+  //   - config    -> banners, horario de corte, modo de la tienda
+  const COLS_TIENDA = ['products','clients','invoices'];
+  window._fbLoadTienda = async function() {
+    try {
+      const [colSnaps, cfgSnap] = await Promise.all([
+        Promise.all(COLS_TIENDA.map(col => getDocs(v2col(col)))),
+        getDoc(v2config())
+      ]);
+      const result = {};
+      COLS_TIENDA.forEach((col, i) => {
+        result[col] = colSnaps[i].docs.map(d => d.data());
+      });
+      if(cfgSnap.exists()) Object.assign(result, cfgSnap.data());
+      return result;
+    } catch(e) { console.error('Firebase load tienda error:', e); return null; }
+  };
+
   // Eliminar documento individual de Firestore
   window._fbDeleteDoc = async function(col, id) {
     try { await deleteDoc(v2doc(col, id)); }
@@ -1204,7 +1228,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.156</strong> · 17/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.157</strong> · 18/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -6961,7 +6985,7 @@ async function _chequearNovedades() {
     _marcarNovedades(hay);
   } catch(e) {}
 }
-setInterval(_chequearNovedades, 20000);
+setInterval(_chequearNovedades, 60000);  // 1 min: a 20s sumaba ~75.000 lecturas/mes
 // Chequear tambien apenas arranca la app, sin esperar el primer intervalo
 setTimeout(_chequearNovedades, 3000);
 document.addEventListener('visibilitychange', function(){
@@ -8939,8 +8963,12 @@ function tiendaAdminEntrar() {
   // (a veces desactualizado si hacía rato que no tocabas sincronizar). Se pide
   // una actualización silenciosa para que la vista admin de la tienda muestre
   // lo mismo que ve un cliente real, sin bloquear la pantalla mientras llega.
-  if(typeof window._fbLoad === 'function') {
-    window._fbLoad().then(function(data){
+  // Carga liviana: para ver el catalogo y los banners no hace falta bajar
+  // compras ni cobranzas (eso multiplicaba el costo de Firebase cada vez que
+  // entrabas a mirar la tienda desde la app).
+  const _cargarAdmin = window._fbLoadTienda || window._fbLoad;
+  if(typeof _cargarAdmin === 'function') {
+    _cargarAdmin().then(function(data){
       if(!data) return;
       Object.assign(S, data);
       try { recalcAllStocks(); recalcClientCredits(); } catch(e) {}
@@ -9110,13 +9138,21 @@ function tiendaInit() {
 
   // 2) Después, en segundo plano, traer datos frescos y refrescar el catálogo.
   function tryLoad() {
-    if(window._fbLoad) {
-      window._fbLoad().then(data => {
+    // Usa la carga liviana: la tienda no necesita compras, cobranzas ni proveedores.
+    const cargar = window._fbLoadTienda || window._fbLoad;
+    if(cargar) {
+      cargar().then(data => {
         if(data) {
           Object.assign(S, data);
-          // Guardar en el celular del cliente para que el próximo ingreso (y el
-          // refresh con el dedo) sea instantáneo en vez de descargar todo de nuevo.
-          try { localStorage.setItem(SK, JSON.stringify(data)); } catch(e) {}
+          // Guardar en el celular para que el próximo ingreso (y el refresh con el
+          // dedo) sea instantáneo. Se MEZCLA con lo que ya habia guardado: la carga
+          // de la tienda es parcial y, sin esto, en el celular del administrador
+          // borraria compras y cobranzas del almacenamiento local.
+          try {
+            let previo = {};
+            try { previo = JSON.parse(localStorage.getItem(SK)) || {}; } catch(e2) {}
+            localStorage.setItem(SK, JSON.stringify(Object.assign(previo, data)));
+          } catch(e) {}
         }
         autoEntrar(); // por si no había datos locales
         if(yaEntro) {
