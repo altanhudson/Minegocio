@@ -1228,7 +1228,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.158</strong> · 18/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.159</strong> · 19/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -8722,7 +8722,8 @@ function renderInvoiceHTML(inv) {
           }, 0);
         const credito = Math.max(0, _credTotal - _creditoUsadoAntesHTML);
         const pagosAFavor = (inv.pagos||[]).filter(p=>p.method==='a favor').reduce((s,p)=>s+p.monto,0);
-        const deudaAnterior = S.invoices.filter(i=>i.clientId===inv.clientId&&i.id!==inv.id&&i.status!=='pagada'&&i.status!=='cancelada'&&i.type!=='presupuesto'&&i.type===inv.type).reduce((s,i)=>s+(i.saldo||0),0);
+        const facturasAnteriores = S.invoices.filter(i=>i.clientId===inv.clientId&&i.id!==inv.id&&i.status!=='pagada'&&i.status!=='cancelada'&&i.type!=='presupuesto'&&i.type===inv.type&&(i.saldo||0)>0);
+        const deudaAnterior = facturasAnteriores.reduce((s,i)=>s+(i.saldo||0),0);
         const pagosReales = (inv.pagos||[]).filter(p=>p.method!=='a favor');
         const tienePagosPropios = pagosReales.length > 0;
         const totalPagadoReal = pagosReales.reduce((s,p)=>s+p.monto,0);
@@ -8744,27 +8745,42 @@ function renderInvoiceHTML(inv) {
         if(inv.status === 'pagada') {
           // no mostrar nada
         } else {
+          // Si mas abajo se va a mostrar el total combinado con la deuda anterior,
+          // el saldo de ESTA factura sola queda redundante (ya se ve el total de
+          // factura arriba, y el numero que importa es el "Total a pagar" final) —
+          // se omite para no repetir el mismo importe dos veces en la pantalla.
+          const seMuestraDeudaAnterior = deudaAnterior > 0 && esUltima;
           if(tienePagosPropios || pagosAFavor > 0) {
             const totalAbonado = totalPagadoReal + pagosAFavor;
             if(totalAbonado > 0) {
               html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #166534;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:.5px">Pagos anteriores</span><span style="font-size:18px;font-weight:900;color:#166534">-$'+totalAbonado.toFixed(2)+'</span></div>';
             }
-            if((inv.saldo||0) > 0) {
+            if((inv.saldo||0) > 0 && !seMuestraDeudaAnterior) {
               html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Saldo pendiente</span><span style="font-size:18px;font-weight:900;color:#c05000">$'+(inv.saldo).toFixed(2)+'</span></div>';
             }
           } else if(credito > 0) {
             const totalAPagar = Math.max(0, inv.total - credito);
             html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #166534;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:.5px">Saldo a favor</span><span style="font-size:18px;font-weight:900;color:#166534">-$'+credito.toFixed(2)+'</span></div>';
-            html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Total a pagar</span><span style="font-size:18px;font-weight:900;color:#c05000">$'+totalAPagar.toFixed(2)+'</span></div>';
-          } else if((inv.saldo||0) > 0) {
+            if(!seMuestraDeudaAnterior) {
+              html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Total a pagar</span><span style="font-size:18px;font-weight:900;color:#c05000">$'+totalAPagar.toFixed(2)+'</span></div>';
+            }
+          } else if((inv.saldo||0) > 0 && !seMuestraDeudaAnterior) {
             html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Saldo pendiente</span><span style="font-size:18px;font-weight:900;color:#c05000">$'+(inv.saldo).toFixed(2)+'</span></div>';
           }
           // Deuda de OTRAS facturas pendientes: se suma siempre que exista y esta
           // sea la mas reciente del cliente, sin importar que arriba ya se haya
           // mostrado algo de esta factura.
-          if(deudaAnterior > 0 && esUltima) {
+          if(seMuestraDeudaAnterior) {
             const totalConAnterior = (inv.saldo||0) + deudaAnterior;
-            html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Saldo anterior</span><span style="font-size:18px;font-weight:900;color:#c05000">+$'+deudaAnterior.toFixed(2)+'</span></div>';
+            const refFacturas = facturasAnteriores.map(function(f){
+              const fd = (f.date||'').split('-');
+              const corta = fd.length===3 ? fd[2]+'/'+fd[1] : f.date;
+              return f.id+' del '+corta;
+            }).join(' · ');
+            html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px">'
+              + '<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Saldo anterior</span><span style="font-size:18px;font-weight:900;color:#c05000">+$'+deudaAnterior.toFixed(2)+'</span></div>'
+              + (refFacturas ? '<div style="font-size:11px;color:#a86420;margin-top:2px">'+refFacturas+'</div>' : '')
+              + '</div>';
             html2 += '<div style="margin-top:8px;padding:8px 12px;border:1.5px solid #c05000;border-radius:4px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#c05000;text-transform:uppercase;letter-spacing:.5px">Total a pagar</span><span style="font-size:18px;font-weight:900;color:#c05000">$'+totalConAnterior.toFixed(2)+'</span></div>';
           }
         }
