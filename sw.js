@@ -1,4 +1,4 @@
-const CACHE_NAME = 'revendit-v11';
+const CACHE_NAME = 'revendit-v12';
 const urlsToCache = [
   '/',
   '/index.html'
@@ -28,22 +28,62 @@ self.addEventListener('message', event => {
 });
 
 self.addEventListener('fetch', event => {
-  // El HTML (navegación, '/', '/?tienda', index.html) SIEMPRE network-first:
-  // así el cliente recibe la última versión apenas tiene conexión.
-  if (
-    event.request.mode === 'navigate' ||
-    event.request.url.includes('index.html') ||
-    event.request.url.endsWith('/')
-  ) {
+  const req = event.request;
+
+  // Solo manejamos GET. Cualquier otra cosa (POST a Firebase, etc.) pasa derecho.
+  if (req.method !== 'GET') return;
+
+  // No tocar las llamadas a Firebase ni a servicios externos: siempre a la red.
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+
+  const esHTML = (
+    req.mode === 'navigate' ||
+    req.url.includes('index.html') ||
+    req.url.endsWith('/')
+  );
+
+  if (esHTML) {
+    // ESTRATEGIA: stale-while-revalidate.
+    //
+    // Antes era network-first: en CADA visita el celular volvia a descargar el
+    // index.html entero (~730 KB) antes de mostrar nada, aunque ya lo tuviera
+    // guardado. Con buena señal se notaba lento; con señal floja la descarga se
+    // colgaba y el cliente veia una pantalla en blanco ("no abre").
+    //
+    // Ahora: se responde AL INSTANTE con la copia guardada y, en paralelo, se
+    // baja la version nueva para la proxima vez. La app ya tiene un listener de
+    // 'controllerchange' que recarga sola cuando detecta una version nueva, asi
+    // que las actualizaciones siguen llegando igual, solo que sin bloquear la
+    // primera pintura de la pantalla.
     event.respondWith(
-      fetch(event.request).catch(() =>
-        caches.match('/index.html').then(r => r || caches.match('/'))
+      caches.open(CACHE_NAME).then(cache =>
+        cache.match('/index.html').then(cached => {
+          const redDePaso = fetch(req).then(resp => {
+            // Guardar la version nueva para la proxima visita.
+            if (resp && resp.status === 200) {
+              cache.put('/index.html', resp.clone());
+            }
+            return resp;
+          }).catch(() => null);
+
+          // Si hay copia guardada -> mostrarla ya. Si no (primera visita) -> esperar la red.
+          return cached || redDePaso.then(r => r || caches.match('/'));
+        })
       )
     );
   } else {
-    // El resto (íconos, etc.) cache-first
+    // Resto de recursos propios (iconos, manifest): cache-first, con refresco en segundo plano.
     event.respondWith(
-      caches.match(event.request).then(r => r || fetch(event.request))
+      caches.open(CACHE_NAME).then(cache =>
+        cache.match(req).then(cached => {
+          const redDePaso = fetch(req).then(resp => {
+            if (resp && resp.status === 200) cache.put(req, resp.clone());
+            return resp;
+          }).catch(() => null);
+          return cached || redDePaso;
+        })
+      )
     );
   }
 });
