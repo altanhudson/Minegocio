@@ -1204,6 +1204,12 @@ select option{background:var(--surface2)}
         <button onclick="normalizarCategorias()" class="btn btn-full" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);margin-top:8px">🔤 Normalizar categorías (mayúsculas)</button>
         <button onclick="resetStockCero()" class="btn btn-full" style="background:rgba(220,38,38,.1);border:1px solid var(--accent3);color:var(--accent3);margin-top:8px">🔄 Reset stock a cero (todos los productos)</button>
         <button onclick="repararURLsImagenes()" class="btn btn-full" style="background:rgba(234,179,8,.1);border:1px solid #ca8a04;color:#92400e;margin-top:8px">&#128247; Reparar im&#225;genes cortadas</button>
+        <button onclick="recomprimirImagenes()" class="btn btn-full" style="background:rgba(52,131,250,.1);border:1px solid #3483fa;color:#1a3a6b;margin-top:8px">&#128737;&#65039; Optimizar fotos de productos (hacer m&#225;s liviana la tienda)</button>
+        <div id="recomp-progreso" style="display:none;margin-top:10px;padding:12px;background:var(--surface2);border-radius:10px;border:1px solid var(--border)">
+          <div id="recomp-texto" style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">Preparando...</div>
+          <div style="background:var(--border);border-radius:20px;height:10px;overflow:hidden"><div id="recomp-barra" style="width:0%;height:100%;background:#3483fa;border-radius:20px;transition:width .3s"></div></div>
+          <div id="recomp-detalle" style="font-size:11px;color:var(--text3);margin-top:6px"></div>
+        </div>
       </div>
     </div>
     <div class="card" style="margin-bottom:12px">
@@ -1228,7 +1234,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.159</strong> · 19/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.161</strong> · 19/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -2617,6 +2623,114 @@ function tiendaFechaFactura() {
   }
   return localDateStr();
 }
+// === OPTIMIZAR FOTOS YA SUBIDAS ===
+// Las fotos subidas antes de la v4.1.160 se guardaron sin comprimir (241KB a 1MB
+// cada una). Con 240+ productos eso es ~150MB que el cliente descarga al mirar la
+// tienda. Esto las vuelve a procesar: baja cada una, la comprime a 400px/0.6 (lo
+// mismo que ahora hace una foto nueva) y la sube al mismo lugar.
+let _recompCancelar = false;
+async function recomprimirImagenes() {
+  const conFoto = S.products.filter(function(p){
+    return p.image && String(p.image).startsWith('http');
+  });
+  if(!conFoto.length) { toast('No hay fotos para optimizar'); return; }
+
+  const cont = document.getElementById('recomp-progreso');
+  const txt = document.getElementById('recomp-texto');
+  const barra = document.getElementById('recomp-barra');
+  const det = document.getElementById('recomp-detalle');
+
+  // PRUEBA PREVIA: intentar con UNA sola foto antes de largarse con todas.
+  // Firebase Storage puede rechazar la lectura desde el navegador (CORS) y en ese
+  // caso fallarian las 242 igual; mejor enterarse ahora y no despues de 10 minutos.
+  cont.style.display = 'block';
+  txt.textContent = 'Probando con una foto...';
+  barra.style.width = '2%';
+  det.textContent = '';
+  try {
+    await _recomprimirUna(conFoto[0]);
+  } catch(e) {
+    cont.style.display = 'none';
+    alert('No se pudo procesar la primera foto.\n\nEsto suele pasar porque Firebase Storage no permite leer las imágenes desde el navegador (configuración CORS).\n\nNo se modificó ninguna foto. Detalle: ' + (e && e.message ? e.message : e));
+    return;
+  }
+
+  if(!confirm('La prueba funcionó ✅\n\nSe van a optimizar las '+conFoto.length+' fotos restantes.\n\nPuede tardar varios minutos y consume datos. NO cierres la app mientras corre.\n\n¿Continuar?')) {
+    cont.style.display = 'none';
+    try { save(['products'], true); } catch(e) {}
+    return;
+  }
+  _recompCancelar = false;
+
+  let ok=1, fallaron=0, ahorroTotal=0;  // la primera ya se proceso en la prueba
+  for(let i=1; i<conFoto.length; i++) {
+    if(_recompCancelar) { txt.textContent = 'Cancelado'; break; }
+    const p = conFoto[i];
+    txt.textContent = 'Optimizando '+(i+1)+' de '+conFoto.length+'...';
+    barra.style.width = ((i/conFoto.length)*100).toFixed(1)+'%';
+    det.textContent = (p.name||p.id).slice(0,40);
+    try {
+      const res = await _recomprimirUna(p);
+      if(res) { ok++; ahorroTotal += res; }
+    } catch(e) {
+      console.warn('No se pudo optimizar', p.id, e);
+      fallaron++;
+    }
+  }
+  barra.style.width = '100%';
+  txt.textContent = '✅ Listo: '+ok+' optimizadas'+(fallaron? ', '+fallaron+' no se pudieron':'');
+  det.textContent = ahorroTotal>0 ? ('Ahorro total: '+(ahorroTotal/1024/1024).toFixed(1)+' MB') : '';
+  if(ok>0) {
+    try { save(['products'], true); } catch(e) {}
+    try { renderProds(); } catch(e) {}
+    toast('✅ '+ok+' fotos optimizadas');
+  }
+}
+// Procesa UNA foto. Devuelve los bytes ahorrados, o 0 si no hizo falta tocarla.
+function _recomprimirUna(prod) {
+  return new Promise(function(resolve, reject) {
+    // cache-buster para que el navegador no devuelva una copia vieja
+    const url = prod.image + (prod.image.indexOf('?')>=0 ? '&' : '?') + '_r=' + Date.now();
+    fetch(url, {mode:'cors'})
+      .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.blob(); })
+      .then(function(blobOriginal){
+        const tamOriginal = blobOriginal.size;
+        // Si ya es chica, no vale la pena volver a subirla
+        if(tamOriginal < 80*1024) { resolve(0); return; }
+        return new Promise(function(res2, rej2){
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          const objUrl = URL.createObjectURL(blobOriginal);
+          img.onload = function() {
+            URL.revokeObjectURL(objUrl);
+            const MAX = 400;
+            let w = img.width, h = img.height;
+            if(w > MAX || h > MAX) {
+              if(w > h) { h = Math.round(h*MAX/w); w = MAX; }
+              else { w = Math.round(w*MAX/h); h = MAX; }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            canvas.toBlob(function(blobNuevo){
+              if(!blobNuevo) { rej2(new Error('no se pudo comprimir')); return; }
+              // Si por algun motivo la "comprimida" no es mas chica, dejar la original
+              if(blobNuevo.size >= tamOriginal) { res2(0); return; }
+              const file = new File([blobNuevo], prod.id+'.jpg', {type:'image/jpeg'});
+              window._fbUploadPhoto(file, prod.id).then(function(nuevaUrl){
+                prod.image = nuevaUrl;
+                try { _markDirty('products', prod.id); } catch(e) {}
+                res2(tamOriginal - blobNuevo.size);
+              }).catch(rej2);
+            }, 'image/jpeg', 0.6);
+          };
+          img.onerror = function(){ URL.revokeObjectURL(objUrl); rej2(new Error('no se pudo leer la imagen')); };
+          img.src = objUrl;
+        }).then(resolve, reject);
+      })
+      .catch(reject);
+  });
+}
 function repararURLsImagenes() {
   const conToken = S.products.filter(p => p.image && p.image.includes('token='));
   if(!conToken.length) { toast('✓ No hay imágenes con token para reparar'); return; }
@@ -2930,9 +3044,17 @@ function onPhoto(input) {
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      const compressed = canvas.toDataURL('image/jpeg', 0.7);
+      const compressed = canvas.toDataURL('image/jpeg', 0.6);
       S.photo = compressed;
-      S.photoFile = file; // guardar archivo original para Storage
+      // Antes se guardaba "file" (el original de la camara, sin comprimir) para
+      // subir a Storage — la compresion de arriba solo servia para la vista previa
+      // en pantalla. Con fotos de hasta 1MB por producto y 240+ productos, eso
+      // eran decenas/cientos de MB descargados por cada cliente que abria la tienda.
+      // Ahora se sube el MISMO archivo comprimido que se ve en pantalla (~30-80KB).
+      canvas.toBlob(function(blob) {
+        if(blob) S.photoFile = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {type:'image/jpeg'});
+        else S.photoFile = file; // si algo falla, no perder la foto: subir el original
+      }, 'image/jpeg', 0.6);
       showPhoto(compressed);
     };
     img.src = e.target.result;
