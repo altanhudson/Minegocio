@@ -1234,7 +1234,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.161</strong> · 19/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.162</strong> · 19/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -5315,6 +5315,9 @@ function saveInv() {
     status, notes:document.getElementById('i-notes').value,
     notaInterna:document.getElementById('i-nota-interna').value,
     preparado: S.editId ? ((S.invoices.find(x=>x.id===S.editId)||{}).preparado||false) : false,
+    // El checklist de armado se perdía en cada edición porque la factura se
+    // reconstruye desde cero acá y este campo no se copiaba de la versión anterior.
+    itemsArmados: S.editId ? ((S.invoices.find(x=>x.id===S.editId)||{}).itemsArmados||{}) : {},
     items:[...S.invItems], subtotal:sub,
     descRetiro:ret, descExtraPct:extPct, descExtra:extAmt, total,
     pagos:[], // se completa abajo
@@ -5521,6 +5524,27 @@ function unificarFacturasTienda(clientId, fecha) {
   renderInvs();
   toast('✓ '+facts.length+' pedidos unificados en uno');
 }
+// Clave del checklist "armado" de cada item de la factura.
+// Se usa el producto (id + variante) en vez de la posición en la lista: si se
+// edita la factura y se agrega o quita un ítem, las posiciones se corren y los
+// tildes quedarían marcando el producto equivocado.
+// Para ítems sin prodId (escritos a mano) se cae al nombre, y si tampoco hay,
+// al índice como último recurso.
+function _keyItemArmado(item, idx) {
+  if(!item) return 'i'+idx;
+  if(item.prodId) return item.prodId + (item.variante ? '|'+item.variante : '');
+  const nombre = (item.desc || item.name || '').trim();
+  return nombre ? 'n:'+nombre : 'i'+idx;
+}
+// Lee el estado del tilde. Contempla las facturas viejas, donde los tildes se
+// habían guardado por índice numérico, para no perder lo ya marcado.
+function _estaArmado(inv, item, idx) {
+  const ia = inv.itemsArmados;
+  if(!ia) return false;
+  const key = _keyItemArmado(item, idx);
+  if(ia[key] !== undefined) return !!ia[key];
+  return !!ia[idx];   // formato viejo (por posición)
+}
 function renderInvs() {
   try{renderInvDiaResumen();}catch(e){}
   const el=document.getElementById('inv-list');
@@ -5582,7 +5606,7 @@ function renderInvs() {
           : (sb[inv.status]||'');
     const btnStyle = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 4px;cursor:pointer;background:var(--surface);border:none;flex:1;border-right:1px solid var(--border)';
     const prodLines = inv.items.map((item, idx)=> {
-      const armado = inv.itemsArmados && inv.itemsArmados[idx];
+      const armado = _estaArmado(inv, item, idx);
       return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">'
       +'<div data-action="togItemArmado" data-invid="'+inv.id+'" data-idx="'+idx+'" style="width:26px;height:26px;border-radius:6px;border:2px solid '+(armado?'var(--green)':'var(--border)')+';background:'+(armado?'var(--green)':'transparent')+';display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:14px">'+(armado?'✓':'')+'</div>'
       +'<span style="flex:1;color:'+(armado?'var(--text3)':'var(--text2)')+';font-size:14px;'+(armado?'text-decoration:line-through':'')+'">'+( item.desc||item.name||'Producto')+'</span>'
@@ -5661,11 +5685,16 @@ document.getElementById('page-facturas').addEventListener('click', function(e){
     const inv = S.invoices.find(i=>i.id===invId);
     if(!inv) return;
     if(!inv.itemsArmados) inv.itemsArmados = {};
-    inv.itemsArmados[idx] = !inv.itemsArmados[idx];
+    // Se guarda por PRODUCTO (id+variante), no por posición en la lista: si después
+    // se edita la factura y se agrega o quita un ítem, las posiciones se corren y
+    // los tildes terminarían marcando el producto equivocado.
+    const it = (inv.items||[])[idx];
+    const key = _keyItemArmado(it, idx);
+    inv.itemsArmados[key] = !inv.itemsArmados[key];
     try{ _markDirty('invoices', invId); }catch(e){}
     save(['invoices']);
     // Actualizar visual sin re-renderizar toda la lista
-    const armado = inv.itemsArmados[idx];
+    const armado = inv.itemsArmados[key];
     btn.style.borderColor = armado ? 'var(--green)' : 'var(--border)';
     btn.style.background = armado ? 'var(--green)' : 'transparent';
     btn.textContent = armado ? '✓' : '';
