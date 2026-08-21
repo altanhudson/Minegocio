@@ -1234,7 +1234,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.164</strong> · 19/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.163</strong> · 19/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -2712,17 +2712,17 @@ function _recomprimirUna(prod) {
             const canvas = document.createElement('canvas');
             canvas.width = w; canvas.height = h;
             canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-            _comprimirCanvas(canvas, 0.6, function(blobNuevo, ext, tipo){
+            canvas.toBlob(function(blobNuevo){
               if(!blobNuevo) { rej2(new Error('no se pudo comprimir')); return; }
               // Si por algun motivo la "comprimida" no es mas chica, dejar la original
               if(blobNuevo.size >= tamOriginal) { res2(0); return; }
-              const file = new File([blobNuevo], prod.id+'.'+ext, {type:tipo});
+              const file = new File([blobNuevo], prod.id+'.jpg', {type:'image/jpeg'});
               window._fbUploadPhoto(file, prod.id).then(function(nuevaUrl){
                 prod.image = nuevaUrl;
                 try { _markDirty('products', prod.id); } catch(e) {}
                 res2(tamOriginal - blobNuevo.size);
               }).catch(rej2);
-            });
+            }, 'image/jpeg', 0.6);
           };
           img.onerror = function(){ URL.revokeObjectURL(objUrl); rej2(new Error('no se pudo leer la imagen')); };
           img.src = objUrl;
@@ -3027,21 +3027,6 @@ function handleAdd() {
 }
 
 // === PHOTO ===
-// WebP pesa menos que JPEG a igual calidad, pero el navegador NO avisa si no lo
-// soporta para codificar (distinto de solo mostrarlo): si toBlob/toDataURL no
-// entienden 'image/webp', caen solos a PNG sin comprimir — mucho mas pesado que
-// el JPEG que ya se usaba. Por eso se verifica el tipo real devuelto en cada
-// imagen, en vez de asumir que el formato pedido se respetó.
-function _comprimirCanvas(canvas, calidad, callback) {
-  canvas.toBlob(function(blob) {
-    if(blob && blob.type === 'image/webp') { callback(blob, 'webp', 'image/webp'); return; }
-    // El navegador no soporta codificar a webp (o devolvió otra cosa): usar JPEG,
-    // que sabemos que siempre funciona bien en este proyecto.
-    canvas.toBlob(function(blobJpeg) {
-      callback(blobJpeg, 'jpg', 'image/jpeg');
-    }, 'image/jpeg', calidad);
-  }, 'image/webp', calidad);
-}
 function onPhoto(input) {
   if(!input.files[0]) return;
   const file = input.files[0];
@@ -3059,21 +3044,20 @@ function onPhoto(input) {
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      // La vista previa/valor temporal sigue en base64: es un string persistente y
-      // valido en cualquier lado (incluso si por algun motivo quedara guardado en
-      // Firebase antes de que termine la subida real). NUNCA usar un blob: URL acá
-      // -- esos mueren al cerrar la pestaña y no existen en otros dispositivos; si
-      // uno de esos quedara guardado por la carrera con el guardado del producto,
-      // el link de la foto se rompe para siempre.
       const compressed = canvas.toDataURL('image/jpeg', 0.6);
       S.photo = compressed;
-      showPhoto(compressed);
-      // El ARCHIVO que se sube de verdad si prueba WebP (mas liviano), con JPEG
-      // como respaldo automatico si el navegador no lo soporta.
-      _comprimirCanvas(canvas, 0.6, function(blob, ext, tipo) {
-        if(blob) S.photoFile = new File([blob], file.name.replace(/\.[^.]+$/, '.'+ext), {type:tipo});
+      // Antes se guardaba "file" (el original de la camara, sin comprimir) para
+      // subir a Storage — la compresion de arriba solo servia para la vista previa
+      // en pantalla. Con fotos de hasta 1MB por producto y 240+ productos, eso
+      // eran decenas/cientos de MB descargados por cada cliente que abria la tienda.
+      // Ahora se sube el MISMO archivo comprimido que se ve en pantalla (~30-80KB).
+      canvas.toBlob(function(blob) {
+        if(blob) S.photoFile = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {type:'image/jpeg'});
         else S.photoFile = file; // si algo falla, no perder la foto: subir el original
-      });
+      }, 'image/jpeg', 0.6);
+      showPhoto(compressed);
+    };
+    img.src = e.target.result;
   };
   reader.readAsDataURL(file);
 }
@@ -9699,14 +9683,7 @@ function tiendaProdCard(p) {
     +'<div style="flex-shrink:0">'+ctrl+'</div>'
     +'</div>';
 }
-let _tiendaPagina = 1;
-const TIENDA_PAGE_SIZE = 20;
-let _tiendaMantenerPagina = false; // lo pone en true solo el scroll infinito, para no resetear al pedir más
 function tiendaRender() {
-  // Cualquier llamada normal (buscar, cambiar de categoría, entrar) vuelve a la
-  // página 1. Solo el scroll infinito la mantiene y avanza, marcando el flag antes.
-  if(!_tiendaMantenerPagina) _tiendaPagina = 1;
-  _tiendaMantenerPagina = false;
   try { tiendaRenderBanners(); } catch(e) {}
   const q = (document.getElementById('tienda-buscar').value||'').toLowerCase();
   const cat = window.T_CAT||'todas';
@@ -9835,12 +9812,6 @@ function tiendaRender() {
       html += '</div></div>';
     }
   }
-  // Scroll infinito: se calcula mas abajo, DESPUES de que la lista quede en su
-  // orden final (incluido el reordenamiento por categoria de la vista grilla),
-  // para que las paginas sean un prefijo estable del mismo orden y no se repitan
-  // encabezados de categoria entre una pagina y la siguiente.
-  const totalFiltrados = prods.length;
-
   if(T_VISTA_TIPO === 'grilla') {
     if(cat === 'todas' && !q) {
       // Rotar el punto de partida del orden alfabético según la semana del año,
@@ -9858,8 +9829,7 @@ function tiendaRender() {
         return a.name.localeCompare(b.name,'es');
       });
       let lastCat = null; let gridItems = '';
-      const prodsPagina = prods.slice(0, _tiendaPagina * TIENDA_PAGE_SIZE);
-      for(const p of prodsPagina) {
+      for(const p of prods) {
         const pCat = (p.category||'').trim();
         if(pCat && pCat !== lastCat) {
           gridItems += '<div style="grid-column:1/-1;display:flex;justify-content:center;margin:8px 0 2px"><div style="background:#ffe600;color:#333;padding:4px 18px;border-radius:20px;font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase">'+pCat+'</div></div>';
@@ -9869,38 +9839,14 @@ function tiendaRender() {
       }
       lista.innerHTML = html + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 0 4px;width:100%">'+gridItems+'</div>';
     } else {
-      lista.innerHTML = html + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 0 4px;width:100%">'+prods.slice(0, _tiendaPagina * TIENDA_PAGE_SIZE).map(tiendaProdCardGrid).join('')+'</div>';
+      lista.innerHTML = html + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 0 4px;width:100%">'+prods.map(tiendaProdCardGrid).join('')+'</div>';
     }
   } else {
-    lista.innerHTML = html + prods.slice(0, _tiendaPagina * TIENDA_PAGE_SIZE).map(tiendaProdCard).join('');
+    lista.innerHTML = html + prods.map(tiendaProdCard).join('');
   }
-  // Indicador de "cargando mas" / centinela para el scroll infinito
-  const hayMasProductos = totalFiltrados > _tiendaPagina * TIENDA_PAGE_SIZE;
-  if(hayMasProductos) {
-    lista.innerHTML += '<div id="tienda-scroll-centinela" style="text-align:center;padding:16px;color:#999;font-size:13px">Cargando más productos…</div>';
-  }
-  try { _tiendaSetupScrollInfinito(); } catch(e) {}
   tiendaRenderCats();
   tiendaActBadge();
   tiendaActTotal();
-}
-// Scroll infinito: observa el centinela que queda al final de la lista (mientras
-// haya mas productos por mostrar) y, apenas entra en pantalla, pide la pagina
-// siguiente. Se recrea en cada render porque el centinela es un elemento nuevo
-// del DOM cada vez (innerHTML se reconstruye entero).
-let _tiendaScrollObserver = null;
-function _tiendaSetupScrollInfinito() {
-  const centinela = document.getElementById('tienda-scroll-centinela');
-  if(!centinela) return;
-  if(_tiendaScrollObserver) { try { _tiendaScrollObserver.disconnect(); } catch(e) {} }
-  _tiendaScrollObserver = new IntersectionObserver(function(entries) {
-    if(entries[0] && entries[0].isIntersecting) {
-      _tiendaPagina++;
-      _tiendaMantenerPagina = true;
-      tiendaRender();
-    }
-  }, { root: document.getElementById('tienda-app'), rootMargin: '400px' });
-  _tiendaScrollObserver.observe(centinela);
 }
 function tiendaRenderCats() {
   const el = document.getElementById('tienda-cats');
