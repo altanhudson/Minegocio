@@ -1234,7 +1234,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.163</strong> · 19/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.165</strong> · 19/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -2258,7 +2258,7 @@ function barcodeConfirm() {
   if(!_barcodeFoundProd) return;
   const qty = parseFloat(document.getElementById('barcode-qty').value)||0;
   if(qty <= 0) { toast('Ingresá una cantidad'); return; }
-  if(!ncItems[_barcodeFoundProd.id]) ncItems[_barcodeFoundProd.id] = {qty:0, cost:_barcodeFoundProd.cost||0};
+  if(!ncItems[_barcodeFoundProd.id]) ncItems[_barcodeFoundProd.id] = {qty:0, cost:_costoPrecarga(_barcodeFoundProd)||_barcodeFoundProd.cost||0};
   ncItems[_barcodeFoundProd.id].qty += qty;
   ncUpdateTotal();
   // Limpiar campo y dar feedback claro antes de continuar
@@ -4533,6 +4533,39 @@ function openNuevaCompra(id) {
   showPage('nueva-compra');
 }
 
+// Último costo que se le pagó a UN proveedor puntual por un producto.
+// El mismo producto suele comprarse a varios proveedores a precios distintos
+// (ej. Pehuamar: $5.999 en uno y $6.600 en otro), y hasta ahora al cargar una
+// compra siempre se precargaba el costo general del producto — que es el de la
+// última compra, sin importar a quién. Esto hacía que hubiera que reescribir el
+// precio a mano cada vez que se alternaba de proveedor.
+// Devuelve null si nunca se le compró ese producto a ese proveedor.
+function _ultimoCostoProveedor(prodId, provId, variante) {
+  if(!prodId || !provId) return null;
+  let mejor = null, mejorFecha = '';
+  (S.compras||[]).forEach(function(c) {
+    if(c.draft) return;
+    if(c.provId !== provId) return;
+    const fecha = c.date || '';
+    (c.items||[]).forEach(function(it) {
+      if(it.prodId !== prodId) return;
+      // Si el producto tiene variantes, respetar la variante puntual
+      if(variante !== undefined && variante !== null && variante !== '') {
+        if((it.variante||'') !== variante) return;
+      }
+      if(!it.cost || it.cost <= 0) return;
+      if(fecha >= mejorFecha) { mejorFecha = fecha; mejor = it.cost; }
+    });
+  });
+  return mejor;
+}
+// Costo a precargar al cargar una compra: el del proveedor elegido si existe,
+// si no el costo general del producto (comportamiento de siempre).
+function _costoPrecarga(p, variante) {
+  const provId = (document.getElementById('nc-prov')||{}).value || '';
+  const delProv = _ultimoCostoProveedor(p.id, provId, variante);
+  return (delProv !== null && delProv !== undefined) ? delProv : (p.cost || '');
+}
 function ncRenderList(q) {
   const el = document.getElementById('nc-prod-list');
   if(!el) return;
@@ -4549,7 +4582,7 @@ function ncRenderList(q) {
         +'</div>';
       const variantesHtml = p.variantes.map(function(v){
         const key = p.id+'|||'+v;
-        const item = ncItems[key] || {qty:'', cost: p.cost||''};
+        const item = ncItems[key] || {qty:'', cost: _costoPrecarga(p, v)};
         const hasQ = item.qty > 0;
         const stockV = (p.stockVariantes||{})[v]||0;
         return '<div style="display:flex;align-items:center;padding:8px 16px 8px 28px;background:'+(hasQ?'#f0f8ff':'var(--surface)')+';border-top:1px solid var(--border)">'
@@ -4565,7 +4598,7 @@ function ncRenderList(q) {
       }).join('');
       return headerHtml + variantesHtml;
     }
-    const item = ncItems[p.id] || {qty:'', cost: p.cost||''};
+    const item = ncItems[p.id] || {qty:'', cost: _costoPrecarga(p)};
     const hasQty = item.qty > 0;
     return '<div style="display:flex;align-items:center;padding:11px 16px;background:'+(hasQty?'#f0f8ff':'var(--surface)')+';'+(i>0?'border-top:1px solid var(--border)':'')+'">'
       +'<div style="flex:1;min-width:0">'
@@ -4799,6 +4832,10 @@ function ncProvSelect(id, name) {
   document.getElementById('nc-prov-search').value = name;
   document.getElementById('nc-prov-drop').style.display = 'none';
   ncProvId = id;
+  // Al cambiar de proveedor hay que volver a pintar la lista para que los costos
+  // sugeridos pasen a ser los de ESTE proveedor. Solo afecta a los productos que
+  // todavía no se cargaron: los que ya tienen cantidad conservan lo que se escribió.
+  try { ncRenderList(document.getElementById('nc-search') ? document.getElementById('nc-search').value : ''); } catch(e) {}
 }
 let _savingComp = false;
 async function ncSaveComp() {
@@ -8975,7 +9012,7 @@ function renderInvoiceHTML(inv) {
 
   <!-- Catálogo -->
   <div id="tienda-catalogo" style="display:none;padding-bottom:120px;background:#ededed">
-    <div style="background:#3483fa;padding:10px 16px 10px">
+    <div style="position:sticky;top:0;z-index:10;background:#3483fa;padding:10px 16px 0;box-shadow:0 4px 16px rgba(52,131,250,.35)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px">
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -8990,8 +9027,6 @@ function renderInvoiceHTML(inv) {
           🛒<span id="tienda-badge" style="display:none;position:absolute;top:-8px;right:-8px;background:#e53e3e;color:#fff;font-size:11px;font-weight:800;padding:2px 6px;border-radius:10px;min-width:18px;text-align:center">0</span>
         </button>
       </div>
-    </div>
-    <div style="position:sticky;top:0;z-index:10;background:#3483fa;padding:8px 16px 8px;box-shadow:0 4px 16px rgba(52,131,250,.35)">
       <!-- Buscador blanco bien visible -->
       <div style="background:#fff;border-radius:12px;display:flex;align-items:center;padding:0 12px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.1)">
         <span style="color:#999;font-size:16px;margin-right:8px">🔍</span>
@@ -9048,17 +9083,15 @@ function renderInvoiceHTML(inv) {
   </div>
 
   <!-- Footer fijo con total y botón confirmar -->
-  <div id="tienda-footer" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:2px solid #e0e0e0;padding:12px 16px;padding-bottom:calc(12px + env(safe-area-inset-bottom));z-index:10002">
-    <div style="display:flex;align-items:center;gap:10px">
-      <div style="flex-shrink:0">
-        <div style="color:#666;font-size:12px;line-height:1.2">Total del pedido</div>
-        <span id="tienda-total" style="font-family:Inter,sans-serif;font-size:19px;font-weight:800;color:#333">$0.00</span>
-      </div>
-      <button id="tienda-btn-confirmar" onclick="tiendaVerCarrito()"
-        style="flex:1;padding:12px 10px;background:#3483fa;color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;font-family:Inter,sans-serif;cursor:pointer;line-height:1.25;text-align:center">
-        🛒 Revisar y confirmar<br><span style="font-size:10.5px;font-weight:400;opacity:.85">Mirá tu pedido antes de enviarlo</span>
-      </button>
+  <div id="tienda-footer" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:2px solid #e0e0e0;padding:14px 16px;padding-bottom:calc(14px + env(safe-area-inset-bottom));z-index:10002">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <span style="color:#666;font-size:15px">Total del pedido</span>
+      <span id="tienda-total" style="font-family:Inter,sans-serif;font-size:20px;font-weight:800;color:#333">$0.00</span>
     </div>
+    <button id="tienda-btn-confirmar" onclick="tiendaVerCarrito()"
+      style="width:100%;padding:16px;background:#3483fa;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:800;font-family:Inter,sans-serif;cursor:pointer;line-height:1.3">
+      🛒 Revisar y confirmar mi pedido<br><span style="font-size:12px;font-weight:400;opacity:.85">Mirá tu pedido antes de enviarlo</span>
+    </button>
   </div>
 
   <!-- Overlay DEDICADO para guardar/confirmar pedido (no pisa #tienda-carrito) -->
@@ -10547,4 +10580,4 @@ window.addEventListener('DOMContentLoaded', function(){
     }
   </script>
 </body>
-</html 
+</html>
