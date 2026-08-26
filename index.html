@@ -1234,7 +1234,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.165</strong> · 19/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.167</strong> · 19/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -8505,7 +8505,7 @@ function renderListaCompras() {
         const key = p.id+'|'+v;
         keysActuales.add(key);
         const qty = faltante;
-        const itemObj = {prod:p, qty, prodId:key, displayName:p.name+' ('+v+')'};
+        const itemObj = {prod:p, qty, prodId:key, displayName:p.name+' ('+v+')', stockReal:sv};
         const suppliers = p.suppliers && p.suppliers.length > 0 ? p.suppliers : null;
         if (!suppliers) sinProv.push(itemObj);
         else suppliers.forEach(function(pvId){ if(!porProv[pvId]) porProv[pvId]=[]; porProv[pvId].push(itemObj); });
@@ -8517,7 +8517,7 @@ function renderListaCompras() {
       const key = p.id;
       keysActuales.add(key);
       const qty = faltante;
-      const itemObj = {prod:p, qty, prodId:key, displayName:p.name};
+      const itemObj = {prod:p, qty, prodId:key, displayName:p.name, stockReal:stockActual};
       const suppliers = p.suppliers && p.suppliers.length > 0 ? p.suppliers : null;
       if (!suppliers) sinProv.push(itemObj);
       else suppliers.forEach(function(pvId){ if(!porProv[pvId]) porProv[pvId]=[]; porProv[pvId].push(itemObj); });
@@ -8561,11 +8561,19 @@ function renderListaCompras() {
       // era el que quedaba pegado y mostraba 3 cuando en realidad faltaban 34.
       const qtyMostrar = (cantGuardada && typeof cantGuardada === 'object' && cantGuardada.base === qtyBase && cantGuardada.v > 0)
         ? cantGuardada.v : qtyBase;
+      // Marca visual para distinguir "no tenés nada, urge" de "tenés stock pero
+      // por debajo del mínimo configurado" — con minStock, ambos casos entran a
+      // la lista igual, pero el segundo puede esperar a otro pedido a ese
+      // proveedor en vez de justificar un viaje aparte solo por eso.
+      const stockReal = item.stockReal || 0;
+      const marcaStock = stockReal <= 0
+        ? '<div style="font-size:10.5px;font-weight:700;color:#dc2626;margin-top:1px">🔴 Sin stock</div>'
+        : '<div style="font-size:10.5px;font-weight:700;color:#b45309;margin-top:1px">🟡 Solo para completar el mínimo (tenés '+stockReal+')</div>';
       return '<div style="display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid var(--border);'+rowStyle+'">'
         + '<input id="'+inputId+'" type="number" inputmode="decimal" min="0" value="'+qtyMostrar+'" data-prodid="'+prodId+'" data-pvid="'+(pvId||'sin')+'" onfocus="this.select()" onchange="listaGuardarCantidad(\''+estadoKey+'\',this.value,'+qtyBase+')" style="width:50px;text-align:center;font-size:15px;font-weight:800;border:1.5px solid '+(esOk?'#16a34a':'var(--border)')+';border-radius:8px;padding:4px;background:'+(esOk?'rgba(22,163,74,.08)':'var(--surface)')+';color:'+(esOk?'#16a34a':'var(--accent2)')+';flex-shrink:0">'
         + '<button onclick="listaToggleEstado(\''+estadoKey+'\',\'ok\')" style="width:30px;height:30px;border-radius:50%;border:2px solid '+(esOk?'#16a34a':'#d1d5db')+';background:'+(esOk?'#16a34a':'transparent')+';color:'+(esOk?'#fff':'#9ca3af')+';font-size:14px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">\u2713</button>'
         + '<button onclick="listaToggleEstado(\''+estadoKey+'\',\'falta\')" style="width:30px;height:30px;border-radius:50%;border:2px solid '+(esFalta?'#dc2626':'#d1d5db')+';background:'+(esFalta?'#dc2626':'transparent')+';color:'+(esFalta?'#fff':'#9ca3af')+';font-size:14px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">\u2715</button>'
-        + '<span style="flex:1;font-size:14px;font-weight:500;'+(esFalta?'text-decoration:line-through':'')+'">' +displayName+'</span>'
+        + '<div style="flex:1;min-width:0;'+(esFalta?'text-decoration:line-through':'')+'"><div style="font-size:14px;font-weight:500">' +displayName+'</div>'+marcaStock+'</div>'
         + '<input id="'+costoId+'" type="number" inputmode="decimal" min="0" placeholder="$costo" value="'+(costo||'')+'" data-prodid="'+prodId+'" onfocus="this.select()" style="width:72px;text-align:center;font-size:12px;border:1px solid var(--border);border-radius:8px;padding:3px;background:var(--surface2);color:var(--text3);flex-shrink:0">'
         + '</div>';
     }).join('');
@@ -9617,15 +9625,28 @@ function tiendaEntrar() {
   if(!ph || ph.length < 6) { document.getElementById('tienda-phone-input').focus(); return; }
   TC_PHONE = ph;
   const last6 = ph.slice(-6);
-  TC_CLI = S.clients.find(c => {
-    // El cliente puede tener varios telefonos guardados separados por coma
-    // (ej. "1122334455, 1155667788") si a veces pide desde otro numero.
+  // Puede haber MAS DE UN cliente con el mismo telefono (ej. "Visitantes" fantasma
+  // creados por fallos de reconocimiento anteriores, con 0 facturas). Firestore no
+  // garantiza el orden en que llegan los clientes, asi que .find() antes se quedaba
+  // con el primero al azar — a veces el cliente real, a veces un fantasma vacio.
+  // Ahora se juntan TODAS las coincidencias y se prioriza la que tenga historial
+  // real de facturas, para no perder nunca al cliente de verdad por un fantasma.
+  const coincidencias = S.clients.filter(c => {
     const lista = (c.phone||'').split(',');
     return lista.some(function(n){
       const cp = n.replace(/\D/g,'');
       return cp.length >= 6 && cp.slice(-6) === last6;
     });
-  }) || null;
+  });
+  if(coincidencias.length <= 1) {
+    TC_CLI = coincidencias[0] || null;
+  } else {
+    TC_CLI = coincidencias.slice().sort(function(a,b){
+      const factA = S.invoices.filter(i => i.clientId===a.id).length;
+      const factB = S.invoices.filter(i => i.clientId===b.id).length;
+      return factB - factA; // el de mas facturas primero
+    })[0];
+  }
   TN = TC_CLI ? TC_CLI.name : 'visitante';
 
   const modoTienda = getTiendaModo();
