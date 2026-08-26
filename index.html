@@ -1234,7 +1234,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.167</strong> · 19/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.168</strong> · 19/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -8566,7 +8566,11 @@ function renderListaCompras() {
       // la lista igual, pero el segundo puede esperar a otro pedido a ese
       // proveedor en vez de justificar un viaje aparte solo por eso.
       const stockReal = item.stockReal || 0;
-      const marcaStock = stockReal <= 0
+      // Rojo solo si el stock es NEGATIVO: eso significa que ya se vendió más
+      // de lo que había (hay una factura comprometida sin poder cumplirse del
+      // todo). En cero, sin nada facturado de más, no hay urgencia real — es
+      // solo reponer para el mínimo, puede esperar a otro pedido.
+      const marcaStock = stockReal < 0
         ? '<div style="font-size:10.5px;font-weight:700;color:#dc2626;margin-top:1px">🔴 Sin stock</div>'
         : '<div style="font-size:10.5px;font-weight:700;color:#b45309;margin-top:1px">🟡 Solo para completar el mínimo (tenés '+stockReal+')</div>';
       return '<div style="display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid var(--border);'+rowStyle+'">'
