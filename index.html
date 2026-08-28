@@ -1255,9 +1255,10 @@ select option{background:var(--surface2)}
       <div class="card-header"><span class="card-title">📄 Fotos de facturas de proveedor</span></div>
       <div style="padding:14px 16px">
         <div style="font-size:14px;color:var(--text3);margin-bottom:12px">Descargá todas las fotos de un mes en un ZIP organizado por proveedor. Una vez descargadas, podés borrarlas de Firebase para liberar espacio — el historial de la compra (fecha, productos, montos) no se toca, solo la foto.</div>
-        <input type="month" id="cfg-mes-facturas" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface);font-size:15px;color:var(--text);margin-bottom:8px" onchange="_facturasMesCambio()">
+        <input type="month" id="cfg-mes-facturas" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface);font-size:15px;color:var(--text);margin-bottom:4px" onchange="_facturasMesCambio()">
+        <div id="facturas-mes-conteo" style="font-size:12px;color:var(--text3);margin-bottom:8px"></div>
         <button onclick="descargarFacturasDelMes()" class="btn btn-primary btn-full">⬇️ Descargar facturas del mes</button>
-        <button id="btn-borrar-facturas-mes" onclick="borrarFacturasDelMes()" disabled class="btn btn-full" style="background:rgba(220,38,38,.08);border:1px solid var(--accent3);color:var(--accent3);margin-top:8px;opacity:.5">🗑️ Borrar facturas de este mes (descargá primero)</button>
+        <button id="btn-borrar-facturas-mes" onclick="borrarFacturasDelMes()" disabled class="btn btn-full" style="background:rgba(220,38,38,.08);border:1px solid var(--accent3);color:var(--accent3);margin-top:8px;opacity:.5;height:auto;min-height:44px;padding:10px 14px;white-space:normal;line-height:1.3;text-align:center">🗑️ Borrar facturas de este mes (descargá primero)</button>
         <div id="facturas-mes-progreso" style="display:none;margin-top:10px;padding:12px;background:var(--surface2);border-radius:10px;border:1px solid var(--border)">
           <div id="facturas-mes-texto" style="font-size:13px;font-weight:700;color:var(--text)">Procesando...</div>
         </div>
@@ -1285,7 +1286,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.178</strong> · 19/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.179</strong> · 19/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -1855,6 +1856,17 @@ function showPage(p) {
     try{
       const inp = document.getElementById('cfg-horario-corte');
       if(inp && S.config && S.config.horarioCorte) inp.value = S.config.horarioCorte;
+    }catch(e){}
+    try{
+      // Precargar con el mes ANTERIOR (ya cerrado del todo) si el campo esta
+      // vacio — evita que el usuario tenga que elegirlo a mano cada vez.
+      const inpMes = document.getElementById('cfg-mes-facturas');
+      if(inpMes && !inpMes.value) {
+        const hoy = new Date();
+        const mesAnterior = new Date(hoy.getFullYear(), hoy.getMonth()-1, 1);
+        inpMes.value = mesAnterior.getFullYear()+'-'+String(mesAnterior.getMonth()+1).padStart(2,'0');
+      }
+      _facturasMesActualizarConteo();
     }catch(e){}
     try{
       const fmt = (S.config && S.config.formatoFactura) || 'imagen';
@@ -3671,6 +3683,19 @@ function _facturasMesCambio() {
   _mesFacturasDescargado = null;
   const btn = document.getElementById('btn-borrar-facturas-mes');
   if(btn) { btn.disabled = true; btn.style.opacity = '.5'; btn.textContent = '🗑️ Borrar facturas de este mes (descargá primero)'; }
+  _facturasMesActualizarConteo();
+}
+function _facturasMesActualizarConteo() {
+  const el = document.getElementById('facturas-mes-conteo');
+  const mesInp = document.getElementById('cfg-mes-facturas');
+  if(!el || !mesInp || !mesInp.value) { if(el) el.textContent = ''; return; }
+  const mes = mesInp.value;
+  const cant = (S.compras||[]).filter(function(c){ return (c.date||'').startsWith(mes) && c.facturaUrl; }).length;
+  const [anio, mm] = mes.split('-');
+  const nombreMes = ['','enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'][parseInt(mm)];
+  el.textContent = cant>0
+    ? cant + ' factura' + (cant>1?'s':'') + ' con foto guardada' + (cant>1?'s':'') + ' en ' + nombreMes + ' ' + anio
+    : 'No hay facturas con foto guardadas en ' + nombreMes + ' ' + anio;
 }
 
 async function descargarFacturasDelMes() {
