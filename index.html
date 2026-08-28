@@ -1259,7 +1259,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.173</strong> · 19/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.174</strong> · 19/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -6517,6 +6517,7 @@ function openComp(id) {
   window.ncEditId = id || null; // ID dedicado para compras — no se pisa al crear producto
   ncItems = {};
   ncProvId = null;
+  window._facturaFotoNC = null; // limpiar cualquier foto pendiente de una edicion anterior
   // Cargar proveedores
   const sel = document.getElementById('nc-prov');
   const searchEl = document.getElementById('nc-prov-search');
@@ -6526,6 +6527,8 @@ function openComp(id) {
   document.getElementById('nc-date').value = localDateStr();
   document.getElementById('nc-notes').value = '';
   document.getElementById('nc-draft').checked = false;
+  const previewEl = document.getElementById('nc-factura-preview');
+  if(previewEl) previewEl.innerHTML = '';
   if(id) {
     const c = S.compras.find(x=>x.id===id);
     if(!c) return;
@@ -6536,6 +6539,13 @@ function openComp(id) {
     document.getElementById('nc-date').value = c.date || localDateStr();
     document.getElementById('nc-notes').value = c.notes || '';
     document.getElementById('nc-draft').checked = !!c.draft;
+    // Si la compra ya tiene una foto de factura subida, mostrarla — antes al
+    // reabrir una compra existente la foto quedaba invisible, como si no
+    // hubiera nada, aunque ya estuviera guardada en Storage.
+    if(previewEl && c.facturaUrl) {
+      previewEl.innerHTML = '<img src="'+c.facturaUrl+'" style="width:100%;border-radius:8px;margin-top:6px" onclick="window.open(\''+c.facturaUrl+'\',\'_blank\')">'
+        + '<div style="font-size:11px;color:var(--text3);text-align:center;margin-top:2px">Tocá la foto para verla más grande</div>';
+    }
     c.items.forEach(item => {
       if(item.prodId) {
         const key = item.variante ? item.prodId+'|||'+item.variante : item.prodId;
