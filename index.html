@@ -13,6 +13,8 @@
 <!-- Cropper.js: recortar/rotar fotos de factura de proveedor antes de subirlas -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
+<!-- JSZip: armar el ZIP de fotos de factura para descargar por mes -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <title>Surtimar — Tienda online</title>
 <meta name="description" content="Hacé tu pedido online en Surtimar. Catálogo completo con precios actualizados, fácil y rápido desde tu celular.">
 <!-- Vista previa al compartir el enlace (WhatsApp, etc.) -->
@@ -30,7 +32,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getFirestore, doc, setDoc, getDoc, getDocs, collection, writeBatch, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-  import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+  import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyD3h1qGQnU_zxteM6CeM-dPqYn21EG93Oo",
@@ -469,6 +471,20 @@
       return url.replace(/&token=[^&]+/, '').replace(/\?token=[^&]+&?/, '?');
     } catch(e) { console.error("Storage upload error (factura):", e); throw e; }
   };
+  // Borra la foto de Storage. Se usa desde "Borrar facturas del mes" (Ajustes),
+  // despues de haberlas descargado. No toca el historial de la compra en si
+  // (fecha, productos, montos) — solo elimina el archivo de la imagen.
+  window._fbDeleteFacturaCompra = async function(provId, compraId) {
+    try {
+      const storageRef = ref(storage, 'facturas/surtimar/' + provId + '/' + compraId + '.jpg');
+      await deleteObject(storageRef);
+    } catch(e) {
+      // "object-not-found" es un caso normal (ya se habia borrado antes, o
+      // nunca llego a subir bien) — no lo tratamos como error real.
+      if(e && e.code === 'storage/object-not-found') return;
+      throw e;
+    }
+  };
 
   // Señalar que Firebase está listo (migración V2 es manual desde Configuración)
   window._firebaseReady = true;
@@ -891,10 +907,16 @@ select option{background:var(--surface2)}
       </div>
       <div class="form-group" style="margin-top:14px">
         <label class="fl">Foto de la factura</label>
-        <label style="display:block;background:var(--surface2);border:1.5px dashed var(--border);border-radius:10px;padding:12px;text-align:center;font-size:13px;font-weight:700;color:var(--text2);cursor:pointer">
-          📷 Sacar/elegir foto
-          <input type="file" accept="image/*" data-destino="nc" onchange="onFacturaFoto(this)" style="display:none">
-        </label>
+        <div style="display:flex;gap:8px">
+          <label style="flex:1;display:block;background:var(--surface2);border:1.5px dashed var(--border);border-radius:10px;padding:12px;text-align:center;font-size:13px;font-weight:700;color:var(--text2);cursor:pointer">
+            📷 Sacar foto
+            <input type="file" accept="image/*" capture="environment" data-destino="nc" onchange="onFacturaFoto(this)" style="display:none">
+          </label>
+          <label style="flex:1;display:block;background:var(--surface2);border:1.5px dashed var(--border);border-radius:10px;padding:12px;text-align:center;font-size:13px;font-weight:700;color:var(--text2);cursor:pointer">
+            🖼️ Elegir de galería
+            <input type="file" accept="image/*" data-destino="nc" onchange="onFacturaFoto(this)" style="display:none">
+          </label>
+        </div>
         <div id="nc-factura-preview"></div>
       </div>
       <div class="form-group" style="margin-top:14px"><label class="fl">Notas</label><textarea id="nc-notes" placeholder="Notas..."></textarea></div>
@@ -1226,14 +1248,18 @@ select option{background:var(--surface2)}
       <div style="padding:14px 16px">
         <div style="font-size:14px;color:var(--text3);margin-bottom:12px">Descargá una copia de todos tus datos como archivo JSON en tu celu.</div>
         <button onclick="backupData()" class="btn btn-primary btn-full">&#11015;&#65039; Descargar backup</button>
-        <button onclick="normalizarCategorias()" class="btn btn-full" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);margin-top:8px">🔤 Normalizar categorías (mayúsculas)</button>
         <button onclick="resetStockCero()" class="btn btn-full" style="background:rgba(220,38,38,.1);border:1px solid var(--accent3);color:var(--accent3);margin-top:8px">🔄 Reset stock a cero (todos los productos)</button>
-        <button onclick="repararURLsImagenes()" class="btn btn-full" style="background:rgba(234,179,8,.1);border:1px solid #ca8a04;color:#92400e;margin-top:8px">&#128247; Reparar im&#225;genes cortadas</button>
-        <button onclick="recomprimirImagenes()" class="btn btn-full" style="background:rgba(52,131,250,.1);border:1px solid #3483fa;color:#1a3a6b;margin-top:8px">&#128737;&#65039; Optimizar fotos de productos (hacer m&#225;s liviana la tienda)</button>
-        <div id="recomp-progreso" style="display:none;margin-top:10px;padding:12px;background:var(--surface2);border-radius:10px;border:1px solid var(--border)">
-          <div id="recomp-texto" style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">Preparando...</div>
-          <div style="background:var(--border);border-radius:20px;height:10px;overflow:hidden"><div id="recomp-barra" style="width:0%;height:100%;background:#3483fa;border-radius:20px;transition:width .3s"></div></div>
-          <div id="recomp-detalle" style="font-size:11px;color:var(--text3);margin-top:6px"></div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-header"><span class="card-title">📄 Fotos de facturas de proveedor</span></div>
+      <div style="padding:14px 16px">
+        <div style="font-size:14px;color:var(--text3);margin-bottom:12px">Descargá todas las fotos de un mes en un ZIP organizado por proveedor. Una vez descargadas, podés borrarlas de Firebase para liberar espacio — el historial de la compra (fecha, productos, montos) no se toca, solo la foto.</div>
+        <input type="month" id="cfg-mes-facturas" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface);font-size:15px;color:var(--text);margin-bottom:8px" onchange="_facturasMesCambio()">
+        <button onclick="descargarFacturasDelMes()" class="btn btn-primary btn-full">⬇️ Descargar facturas del mes</button>
+        <button id="btn-borrar-facturas-mes" onclick="borrarFacturasDelMes()" disabled class="btn btn-full" style="background:rgba(220,38,38,.08);border:1px solid var(--accent3);color:var(--accent3);margin-top:8px;opacity:.5">🗑️ Borrar facturas de este mes (descargá primero)</button>
+        <div id="facturas-mes-progreso" style="display:none;margin-top:10px;padding:12px;background:var(--surface2);border-radius:10px;border:1px solid var(--border)">
+          <div id="facturas-mes-texto" style="font-size:13px;font-weight:700;color:var(--text)">Procesando...</div>
         </div>
       </div>
     </div>
@@ -1259,7 +1285,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.174</strong> · 19/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.178</strong> · 19/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -1514,10 +1540,16 @@ select option{background:var(--surface2)}
       </div>
       <div class="form-group" style="margin-top:14px">
         <label class="fl">Foto de la factura</label>
-        <label style="display:block;background:var(--surface2);border:1.5px dashed var(--border);border-radius:10px;padding:12px;text-align:center;font-size:13px;font-weight:700;color:var(--text2);cursor:pointer">
-          📷 Sacar/elegir foto
-          <input type="file" accept="image/*" data-destino="cp" onchange="onFacturaFoto(this)" style="display:none">
-        </label>
+        <div style="display:flex;gap:8px">
+          <label style="flex:1;display:block;background:var(--surface2);border:1.5px dashed var(--border);border-radius:10px;padding:12px;text-align:center;font-size:13px;font-weight:700;color:var(--text2);cursor:pointer">
+            📷 Sacar foto
+            <input type="file" accept="image/*" capture="environment" data-destino="cp" onchange="onFacturaFoto(this)" style="display:none">
+          </label>
+          <label style="flex:1;display:block;background:var(--surface2);border:1.5px dashed var(--border);border-radius:10px;padding:12px;text-align:center;font-size:13px;font-weight:700;color:var(--text2);cursor:pointer">
+            🖼️ Elegir de galería
+            <input type="file" accept="image/*" data-destino="cp" onchange="onFacturaFoto(this)" style="display:none">
+          </label>
+        </div>
         <div id="cp-factura-preview"></div>
       </div>
       <div class="form-group" style="margin-top:14px"><label class="fl">Notas</label><textarea id="cp-notes"></textarea></div>
@@ -2663,144 +2695,6 @@ function tiendaFechaFactura() {
 // tienda. Esto las vuelve a procesar: baja cada una, la comprime a 400px/0.6 (lo
 // mismo que ahora hace una foto nueva) y la sube al mismo lugar.
 let _recompCancelar = false;
-async function recomprimirImagenes() {
-  const conFoto = S.products.filter(function(p){
-    return p.image && String(p.image).startsWith('http');
-  });
-  if(!conFoto.length) { toast('No hay fotos para optimizar'); return; }
-
-  const cont = document.getElementById('recomp-progreso');
-  const txt = document.getElementById('recomp-texto');
-  const barra = document.getElementById('recomp-barra');
-  const det = document.getElementById('recomp-detalle');
-
-  // PRUEBA PREVIA: intentar con UNA sola foto antes de largarse con todas.
-  // Firebase Storage puede rechazar la lectura desde el navegador (CORS) y en ese
-  // caso fallarian las 242 igual; mejor enterarse ahora y no despues de 10 minutos.
-  cont.style.display = 'block';
-  txt.textContent = 'Probando con una foto...';
-  barra.style.width = '2%';
-  det.textContent = '';
-  try {
-    await _recomprimirUna(conFoto[0]);
-  } catch(e) {
-    cont.style.display = 'none';
-    alert('No se pudo procesar la primera foto.\n\nEsto suele pasar porque Firebase Storage no permite leer las imágenes desde el navegador (configuración CORS).\n\nNo se modificó ninguna foto. Detalle: ' + (e && e.message ? e.message : e));
-    return;
-  }
-
-  if(!confirm('La prueba funcionó ✅\n\nSe van a optimizar las '+conFoto.length+' fotos restantes.\n\nPuede tardar varios minutos y consume datos. NO cierres la app mientras corre.\n\n¿Continuar?')) {
-    cont.style.display = 'none';
-    try { save(['products'], true); } catch(e) {}
-    return;
-  }
-  _recompCancelar = false;
-
-  let ok=1, fallaron=0, ahorroTotal=0;  // la primera ya se proceso en la prueba
-  for(let i=1; i<conFoto.length; i++) {
-    if(_recompCancelar) { txt.textContent = 'Cancelado'; break; }
-    const p = conFoto[i];
-    txt.textContent = 'Optimizando '+(i+1)+' de '+conFoto.length+'...';
-    barra.style.width = ((i/conFoto.length)*100).toFixed(1)+'%';
-    det.textContent = (p.name||p.id).slice(0,40);
-    try {
-      const res = await _recomprimirUna(p);
-      if(res) { ok++; ahorroTotal += res; }
-    } catch(e) {
-      console.warn('No se pudo optimizar', p.id, e);
-      fallaron++;
-    }
-  }
-  barra.style.width = '100%';
-  txt.textContent = '✅ Listo: '+ok+' optimizadas'+(fallaron? ', '+fallaron+' no se pudieron':'');
-  det.textContent = ahorroTotal>0 ? ('Ahorro total: '+(ahorroTotal/1024/1024).toFixed(1)+' MB') : '';
-  if(ok>0) {
-    try { save(['products'], true); } catch(e) {}
-    try { renderProds(); } catch(e) {}
-    toast('✅ '+ok+' fotos optimizadas');
-  }
-}
-// Procesa UNA foto. Devuelve los bytes ahorrados, o 0 si no hizo falta tocarla.
-function _recomprimirUna(prod) {
-  return new Promise(function(resolve, reject) {
-    // cache-buster para que el navegador no devuelva una copia vieja
-    const url = prod.image + (prod.image.indexOf('?')>=0 ? '&' : '?') + '_r=' + Date.now();
-    fetch(url, {mode:'cors'})
-      .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.blob(); })
-      .then(function(blobOriginal){
-        const tamOriginal = blobOriginal.size;
-        // Si ya es chica, no vale la pena volver a subirla
-        if(tamOriginal < 80*1024) { resolve(0); return; }
-        return new Promise(function(res2, rej2){
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          const objUrl = URL.createObjectURL(blobOriginal);
-          img.onload = function() {
-            URL.revokeObjectURL(objUrl);
-            const MAX = 400;
-            let w = img.width, h = img.height;
-            if(w > MAX || h > MAX) {
-              if(w > h) { h = Math.round(h*MAX/w); w = MAX; }
-              else { w = Math.round(w*MAX/h); h = MAX; }
-            }
-            const canvas = document.createElement('canvas');
-            canvas.width = w; canvas.height = h;
-            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-            canvas.toBlob(function(blobNuevo){
-              if(!blobNuevo) { rej2(new Error('no se pudo comprimir')); return; }
-              // Si por algun motivo la "comprimida" no es mas chica, dejar la original
-              if(blobNuevo.size >= tamOriginal) { res2(0); return; }
-              const file = new File([blobNuevo], prod.id+'.jpg', {type:'image/jpeg'});
-              window._fbUploadPhoto(file, prod.id).then(function(nuevaUrl){
-                prod.image = nuevaUrl;
-                try { _markDirty('products', prod.id); } catch(e) {}
-                res2(tamOriginal - blobNuevo.size);
-              }).catch(rej2);
-            }, 'image/jpeg', 0.6);
-          };
-          img.onerror = function(){ URL.revokeObjectURL(objUrl); rej2(new Error('no se pudo leer la imagen')); };
-          img.src = objUrl;
-        }).then(resolve, reject);
-      })
-      .catch(reject);
-  });
-}
-function repararURLsImagenes() {
-  const conToken = S.products.filter(p => p.image && p.image.includes('token='));
-  if(!conToken.length) { toast('✓ No hay imágenes con token para reparar'); return; }
-  if(!confirm('Se van a reparar ' + conToken.length + ' imágenes quitando el token de la URL. Los datos de productos no cambian. ¿Continuar?')) return;
-  let reparadas = 0;
-  conToken.forEach(p => {
-    // Quitar &token=... del final de la URL
-    p.image = p.image.replace(/&token=[^&]+/, '').replace(/\?token=[^&]+/, '?alt=media');
-    _markDirty('products', p.id);
-    reparadas++;
-  });
-  renderProds();
-  toast('✓ ' + reparadas + ' imágenes reparadas — sincronizá para guardar');
-}
-function resetStockCero() {
-  if(!confirm('¿Poner en CERO el stock de todos los productos? Esta acción no se puede deshacer.')) return;
-  S.products.forEach(p => p.stock = 0);
-  // Limpiar ajustes también para empezar limpio
-  S.ajustes = [];
-  save(['products', 'ajustes'], true);
-  renderProds();
-  toast('Stock de todos los productos puesto en cero ✓');
-}
-function normalizarCategorias() {
-  let changed = 0;
-  S.products.forEach(p => {
-    if(p.category && p.category.trim()) {
-      const norm = p.category.trim().replace(/^\w/, c=>c.toUpperCase());
-      if(norm !== p.category) { p.category = norm; changed++; }
-    }
-  });
-  if(changed === 0) { toast('Todas las categorías ya están normalizadas'); return; }
-  try{S.products.forEach(p=>_markDirty('products',p.id));}catch(e){}
-  save(['products']);
-  toast(changed + ' categorías normalizadas ✓');
-}
 // ========== BANNERS DE LA TIENDA ==========
 let _bannerImg = null;       // imagen comprimida del banner en edición
 let _bannerProdId = null;    // producto vinculado en edición
@@ -3328,6 +3222,10 @@ function saveProd() {
       : null,
     soloFlyer: document.getElementById('p-soloflyer').checked,
     enFlyer: S.editId ? ((S.products.find(p=>p.id===S.editId)||{}).enFlyer||false) : false,
+    // sinStockManual no tiene campo en este formulario — se preserva tal cual
+    // estaba, para que guardar cualquier otro cambio (precio, costo, etc.) no
+    // lo borre por accidente.
+    sinStockManual: S.editId ? ((S.products.find(p=>p.id===S.editId)||{}).sinStockManual||false) : false,
     marca: '',
     fracMin: parseInt(document.getElementById('p-frac').value)||1,
     barcode: document.getElementById('p-barcode').value.trim()||null,
@@ -3716,7 +3614,8 @@ function renderProds(q) {
           '<span style="'+(p.image?'visibility:hidden':'')+'">'+( p.emoji||'&#128230;')+'</span>',
           (p.image?'<img src="'+p.image+'" data-action="openImg">':''),
           '<span style="position:absolute;top:6px;right:6px;font-size:12px;font-weight:700;padding:3px 8px;border-radius:20px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.25);color:'+(p.stock<0?'#dc2626':low?'#ea580c':p.stock===0?'#6b7280':'#16a34a')+'">'+st+'</span>',
-          (!hasPx?'<span style="position:absolute;bottom:6px;left:6px;background:rgba(232,255,71,.15);color:var(--accent);font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px">SIN PRECIO</span>':''),
+          (!hasPx?'<span style="position:absolute;top:6px;left:6px;background:rgba(232,255,71,.9);color:#1a1a2e;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px">SIN PRECIO</span>':''),
+          '<button data-action="togSinStockManual" data-id="'+pid+'" style="position:absolute;bottom:6px;left:6px;right:6px;font-size:11.5px;font-weight:800;padding:7px;border-radius:10px;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);'+(p.sinStockManual?'background:#16a34a;color:#fff':'background:#dc2626;color:#fff')+'">'+(p.sinStockManual?'\u2713 Volver a mostrar en tienda':'\ud83d\udeab Marcar SIN STOCK en tienda')+'</button>',
         '</div>',
         '<div class="prod-body" data-action="openProd" data-id="'+pid+'">',
           '<div class="prod-name">'+p.name+'</div>',
@@ -3741,6 +3640,7 @@ document.getElementById('page-productos').addEventListener('click', function(e) 
   const action = el.dataset.action;
   const id = el.dataset.id;
   if(action==='verProdHist') { verProdHistorial(id); return; }
+  if(action==='togSinStockManual') { toggleSinStockManual(id); return; }
   if(action==='openProd') { if(window._flyerRapidoActivo) { toggleFlyerRapidoProd(id); return; } openProd(id); }
   else if(action==='togQE') togQE(id);
   else if(action==='saveQE') saveQE(id);
@@ -3758,6 +3658,123 @@ function calcPrecioDesdeMargen() {
     const precio = cost * (1 + pct/100);
     document.getElementById('p-price').value = Math.round(precio);
   }
+}
+// Marcado manual e independiente del stock real. A diferencia del stock (que
+// se recalcula solo con compras/ventas), esto SOLO lo cambia el usuario
+// tocando el boton — ninguna compra, venta o recalculo lo toca nunca. Sirve
+// para casos como "me queda 1 pero no lo quiero vender hasta saber el precio
+// de reposicion", o "compre de nuevo pero todavia no defini el precio nuevo".
+let _mesFacturasDescargado = null; // que mes se descargo de verdad, para la traba de seguridad del borrado
+
+function _facturasMesCambio() {
+  // Cambiar de mes vuelve a trabar el borrado, hasta descargar ESE mes puntual
+  _mesFacturasDescargado = null;
+  const btn = document.getElementById('btn-borrar-facturas-mes');
+  if(btn) { btn.disabled = true; btn.style.opacity = '.5'; btn.textContent = '🗑️ Borrar facturas de este mes (descargá primero)'; }
+}
+
+async function descargarFacturasDelMes() {
+  const mes = document.getElementById('cfg-mes-facturas').value; // 'YYYY-MM'
+  if(!mes) { toast('Elegí un mes primero'); return; }
+  const compras = (S.compras||[]).filter(function(c){ return (c.date||'').startsWith(mes) && c.facturaUrl; });
+  if(!compras.length) { toast('No hay facturas con foto guardadas en ese mes'); return; }
+
+  const progEl = document.getElementById('facturas-mes-progreso');
+  const textoEl = document.getElementById('facturas-mes-texto');
+  if(progEl) progEl.style.display = 'block';
+  if(textoEl) textoEl.textContent = 'Armando el archivo... 0/' + compras.length;
+
+  const zip = new JSZip();
+  const provs = {}; (S.proveedores||[]).forEach(function(p){ provs[p.id] = p.name; });
+  let ok = 0, fallidas = 0;
+
+  for(let i=0; i<compras.length; i++) {
+    const c = compras[i];
+    try {
+      const resp = await fetch(c.facturaUrl);
+      if(!resp.ok) throw new Error('fetch fallo');
+      const blob = await resp.blob();
+      const nombreProv = (provs[c.provId] || 'Sin proveedor').replace(/[\/\\?%*:|"<>]/g, '-');
+      zip.folder(nombreProv).file(c.id + '.jpg', blob);
+      ok++;
+    } catch(e) {
+      console.error('No se pudo bajar la foto de', c.id, e);
+      fallidas++;
+    }
+    if(textoEl) textoEl.textContent = 'Armando el archivo... ' + (i+1) + '/' + compras.length;
+  }
+
+  if(ok === 0) {
+    if(progEl) progEl.style.display = 'none';
+    toast('No se pudo descargar ninguna foto');
+    return;
+  }
+
+  if(textoEl) textoEl.textContent = 'Comprimiendo...';
+  const contenido = await zip.generateAsync({type:'blob'});
+  const url = URL.createObjectURL(contenido);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'facturas-' + mes + '.zip';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 3000);
+
+  if(progEl) progEl.style.display = 'none';
+  toast(ok + ' foto' + (ok>1?'s':'') + ' descargada' + (ok>1?'s':'') + (fallidas>0 ? ' (' + fallidas + ' no se pudieron bajar)' : '') + ' ✓');
+
+  // Habilitar el borrado SOLO para este mes, y SOLO si se bajaron todas las
+  // fotos sin fallos — si alguna fallo, no habilitar (podria perderse esa
+  // foto sin haber quedado respaldada en el ZIP).
+  if(fallidas === 0) {
+    _mesFacturasDescargado = mes;
+    const btn = document.getElementById('btn-borrar-facturas-mes');
+    if(btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🗑️ Borrar facturas de ' + mes; }
+  }
+}
+
+async function borrarFacturasDelMes() {
+  const mes = document.getElementById('cfg-mes-facturas').value;
+  if(_mesFacturasDescargado !== mes) { toast('Primero descargá las facturas de este mes'); return; }
+  if(!confirm('¿Ya guardaste el archivo ZIP en un lugar seguro (tu celular, Drive, etc.)?\n\nEsto va a borrar las fotos de Firebase para liberar espacio. No se puede deshacer.')) return;
+  if(!confirm('Última confirmación: se van a borrar TODAS las fotos de factura de ' + mes + '. Los datos de la compra (fecha, productos, montos) NO se tocan, solo las fotos.\n\n¿Confirmás?')) return;
+
+  const compras = (S.compras||[]).filter(function(c){ return (c.date||'').startsWith(mes) && c.facturaUrl; });
+  const progEl = document.getElementById('facturas-mes-progreso');
+  const textoEl = document.getElementById('facturas-mes-texto');
+  if(progEl) progEl.style.display = 'block';
+
+  let borradas = 0, fallidas = 0;
+  for(let i=0; i<compras.length; i++) {
+    const c = compras[i];
+    if(textoEl) textoEl.textContent = 'Borrando... ' + (i+1) + '/' + compras.length;
+    try {
+      await window._fbDeleteFacturaCompra(c.provId, c.id);
+      c.facturaUrl = null;
+      try{ _markDirty('compras', c.id); }catch(e){}
+      borradas++;
+    } catch(e) {
+      console.error('No se pudo borrar la foto de', c.id, e);
+      fallidas++;
+    }
+  }
+  save(['compras']);
+  try{ renderComps(); }catch(e){}
+
+  if(progEl) progEl.style.display = 'none';
+  _mesFacturasDescargado = null;
+  const btn = document.getElementById('btn-borrar-facturas-mes');
+  if(btn) { btn.disabled = true; btn.style.opacity = '.5'; btn.textContent = '🗑️ Borrar facturas de este mes (descargá primero)'; }
+
+  toast(borradas + ' foto' + (borradas>1?'s':'') + ' borrada' + (borradas>1?'s':'') + (fallidas>0 ? ' (' + fallidas + ' no se pudieron borrar)' : '') + ' ✓');
+}
+
+function toggleSinStockManual(id) {
+  const p = S.products.find(x=>x.id===id);
+  if(!p) return;
+  p.sinStockManual = !p.sinStockManual;
+  try{ _markDirty('products', p.id); }catch(e){}
+  save(['products']);
+  renderProds(document.getElementById('prod-search').value);
+  toast(p.sinStockManual ? 'Marcado como SIN STOCK en la tienda' : 'Vuelve a mostrarse en la tienda');
 }
 function togVis(id) {
   const p = S.products.find(x=>x.id===id);
@@ -6730,8 +6747,30 @@ function agregarFacturaCompraClick(compraId) {
   const comp = S.compras.find(function(c){ return c.id===compraId; });
   if(!comp) return;
   _facturaRetroactivaTarget = { compraId: comp.id, provId: comp.provId };
-  const inp = document.getElementById('input-factura-retroactiva');
-  if(inp) inp.click();
+  let ov = document.getElementById('mfacturaorigen-overlay');
+  if(!ov) {
+    ov = document.createElement('div');
+    ov.id = 'mfacturaorigen-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
+    ov.onclick = function(ev){ if(ev.target===ov) ov.style.display='none'; };
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML = '<div style="background:#fff;border-radius:16px;padding:16px;width:100%;max-width:300px">'
+    + '<div style="font-size:15px;font-weight:800;color:#1a1a2e;margin-bottom:12px;text-align:center">¿De dónde sacamos la foto?</div>'
+    + '<button id="mfacturaorigen-camara" style="width:100%;background:#3483fa;color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">📷 Sacar foto</button>'
+    + '<button id="mfacturaorigen-galeria" style="width:100%;background:#eef0f5;color:#333;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">🖼️ Elegir de galería</button>'
+    + '</div>';
+  ov.style.display = 'flex';
+  document.getElementById('mfacturaorigen-camara').onclick = function(){
+    ov.style.display = 'none';
+    const inp = document.getElementById('input-factura-retroactiva-camara');
+    if(inp) inp.click();
+  };
+  document.getElementById('mfacturaorigen-galeria').onclick = function(){
+    ov.style.display = 'none';
+    const inp = document.getElementById('input-factura-retroactiva');
+    if(inp) inp.click();
+  };
 }
 function onFacturaFotoRetroactiva(input) {
   if(!input.files[0] || !_facturaRetroactivaTarget) return;
@@ -8401,10 +8440,16 @@ function listaConfirmarCompra(pvId) {
       + '<span style="font-size:15px;font-weight:700">Total</span>'
       + '<span style="font-size:20px;font-weight:900;color:var(--accent)">$'+tot.toLocaleString('es-AR')+'</span>'
       + '</div>'
-      + '<label style="display:block;background:var(--surface2);border:1.5px dashed var(--border);border-radius:10px;padding:12px;text-align:center;font-size:13px;font-weight:700;color:var(--text2);cursor:pointer;margin-bottom:14px">'
-      + '📷 Sacar/elegir foto de la factura'
+      + '<div style="display:flex;gap:8px;margin-bottom:14px">'
+      + '<label style="flex:1;display:block;background:var(--surface2);border:1.5px dashed var(--border);border-radius:10px;padding:12px;text-align:center;font-size:13px;font-weight:700;color:var(--text2);cursor:pointer">'
+      + '📷 Sacar foto'
+      + '<input type="file" accept="image/*" capture="environment" data-destino="lista" onchange="onFacturaFoto(this)" style="display:none">'
+      + '</label>'
+      + '<label style="flex:1;display:block;background:var(--surface2);border:1.5px dashed var(--border);border-radius:10px;padding:12px;text-align:center;font-size:13px;font-weight:700;color:var(--text2);cursor:pointer">'
+      + '🖼️ Elegir de galería'
       + '<input type="file" accept="image/*" data-destino="lista" onchange="onFacturaFoto(this)" style="display:none">'
       + '</label>'
+      + '</div>'
       + '<div id="lista-factura-preview" style="margin-bottom:10px"></div>'
       + '<button onclick="listaEjecutarCompra()" style="width:100%;background:#16a34a;color:#fff;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:800;cursor:pointer;margin-bottom:10px">\u2713 Confirmar compra</button>'
       + '<button onclick="document.getElementById(\'lista-compra-overlay\').style.display=\'none\'" style="width:100%;background:none;border:1px solid var(--border);border-radius:12px;padding:12px;font-size:15px;color:var(--text2);cursor:pointer">Cancelar</button>'
@@ -9489,21 +9534,29 @@ function tiendaProdCardGrid(p) {
     ? Object.entries(TC).filter(function(e){ return tcProdId(e[0])===p.id; }).reduce(function(s,e){ return s+e[1]; },0)
     : (TC[p.id]||0);
   const step = p.fracMin && p.fracMin > 1 ? p.fracMin : 1;
+  const sinStockManual = !!p.sinStockManual;
   const imgHtml = p.image
-    ? '<img src="'+p.image+'" onclick="'+(p.desc?'tiendaAbrirDetalle(\''+p.id+'\')':'')+'" style="width:calc(100% + 24px);height:140px;border-radius:16px 16px 0 0;object-fit:contain;display:block;background:#ffffff;margin:-12px -12px 10px -12px;'+(p.desc?'cursor:pointer':'')+'">'
-    : '<div onclick="'+(p.desc?'tiendaAbrirDetalle(\''+p.id+'\')':'')+'" style="width:calc(100% + 24px);height:130px;border-radius:16px 16px 0 0;background:#f7f8fc;display:flex;align-items:center;justify-content:center;font-size:48px;margin:-12px -12px 10px -12px;'+(p.desc?'cursor:pointer':'')+'">'+(p.emoji||'📦')+'</div>';
+    ? '<img src="'+p.image+'" onclick="'+(p.desc?'tiendaAbrirDetalle(\''+p.id+'\')':'')+'" style="width:calc(100% + 24px);height:140px;border-radius:16px 16px 0 0;object-fit:contain;display:block;background:#ffffff;margin:-12px -12px 10px -12px;'+(p.desc?'cursor:pointer':'')+(sinStockManual?';filter:grayscale(70%) brightness(.8)':'')+'">'
+    : '<div onclick="'+(p.desc?'tiendaAbrirDetalle(\''+p.id+'\')':'')+'" style="width:calc(100% + 24px);height:130px;border-radius:16px 16px 0 0;background:#f7f8fc;display:flex;align-items:center;justify-content:center;font-size:48px;margin:-12px -12px 10px -12px;'+(p.desc?'cursor:pointer':'')+(sinStockManual?';filter:grayscale(70%)':'')+'">'+(p.emoji||'📦')+'</div>';
+  // Cinta diagonal roja: se marca a mano (independiente del stock numerico real)
+  // para productos que se trabajan pero no se consiguen en ese momento.
+  const ribbonHtml = sinStockManual
+    ? '<div style="position:absolute;top:48px;left:-18%;width:136%;transform:rotate(-9deg);background:#dc2626;color:#fff;text-align:center;font-weight:900;font-size:13px;padding:5px 0;letter-spacing:.5px;box-shadow:0 2px 10px rgba(0,0,0,.35);z-index:2;pointer-events:none">SIN STOCK</div>'
+    : '';
   const _bq = bultoDe(p);
   const btnBulto = _bq>1
     ? '<button data-tid="'+p.id+'" onclick="tiendaAddBulto(this.dataset.tid)" style="width:100%;background:#fff;color:#3483fa;border:1.5px solid #3483fa;border-radius:10px;padding:7px;font-weight:800;font-size:13px;cursor:pointer;margin-top:6px">📦 Bulto x'+_bq+' +</button>'
     : '';
   const lblUnid = 'Unidades x'+step+' +';
-  const ctrl = hasVar
+  const ctrl = sinStockManual
+    ? '<button disabled style="width:100%;background:#eee;color:#999;border:none;border-radius:10px;padding:9px;font-weight:800;font-size:14px;margin-top:8px;cursor:not-allowed">No disponible</button>'
+    : (hasVar
     ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="width:100%;background:#3483fa;color:#fff;border:none;border-radius:10px;padding:9px;font-weight:800;font-size:14px;cursor:pointer;margin-top:8px">'+lblUnid+(qty>0?' ('+qty+' en carrito)':'')+'</button>'+btnBulto
     : (qty===0
         ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="width:100%;background:#3483fa;color:#fff;border:none;border-radius:10px;padding:9px;font-weight:800;font-size:14px;cursor:pointer;margin-top:8px">'+lblUnid+'</button>'+btnBulto
         : '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#eef0f5;color:#3483fa;border:none;border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;font-weight:700">−</button><span style="font-weight:800;font-size:16px;color:#1a1a2e">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;font-weight:700">+</button></div>'
           +btnBulto
-          +(p.wholesalePrice&&p.wholesaleQty&&tiendaGetPrice(p,qty)===p.wholesalePrice?'<div style="font-size:11px;color:#2e7d32;font-weight:700;text-align:center;margin-top:4px">⭐ Precio mayorista aplicado</div>':''));
+          +(p.wholesalePrice&&p.wholesaleQty&&tiendaGetPrice(p,qty)===p.wholesalePrice?'<div style="font-size:11px;color:#2e7d32;font-weight:700;text-align:center;margin-top:4px">⭐ Precio mayorista aplicado</div>':'')));
   const mayorHtml = p.wholesalePrice&&p.wholesaleQty
     ? '<div style="font-size:15px;color:#2e7d32;font-weight:800;margin-top:3px">$'+(+p.wholesalePrice).toFixed(0)+' <span style="font-size:11px;font-weight:700">a partir de '+p.wholesaleQty+' uds</span></div>'
     : '';
@@ -9515,6 +9568,7 @@ function tiendaProdCardGrid(p) {
   return '<div data-prod-id="'+p.id+'" style="background:#fff;border-radius:16px;padding:12px;border:1px solid '+(p.oferta?'#e53e3e50':qty>0?'#3483fa40':'#eef0f5')+';box-shadow:0 2px 10px rgba(0,0,0,.06);position:relative">'
     +ofertaBadge
     +imgHtml
+    +ribbonHtml
     +'<div onclick="'+(p.desc?'tiendaAbrirDetalle(\''+p.id+'\')':'')+'" style="font-size:13px;font-weight:600;margin-bottom:2px;line-height:1.3;color:#1a1a2e">'+''+p.name+'</div>'
     +(p.desc?'<div style="font-size:11px;color:#666;margin-bottom:4px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+p.desc+'</div>':'')
     +precioGridHtml
@@ -10305,6 +10359,8 @@ function tiendaCerrarVariante() {
 }
 
 function tiendaAdd(id) {
+  const p0 = S.products.find(x=>x.id===tcProdId(id));
+  if(p0 && p0.sinStockManual) { toast('Este producto no está disponible ahora'); return; }
   const modo = getTiendaModo();
   if(modo === 'cerrada') {
     // Aviso claro al tocar: la tienda deja ver precios pero no toma pedidos
@@ -10844,5 +10900,6 @@ window.addEventListener('DOMContentLoaded', function(){
     }
   </script>
 <input type="file" id="input-factura-retroactiva" accept="image/*" onchange="onFacturaFotoRetroactiva(this)" style="display:none">
+<input type="file" id="input-factura-retroactiva-camara" accept="image/*" capture="environment" onchange="onFacturaFotoRetroactiva(this)" style="display:none">
 </body>
 </html>
