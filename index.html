@@ -453,6 +453,20 @@
     } catch(e) { console.error("Storage upload error:", e); throw e; }
   };
 
+  // Subida de la foto de la factura del proveedor, ligada a una compra puntual.
+  // Va en una carpeta APARTE de las fotos de producto (no reusa _fbUploadPhoto)
+  // para no arriesgar nada de lo que ya funciona ahi. El "surtimar" fijo en la
+  // ruta deja el camino listo para cuando haya mas de un negocio (multi-tenant).
+  window._fbUploadFacturaCompra = async function(file, provId, compraId) {
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const storageRef = ref(storage, 'facturas/surtimar/' + provId + '/' + compraId + '.' + ext);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      return url.replace(/&token=[^&]+/, '').replace(/\?token=[^&]+&?/, '?');
+    } catch(e) { console.error("Storage upload error (factura):", e); throw e; }
+  };
+
   // Señalar que Firebase está listo (migración V2 es manual desde Configuración)
   window._firebaseReady = true;
   document.dispatchEvent(new Event("firebaseReady"));
@@ -872,6 +886,14 @@ select option{background:var(--surface2)}
       <div class="totals-box">
         <div class="tot-row tot-grand"><span>TOTAL</span><span id="nc-total">$0.00</span></div>
       </div>
+      <div class="form-group" style="margin-top:14px">
+        <label class="fl">Foto de la factura</label>
+        <label style="display:block;background:var(--surface2);border:1.5px dashed var(--border);border-radius:10px;padding:12px;text-align:center;font-size:13px;font-weight:700;color:var(--text2);cursor:pointer">
+          📷 Sacar/elegir foto
+          <input type="file" accept="image/*" capture="environment" data-destino="nc" onchange="onFacturaFoto(this)" style="display:none">
+        </label>
+        <div id="nc-factura-preview"></div>
+      </div>
       <div class="form-group" style="margin-top:14px"><label class="fl">Notas</label><textarea id="nc-notes" placeholder="Notas..."></textarea></div>
     </div>
   </div>
@@ -1234,7 +1256,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.169</strong> · 19/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.171</strong> · 19/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -1486,6 +1508,14 @@ select option{background:var(--surface2)}
       <button class="btn btn-ghost btn-sm btn-full" onclick="addCItem()" style="margin-bottom:12px">+ Agregar producto</button>
       <div class="totals-box">
         <div class="tot-row tot-grand"><span>TOTAL COMPRA</span><span id="cp-total">$0.00</span></div>
+      </div>
+      <div class="form-group" style="margin-top:14px">
+        <label class="fl">Foto de la factura</label>
+        <label style="display:block;background:var(--surface2);border:1.5px dashed var(--border);border-radius:10px;padding:12px;text-align:center;font-size:13px;font-weight:700;color:var(--text2);cursor:pointer">
+          📷 Sacar/elegir foto
+          <input type="file" accept="image/*" capture="environment" data-destino="cp" onchange="onFacturaFoto(this)" style="display:none">
+        </label>
+        <div id="cp-factura-preview"></div>
       </div>
       <div class="form-group" style="margin-top:14px"><label class="fl">Notas</label><textarea id="cp-notes"></textarea></div>
     </div>
@@ -1752,6 +1782,7 @@ function toast(msg) {
 
 function closeM(id) { 
   document.getElementById(id).classList.remove('open'); 
+  if(id === 'mcomp') { window._facturaFotoCP = null; try{ document.getElementById('cp-factura-preview').innerHTML = ''; }catch(e){} }
   // Solo limpiar editId si no estamos editando una factura en el resumen
   if(document.getElementById('page-resumen-factura') && 
      !document.getElementById('page-resumen-factura').classList.contains('active')) {
@@ -3027,6 +3058,94 @@ function handleAdd() {
 }
 
 // === PHOTO ===
+// === FOTO DE FACTURA DE PROVEEDOR (ligada a una compra) ===
+// Estado del archivo comprimido, pendiente de subir cuando se guarde la compra.
+// Uno para cada pantalla de compra (son dos sistemas distintos, ncSaveComp y
+// saveComp) para no mezclarlos si el usuario tuviera las dos abiertas.
+window._facturaFotoNC = null; // para la pantalla "nc" (ncSaveComp)
+window._facturaFotoCP = null; // para la pantalla "cp" (saveComp)
+window._facturaFotoLista = null; // para el overlay de "confirmar compra" desde la lista de compras
+
+// Comprime la foto de una factura para poder LEER los numeros despues — a
+// diferencia de las fotos de producto (miniaturas de catalogo, 400px), acá
+// hace falta mas resolucion y menos compresion para que el texto chico no
+// quede ilegible.
+function _comprimirFacturaFoto(file, callback) {
+  const img = new Image();
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    img.onload = function() {
+      const MAX = 1300;
+      let w = img.width, h = img.height;
+      if(w > MAX || h > MAX) {
+        if(w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.toBlob(function(blob) { callback(blob); }, 'image/jpeg', 0.82);
+    };
+    img.onerror = function() { callback(null); };
+    img.src = e.target.result;
+  };
+  reader.onerror = function() { callback(null); };
+  reader.readAsDataURL(file);
+}
+
+// input.dataset.destino = 'nc' o 'cp', para saber en cual de las dos pantallas
+// de compra se esta capturando la foto.
+function onFacturaFoto(input) {
+  if(!input.files[0]) return;
+  const destino = input.dataset.destino;
+  const file = input.files[0];
+  toast('Procesando foto...');
+  _comprimirFacturaFoto(file, function(blob) {
+    if(!blob) { toast('No se pudo procesar la foto'); return; }
+    const preview = URL.createObjectURL(blob);
+    if(destino === 'nc') {
+      window._facturaFotoNC = blob;
+      const el = document.getElementById('nc-factura-preview');
+      if(el) el.innerHTML = '<img src="'+preview+'" style="width:100%;border-radius:8px;margin-top:6px"><button onclick="_facturaFotoQuitar(\'nc\')" style="margin-top:4px;width:100%;background:#fee2e2;color:#dc2626;border:none;border-radius:8px;padding:6px;font-size:12px;font-weight:700;cursor:pointer">✕ Sacar otra vez</button>';
+    } else if(destino === 'lista') {
+      window._facturaFotoLista = blob;
+      const el = document.getElementById('lista-factura-preview');
+      if(el) el.innerHTML = '<img src="'+preview+'" style="width:100%;border-radius:8px;margin-top:6px"><button onclick="_facturaFotoQuitar(\'lista\')" style="margin-top:4px;width:100%;background:#fee2e2;color:#dc2626;border:none;border-radius:8px;padding:6px;font-size:12px;font-weight:700;cursor:pointer">✕ Sacar otra vez</button>';
+    } else {
+      window._facturaFotoCP = blob;
+      const el = document.getElementById('cp-factura-preview');
+      if(el) el.innerHTML = '<img src="'+preview+'" style="width:100%;border-radius:8px;margin-top:6px"><button onclick="_facturaFotoQuitar(\'cp\')" style="margin-top:4px;width:100%;background:#fee2e2;color:#dc2626;border:none;border-radius:8px;padding:6px;font-size:12px;font-weight:700;cursor:pointer">✕ Sacar otra vez</button>';
+    }
+    toast('Foto lista ✓');
+  });
+}
+function _facturaFotoQuitar(destino) {
+  if(destino === 'nc') { window._facturaFotoNC = null; document.getElementById('nc-factura-preview').innerHTML = ''; }
+  else if(destino === 'lista') { window._facturaFotoLista = null; document.getElementById('lista-factura-preview').innerHTML = ''; }
+  else { window._facturaFotoCP = null; document.getElementById('cp-factura-preview').innerHTML = ''; }
+}
+// Sube la foto pendiente (si hay) y guarda el link en la compra ya guardada.
+// Se hace DESPUES de guardar la compra, sin bloquear el flujo — igual que las
+// fotos de producto: la compra no espera a que termine de subir la imagen.
+function _subirFacturaSiHay(blob, provId, compraId, destino) {
+  if(!blob || !window._fbUploadFacturaCompra) return;
+  const file = new File([blob], compraId+'.jpg', {type:'image/jpeg'});
+  toast('Subiendo foto de factura...');
+  window._fbUploadFacturaCompra(file, provId, compraId).then(function(url) {
+    const comp = S.compras.find(function(c){ return c.id===compraId; });
+    if(comp) {
+      comp.facturaUrl = url;
+      try{ _markDirty('compras', compraId); }catch(e){}
+      save(['compras']);
+    }
+    if(destino==='nc') window._facturaFotoNC = null;
+    else if(destino==='lista') window._facturaFotoLista = null;
+    else window._facturaFotoCP = null;
+  }).catch(function(e) {
+    console.error('Error subiendo foto de factura:', e);
+    toast('No se pudo subir la foto de la factura (la compra ya quedó guardada)');
+  });
+}
 function onPhoto(input) {
   if(!input.files[0]) return;
   const file = input.files[0];
@@ -4521,6 +4640,8 @@ function openNuevaCompra(id) {
   ncItems = {};
   ncProvId = null;
   window.ncEditId = null; // compra nueva — sin ID de edición
+  window._facturaFotoNC = null;
+  try{ document.getElementById('nc-factura-preview').innerHTML = ''; }catch(e){}
   document.getElementById('nc-date').value = localDateStr();
   document.getElementById('nc-notes').value = '';
   document.getElementById('nc-draft').checked = false;
@@ -4918,6 +5039,7 @@ async function ncSaveComp() {
   showPage('compras');
   toast('Compra guardada ✓');
   save(['compras','products','nComp']);
+  try{ _subirFacturaSiHay(window._facturaFotoNC, provId, compId, 'nc'); }catch(e){}
 }
 
 function cartPlus(e, pid) {
@@ -6513,6 +6635,7 @@ async function saveComp(){
     try{updDash();}catch(e){}
     toast(isDraft?'Borrador guardado ✓':'Compra guardada ✓');
     save(['compras','products','nComp']);
+    try{ _subirFacturaSiHay(window._facturaFotoCP, pid, compId, 'cp'); }catch(e){}
   } catch(err) {
     console.error('saveComp error:', err);
     // Cerrar modal igual aunque haya error
@@ -6545,6 +6668,9 @@ function renderComps(){
       +'<div style="font-size:14px;color:var(--text3)">'+c.id+' - '+c.items.length+' productos'+'</div></div>'
       +'<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'
       +'<div style="font-family:Inter,sans-serif;font-weight:800;color:var(--accent2);font-size:15px">$'+c.total.toFixed(0)+'</div>'
+      +(c.facturaUrl
+        ? '<button class="btn btn-sm" style="background:#dcfce7;color:#16a34a;border:1px solid #16a34a44;padding:6px 8px" data-action="verFacturaCompra" data-id="'+c.id+'">📄</button>'
+        : '<button class="btn btn-sm" style="background:#eef2ff;color:#3483fa;border:1px solid #3483fa44;padding:6px 8px" data-action="agregarFacturaCompra" data-id="'+c.id+'">📷</button>')
       +(c.draft?'<button class="btn btn-primary btn-sm" data-action="confirmComp" data-id="'+c.id+'">✓ Confirmar</button>':'')
       +'<button class="btn btn-sm" style="background:#ff3b3022;color:#ff6b60;border:1px solid #ff3b3044;padding:6px 10px" data-action="deleteComp" data-id="'+c.id+'">🗑️</button>'
       +'</div>'
@@ -6553,6 +6679,46 @@ function renderComps(){
   ).join('');
 }
 
+// Agregar (o ver) la foto de la factura DESPUÉS de haber guardado la compra —
+// para cuando te olvidaste de sacarla en el momento. Sube directo a la compra
+// ya existente, sin pasar por ningun flujo de "nueva compra".
+let _facturaRetroactivaTarget = null;
+function agregarFacturaCompraClick(compraId) {
+  const comp = S.compras.find(function(c){ return c.id===compraId; });
+  if(!comp) return;
+  _facturaRetroactivaTarget = { compraId: comp.id, provId: comp.provId };
+  const inp = document.getElementById('input-factura-retroactiva');
+  if(inp) inp.click();
+}
+function onFacturaFotoRetroactiva(input) {
+  if(!input.files[0] || !_facturaRetroactivaTarget) return;
+  const file = input.files[0];
+  const target = _facturaRetroactivaTarget;
+  toast('Procesando foto...');
+  _comprimirFacturaFoto(file, function(blob) {
+    if(!blob) { toast('No se pudo procesar la foto'); return; }
+    const uploadFile = new File([blob], target.compraId+'.jpg', {type:'image/jpeg'});
+    toast('Subiendo foto de factura...');
+    window._fbUploadFacturaCompra(uploadFile, target.provId, target.compraId).then(function(url) {
+      const comp = S.compras.find(function(c){ return c.id===target.compraId; });
+      if(comp) {
+        comp.facturaUrl = url;
+        try{ _markDirty('compras', target.compraId); }catch(e){}
+        save(['compras']);
+        try{ renderComps(); }catch(e){}
+      }
+      toast('Foto de factura agregada ✓');
+    }).catch(function(e) {
+      console.error('Error subiendo foto retroactiva:', e);
+      toast('No se pudo subir la foto');
+    });
+  });
+  input.value = '';
+}
+function verFacturaCompra(compraId) {
+  const comp = S.compras.find(function(c){ return c.id===compraId; });
+  if(comp && comp.facturaUrl) window.open(comp.facturaUrl, '_blank');
+}
 function deleteComp(id){
   if(!confirm('¿Eliminar esta compra?')) return;
   S.compras = S.compras.filter(c => c.id !== id);
@@ -6571,6 +6737,8 @@ document.getElementById('page-compras').addEventListener('click', function(e){
   if(el.dataset.action==='openComp') openComp(el.dataset.id);
   else if(el.dataset.action==='confirmComp') { e.stopPropagation(); confirmComp(el.dataset.id); }
   else if(el.dataset.action==='deleteComp') { e.stopPropagation(); deleteComp(el.dataset.id); }
+  else if(el.dataset.action==='verFacturaCompra') { e.stopPropagation(); verFacturaCompra(el.dataset.id); }
+  else if(el.dataset.action==='agregarFacturaCompra') { e.stopPropagation(); agregarFacturaCompraClick(el.dataset.id); }
 });
 function swCompTab(tab,el){document.querySelectorAll('#page-compras .tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');document.getElementById('comp-hist').style.display=tab==='historial'?'':'none';document.getElementById('comp-comp').style.display=tab==='comparador'?'':'none';document.getElementById('comp-lista').style.display=tab==='lista'?'':'none';document.getElementById('comp-hist-search-wrap').style.display=tab==='historial'?'':'none';if(tab==='comparador')renderComp();if(tab==='lista')renderListaCompras();}
 
@@ -8191,11 +8359,28 @@ function listaConfirmarCompra(pvId) {
       + '<span style="font-size:15px;font-weight:700">Total</span>'
       + '<span style="font-size:20px;font-weight:900;color:var(--accent)">$'+tot.toLocaleString('es-AR')+'</span>'
       + '</div>'
+      + '<label style="display:block;background:var(--surface2);border:1.5px dashed var(--border);border-radius:10px;padding:12px;text-align:center;font-size:13px;font-weight:700;color:var(--text2);cursor:pointer;margin-bottom:14px">'
+      + '📷 Sacar/elegir foto de la factura'
+      + '<input type="file" accept="image/*" capture="environment" data-destino="lista" onchange="onFacturaFoto(this)" style="display:none">'
+      + '</label>'
+      + '<div id="lista-factura-preview" style="margin-bottom:10px"></div>'
       + '<button onclick="listaEjecutarCompra()" style="width:100%;background:#16a34a;color:#fff;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:800;cursor:pointer;margin-bottom:10px">\u2713 Confirmar compra</button>'
       + '<button onclick="document.getElementById(\'lista-compra-overlay\').style.display=\'none\'" style="width:100%;background:none;border:1px solid var(--border);border-radius:12px;padding:12px;font-size:15px;color:var(--text2);cursor:pointer">Cancelar</button>'
       + '</div>';
+    // El overlay se reconstruye entero al agregar/quitar items — si ya habia
+    // una foto tomada, el archivo sigue en memoria (window._facturaFotoLista)
+    // pero el <div> de vista previa se recreo vacio. Se repone aca para que
+    // no parezca que la foto se perdio.
+    if(window._facturaFotoLista) {
+      try {
+        const preview = URL.createObjectURL(window._facturaFotoLista);
+        const el = document.getElementById('lista-factura-preview');
+        if(el) el.innerHTML = '<img src="'+preview+'" style="width:100%;border-radius:8px;margin-top:6px"><button onclick="_facturaFotoQuitar(\'lista\')" style="margin-top:4px;width:100%;background:#fee2e2;color:#dc2626;border:none;border-radius:8px;padding:6px;font-size:12px;font-weight:700;cursor:pointer">✕ Sacar otra vez</button>';
+      } catch(e) {}
+    }
   }
   window.renderListaOverlay = renderOverlay;
+  window._facturaFotoLista = null; // limpiar cualquier resto de una compra anterior
   renderOverlay();
 }
 
@@ -8301,6 +8486,7 @@ function listaEjecutarCompra() {
   try{updDash();}catch(e){}
   try{if(typeof renderComps==='function')renderComps();}catch(e){}
   save(['compras','products','nComp']);
+  try{ _subirFacturaSiHay(window._facturaFotoLista, pvId, compId, 'lista'); }catch(e){}
   const ov = document.getElementById('lista-compra-overlay');
   if(ov) ov.style.display='none';
   toast('✓ Compra registrada en '+pvNombre);
@@ -10615,5 +10801,6 @@ window.addEventListener('DOMContentLoaded', function(){
       });
     }
   </script>
+<input type="file" id="input-factura-retroactiva" accept="image/*" capture="environment" onchange="onFacturaFotoRetroactiva(this)" style="display:none">
 </body>
 </html>
