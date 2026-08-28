@@ -10,6 +10,9 @@
 <meta name="theme-color" content="#0d9488">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
+<!-- Cropper.js: recortar/rotar fotos de factura de proveedor antes de subirlas -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
 <title>Surtimar — Tienda online</title>
 <meta name="description" content="Hacé tu pedido online en Surtimar. Catálogo completo con precios actualizados, fácil y rápido desde tu celular.">
 <!-- Vista previa al compartir el enlace (WhatsApp, etc.) -->
@@ -1256,7 +1259,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.172</strong> · 19/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.173</strong> · 19/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -3070,38 +3073,68 @@ window._facturaFotoLista = null; // para el overlay de "confirmar compra" desde 
 // diferencia de las fotos de producto (miniaturas de catalogo, 400px), acá
 // hace falta mas resolucion y menos compresion para que el texto chico no
 // quede ilegible.
-function _comprimirFacturaFoto(file, callback) {
-  const img = new Image();
+// Recortador interactivo con Cropper.js: se abre a pantalla completa, deja
+// arrastrar/pellizcar para encuadrar y rotar 90° para cualquier lado, antes de
+// comprimir. Se usa para las 4 formas de agregar una foto de factura (nueva
+// compra, lista de compras, y agregar despues desde el historial).
+let _cropperInstance = null;
+function _abrirRecortadorFactura(file, onListo) {
   const reader = new FileReader();
   reader.onload = function(e) {
+    let ov = document.getElementById('crop-overlay');
+    if(!ov) {
+      ov = document.createElement('div');
+      ov.id = 'crop-overlay';
+      ov.style.cssText = 'position:fixed;inset:0;z-index:100000;background:#000;display:flex;flex-direction:column';
+      ov.innerHTML = '<div style="flex:1;overflow:hidden;position:relative;background:#000"><img id="crop-img" style="max-width:100%;display:block"></div>'
+        + '<div style="background:#111;padding:10px;display:flex;gap:8px;flex-wrap:wrap">'
+        + '<button id="crop-btn-izq" style="flex:1;min-width:44px;background:#333;color:#fff;border:none;border-radius:10px;padding:12px;font-size:20px;cursor:pointer">↺</button>'
+        + '<button id="crop-btn-der" style="flex:1;min-width:44px;background:#333;color:#fff;border:none;border-radius:10px;padding:12px;font-size:20px;cursor:pointer">↻</button>'
+        + '<button id="crop-btn-cancelar" style="flex:2;background:#555;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">Cancelar</button>'
+        + '<button id="crop-btn-listo" style="flex:2;background:#16a34a;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:800;cursor:pointer">✓ Listo</button>'
+        + '</div>';
+      document.body.appendChild(ov);
+    }
+    ov.style.display = 'flex';
+    const img = document.getElementById('crop-img');
+
+    function cerrarYLimpiar() {
+      if(_cropperInstance) { _cropperInstance.destroy(); _cropperInstance = null; }
+      ov.style.display = 'none';
+    }
+
     img.onload = function() {
-      const MAX = 1300;
-      let w = img.width, h = img.height;
-      if(w > MAX || h > MAX) {
-        if(w > h) { h = Math.round(h * MAX / w); w = MAX; }
-        else { w = Math.round(w * MAX / h); h = MAX; }
-      }
-      const canvas = document.createElement('canvas');
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      canvas.toBlob(function(blob) { callback(blob); }, 'image/jpeg', 0.82);
+      if(_cropperInstance) { _cropperInstance.destroy(); _cropperInstance = null; }
+      _cropperInstance = new Cropper(img, { viewMode: 1, autoCropArea: 1, background: false, responsive: true });
     };
-    img.onerror = function() { callback(null); };
     img.src = e.target.result;
+
+    document.getElementById('crop-btn-izq').onclick = function(){ if(_cropperInstance) _cropperInstance.rotate(-90); };
+    document.getElementById('crop-btn-der').onclick = function(){ if(_cropperInstance) _cropperInstance.rotate(90); };
+    document.getElementById('crop-btn-cancelar').onclick = function(){ cerrarYLimpiar(); onListo(null); };
+    document.getElementById('crop-btn-listo').onclick = function(){
+      if(!_cropperInstance) { cerrarYLimpiar(); onListo(null); return; }
+      // getCroppedCanvas ya resuelve recorte + rotacion + limite de tamaño en un
+      // solo paso — no hace falta un segundo canvas de compresion aparte.
+      const canvas = _cropperInstance.getCroppedCanvas({ maxWidth: 1300, maxHeight: 1300 });
+      cerrarYLimpiar();
+      if(!canvas) { onListo(null); return; }
+      canvas.toBlob(function(blob){ onListo(blob); }, 'image/jpeg', 0.82);
+    };
   };
-  reader.onerror = function() { callback(null); };
+  reader.onerror = function() { onListo(null); };
   reader.readAsDataURL(file);
 }
 
-// input.dataset.destino = 'nc' o 'cp', para saber en cual de las dos pantallas
-// de compra se esta capturando la foto.
+// input.dataset.destino = 'nc', 'cp' o 'lista', para saber en cual pantalla de
+// compra se esta capturando la foto.
 function onFacturaFoto(input) {
   if(!input.files[0]) return;
   const destino = input.dataset.destino;
   const file = input.files[0];
-  toast('Procesando foto...');
-  _comprimirFacturaFoto(file, function(blob) {
-    if(!blob) { toast('No se pudo procesar la foto'); return; }
+  input.value = ''; // permitir elegir el mismo archivo de nuevo mas adelante
+  _abrirRecortadorFactura(file, function(blob) {
+    if(!blob) return; // canceló el recorte, no tocar nada de lo que ya hubiera
     const preview = URL.createObjectURL(blob);
     if(destino === 'nc') {
       window._facturaFotoNC = blob;
@@ -6694,9 +6727,9 @@ function onFacturaFotoRetroactiva(input) {
   if(!input.files[0] || !_facturaRetroactivaTarget) return;
   const file = input.files[0];
   const target = _facturaRetroactivaTarget;
-  toast('Procesando foto...');
-  _comprimirFacturaFoto(file, function(blob) {
-    if(!blob) { toast('No se pudo procesar la foto'); return; }
+  input.value = '';
+  _abrirRecortadorFactura(file, function(blob) {
+    if(!blob) return; // canceló el recorte
     const uploadFile = new File([blob], target.compraId+'.jpg', {type:'image/jpeg'});
     toast('Subiendo foto de factura...');
     window._fbUploadFacturaCompra(uploadFile, target.provId, target.compraId).then(function(url) {
@@ -6713,7 +6746,6 @@ function onFacturaFotoRetroactiva(input) {
       toast('No se pudo subir la foto');
     });
   });
-  input.value = '';
 }
 function verFacturaCompra(compraId) {
   const comp = S.compras.find(function(c){ return c.id===compraId; });
