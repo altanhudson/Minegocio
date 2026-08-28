@@ -1234,7 +1234,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.168</strong> · 19/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.169</strong> · 19/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -8561,18 +8561,29 @@ function renderListaCompras() {
       // era el que quedaba pegado y mostraba 3 cuando en realidad faltaban 34.
       const qtyMostrar = (cantGuardada && typeof cantGuardada === 'object' && cantGuardada.base === qtyBase && cantGuardada.v > 0)
         ? cantGuardada.v : qtyBase;
-      // Marca visual para distinguir "no tenés nada, urge" de "tenés stock pero
-      // por debajo del mínimo configurado" — con minStock, ambos casos entran a
-      // la lista igual, pero el segundo puede esperar a otro pedido a ese
-      // proveedor en vez de justificar un viaje aparte solo por eso.
+      // Marca visual: separar SIEMPRE la parte obligatoria (stock negativo —
+      // ya se vendió de más, hay que cubrirlo sí o sí) de la parte opcional
+      // (completar hasta el mínimo configurado). Antes, cuando las dos partes
+      // coincidían en el mismo producto (ej. minStock=30, stock=-10), se
+      // sumaban en un solo numero (40) sin avisar que en realidad 10 eran
+      // obligatorios y 30 eran "ya que vas, aprovechá" — dando la falsa
+      // sensación de que TODO era imprescindible comprarlo.
       const stockReal = item.stockReal || 0;
-      // Rojo solo si el stock es NEGATIVO: eso significa que ya se vendió más
-      // de lo que había (hay una factura comprometida sin poder cumplirse del
-      // todo). En cero, sin nada facturado de más, no hay urgencia real — es
-      // solo reponer para el mínimo, puede esperar a otro pedido.
-      const marcaStock = stockReal < 0
-        ? '<div style="font-size:10.5px;font-weight:700;color:#dc2626;margin-top:1px">🔴 Sin stock</div>'
-        : '<div style="font-size:10.5px;font-weight:700;color:#b45309;margin-top:1px">🟡 Solo para completar el mínimo (tenés '+stockReal+')</div>';
+      const minStockProd = (item.prod && item.prod.minStock) || 0;
+      const obligatorio = Math.max(0, -stockReal);
+      const paraMinimo = minStockProd > 0 ? (obligatorio > 0 ? minStockProd : Math.max(0, minStockProd - stockReal)) : 0;
+      let marcaStock;
+      if (obligatorio > 0 && paraMinimo > 0) {
+        marcaStock = '<div style="font-size:10.5px;font-weight:700;margin-top:1px">'
+          + '<span style="color:#dc2626">🔴 '+obligatorio+' obligatorio</span>'
+          + ' <span style="color:#999">+</span> '
+          + '<span style="color:#b45309">🟡 '+paraMinimo+' para el mínimo</span>'
+          + '</div>';
+      } else if (obligatorio > 0) {
+        marcaStock = '<div style="font-size:10.5px;font-weight:700;color:#dc2626;margin-top:1px">🔴 Sin stock</div>';
+      } else {
+        marcaStock = '<div style="font-size:10.5px;font-weight:700;color:#b45309;margin-top:1px">🟡 Solo para completar el mínimo (tenés '+stockReal+')</div>';
+      }
       return '<div style="display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid var(--border);'+rowStyle+'">'
         + '<input id="'+inputId+'" type="number" inputmode="decimal" min="0" value="'+qtyMostrar+'" data-prodid="'+prodId+'" data-pvid="'+(pvId||'sin')+'" onfocus="this.select()" onchange="listaGuardarCantidad(\''+estadoKey+'\',this.value,'+qtyBase+')" style="width:50px;text-align:center;font-size:15px;font-weight:800;border:1.5px solid '+(esOk?'#16a34a':'var(--border)')+';border-radius:8px;padding:4px;background:'+(esOk?'rgba(22,163,74,.08)':'var(--surface)')+';color:'+(esOk?'#16a34a':'var(--accent2)')+';flex-shrink:0">'
         + '<button onclick="listaToggleEstado(\''+estadoKey+'\',\'ok\')" style="width:30px;height:30px;border-radius:50%;border:2px solid '+(esOk?'#16a34a':'#d1d5db')+';background:'+(esOk?'#16a34a':'transparent')+';color:'+(esOk?'#fff':'#9ca3af')+';font-size:14px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">\u2713</button>'
