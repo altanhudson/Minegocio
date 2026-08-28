@@ -890,7 +890,7 @@ select option{background:var(--surface2)}
         <label class="fl">Foto de la factura</label>
         <label style="display:block;background:var(--surface2);border:1.5px dashed var(--border);border-radius:10px;padding:12px;text-align:center;font-size:13px;font-weight:700;color:var(--text2);cursor:pointer">
           📷 Sacar/elegir foto
-          <input type="file" accept="image/*" capture="environment" data-destino="nc" onchange="onFacturaFoto(this)" style="display:none">
+          <input type="file" accept="image/*" data-destino="nc" onchange="onFacturaFoto(this)" style="display:none">
         </label>
         <div id="nc-factura-preview"></div>
       </div>
@@ -1256,7 +1256,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.171</strong> · 19/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.172</strong> · 19/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -1513,7 +1513,7 @@ select option{background:var(--surface2)}
         <label class="fl">Foto de la factura</label>
         <label style="display:block;background:var(--surface2);border:1.5px dashed var(--border);border-radius:10px;padding:12px;text-align:center;font-size:13px;font-weight:700;color:var(--text2);cursor:pointer">
           📷 Sacar/elegir foto
-          <input type="file" accept="image/*" capture="environment" data-destino="cp" onchange="onFacturaFoto(this)" style="display:none">
+          <input type="file" accept="image/*" data-destino="cp" onchange="onFacturaFoto(this)" style="display:none">
         </label>
         <div id="cp-factura-preview"></div>
       </div>
@@ -8361,7 +8361,7 @@ function listaConfirmarCompra(pvId) {
       + '</div>'
       + '<label style="display:block;background:var(--surface2);border:1.5px dashed var(--border);border-radius:10px;padding:12px;text-align:center;font-size:13px;font-weight:700;color:var(--text2);cursor:pointer;margin-bottom:14px">'
       + '📷 Sacar/elegir foto de la factura'
-      + '<input type="file" accept="image/*" capture="environment" data-destino="lista" onchange="onFacturaFoto(this)" style="display:none">'
+      + '<input type="file" accept="image/*" data-destino="lista" onchange="onFacturaFoto(this)" style="display:none">'
       + '</label>'
       + '<div id="lista-factura-preview" style="margin-bottom:10px"></div>'
       + '<button onclick="listaEjecutarCompra()" style="width:100%;background:#16a34a;color:#fff;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:800;cursor:pointer;margin-bottom:10px">\u2713 Confirmar compra</button>'
@@ -10801,6 +10801,6 @@ window.addEventListener('DOMContentLoaded', function(){
       });
     }
   </script>
-<input type="file" id="input-factura-retroactiva" accept="image/*" capture="environment" onchange="onFacturaFotoRetroactiva(this)" style="display:none">
+<input type="file" id="input-factura-retroactiva" accept="image/*" onchange="onFacturaFotoRetroactiva(this)" style="display:none">
 </body>
 </html>
