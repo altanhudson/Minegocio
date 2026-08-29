@@ -1286,7 +1286,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.181</strong> · 19/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.182</strong> · 19/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -5133,6 +5133,10 @@ async function ncSaveComp() {
   toast('Compra guardada ✓');
   save(['compras','products','nComp']);
   try{ _subirFacturaSiHay(window._facturaFotoNC, provId, compId, 'nc'); }catch(e){}
+  if(S.listaCompras && S.listaCompras.notas && S.listaCompras.notas[provId]) {
+    delete S.listaCompras.notas[provId];
+    try{ _listaCompraGuardar(); }catch(e){}
+  }
 }
 
 function cartPlus(e, pid) {
@@ -8617,6 +8621,13 @@ function listaEjecutarCompra() {
   try{if(typeof renderComps==='function')renderComps();}catch(e){}
   save(['compras','products','nComp']);
   try{ _subirFacturaSiHay(window._facturaFotoLista, pvId, compId, 'lista'); }catch(e){}
+  // Al confirmar la compra, la nota de ese proveedor ya cumplió su función —
+  // se borra sola para que no quede pegada indefinidamente (antes solo se
+  // borraba con un botón manual que era fácil de olvidarse de tocar).
+  if(S.listaCompras && S.listaCompras.notas && S.listaCompras.notas[pvId]) {
+    delete S.listaCompras.notas[pvId];
+    try{ _listaCompraGuardar(); }catch(e){}
+  }
   const ov = document.getElementById('lista-compra-overlay');
   if(ov) ov.style.display='none';
   toast('✓ Compra registrada en '+pvNombre);
