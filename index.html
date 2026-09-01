@@ -1286,7 +1286,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.184</strong> · 19/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.185</strong> · 19/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -10457,6 +10457,22 @@ function tiendaCerrarVariante() {
   try{ tiendaRender(); }catch(e){}
 }
 
+// Actualiza SOLO la tarjeta del producto tocado, en vez de reconstruir toda la
+// lista (que en un celular basico, con varias tandas ya cargadas por el scroll
+// infinito, se sentia como un salto/traba en cada toque de +/-). Si por algun
+// motivo la tarjeta no esta en el DOM actual, cae al render completo como
+// respaldo seguro — nunca deja al usuario sin actualizacion.
+function _tiendaActualizarTarjeta(prodId) {
+  const p = S.products.find(x => x.id === prodId);
+  if (!p) return;
+  const el = document.querySelector('[data-prod-id="'+prodId+'"]');
+  if (!el) { tiendaRender(); return; }
+  const nuevoHtml = T_VISTA_TIPO === 'grilla' ? tiendaProdCardGrid(p) : tiendaProdCard(p);
+  const temp = document.createElement('div');
+  temp.innerHTML = nuevoHtml;
+  const nuevoEl = temp.firstElementChild;
+  if (nuevoEl) el.replaceWith(nuevoEl);
+}
 function tiendaAdd(id) {
   const p0 = S.products.find(x=>x.id===tcProdId(id));
   if(p0 && p0.sinStockManual) { toast('Este producto no está disponible ahora'); return; }
@@ -10485,7 +10501,7 @@ function tiendaAdd(id) {
     cartBtn.style.transition = 'transform .15s';
     setTimeout(()=>{ cartBtn.style.transform = 'scale(1)'; }, 200);
   }
-  tiendaRender();
+  _tiendaActualizarTarjeta(tcProdId(id));
   if(T_VISTA==='carrito') tiendaRenderCarrito();
   tiendaActTotal();
 }
@@ -10507,7 +10523,7 @@ function tiendaAddBulto(id) {
     cartBtn.style.transition = 'transform .15s';
     setTimeout(()=>{ cartBtn.style.transform = 'scale(1)'; }, 200);
   }
-  tiendaRender();
+  _tiendaActualizarTarjeta(id);
   if(T_VISTA==='carrito') tiendaRenderCarrito();
   tiendaActTotal();
 }
@@ -10517,7 +10533,7 @@ function tiendaInc(id) {
   TC[id]=(TC[id]||0)+step;
   const cartBtn = document.getElementById('tienda-cart-btn');
   if(cartBtn) { cartBtn.style.transform='scale(1.2)'; cartBtn.style.transition='transform .15s'; setTimeout(()=>{ cartBtn.style.transform='scale(1)'; },200); }
-  tiendaRender();
+  _tiendaActualizarTarjeta(tcProdId(id));
   if(document.getElementById('tienda-carrito').style.display!=='none') tiendaRenderCarrito();
   tiendaActTotal();
 }
@@ -10526,7 +10542,7 @@ function tiendaDec(id) {
   const step = p&&p.fracMin&&p.fracMin>1 ? p.fracMin : 1;
   TC[id]=(TC[id]||step)-step;
   if(TC[id]<=0) delete TC[id];
-  tiendaRender();
+  _tiendaActualizarTarjeta(tcProdId(id));
   if(document.getElementById('tienda-carrito').style.display!=='none') tiendaRenderCarrito();
   tiendaActTotal();
 }
