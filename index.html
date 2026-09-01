@@ -1286,7 +1286,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.183</strong> · 19/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.184</strong> · 19/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -3066,10 +3066,12 @@ function _facturaFotoQuitar(destino) {
 // Sube la foto pendiente (si hay) y guarda el link en la compra ya guardada.
 // Se hace DESPUES de guardar la compra, sin bloquear el flujo — igual que las
 // fotos de producto: la compra no espera a que termine de subir la imagen.
-function _subirFacturaSiHay(blob, provId, compraId, destino) {
+function _subirFacturaSiHay(blob, provId, compraId, destino, intento) {
   if(!blob || !window._fbUploadFacturaCompra) return;
+  const nIntento = intento || 1;
+  const MAX_INTENTOS = 3;
   const file = new File([blob], compraId+'.jpg', {type:'image/jpeg'});
-  toast('Subiendo foto de factura...');
+  toast(nIntento===1 ? 'Subiendo foto de factura...' : 'Reintentando subir la foto ('+nIntento+'/'+MAX_INTENTOS+')...');
   window._fbUploadFacturaCompra(file, provId, compraId).then(function(url) {
     const comp = S.compras.find(function(c){ return c.id===compraId; });
     if(comp) {
@@ -3080,9 +3082,22 @@ function _subirFacturaSiHay(blob, provId, compraId, destino) {
     if(destino==='nc') window._facturaFotoNC = null;
     else if(destino==='lista') window._facturaFotoLista = null;
     else window._facturaFotoCP = null;
+    // Refrescar la lista: sin esto el icono seguia mostrando la camarita (datos
+    // viejos en pantalla) aunque la foto ya estuviera guardada, y daba la
+    // impresion de que habia fallado — llevando a subirla una y otra vez.
+    try{ renderComps(); }catch(e){}
+    toast('Foto de factura guardada ✓');
   }).catch(function(e) {
-    console.error('Error subiendo foto de factura:', e);
-    toast('No se pudo subir la foto de la factura (la compra ya quedó guardada)');
+    console.error('Error subiendo foto de factura (intento '+nIntento+'):', e);
+    if(nIntento < MAX_INTENTOS) {
+      // Reintento automatico con espera creciente: la causa mas comun es señal
+      // intermitente, y estas fotos pesan bastante mas que las de producto.
+      setTimeout(function(){
+        _subirFacturaSiHay(blob, provId, compraId, destino, nIntento+1);
+      }, nIntento * 3000);
+    } else {
+      toast('No se pudo subir la foto tras varios intentos. La compra quedó guardada — probá agregarla después desde el historial 📷');
+    }
   });
 }
 // WebP pesa menos que JPEG a igual calidad, pero el navegador NO avisa si no lo
@@ -6826,21 +6841,9 @@ function onFacturaFotoRetroactiva(input) {
   input.value = '';
   _abrirRecortadorFactura(file, function(blob) {
     if(!blob) return; // canceló el recorte
-    const uploadFile = new File([blob], target.compraId+'.jpg', {type:'image/jpeg'});
-    toast('Subiendo foto de factura...');
-    window._fbUploadFacturaCompra(uploadFile, target.provId, target.compraId).then(function(url) {
-      const comp = S.compras.find(function(c){ return c.id===target.compraId; });
-      if(comp) {
-        comp.facturaUrl = url;
-        try{ _markDirty('compras', target.compraId); }catch(e){}
-        save(['compras']);
-        try{ renderComps(); }catch(e){}
-      }
-      toast('Foto de factura agregada ✓');
-    }).catch(function(e) {
-      console.error('Error subiendo foto retroactiva:', e);
-      toast('No se pudo subir la foto');
-    });
+    // Reusa la misma funcion de subida que el resto de los caminos, para tener
+    // el reintento automatico y el refresco de pantalla en un solo lugar.
+    _subirFacturaSiHay(blob, target.provId, target.compraId, 'retro');
   });
 }
 function verFacturaCompra(compraId) {
