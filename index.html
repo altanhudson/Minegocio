@@ -1286,7 +1286,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.185</strong> · 19/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.186</strong> · 19/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -9715,11 +9715,17 @@ function tiendaInit() {
   autoEntrar();
 
   // 2) Después, en segundo plano, traer datos frescos y refrescar el catálogo.
+  // Reintenta unas pocas veces si falla — antes, un solo fallo (señal mala justo
+  // en ese momento, o algo puntual de Safari/iOS) dejaba a la tienda sin datos
+  // para siempre, sin ningún aviso ni segunda oportunidad.
+  let _tiendaIntentos = 0;
+  const TIENDA_MAX_INTENTOS = 3;
   function tryLoad() {
     // Usa la carga liviana: la tienda no necesita compras, cobranzas ni proveedores.
     const cargar = window._fbLoadTienda || window._fbLoad;
     if(cargar) {
       cargar().then(data => {
+        _tiendaIntentos = 0; // éxito: resetear para un eventual reintento futuro
         if(data) {
           Object.assign(S, data);
           // Guardar en el celular para que el próximo ingreso (y el refresh con el
@@ -9741,14 +9747,30 @@ function tiendaInit() {
           try { tiendaRenderNivel(); } catch(e) {}
         }
       }).catch(e => {
-        console.warn('Tienda: falló la carga desde Firebase', e);
+        console.warn('Tienda: falló la carga desde Firebase (intento '+(_tiendaIntentos+1)+'/'+TIENDA_MAX_INTENTOS+')', e);
         autoEntrar();
+        _tiendaIntentos++;
+        if(_tiendaIntentos < TIENDA_MAX_INTENTOS) {
+          setTimeout(tryLoad, _tiendaIntentos * 4000); // espera creciente: 4s, luego 8s
+        }
       });
     } else {
       setTimeout(tryLoad, 500);
     }
   }
   tryLoad();
+
+  // Reintentar también si el cliente vuelve a la pestaña (por ej. tras haber
+  // bloqueado el celular con la descarga a mitad de camino, algo tipico de
+  // iOS) y todavia no tenemos catalogo. Nunca se activa para quien ya entró
+  // bien — la condición exige catálogo vacío, así que a nadie a quien ya le
+  // funciona esto le cambia nada.
+  document.addEventListener('visibilitychange', function() {
+    if(document.visibilityState === 'visible' && !(S.products && S.products.length)) {
+      _tiendaIntentos = 0;
+      tryLoad();
+    }
+  });
 }
 
 function tiendaModoMensaje() {
