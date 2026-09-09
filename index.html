@@ -1286,7 +1286,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.186</strong> · 19/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.187</strong> · 19/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -5107,7 +5107,10 @@ async function ncSaveComp() {
     notes: document.getElementById('nc-notes').value,
     draft: isDraft,
     items: compItems,
-    total: total
+    total: total,
+    // facturaUrl no tiene campo en este formulario — se preserva tal cual estaba
+    // (o null si es una compra nueva), para que editar no borre la foto ya subida.
+    facturaUrl: window.ncEditId ? ((S.compras.find(c=>c.id===window.ncEditId)||{}).facturaUrl||null) : null
   };
 
   // Actualizar costo unitario si corresponde
@@ -9726,6 +9729,8 @@ function tiendaInit() {
     if(cargar) {
       cargar().then(data => {
         _tiendaIntentos = 0; // éxito: resetear para un eventual reintento futuro
+        window._tiendaUltimaSyncOk = Date.now(); // para el reintento por antigüedad, no solo por vacío
+        try { localStorage.setItem('tienda_ultima_sync_ok', String(window._tiendaUltimaSyncOk)); } catch(e) {}
         if(data) {
           Object.assign(S, data);
           // Guardar en el celular para que el próximo ingreso (y el refresh con el
@@ -9762,11 +9767,19 @@ function tiendaInit() {
 
   // Reintentar también si el cliente vuelve a la pestaña (por ej. tras haber
   // bloqueado el celular con la descarga a mitad de camino, algo tipico de
-  // iOS) y todavia no tenemos catalogo. Nunca se activa para quien ya entró
-  // bien — la condición exige catálogo vacío, así que a nadie a quien ya le
-  // funciona esto le cambia nada.
+  // iOS) y todavia no tenemos catalogo, O si pasaron mas de 20 minutos desde
+  // la ultima sync exitosa (catalogo viejo, aunque tenga datos) — antes esto
+  // solo cubria el caso "vacio", dejando pasar el caso "viejo pero con datos"
+  // que es el que mas confunde a los clientes (piden productos que ya no
+  // estan). Nunca se activa para quien sincronizo hace poco.
+  const TIENDA_UMBRAL_VIEJO_MS = 20 * 60 * 1000;
   document.addEventListener('visibilitychange', function() {
-    if(document.visibilityState === 'visible' && !(S.products && S.products.length)) {
+    if(document.visibilityState !== 'visible') return;
+    const vacio = !(S.products && S.products.length);
+    let ultimaSyncOk = window._tiendaUltimaSyncOk;
+    if(!ultimaSyncOk) { try { ultimaSyncOk = parseInt(localStorage.getItem('tienda_ultima_sync_ok'))||0; } catch(e) {} }
+    const viejo = (Date.now() - ultimaSyncOk) > TIENDA_UMBRAL_VIEJO_MS;
+    if(vacio || viejo) {
       _tiendaIntentos = 0;
       tryLoad();
     }
@@ -10717,6 +10730,25 @@ async function tiendaConfirmar() {
   }
   const items = Object.entries(TC).filter(([,q])=>q>0);
   if(!items.length){alert('Agregá al menos un producto');return;}
+
+  // Verificación de último momento: traer datos frescos de Firebase justo antes
+  // de confirmar, para que el chequeo de disponibilidad de abajo compare contra
+  // la realidad actual y no contra el catálogo viejo que puede seguir guardado
+  // en el celular (la causa real de que lleguen pedidos con productos que ya
+  // no existen). Con límite de 4 segundos: si tarda o falla, se sigue de largo
+  // igual — mejor dejar pasar el pedido que trabar al cliente por mala señal
+  // justo en este momento.
+  try {
+    const cargar = window._fbLoadTienda || window._fbLoad;
+    if(cargar) {
+      toast('Verificando disponibilidad...');
+      const data = await Promise.race([
+        cargar(),
+        new Promise(resolve => setTimeout(()=>resolve(null), 4000))
+      ]);
+      if(data) Object.assign(S, data);
+    }
+  } catch(e) { console.warn('Verificación de último momento falló, se sigue de largo', e); }
 
   // Verificar productos que ya no están disponibles en la tienda (deshabilitados después de agregarlos al carrito)
   const noDisponibles = [];
