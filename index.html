@@ -1286,7 +1286,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.187</strong> · 19/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.188</strong> · 19/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -10244,9 +10244,19 @@ function tiendaRender() {
     const ahora = Date.now();
     const unaSemana = 7 * 24 * 3600 * 1000;
     const nuevos = prods.filter(p => {
-      if(!p.createdAt) return false;
-      return (ahora - p.createdAt) <= unaSemana;
-    }).sort(function(a,b){ return (b.createdAt||0) - (a.createdAt||0); });
+      // Antes solo miraba createdAt (cuando se creó el producto) — un producto
+      // que ya existía hace meses pero recién ahora se activa como visible
+      // nunca aparecía acá, aunque sea la primera vez que el cliente lo ve.
+      // Ahora se usa la fecha mas reciente entre "se creó" y "se hizo visible".
+      const desdeVisible = p.visibleSince ? new Date(p.visibleSince).getTime() : 0;
+      const fechaRelevante = Math.max(p.createdAt||0, desdeVisible);
+      if(!fechaRelevante) return false;
+      return (ahora - fechaRelevante) <= unaSemana;
+    }).sort(function(a,b){
+      const fa = Math.max(a.createdAt||0, a.visibleSince?new Date(a.visibleSince).getTime():0);
+      const fb = Math.max(b.createdAt||0, b.visibleSince?new Date(b.visibleSince).getTime():0);
+      return fb - fa;
+    });
     if(nuevos.length) {
       html += '<div style="background:#f0fdf4;border-radius:16px;padding:0;border:1.5px solid #bbf7d0;margin-bottom:12px;overflow:hidden;box-shadow:0 2px 10px rgba(22,163,74,.08)">';
       html += '<div style="background:#16a34a;padding:10px 14px;font-size:14px;font-weight:800;color:#fff">🆕 Agregados recientemente</div>';
