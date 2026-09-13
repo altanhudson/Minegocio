@@ -1286,7 +1286,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.188</strong> · 19/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.190</strong> · 19/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -9431,7 +9431,7 @@ function renderInvoiceHTML(inv) {
           <span style="color:#666;font-size:15px">Total del pedido</span>
           <span id="tienda-total-carrito" style="font-family:Inter,sans-serif;font-size:22px;font-weight:900;color:#3483fa">$0.00</span>
         </div>
-        <button onclick="tiendaConfirmar()" style="width:100%;padding:16px;background:#3483fa;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:800;font-family:Inter,sans-serif;cursor:pointer;line-height:1.3">
+        <button onclick="tiendaConfirmar()" id="tienda-btn-confirmar-pedido" style="width:100%;padding:16px;background:#3483fa;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:800;font-family:Inter,sans-serif;cursor:pointer;line-height:1.3">
           Confirmar pedido por WhatsApp 📲<br><span style="font-size:12px;font-weight:400;opacity:.85">Te respondemos a la brevedad</span>
         </button>
         <button onclick="tiendaGuardarCarrito()" id="tienda-btn-guardar" style="width:100%;padding:13px;background:#eff6ff;color:#1d4ed8;border:2px solid #3483fa;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;margin-top:10px">💾 Guardar y seguir después</button>
@@ -10741,6 +10741,38 @@ async function tiendaConfirmar() {
   const items = Object.entries(TC).filter(([,q])=>q>0);
   if(!items.length){alert('Agregá al menos un producto');return;}
 
+  // Desactivar el boton apenas se toca — antes, entre este toque y que aparezca
+  // el overlay de "guardando tu pedido" (recien dentro de _tiendaGuardarYAbrir,
+  // varios pasos despues) podian pasar varios segundos con el boton original
+  // visible y tocable, sobre todo con la verificacion de disponibilidad nueva
+  // que agrega su propia espera. El try/finally garantiza que se reactive pase
+  // lo que pase (producto no disponible, falta variante, error inesperado).
+  const btnConfirmar = document.getElementById('tienda-btn-confirmar-pedido');
+  const _htmlOriginalBtn = btnConfirmar ? btnConfirmar.innerHTML : null;
+  if(btnConfirmar) {
+    btnConfirmar.disabled = true;
+    btnConfirmar.style.opacity = '.6';
+    btnConfirmar.style.cursor = 'not-allowed';
+    btnConfirmar.innerHTML = 'Confirmando...';
+  }
+  // Mostrar el mismo cartel grande de "guardando" desde ESTE momento, no recién
+  // cuando arranca la subida a Firebase varios pasos despues. Antes, entre el
+  // toque del boton y que aparezca ese cartel, el cliente solo veia un boton
+  // gris chico — si en ese momento no ve nada pasando, toca de nuevo o cierra
+  // la app pensando que se colgó. El cartel se actualiza solo mas adelante
+  // (dentro de _tiendaGuardarYAbrir) sin ningun hueco entre uno y otro.
+  const _ovConfirm = document.getElementById('tienda-confirm-overlay');
+  if(_ovConfirm) {
+    _ovConfirm.style.display = 'flex';
+    _ovConfirm.innerHTML = '<div style="background:#fff;border-radius:18px;padding:44px 28px;text-align:center;max-width:340px;width:100%;box-shadow:0 8px 30px rgba(0,0,0,.25)">'
+      +'<div style="font-size:50px;margin-bottom:16px">⏳</div>'
+      +'<div style="font-family:Inter,sans-serif;font-size:19px;font-weight:800;color:#3483fa;margin-bottom:8px">Confirmando tu pedido...</div>'
+      +'<div style="color:#555;font-size:14px;line-height:1.45">Esperá un momentito 🙏<br>No cierres esta pantalla.</div>'
+      +'</div>';
+  }
+  let _llegoAGuardar = false;
+  try {
+
   // Verificación de último momento: traer datos frescos de Firebase justo antes
   // de confirmar, para que el chequeo de disponibilidad de abajo compare contra
   // la realidad actual y no contra el catálogo viejo que puede seguir guardado
@@ -10751,7 +10783,6 @@ async function tiendaConfirmar() {
   try {
     const cargar = window._fbLoadTienda || window._fbLoad;
     if(cargar) {
-      toast('Verificando disponibilidad...');
       const data = await Promise.race([
         cargar(),
         new Promise(resolve => setTimeout(()=>resolve(null), 4000))
@@ -10850,7 +10881,25 @@ async function tiendaConfirmar() {
   try { document.getElementById('tienda-carrito').style.display='none'; } catch(e){}
   window._tcPendingUrl = url;
   window._tcPendingInvId = inv.id; // guardar ID para remarcar dirty antes de subir
+  _llegoAGuardar = true;
   _tiendaGuardarYAbrir();
+  } finally {
+    // Reactivar el boton SIEMPRE — si se llegó hasta acá y ya se abrió el
+    // overlay de "guardando tu pedido" (pantalla completa), esto no importa
+    // porque el overlay tapa el botón; si se cortó antes por cualquier motivo
+    // (producto no disponible, falta variante, error), el cliente lo necesita
+    // activo de nuevo para poder intentarlo.
+    if(btnConfirmar) {
+      btnConfirmar.disabled = false;
+      btnConfirmar.style.opacity = '1';
+      btnConfirmar.style.cursor = 'pointer';
+      if(_htmlOriginalBtn !== null) btnConfirmar.innerHTML = _htmlOriginalBtn;
+    }
+    // Si el pedido se cortó ANTES de llegar a guardar (producto no disponible,
+    // falta variante), esconder el cartel — si no, el cliente queda mirando
+    // "Confirmando tu pedido..." sin que pase nada mas, otro hueco de confusión.
+    if(!_llegoAGuardar && _ovConfirm) _ovConfirm.style.display = 'none';
+  }
 }
 
 // Sube el pedido a Firebase mostrando un cartel de espera y abre WhatsApp
