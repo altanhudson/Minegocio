@@ -1287,7 +1287,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.192</strong> · 19/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.193</strong> · 19/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -10714,19 +10714,30 @@ function tiendaRestaurarCarrito() {
     // se restauraba el carrito guardado tal cual, sin chequear si lo que tenía
     // seguía existiendo o visible — así llegó a confirmarse un pedido con un
     // producto que hacía rato ya no estaba habilitado en la tienda.
-    const quitados = [];
-    for(const key of Object.keys(carrito)) {
-      const pid = tcProdId(key);
-      const p = S.products.find(x=>x.id===pid);
-      if(!p || p.visible===false) { quitados.push(p?p.name:pid); delete carrito[key]; }
+    //
+    // OJO: esta validación solo corre si el catálogo YA está genuinamente
+    // cargado (bastantes productos en memoria). Si en este instante todavía
+    // no terminó de sincronizar (S.products vacío o con muy pocos), NO se
+    // valida nada — se restaura el carrito tal cual, como antes. Sin este
+    // resguardo, un catálogo aún no cargado hacía pensar que NINGÚN producto
+    // existía más, vaciando el carrito entero sin ningún aviso (bug real
+    // encontrado el 16/09, causó la pérdida de un pedido largo de una clienta).
+    const catalogoParecCargado = S.products && S.products.length > 10;
+    if(catalogoParecCargado) {
+      const quitados = [];
+      for(const key of Object.keys(carrito)) {
+        const pid = tcProdId(key);
+        const p = S.products.find(x=>x.id===pid);
+        if(!p || p.visible===false) { quitados.push(p?p.name:pid); delete carrito[key]; }
+      }
+      if(!Object.keys(carrito).length) return; // no quedó nada válido: no restaurar nada
+      if(quitados.length) {
+        setTimeout(function(){ alert('Estos productos de tu carrito guardado ya no están disponibles y se quitaron: '+quitados.join(', ')); }, 400);
+      }
     }
-    if(!Object.keys(carrito).length) return; // no quedó nada válido: no restaurar nada
     TC = carrito;
     tiendaActBadge();
     localStorage.removeItem('tienda_carrito_guardado_'+TC_PHONE);
-    if(quitados.length) {
-      setTimeout(function(){ alert('Estos productos de tu carrito guardado ya no están disponibles y se quitaron: '+quitados.join(', ')); }, 400);
-    }
     // Avisar al cliente
     setTimeout(function(){
       const el = document.getElementById('tienda-saludo');
