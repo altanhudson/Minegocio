@@ -1245,13 +1245,6 @@ select option{background:var(--surface2)}
       </div>
     </div>
     <div class="card" style="margin-bottom:12px">
-      <div class="card-header"><span class="card-title">🏷️ Grupos mayoristas</span></div>
-      <div style="padding:14px 16px">
-        <div style="font-size:14px;color:var(--text3);margin-bottom:12px">Definí el mínimo de compra por grupo para que aplique el precio mayorista.</div>
-        <button onclick="showPage('grupos')" class="btn btn-primary btn-full">Ver grupos</button>
-      </div>
-    </div>
-    <div class="card" style="margin-bottom:12px">
       <div class="card-header"><span class="card-title">&#128190; Backup de datos</span></div>
       <div style="padding:14px 16px">
         <div style="font-size:14px;color:var(--text3);margin-bottom:12px">Descargá una copia de todos tus datos como archivo JSON en tu celu.</div>
@@ -1294,7 +1287,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.194</strong> · 19/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.195</strong> · 19/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -1398,7 +1391,11 @@ select option{background:var(--surface2)}
       <div class="form-group"><label class="fl">Nombre *</label><input type="text" id="p-name" placeholder="Nombre del producto"></div>
       <div class="form-group"><label class="fl">Categoria</label><input type="text" id="p-cat" placeholder="Bebidas..."></div>
       <div class="form-row">
-        <div class="form-group"><label class="fl">Grupo</label><input type="text" id="p-grupo" placeholder="ej: baggio-lt"></div>
+        <div class="form-group">
+          <label class="fl">Grupo</label>
+          <input type="text" id="p-grupo" placeholder="ej: baggio-lt" oninput="renderMinGrupoProd()">
+          <div id="p-grupo-min-info" style="margin-top:6px;font-size:12.5px;color:var(--text3)"></div>
+        </div>
         <div class="form-group"><label class="fl">Fracción mínima</label><input type="number" id="p-frac" placeholder="1" min="1" inputmode="numeric"></div>
         <div class="form-group"><label class="fl">Código de barras</label>
           <div style="display:flex;gap:8px">
@@ -3184,6 +3181,39 @@ function resetPhoto(em) {
 }
 
 // === PRODUCTS ===
+// Muestra el mínimo compartido del grupo mayorista (guardado una sola vez en
+// S.gruposMay, no repetido por producto) y permite editarlo/crearlo sin salir
+// de la ficha. Se llama al escribir en el campo Grupo y al abrir el producto.
+function renderMinGrupoProd() {
+  const inp = document.getElementById('p-grupo');
+  const info = document.getElementById('p-grupo-min-info');
+  if(!inp || !info) return;
+  const grupo = inp.value.trim();
+  if(!grupo) { info.innerHTML = ''; return; }
+  if(!S.gruposMay) S.gruposMay = [];
+  const gDef = S.gruposMay.find(g => g.nombre && g.nombre.toLowerCase().trim()===grupo.toLowerCase());
+  const min = gDef ? gDef.minMay : null;
+  const texto = min ? ('Mínimo combinado del grupo "'+grupo+'": '+min+' unidades') : ('El grupo "'+grupo+'" todavía no tiene mínimo definido');
+  info.innerHTML = texto + ' — <a href="javascript:void(0)" onclick="editarMinGrupoProd()" style="color:var(--accent);font-weight:700">'+(min?'editar':'definir')+'</a>';
+}
+function editarMinGrupoProd() {
+  const inp = document.getElementById('p-grupo');
+  const grupo = inp ? inp.value.trim() : '';
+  if(!grupo) return;
+  if(!S.gruposMay) S.gruposMay = [];
+  const gDef = S.gruposMay.find(g => g.nombre && g.nombre.toLowerCase().trim()===grupo.toLowerCase());
+  const actual = gDef ? gDef.minMay : '';
+  const val = prompt('Mínimo combinado de unidades para que el grupo "'+grupo+'" acceda al precio mayorista:', actual);
+  if(val===null) return; // canceló
+  const n = parseInt(val);
+  if(!n || n<1) { alert('Ingresá un número mayor a 0.'); return; }
+  if(gDef) { gDef.minMay = n; }
+  else { S.gruposMay.push({nombre: grupo, minMay: n}); }
+  try{ _markDirty('config', 'main'); }catch(e){}
+  save(['gruposMay'], true);
+  renderMinGrupoProd();
+  toast('✓ Mínimo del grupo "'+grupo+'" actualizado');
+}
 function openProd(id) {
   S.editId = id||null;
   const flds = ['p-name','p-cat','p-price','p-wprice','p-wqty','p-bulto','p-cost','p-stock','p-minst','p-desc'];
@@ -3206,6 +3236,7 @@ function openProd(id) {
     document.getElementById('p-soloflyer').checked = !!p.soloFlyer;
     document.getElementById('p-frac').value = p.fracMin||1;
     document.getElementById('p-grupo').value = p.grupoMay||'';
+    renderMinGrupoProd();
     document.getElementById('p-variantes').value = (p.variantes||[]).join(', ');
     S.photo = p.image||null;
     if(p.image) { showPhoto(p.image); } else resetPhoto('');
@@ -3219,6 +3250,7 @@ function openProd(id) {
   document.getElementById('p-soloflyer').checked = false;
     document.getElementById('p-frac').value = 1;
     document.getElementById('p-grupo').value = '';
+    renderMinGrupoProd();
     document.getElementById('p-variantes').value = '';
     resetPhoto('');
   }
