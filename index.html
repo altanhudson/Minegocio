@@ -1287,7 +1287,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.200</strong> · 19/08/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.201</strong> · 19/08/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
       </div>
     </div>
@@ -10198,7 +10198,15 @@ function tiendaRender() {
         + '<button onclick="tiendaLimpiarBuscar()" style="background:#3483fa;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">✕ Ver todo</button>'
         + '</div>';
     }
-    lista.innerHTML = vacioHtml + '<div style="text-align:center;padding:40px;color:#555">Sin productos disponibles</div>';
+    // Si el catálogo entero (sin filtrar) está vacío, es porque todavía no
+    // llegaron los datos de Firebase — no es que "no haya productos". Antes
+    // decía "Sin productos disponibles" en los dos casos por igual, lo cual
+    // es directamente falso mientras está cargando (y espantoso para un
+    // cliente nuevo o con el celular recién limpiado: parece una tienda vacía).
+    const mensajeVacio = (!S.products || !S.products.length)
+      ? '⏳ Cargando productos, un momento por favor...'
+      : 'Sin productos disponibles';
+    lista.innerHTML = vacioHtml + '<div style="text-align:center;padding:40px;color:#555">'+mensajeVacio+'</div>';
     tiendaRenderCats();
     return;
   }
