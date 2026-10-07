@@ -32,6 +32,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getFirestore, doc, setDoc, getDoc, getDocs, collection, writeBatch, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
   import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
   const firebaseConfig = {
@@ -47,6 +48,54 @@
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
+  // ===== LOGIN CON GOOGLE + NEGOCIO =====
+  // Cuentas de Surtimar: usan las colecciones de siempre (raiz). Cualquier otra
+  // cuenta trabaja en su propio espacio: negocios/<uid>/...
+  const OWNER_EMAILS = ['altanhudson@gmail.com','yamility@gmail.com'];
+  const auth = getAuth(app);
+  const _esTienda = location.search.indexOf('tienda') !== -1;
+  let _bizUid = null;            // null = datos de Surtimar
+  let _bizActual = null;         // identificador del negocio con el que arranco la sesion
+  window._bizUid = null;
+  window._authUser = null;
+  let _authResolve;
+  window._authReady = new Promise(function(r){ _authResolve = r; });
+
+  function _bizKeyDe(uid){ return uid ? 'mneg_v2_' + uid : 'mneg_v2'; }
+
+  function _iniciarNegocio(uid) {
+    _bizUid = uid; window._bizUid = uid; window._bizKey = _bizKeyDe(uid);
+    _bizActual = uid || 'surtimar';
+    _authResolve();
+    window._firebaseReady = true;
+    document.dispatchEvent(new Event("firebaseReady"));
+  }
+
+  if(_esTienda) {
+    // La tienda nunca pide login. ?tienda = Surtimar ; ?tienda&n=<id> = otro negocio
+    var _n = new URLSearchParams(location.search).get('n');
+    _iniciarNegocio(_n && /^[A-Za-z0-9]{10,64}$/.test(_n) ? _n : null);
+  } else {
+    onAuthStateChanged(auth, function(user) {
+      window._authUser = user;
+      if(!user) {
+        if(_bizActual !== null) { location.reload(); return; }
+        if(window._gateMostrarLogin) window._gateMostrarLogin();
+        return;
+      }
+      var mail = (user.email || '').toLowerCase();
+      var esDueno = !!user.emailVerified && OWNER_EMAILS.indexOf(mail) !== -1;
+      var uid = esDueno ? null : user.uid;
+      if(_bizActual !== null && _bizActual !== (uid || 'surtimar')) { location.reload(); return; }
+      if(_bizActual === null) {
+        _iniciarNegocio(uid);
+        if(window._gateOcultar) window._gateOcultar(user);
+      }
+    });
+  }
+  window._fbLogin = function() { return signInWithPopup(auth, new GoogleAuthProvider()); };
+  window._fbLogout = function() { return signOut(auth); };
+
   // Documentos separados por colección — nunca se pisan entre sí
   // ===== ARQUITECTURA V2: DOCUMENTOS INDIVIDUALES =====
   // Cada registro es su propio documento en Firestore.
@@ -55,22 +104,27 @@
   const COLS = ['products','invoices','clients','compras','proveedores','cobranzas','ajustes','listacompras'];
   const CONFIG_FIELDS = ['nInv','nCli','nProd','nComp','nProv','nGrupo','gruposMay','tiendaModo','banners','bannersTs','config'];
   const V2_PREFIX = 'v2'; // prefijo para colecciones nuevas
-  const colLegacy = name => doc(db, 'collections', name); // colección vieja (solo lectura)
+  const colLegacy = name => { _chk(); if(_bizUid) throw new Error('Sin datos viejos'); return doc(db, 'collections', name); }; // colección vieja (solo lectura)
 
   function cleanUndefined(obj) {
     return JSON.parse(JSON.stringify(obj, function(k,v){ return v === undefined ? null : v; }));
   }
 
   // Obtener referencia a colección individual v2
+  // Seguridad: en el panel, sin sesion iniciada no se toca ninguna ruta.
+  function _chk() { if(!_esTienda && !window._authUser) throw new Error('Sin sesion'); }
   function v2col(col) {
-    return collection(db, V2_PREFIX + '_' + col);
+    _chk();
+    return _bizUid ? collection(db, 'negocios', _bizUid, V2_PREFIX + '_' + col)
+                   : collection(db, V2_PREFIX + '_' + col);
   }
   function v2doc(col, id) {
-    return doc(db, V2_PREFIX + '_' + col, id);
+    _chk();
+    return _bizUid ? doc(db, 'negocios', _bizUid, V2_PREFIX + '_' + col, id)
+                   : doc(db, V2_PREFIX + '_' + col, id);
   }
-  function v2config() {
-    return doc(db, V2_PREFIX + '_config', 'main');
-  }
+  function v2config() { return v2doc('config', 'main'); }
+  function v2meta() { return v2doc('meta', 'latido'); }
 
   // ID unico de este celular, para no avisarme de mis propios cambios
   try {
@@ -86,7 +140,7 @@
   // arriesgar pisar algo que se este editando en este momento.
   window._fbHayNovedades = async function() {
     try {
-      const snap = await getDoc(doc(db, V2_PREFIX + '_meta', 'latido'));
+      const snap = await getDoc(v2meta());
       if(!snap.exists()) return false;
       const d = snap.data() || {};
       if(!d.ts) return false;
@@ -102,7 +156,7 @@
   // Se usa en TODOS los caminos de subida: si falta en alguno, el otro celular
   // no se entera de los cambios hechos por ese camino.
   function _latidoWrite() {
-    return setDoc(doc(db, V2_PREFIX + '_meta', 'latido'), {
+    return setDoc(v2meta(), {
       ts: Date.now(),
       origen: (window._deviceId || 'desconocido')
     });
@@ -112,7 +166,7 @@
       // Leer el latido actual y guardarlo como "visto". Usa el ts del propio
       // latido (reloj del que lo escribio), no Date.now() local: si los relojes
       // difieren, comparar contra la hora propia deja el aviso encendido para siempre.
-      const snap = await getDoc(doc(db, V2_PREFIX + '_meta', 'latido'));
+      const snap = await getDoc(v2meta());
       const ts = (snap.exists() && snap.data() && snap.data().ts) ? snap.data().ts : Date.now();
       localStorage.setItem('mneg_latido_visto', String(ts));
     } catch(e) {
@@ -450,7 +504,7 @@
   window._fbUploadPhoto = async function(file, productId) {
     try {
       const ext = file.name.split('.').pop() || 'jpg';
-      const storageRef = ref(storage, 'productos/' + productId + '.' + ext);
+      const storageRef = ref(storage, (_bizUid ? 'negocios/' + _bizUid + '/' : '') + 'productos/' + productId + '.' + ext);
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
       // Quitar token para que la URL sea permanente (las reglas permiten lectura pública)
@@ -465,7 +519,7 @@
   window._fbUploadFacturaCompra = async function(file, provId, compraId) {
     try {
       const ext = file.name.split('.').pop() || 'jpg';
-      const storageRef = ref(storage, 'facturas/surtimar/' + provId + '/' + compraId + '.' + ext);
+      const storageRef = ref(storage, 'facturas/' + (_bizUid || 'surtimar') + '/' + provId + '/' + compraId + '.' + ext);
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
       return url.replace(/&token=[^&]+/, '').replace(/\?token=[^&]+&?/, '?');
@@ -476,7 +530,7 @@
   // (fecha, productos, montos) — solo elimina el archivo de la imagen.
   window._fbDeleteFacturaCompra = async function(provId, compraId) {
     try {
-      const storageRef = ref(storage, 'facturas/surtimar/' + provId + '/' + compraId + '.jpg');
+      const storageRef = ref(storage, 'facturas/' + (_bizUid || 'surtimar') + '/' + provId + '/' + compraId + '.jpg');
       await deleteObject(storageRef);
     } catch(e) {
       // "object-not-found" es un caso normal (ya se habia borrado antes, o
@@ -487,8 +541,7 @@
   };
 
   // Señalar que Firebase está listo (migración V2 es manual desde Configuración)
-  window._firebaseReady = true;
-  document.dispatchEvent(new Event("firebaseReady"));
+  // (firebaseReady se dispara desde _iniciarNegocio, despues del login)
 </script>
 <style>
 :root {
@@ -634,15 +687,11 @@ select option{background:var(--surface2)}
 <body>
 <div id="admin-gate" style="display:flex;position:fixed;inset:0;z-index:99999;background:linear-gradient(135deg,#0d9488,#0f766e);flex-direction:column;align-items:center;justify-content:center;padding:24px;font-family:Inter,sans-serif">
   <div style="background:#fff;border-radius:20px;padding:32px 24px;max-width:340px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.3);text-align:center">
-    <div style="font-size:40px;margin-bottom:8px">🔒</div>
-    <img src="data:image/png;base64,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" style="height:42px;width:auto;display:block;margin-bottom:4px" alt="Surtimar">
-    <div style="font-size:14px;color:#666;margin-bottom:20px">Panel de gestión</div>
-    <input type="password" id="admin-gate-input" inputmode="numeric" placeholder="Contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter')validarAdminGate()" style="width:100%;font-size:18px;padding:14px;border:1.5px solid #ddd;border-radius:12px;text-align:center;outline:none;margin-bottom:12px;box-sizing:border-box;letter-spacing:2px">
-    <div id="admin-gate-error" style="display:none;color:#dc2626;font-size:13px;margin-bottom:12px">Contraseña incorrecta</div>
-    <label style="display:flex;align-items:center;gap:8px;justify-content:center;font-size:13px;color:#666;margin-bottom:16px;cursor:pointer">
-      <input type="checkbox" id="admin-gate-remember" checked style="width:16px;height:16px"> Recordar en este dispositivo
-    </label>
-    <button onclick="validarAdminGate()" style="width:100%;padding:14px;background:#0d9488;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer">Entrar</button>
+    <div style="font-size:34px;font-weight:800;color:#0d9488;letter-spacing:-1px;margin-bottom:4px">Revendit</div>
+    <div style="font-size:14px;color:#666;margin-bottom:22px">Panel de gestión</div>
+    <div id="admin-gate-status" style="font-size:14px;color:#666;margin-bottom:8px">Cargando…</div>
+    <button id="admin-gate-btn" onclick="loginGoogle()" style="display:none;width:100%;padding:14px;background:#0d9488;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer">Entrar con Google</button>
+    <div id="admin-gate-error" style="display:none;color:#dc2626;font-size:13px;margin-top:12px"></div>
   </div>
 </div>
 <script>
@@ -650,8 +699,7 @@ select option{background:var(--surface2)}
   (function(){
     try {
       var esTienda = window.location.search.indexOf('tienda') !== -1;
-      var recordado = localStorage.getItem('revendit_admin_ok') === '1';
-      if(esTienda || recordado) {
+      if(esTienda) {
         var g = document.getElementById('admin-gate');
         if(g) g.style.display = 'none';
       } else {
@@ -1285,10 +1333,10 @@ select option{background:var(--surface2)}
       <div class="card-header"><span class="card-title">&#8505;&#65039; Información</span></div>
       <div style="padding:14px 16px;font-size:14px;color:var(--text3)">
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
-        <div style="margin-bottom:6px">Negocio: <strong style="color:var(--text)">Surtimar</strong></div>
+        <div style="margin-bottom:6px">Cuenta: <strong id="cfg-cuenta" style="color:var(--text)">—</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.1.203</strong> · 19/08/2026</div>
-        <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Bloquear panel en este dispositivo</button>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.2.0</strong> · 07/10/2026</div>
+        <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Cerrar sesión en este dispositivo</button>
       </div>
     </div>
   </div>
@@ -1697,7 +1745,7 @@ select option{background:var(--surface2)}
 <script>
 // ===== CONFIGURACIÓN TIENDA =====
 const WA_NUM = '5492235898567'; // ← Cambiar por tu número (código país + número, sin +)
-const TIENDA_NOMBRE = 'Surtimar';
+const TIENDA_NOMBRE = (/[?&]n=[A-Za-z0-9]{10,64}/.test(location.search)) ? 'Tienda online' : 'Surtimar';
 // =================================
 
 const S = {
@@ -1708,7 +1756,7 @@ const S = {
   excludedCats:['cigarrillos','cigarrillo','tabaco'],
   banners:[], listacompras:[], config:{},
 };
-const SK = 'mneg_v2';
+let SK = 'mneg_v2';
 
 let _saveTimeout = null;
 let _lastSaveTime = 0;
@@ -7384,6 +7432,7 @@ function confirmarCobroReparto(rutaIdx) {
 let _fbListenerActive = false;
 
 async function initApp() {
+  if(window._bizKey) SK = window._bizKey;
   // 1. Cargar desde localStorage inmediatamente (app arranca rápido)
   const hasLocalData = load();
 
@@ -9620,9 +9669,9 @@ function tiendaAdminVolver() {
   showPage('dashboard');
 }
 function tiendaCompartirLink() {
-  const url = 'https://surtimar.com.ar?tienda';
+  const url = 'https://surtimar.com.ar?tienda' + (window._bizUid ? '&n=' + window._bizUid : '');
   if(navigator.share) {
-    navigator.share({ title: 'Surtimar - Tienda online', text: 'Hacé tu pedido online 🛒', url });
+    navigator.share({ title: (window._bizUid ? 'Tienda online' : 'Surtimar - Tienda online'), text: 'Hacé tu pedido online 🛒', url });
   } else {
     navigator.clipboard && navigator.clipboard.writeText(url);
     toast('Link copiado al portapapeles');
@@ -9763,6 +9812,7 @@ function tiendaInit() {
   // 1) Arrancar YA con lo que haya guardado en el celular, sin esperar a Firebase.
   // Antes la tienda esperaba 800ms + toda la descarga de Firebase antes de dejar
   // entrar: eso hacía la espera larga y, al refrescar, mostraba el login de nuevo.
+  if(window._bizKey) SK = window._bizKey;
   try { load(); } catch(e) {}
   if(btn) { btn.disabled = false; btn.textContent = 'Ver productos →'; }
   autoEntrar();
@@ -11073,56 +11123,57 @@ window.addEventListener('popstate', function(e) {
     }
   }
 });
-// ===== CONTRASEÑA DEL PANEL DE ADMINISTRACIÓN =====
-const ADMIN_PASS = '130320';
-const ADMIN_GATE_KEY = 'revendit_admin_ok';
-
+// ===== ACCESO AL PANEL (LOGIN CON GOOGLE) =====
 function esTiendaURL() {
   return window.location.search.includes('tienda');
 }
 
-function validarAdminGate() {
-  const inp = document.getElementById('admin-gate-input');
+window._gateMostrarLogin = function() {
+  const st = document.getElementById('admin-gate-status');
+  const bt = document.getElementById('admin-gate-btn');
+  const gate = document.getElementById('admin-gate');
+  if(gate) gate.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  if(st) st.textContent = 'Ingresá con tu cuenta de Google';
+  if(bt) bt.style.display = 'block';
+};
+window._gateOcultar = function(user) {
+  const gate = document.getElementById('admin-gate');
+  if(gate) gate.style.display = 'none';
+  document.body.style.overflow = '';
+  const c = document.getElementById('cfg-cuenta');
+  if(c && user) c.textContent = user.email || '';
+};
+
+async function loginGoogle() {
   const err = document.getElementById('admin-gate-error');
-  const rem = document.getElementById('admin-gate-remember');
-  if(!inp) return;
-  if(inp.value === ADMIN_PASS) {
-    if(rem && rem.checked) {
-      try { localStorage.setItem(ADMIN_GATE_KEY, '1'); } catch(e) {}
-    }
-    const gate = document.getElementById('admin-gate');
-    if(gate) gate.style.display = 'none';
-    document.body.style.overflow = '';
-  } else {
-    if(err) err.style.display = 'block';
-    inp.value = '';
-    inp.focus();
+  const bt = document.getElementById('admin-gate-btn');
+  if(err) err.style.display = 'none';
+  if(bt) { bt.disabled = true; bt.textContent = 'Abriendo Google…'; }
+  try {
+    await window._fbLogin();
+  } catch(e) {
+    const c = (e && e.code) || '';
+    let msg = 'No se pudo iniciar sesión. Probá de nuevo.';
+    if(c === 'auth/popup-closed-by-user' || c === 'auth/cancelled-popup-request') msg = 'Cancelaste el ingreso. Probá de nuevo.';
+    else if(c === 'auth/popup-blocked') msg = 'El navegador bloqueó la ventana de Google. Permitila y probá de nuevo.';
+    else if(c === 'auth/network-request-failed') msg = 'Sin conexión. Revisá internet y probá de nuevo.';
+    else if(c === 'auth/unauthorized-domain') msg = 'Este dominio no está autorizado en Firebase.';
+    if(err) { err.textContent = msg; err.style.display = 'block'; }
   }
+  if(bt) { bt.disabled = false; bt.textContent = 'Entrar con Google'; }
 }
 
-function bloquearPanel() {
-  if(!confirm('¿Bloquear el panel? Vas a tener que ingresar la contraseña de nuevo en este dispositivo.')) return;
-  try { localStorage.removeItem(ADMIN_GATE_KEY); } catch(e) {}
+async function bloquearPanel() {
+  if(!confirm('¿Cerrar sesión en este dispositivo? Vas a tener que volver a entrar con Google.')) return;
+  try { await window._fbLogout(); } catch(e) {}
   location.reload();
 }
 
 function checkAdminGate() {
   const gate = document.getElementById('admin-gate');
-  // La tienda NUNCA pide contraseña → ocultar gate
-  if(esTiendaURL()) { if(gate) gate.style.display='none'; return; }
-  // Si ya validó en este dispositivo, ocultar gate
-  let recordado = false;
-  try { recordado = localStorage.getItem(ADMIN_GATE_KEY) === '1'; } catch(e) {}
-  if(recordado) { if(gate) gate.style.display='none'; return; }
-  // Si no, mantener el gate visible y enfocar el input
-  if(gate) {
-    gate.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-    setTimeout(function(){
-      const inp = document.getElementById('admin-gate-input');
-      if(inp) inp.focus();
-    }, 100);
-  }
+  // La tienda NUNCA pide login → ocultar gate
+  if(esTiendaURL()) { if(gate) gate.style.display='none'; }
 }
 
 // Iniciar tienda si la URL corresponde
