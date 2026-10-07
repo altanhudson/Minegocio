@@ -1384,7 +1384,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Cuenta: <strong id="cfg-cuenta" style="color:var(--text)">—</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.2.1</strong> · 07/10/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.2.2</strong> · 07/10/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Cerrar sesión en este dispositivo</button>
         <button id="btn-eliminar-cuenta" onclick="eliminarCuenta()" style="display:none;margin-top:10px;width:100%;padding:10px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🗑️ Eliminar mi cuenta y datos</button>
       </div>
@@ -11231,7 +11231,7 @@ async function eliminarCuenta() {
     console.error(e);
     window._eliminando = false;
     if(btn) { btn.disabled = false; btn.textContent = '🗑️ Eliminar mi cuenta y datos'; }
-    alert('No se pudo completar la eliminación. Probá de nuevo; si sigue fallando, escribí a altanhudson@gmail.com.');
+    alert('No se pudo completar la eliminación. Probá de nuevo; si sigue fallando, escribí a revenditsoporte@gmail.com.');
   }
 }
 
