@@ -32,8 +32,8 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getFirestore, doc, setDoc, getDoc, getDocs, collection, writeBatch, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-  import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-  import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, deleteUser, reauthenticateWithPopup } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject, listAll } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyD3h1qGQnU_zxteM6CeM-dPqYn21EG93Oo",
@@ -87,6 +87,7 @@
       var esDueno = !!user.emailVerified && OWNER_EMAILS.indexOf(mail) !== -1;
       var uid = esDueno ? null : user.uid;
       if(_bizActual !== null && _bizActual !== (uid || 'surtimar')) { location.reload(); return; }
+      window._esDueno = esDueno;
       if(_bizActual === null) {
         _iniciarNegocio(uid);
         if(window._gateOcultar) window._gateOcultar(user);
@@ -112,7 +113,7 @@
 
   // Obtener referencia a colección individual v2
   // Seguridad: en el panel, sin sesion iniciada no se toca ninguna ruta.
-  function _chk() { if(!_esTienda && !window._authUser) throw new Error('Sin sesion'); }
+  function _chk() { if(window._eliminando) throw new Error('Cuenta en eliminacion'); if(!_esTienda && !window._authUser) throw new Error('Sin sesion'); }
   function v2col(col) {
     _chk();
     return _bizUid ? collection(db, 'negocios', _bizUid, V2_PREFIX + '_' + col)
@@ -501,6 +502,54 @@
   window._fbListen = null;
 
   const storage = getStorage(app);
+
+  // Eliminar la cuenta y TODOS los datos del negocio (solo cuentas que no son de Surtimar).
+  window._fbEliminarCuenta = async function(progreso) {
+    const user = auth.currentUser;
+    if(!user) throw new Error('Sin sesion');
+    if(!_bizUid || _bizUid !== user.uid) throw new Error('Esta cuenta no se puede eliminar desde la app');
+    const avisar = function(t){ try{ if(progreso) progreso(t); }catch(e){} };
+    window._eliminando = true; // frena cualquier sincronizacion en curso
+    // 1) Datos de Firestore
+    avisar('Borrando datos…');
+    const cols = COLS.concat(['config','meta']);
+    for(const col of cols) {
+      const snap = await getDocs(collection(db, 'negocios', _bizUid, V2_PREFIX + '_' + col));
+      let docs = snap.docs;
+      for(let i = 0; i < docs.length; i += 400) {
+        const b = writeBatch(db);
+        docs.slice(i, i + 400).forEach(function(d){ b.delete(d.ref); });
+        await b.commit();
+      }
+    }
+    // 2) Fotos de Storage
+    avisar('Borrando fotos…');
+    async function borrarCarpeta(carpeta) {
+      const r = await listAll(ref(storage, carpeta));
+      for(const it of r.items) { await deleteObject(it); }
+      for(const sub of r.prefixes) { await borrarCarpeta(sub.fullPath); }
+    }
+    await borrarCarpeta('negocios/' + _bizUid);
+    await borrarCarpeta('facturas/' + _bizUid);
+    // 3) La cuenta
+    avisar('Eliminando cuenta…');
+    try {
+      await deleteUser(user);
+    } catch(e) {
+      if(e && e.code === 'auth/requires-recent-login') {
+        await reauthenticateWithPopup(user, new GoogleAuthProvider());
+        await deleteUser(auth.currentUser);
+      } else { throw e; }
+    }
+    try {
+      const borrar = [];
+      for(let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if(k && (k.indexOf('mneg_') === 0 || k.indexOf('tienda_') === 0 || k === 'reparto_order' || k === 'lastBackupDate')) borrar.push(k);
+      }
+      borrar.forEach(function(k){ localStorage.removeItem(k); });
+    } catch(e) {}
+  };
   window._fbUploadPhoto = async function(file, productId) {
     try {
       const ext = file.name.split('.').pop() || 'jpg';
@@ -1335,8 +1384,9 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Cuenta: <strong id="cfg-cuenta" style="color:var(--text)">—</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.2.0</strong> · 07/10/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.2.1</strong> · 07/10/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Cerrar sesión en este dispositivo</button>
+        <button id="btn-eliminar-cuenta" onclick="eliminarCuenta()" style="display:none;margin-top:10px;width:100%;padding:10px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🗑️ Eliminar mi cuenta y datos</button>
       </div>
     </div>
   </div>
@@ -11143,6 +11193,8 @@ window._gateOcultar = function(user) {
   document.body.style.overflow = '';
   const c = document.getElementById('cfg-cuenta');
   if(c && user) c.textContent = user.email || '';
+  const be = document.getElementById('btn-eliminar-cuenta');
+  if(be) be.style.display = window._bizUid ? 'block' : 'none';
 };
 
 async function loginGoogle() {
@@ -11162,6 +11214,25 @@ async function loginGoogle() {
     if(err) { err.textContent = msg; err.style.display = 'block'; }
   }
   if(bt) { bt.disabled = false; bt.textContent = 'Entrar con Google'; }
+}
+
+async function eliminarCuenta() {
+  if(!window._bizUid) { alert('Esta cuenta no se puede eliminar desde la app.'); return; }
+  if(!confirm('Vas a eliminar tu cuenta y TODOS tus datos (productos, clientes, facturas, fotos). Esto no se puede deshacer. ¿Continuar?')) return;
+  const t = prompt('Para confirmar, escribí ELIMINAR en mayúsculas:');
+  if(t !== 'ELIMINAR') { alert('Cancelado. No se eliminó nada.'); return; }
+  const btn = document.getElementById('btn-eliminar-cuenta');
+  if(btn) { btn.disabled = true; }
+  try {
+    await window._fbEliminarCuenta(function(txt){ if(btn) btn.textContent = txt; });
+    alert('Tu cuenta y tus datos fueron eliminados.');
+    location.reload();
+  } catch(e) {
+    console.error(e);
+    window._eliminando = false;
+    if(btn) { btn.disabled = false; btn.textContent = '🗑️ Eliminar mi cuenta y datos'; }
+    alert('No se pudo completar la eliminación. Probá de nuevo; si sigue fallando, escribí a altanhudson@gmail.com.');
+  }
 }
 
 async function bloquearPanel() {
