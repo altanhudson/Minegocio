@@ -1384,7 +1384,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Cuenta: <strong id="cfg-cuenta" style="color:var(--text)">—</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.2.2</strong> · 07/10/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.2.3</strong> · 07/10/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Cerrar sesión en este dispositivo</button>
         <button id="btn-eliminar-cuenta" onclick="eliminarCuenta()" style="display:none;margin-top:10px;width:100%;padding:10px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🗑️ Eliminar mi cuenta y datos</button>
       </div>
@@ -1788,6 +1788,7 @@ select option{background:var(--surface2)}
         <button class="btn btn-primary" style="flex:1" id="share-wa-btn" onclick="shareInvoiceImg('whatsapp')">&#128132; WhatsApp</button>
         <button class="btn btn-ghost btn-full" style="flex:1" onclick="shareInvoiceImg('download')">&#8595; Guardar imagen</button>
       </div>
+      <button class="btn btn-ghost btn-full" id="share-pdf-btn" style="margin-top:8px;font-size:14px" onclick="shareInvoicePDF()">&#128424;&#65039; PDF para imprimir (hojas A4)</button>
       <button class="btn btn-ghost btn-full" style="margin-top:8px;font-size:13px;color:var(--text3);display:none" onclick="shareInvoiceText()">Compartir como texto</button>
     </div>
   </div>
@@ -6164,11 +6165,13 @@ function openShareInvoice(id) {
     if(btnImg) btnImg.style.display = 'none';
     if(btnTexto) btnTexto.style.display = 'none';
     if(renderEl) renderEl.style.display = 'none';
+    const btnPdf0 = document.getElementById('share-pdf-btn'); if(btnPdf0) btnPdf0.style.display = 'none';
   } else {
     if(btnWa) { btnWa.setAttribute('onclick','shareInvoiceImg(\'whatsapp\')'); btnWa.innerHTML = '📲 WhatsApp'; }
     if(btnImg) btnImg.style.display = '';
     if(btnTexto) btnTexto.style.display = 'none';
     if(renderEl) renderEl.style.display = '';
+    const btnPdf1 = document.getElementById('share-pdf-btn'); if(btnPdf1) btnPdf1.style.display = '';
   }
   // Pregenerar canvas en segundo plano
   setTimeout(function() {
@@ -9260,6 +9263,87 @@ function shareInvoiceImg(dest) {
     document.head.appendChild(script);
   } else {
     doCapture();
+  }
+}
+
+// PDF en hojas A4 para imprimir: parte la factura entre renglones (nunca corta un
+// renglon por la mitad) y deja el total completo en la ultima hoja. No toca la
+// imagen que se manda por WhatsApp: es un camino aparte.
+async function shareInvoicePDF() {
+  const invEl = document.getElementById('invoice-render');
+  const inv = S.invoices.find(function(i){ return i.id === S.shareInvId; });
+  if(!invEl || !inv) return;
+  if(typeof html2canvas === 'undefined' || !window.jspdf) { toast('Sin conexión para generar el PDF. Probá de nuevo.'); return; }
+  toast('Generando PDF...');
+  let canvas = null;
+  const cortes = [];
+  try {
+    invEl.style.width = '480px';
+    invEl.style.minWidth = '480px';
+    const top = invEl.getBoundingClientRect().top;
+    invEl.querySelectorAll('tbody tr').forEach(function(tr){ cortes.push(tr.getBoundingClientRect().bottom - top); });
+    const tabla = invEl.querySelector('table');
+    if(tabla && tabla.nextElementSibling) cortes.push(tabla.nextElementSibling.getBoundingClientRect().top - top);
+    canvas = await html2canvas(invEl, {scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, width: 480});
+  } catch(e) {
+    console.error('PDF factura error:', e);
+    toast('Error al generar el PDF');
+    return;
+  } finally {
+    invEl.style.width = '';
+    invEl.style.minWidth = '';
+  }
+  try {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+    const MARGEN = 28;                         // pt
+    const ANCHO_PT = 595.28 - MARGEN * 2;      // ancho util de la hoja
+    const f = ANCHO_PT / 480;                  // pt por px de la factura
+    const PAG_H = 690;                         // px de factura por hoja (deja lugar al pie)
+    const totalH = canvas.height / 2;
+    cortes.sort(function(a, b){ return a - b; });
+    const paginas = [];
+    let ini = 0;
+    while(totalH - ini > PAG_H) {
+      let c = null;
+      for(let k = 0; k < cortes.length; k++) { if(cortes[k] > ini + PAG_H * 0.4 && cortes[k] <= ini + PAG_H) c = cortes[k]; }
+      if(c === null) c = ini + PAG_H;
+      paginas.push([ini, c]);
+      ini = c;
+    }
+    paginas.push([ini, totalH]);
+    paginas.forEach(function(pg, idx) {
+      if(idx > 0) pdf.addPage();
+      const sy = Math.round(pg[0] * 2);
+      const sh = Math.max(1, Math.round((pg[1] - pg[0]) * 2));
+      const pc = document.createElement('canvas');
+      pc.width = canvas.width; pc.height = sh;
+      const ctx = pc.getContext('2d');
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, pc.width, sh);
+      ctx.drawImage(canvas, 0, sy, canvas.width, sh, 0, 0, canvas.width, sh);
+      pdf.addImage(pc.toDataURL('image/jpeg', 0.92), 'JPEG', MARGEN, MARGEN, ANCHO_PT, (pg[1] - pg[0]) * f);
+      if(paginas.length > 1) {
+        pdf.setFontSize(9); pdf.setTextColor(120);
+        pdf.text(inv.id + '  -  Pagina ' + (idx + 1) + ' de ' + paginas.length, 297.64, 822, {align: 'center'});
+      }
+    });
+    const blob = pdf.output('blob');
+    const filename = 'factura-' + inv.id + '.pdf';
+    const file = new File([blob], filename, {type: 'application/pdf'});
+    if(navigator.canShare && navigator.canShare({files: [file]})) {
+      navigator.share({ files: [file], title: 'Factura ' + inv.id })
+        .catch(function(e){ if(e.name !== 'AbortError') toast('No se pudo compartir'); });
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+    }
+  } catch(e) {
+    console.error('PDF factura error:', e);
+    toast('Error al generar el PDF');
   }
 }
 
