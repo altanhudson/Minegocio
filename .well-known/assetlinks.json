@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "ar.com.surtimar.revendit",
+    "sha256_cert_fingerprints": [
+      "EE:71:5B:4B:D9:9E:EB:71:C0:08:6E:5B:41:55:58:A8:90:B2:29:FF:9F:29:FF:B4:71:EB:5B:5E:E2:7C:95:11"
+    ]
+  }
+}]
