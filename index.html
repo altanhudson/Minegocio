@@ -1470,13 +1470,17 @@ select option{background:var(--surface2)}
         <button onclick="limpiarVisitantes()" class="btn btn-ghost btn-full">🧹 Limpiar &quot;Visitante&quot;</button>
       </div>
     </div>
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-header"><span class="card-title">✨ Novedades</span></div>
+      <div style="padding:14px 16px" id="cfg-novedades"></div>
+    </div>
     <div class="card">
       <div class="card-header"><span class="card-title">&#8505;&#65039; Información</span></div>
       <div style="padding:14px 16px;font-size:14px;color:var(--text3)">
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Cuenta: <strong id="cfg-cuenta" style="color:var(--text)">—</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.2.9</strong> · 09/10/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong id="cfg-ver" style="color:var(--accent);font-size:15px">4.3.0</strong> · <span id="cfg-ver-fecha">10/10/2026</span></div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Cerrar sesión en este dispositivo</button>
         <button id="btn-eliminar-cuenta" onclick="eliminarCuenta()" style="display:none;margin-top:10px;width:100%;padding:10px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🗑️ Eliminar mi cuenta y datos</button>
       </div>
@@ -2173,6 +2177,61 @@ function closeM(id) {
 }
 document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) o.classList.remove('open'); }));
 
+// ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
+const NOVEDADES = [
+  {v:'4.3.0', f:'10/10/2026', t:[
+    'Nueva sección "Novedades" en Configuración: te cuenta qué cambió en cada versión.'
+  ]},
+  {v:'4.2.9', f:'10/10/2026', t:[
+    'Arreglo importante: la app ahora SIEMPRE espera los datos de Firebase antes de mostrarte nada, así nunca ves información vieja.',
+    'Si el celular no tiene lugar para guardar la copia de los datos, la borra en vez de dejarla desactualizada.'
+  ]},
+  {v:'4.2.8', f:'10/10/2026', t:[
+    'Configuración → "Recuperar faltantes desde un backup": suma las facturas, compras o cobros que falten, sin pisar nada de lo que ya tenés.'
+  ]},
+  {v:'4.2.7', f:'10/10/2026', t:[
+    'Configuración ordenada en dos bloques: "Negocio y tienda" y "Datos y mantenimiento".'
+  ]},
+  {v:'4.2.6', f:'10/10/2026', t:[
+    'Limpieza de clientes: borra de una vez los "Visitante" que crea la tienda sola. No toca a los que tienen facturas ni a los que ya tienen nombre.'
+  ]},
+  {v:'4.2.5', f:'09/10/2026', t:[
+    'La app ya no descarga todos los datos dos veces al abrir.',
+    'El cálculo de stock es muchísimo más rápido.',
+    'Facturas: se muestran de a 60 con el botón "Ver más facturas".',
+    'Tienda: reconoce al cliente por su teléfono aunque la conexión sea lenta (ya no aparece como "Visitante").'
+  ]},
+  {v:'4.2.4', f:'09/10/2026', t:[
+    'Configuración → "Mi negocio": nombre, WhatsApp para pedidos y forma de envío.',
+    'Descuento por retiro y categoría especial configurables en "Facturación".',
+    'Tienda de otros negocios con su propio nombre y WhatsApp.'
+  ]}
+];
+function renderNovedades() {
+  const cont = document.getElementById('cfg-novedades');
+  if(!cont) return;
+  const esc = function(x){ return String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;'); };
+  const bloque = function(n, abierto){
+    return '<div style="margin-bottom:12px"><div style="font-weight:800;color:var(--text);font-size:15px;margin-bottom:6px">Versión ' + esc(n.v) +
+      ' <span style="font-weight:600;color:var(--text3);font-size:12px">· ' + esc(n.f) + '</span></div>' +
+      n.t.map(function(x){ return '<div style="font-size:14px;color:var(--text2);margin:0 0 6px 4px">• ' + esc(x) + '</div>'; }).join('') + '</div>';
+  };
+  cont.innerHTML = bloque(NOVEDADES[0]) +
+    '<details><summary style="cursor:pointer;font-size:14px;font-weight:700;color:var(--accent);padding:6px 0">Ver versiones anteriores</summary><div style="margin-top:8px">' +
+    NOVEDADES.slice(1).map(bloque).join('') + '</div></details>';
+  const v = document.getElementById('cfg-ver'); if(v) v.textContent = NOVEDADES[0].v;
+  const f = document.getElementById('cfg-ver-fecha'); if(f) f.textContent = NOVEDADES[0].f;
+}
+// Aviso único al abrir la app por primera vez después de actualizarse
+function avisoNuevaVersion() {
+  try {
+    const vista = localStorage.getItem('rev_ver_vista');
+    if(vista !== NOVEDADES[0].v) {
+      localStorage.setItem('rev_ver_vista', NOVEDADES[0].v);
+      if(vista) setTimeout(function(){ try{ toast('🆕 Versión ' + NOVEDADES[0].v + ' — mirá las novedades en Configuración ⚙️'); }catch(e){} }, 1800);
+    }
+  } catch(e) {}
+}
 function showPage(p) {
   document.querySelectorAll('.page').forEach(x => { x.classList.remove('active'); x.style.display=''; });
   document.querySelectorAll('.nav-tab').forEach(x => x.classList.remove('active'));
@@ -2199,6 +2258,7 @@ function showPage(p) {
   if(p==='estadisticas') { estTab='ventas'; try{ aplicarCfgFacturacion(); }catch(e){} renderEstadisticas(); }
   if(p==='facturas') { try{ aplicarCfgFacturacion(); }catch(e){} }
   if(p==='config') {
+    try{ renderNovedades(); }catch(e){}
     try{ renderBannersList(); }catch(e){}
     try{ cfgNegocioCargar(); }catch(e){}
     try{ cfgFactCargar(); }catch(e){}
@@ -7995,6 +8055,7 @@ function _initPostCarga(primeraVez) {
   } catch(e) {}
   try { recalcAllStocks(); recalcClientCredits(); } catch(e) { console.error('recalc error:', e); }
   try { updTiendaModoUI(); } catch(e) {}
+  try { renderNovedades(); avisoNuevaVersion(); } catch(e) {}
 }
 
 
