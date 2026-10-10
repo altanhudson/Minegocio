@@ -921,7 +921,7 @@ select option{background:var(--surface2)}
 
   <div class="page" id="page-facturas">
     <div id="inv-dia-resumen" style="display:flex;gap:8px;margin-bottom:8px"></div>
-    <input type="search" id="inv-search" placeholder="🔍 Buscar cliente, número o fecha..." autocomplete="off" oninput="renderInvs()" style="width:100%;font-size:15px;padding:10px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text);margin-bottom:10px;box-sizing:border-box;outline:none">
+    <input type="search" id="inv-search" placeholder="🔍 Buscar cliente, número o fecha..." autocomplete="off" oninput="S.invLimite=60;renderInvs()" style="width:100%;font-size:15px;padding:10px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text);margin-bottom:10px;box-sizing:border-box;outline:none">
     <div class="tabs">
       <div class="tab active" onclick="filterInv('all',this)">Todas</div>
       <div class="tab" onclick="filterInv('pendiente',this)">Pendientes</div>
@@ -1460,7 +1460,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Cuenta: <strong id="cfg-cuenta" style="color:var(--text)">—</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.2.4</strong> · 09/10/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.2.5</strong> · 09/10/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Cerrar sesión en este dispositivo</button>
         <button id="btn-eliminar-cuenta" onclick="eliminarCuenta()" style="display:none;margin-top:10px;width:100%;padding:10px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🗑️ Eliminar mi cuenta y datos</button>
       </div>
@@ -2080,11 +2080,12 @@ function load() {
   } catch(e) { return false; }
 }
 
-async function loadFromFirebase() {
+async function loadFromFirebase(puedeAplicar) {
   if (!window._fbLoad) return false;
   try {
     const d = await window._fbLoad();
     if (!d) return false;
+    if (puedeAplicar && !puedeAplicar()) return false;
     Object.assign(S, d);
     // Actualizar localStorage con datos de Firebase
     try { localStorage.setItem(SK, JSON.stringify(d)); } catch(e) {}
@@ -6163,7 +6164,7 @@ function saveInv() {
 }
 
 function filterInv(f,el) {
-  S.invFilter=f;
+  S.invFilter=f; S.invLimite=60;
   document.querySelectorAll('#page-facturas .tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active'); renderInvs();
 }
@@ -6282,6 +6283,11 @@ function renderInvs() {
     list = list.filter(i=>(i.clientName||'').toLowerCase().includes(ql)||i.id.toLowerCase().includes(ql)||i.date.split('-').reverse().join('/').includes(ql));
   }
   if(!list.length){el.innerHTML='<div class="empty"><div class="ei">&#129534;</div><h3>Sin facturas</h3><p>Crea tu primera factura</p></div>';return;}
+  // Se dibujan solo las mas recientes: dibujar miles de facturas a la vez volvia lenta la app.
+  // La busqueda y los filtros siguen buscando en TODAS; "Ver mas" muestra el resto.
+  const _limInv = S.invLimite || 60;
+  const _listaTotal = list;
+  list = list.slice(0, _limInv);
   const sb={pendiente:'<span class="badge badge-orange">Pendiente</span>',pagada:'<span class="badge badge-green">Pagada</span>',cancelada:'<span class="badge badge-red">Cancelada</span>'};
   const _now = new Date();
   const today = _now.getFullYear()+'-'+String(_now.getMonth()+1).padStart(2,'0')+'-'+String(_now.getDate()).padStart(2,'0');
@@ -6294,7 +6300,7 @@ function renderInvs() {
     if(inv.date !== lastDate) {
       lastDate = inv.date;
       // Detectar si hay 2+ facturas del mismo cliente en esta fecha (manual o tienda)
-      const facsHoy = list.filter(i => i.date===inv.date && i.type!=='presupuesto' && i.status!=='cancelada');
+      const facsHoy = _listaTotal.filter(i => i.date===inv.date && i.type!=='presupuesto' && i.status!=='cancelada');
       const clientesConDuplicados = {};
       facsHoy.forEach(i => {
         if(!clientesConDuplicados[i.clientId]) clientesConDuplicados[i.clientId] = {count:0, name:i.clientName};
@@ -6378,7 +6384,8 @@ function renderInvs() {
     +'</div></div>';
     })();
     return sep + cardHtml;
-  }).join('')+'</div>';
+  }).join('')+'</div>'
+  +(_listaTotal.length>list.length ? '<button onclick="S.invLimite=(S.invLimite||60)+60;renderInvs()" style="display:block;width:100%;margin:14px 0 6px;padding:14px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface);color:var(--accent);font-size:15px;font-weight:800;cursor:pointer">Ver más facturas ('+(_listaTotal.length-list.length)+' restantes)</button>' : '');
   const pend=S.invoices.filter(i=>i.status==='pendiente').length;
   const b=document.getElementById('nbadge');
   if(b){b.textContent=pend; b.style.display=pend?'':'none';}
@@ -7787,16 +7794,32 @@ function confirmarCobroReparto(rutaIdx) {
 let _fbListenerActive = false;
 
 async function initApp() {
+  // Arranque UNA sola vez: antes, el "plan B" de 3 segundos volvía a llamar a initApp
+  // aunque ya hubiera arrancado y descargaba TODO dos veces (y podía pisar lo recién editado).
+  if(window._initAppCorrio) return;
+  window._initAppCorrio = true;
   if(window._bizKey) SK = window._bizKey;
   // 1. Cargar desde localStorage inmediatamente (app arranca rápido)
   const hasLocalData = load();
 
-  // 2. Intentar cargar desde Firebase (datos más frescos)
+  if(hasLocalData) {
+    // Hay datos guardados en este celular: se muestra la app YA y se actualiza desde
+    // Firebase en segundo plano (antes se esperaba toda la descarga antes de mostrar nada).
+    _initPostCarga(true);
+    const _saveAntes = _lastSaveTime;
+    loadFromFirebase(function(){
+      // Si el usuario guardó algo mientras bajaban los datos, NO se pisa lo suyo:
+      // se descarta esta actualización (la próxima sincronización la trae).
+      return _lastSaveTime === _saveAntes;
+    }).then(function(ok){
+      if(ok) _initPostCarga(false);
+    }).catch(function(){});
+    return;
+  }
+
+  // Sin datos locales: no queda otra que esperar a Firebase
   const hasFbData = await loadFromFirebase();
-
-  const hasData = hasLocalData || hasFbData;
-
-  if(!hasData) {
+  if(!hasFbData) {
     // No hay datos locales NI de Firebase. Antes esto cargaba un catálogo de prueba
     // hardcodeado que terminaba mezclándose con datos reales — eliminado por ser
     // la causa de que clientes nuevos se confundieran con datos fantasma (ej. Zulma).
@@ -7804,7 +7827,11 @@ async function initApp() {
     console.error('ADVERTENCIA: no se pudo cargar ningún dato (ni local ni Firebase). Revisar conexión y sincronizar.');
     setTimeout(function(){ try{ toast('⚠️ No se encontraron datos — verificá tu conexión y sincronizá'); }catch(e){} }, 500);
   }
+  _initPostCarga(true);
+}
 
+// Pasos que siempre se hacen después de tener los datos en memoria.
+function _initPostCarga(primeraVez) {
   // FIX CRÍTICO: los contadores de ID (nCli, nProd, nProv, nComp, nInv) deben estar
   // siempre por encima del ID más alto ya existente. Si quedan atrás (por ejemplo,
   // porque el bloque de datos de prueba que los fijaba fue eliminado), un registro
@@ -8062,19 +8089,35 @@ function recalcAllStocks() {
   const comprasList = S.compras || [];
   const invoicesList = S.invoices || [];
 
+  // Se arman UNA vez indices por producto (antes se recorria toda la historia
+  // completa por cada producto: con miles de facturas tardaba varios segundos).
+  // La logica de calculo es exactamente la misma de siempre.
+  const ajBy = new Map(), coBy = new Map(), inBy = new Map();
+  function _push(map, key, val) { let a = map.get(key); if (!a) { a = []; map.set(key, a); } a.push(val); }
+  ajustesList.forEach(function(aju) {
+    (aju.items || []).forEach(function(item) {
+      _push(ajBy, item.prodId, { ts: aju.ts || 0, date: aju.date || '', stockNuevo: item.stockNuevo || 0, variante: item.variante || '' });
+    });
+  });
+  comprasList.forEach(function(c) {
+    if (c.draft) return;
+    (c.items || []).forEach(function(item) {
+      _push(coBy, item.prodId, { date: c.date || '', ts: c.ts || 0, qty: item.qty || 0, variante: item.variante || '' });
+    });
+  });
+  invoicesList.forEach(function(inv) {
+    if (inv.type === 'presupuesto') return;
+    (inv.items || []).forEach(function(item) {
+      _push(inBy, item.prodId, { date: inv.date || '', ts: inv.ts || 0, qty: item.qty || 0, variante: item.variante || '' });
+    });
+  });
+  const _ordenAj = function(a,b){ return a.ts !== b.ts ? a.ts - b.ts : a.date.localeCompare(b.date); };
+
   S.products.forEach(function(p) {
     const tieneVariantes = p.variantes && p.variantes.length > 0;
-
-    // Recopilar ajustes de este producto ordenados por ts
-    const prodAjustes = [];
-    ajustesList.forEach(function(aju) {
-      (aju.items || []).forEach(function(item) {
-        if (item.prodId === p.id) {
-          prodAjustes.push({ ts: aju.ts || 0, date: aju.date || '', stockNuevo: item.stockNuevo || 0 });
-        }
-      });
-    });
-    prodAjustes.sort(function(a,b){ return a.ts !== b.ts ? a.ts - b.ts : a.date.localeCompare(b.date); });
+    const prodAjustes = (ajBy.get(p.id) || []).slice().sort(_ordenAj);
+    const prodCompras = coBy.get(p.id) || [];
+    const prodVentas = inBy.get(p.id) || [];
 
     var baseStock = 0, baseTs = 0, baseDate = '';
     if (prodAjustes.length > 0) {
@@ -8085,46 +8128,22 @@ function recalcAllStocks() {
     }
 
     if (!tieneVariantes) {
-      // === PRODUCTO SIN VARIANTES: lógica original ===
       var stock = baseStock;
-      comprasList.forEach(function(c) {
-        if (c.draft) return;
-        var cDate = c.date || '';
-        // Posterior al ajuste = fecha mayor, o misma fecha con ts posterior al ajuste
-        var after = baseDate ? (cDate > baseDate || (cDate === baseDate && (c.ts||0) > baseTs)) : true;
-        if (!after) return;
-        (c.items || []).forEach(function(item) {
-          if (item.prodId === p.id) stock += (item.qty || 0);
-        });
+      prodCompras.forEach(function(c) {
+        var after = baseDate ? (c.date > baseDate || (c.date === baseDate && c.ts > baseTs)) : true;
+        if (after) stock += c.qty;
       });
-      invoicesList.forEach(function(inv) {
-        if (inv.type === 'presupuesto') return;
-        var iDate = inv.date || '';
-        var after = baseDate ? (iDate > baseDate || (iDate === baseDate && (inv.ts||0) > baseTs)) : true;
-        if (!after) return;
-        (inv.items || []).forEach(function(item) {
-          if (item.prodId === p.id) stock -= (item.qty || 0);
-        });
+      prodVentas.forEach(function(v) {
+        var after = baseDate ? (v.date > baseDate || (v.date === baseDate && v.ts > baseTs)) : true;
+        if (after) stock -= v.qty;
       });
       p.stock = stock;
 
     } else {
-      // === PRODUCTO CON VARIANTES: stock por variante ===
-      // Base por variante: buscar el último ajuste de cada variante
       var svBase = {}, svBaseTs = {}, svBaseDate = {};
       p.variantes.forEach(function(v) { svBase[v] = 0; svBaseTs[v] = 0; svBaseDate[v] = ''; });
-
-      // Recopilar ajustes por variante
       p.variantes.forEach(function(v) {
-        var ajustesV = [];
-        ajustesList.forEach(function(aju) {
-          (aju.items || []).forEach(function(item) {
-            if (item.prodId === p.id && (item.variante||'') === v) {
-              ajustesV.push({ ts: aju.ts || 0, date: aju.date || '', stockNuevo: item.stockNuevo || 0 });
-            }
-          });
-        });
-        ajustesV.sort(function(a,b){ return a.ts !== b.ts ? a.ts - b.ts : a.date.localeCompare(b.date); });
+        var ajustesV = prodAjustes.filter(function(a){ return a.variante === v; });
         if (ajustesV.length > 0) {
           var lastV = ajustesV[ajustesV.length - 1];
           svBase[v] = lastV.stockNuevo || 0;
@@ -8132,40 +8151,23 @@ function recalcAllStocks() {
           svBaseDate[v] = lastV.date || '';
         }
       });
-
       var sv = {};
       p.variantes.forEach(function(v) { sv[v] = svBase[v]; });
-
-      // Aplicar compras posteriores al ajuste de cada variante
-      comprasList.forEach(function(c) {
-        if (c.draft) return;
-        var cDate = c.date || '';
-        (c.items || []).forEach(function(item) {
-          if (item.prodId !== p.id) return;
-          var v = item.variante || '';
-          if (!v || p.variantes.indexOf(v) < 0) return;
-          var bTs = svBaseTs[v], bDate = svBaseDate[v];
-          var after = bDate ? (cDate > bDate || (cDate === bDate && (c.ts||0) > bTs)) : true;
-          if (after) sv[v] = (sv[v] || 0) + (item.qty || 0);
-        });
+      prodCompras.forEach(function(c) {
+        var v = c.variante;
+        if (!v || p.variantes.indexOf(v) < 0) return;
+        var bTs = svBaseTs[v], bDate = svBaseDate[v];
+        var after = bDate ? (c.date > bDate || (c.date === bDate && c.ts > bTs)) : true;
+        if (after) sv[v] = (sv[v] || 0) + c.qty;
       });
-
-      // Aplicar ventas posteriores al ajuste de cada variante
-      invoicesList.forEach(function(inv) {
-        if (inv.type === 'presupuesto') return;
-        var iDate = inv.date || '';
-        (inv.items || []).forEach(function(item) {
-          if (item.prodId !== p.id) return;
-          var v = item.variante || '';
-          if (!v || p.variantes.indexOf(v) < 0) return;
-          var bTs = svBaseTs[v], bDate = svBaseDate[v];
-          var after = bDate ? (iDate > bDate || (iDate === bDate && (inv.ts||0) > bTs)) : true;
-          if (after) sv[v] = (sv[v] || 0) - (item.qty || 0);
-        });
+      prodVentas.forEach(function(x) {
+        var v = x.variante;
+        if (!v || p.variantes.indexOf(v) < 0) return;
+        var bTs = svBaseTs[v], bDate = svBaseDate[v];
+        var after = bDate ? (x.date > bDate || (x.date === bDate && x.ts > bTs)) : true;
+        if (after) sv[v] = (sv[v] || 0) - x.qty;
       });
-
       p.stockVariantes = sv;
-      // stock general = suma de variantes (para compatibilidad con código que lee p.stock)
       p.stock = Object.values(sv).reduce(function(s,n){ return s+n; }, 0);
     }
   });
@@ -10284,6 +10286,7 @@ function tiendaInit() {
           } catch(e) {}
         }
         try { tiendaAplicarNombre(); tiendaActTotal(); } catch(e) {}
+        try { tiendaRematchCliente(); } catch(e) {}
         autoEntrar(); // por si no había datos locales
         if(yaEntro) {
           try { tiendaRender(); } catch(e) {}
@@ -10555,6 +10558,43 @@ function tiendaCerrarSesion() {
   tiendaActBadge();
 }
 
+// Busca al cliente por los ultimos 6 digitos de su telefono. Si hay mas de uno con el
+// mismo telefono (fichas "Visitante" viejas), elige el que tenga mas facturas.
+function tiendaBuscarCliente(telefono) {
+  const ph = String(telefono||'').replace(/\D/g,'');
+  if(ph.length < 6) return null;
+  const last6 = ph.slice(-6);
+  const coincidencias = (S.clients||[]).filter(c => {
+    const lista = (c.phone||'').split(',');
+    return lista.some(function(n){
+      const cp = n.replace(/\D/g,'');
+      return cp.length >= 6 && cp.slice(-6) === last6;
+    });
+  });
+  if(coincidencias.length <= 1) return coincidencias[0] || null;
+  return coincidencias.slice().sort(function(a,b){
+    const factA = S.invoices.filter(i => i.clientId===a.id).length;
+    const factB = S.invoices.filter(i => i.clientId===b.id).length;
+    return factB - factA;
+  })[0];
+}
+// Si el cliente entro ANTES de que terminaran de bajar los clientes (conexion lenta, o
+// navegador interno de WhatsApp/Instagram que no guarda datos), quedaba como "visitante"
+// para siempre. Esto lo vuelve a buscar cuando llegan los datos y antes de confirmar.
+function tiendaRematchCliente() {
+  if(TC_CLI || !TC_PHONE || TC_PHONE === 'admin') return false;
+  const c = tiendaBuscarCliente(TC_PHONE);
+  if(!c) return false;
+  TC_CLI = c; TN = c.name || 'visitante';
+  try {
+    const nombreMostrar = c.name && !c.name.includes('(web)') ? c.name : null;
+    const sal = document.getElementById('tienda-saludo');
+    if(sal) sal.textContent = nombreMostrar ? 'Hola, ' + nombreMostrar + '! ¿Qué vas a comprar hoy?' : 'Hola! ¿Qué vas a comprar hoy?';
+  } catch(e) {}
+  try { tiendaRenderSaldo(); } catch(e) {}
+  try { tiendaRenderNivel(); } catch(e) {}
+  return true;
+}
 function tiendaEntrar() {
   const ph = document.getElementById('tienda-phone-input').value.replace(/\D/g,'');
   if(!ph || ph.length < 6) { document.getElementById('tienda-phone-input').focus(); return; }
@@ -10566,22 +10606,7 @@ function tiendaEntrar() {
   // con el primero al azar — a veces el cliente real, a veces un fantasma vacio.
   // Ahora se juntan TODAS las coincidencias y se prioriza la que tenga historial
   // real de facturas, para no perder nunca al cliente de verdad por un fantasma.
-  const coincidencias = S.clients.filter(c => {
-    const lista = (c.phone||'').split(',');
-    return lista.some(function(n){
-      const cp = n.replace(/\D/g,'');
-      return cp.length >= 6 && cp.slice(-6) === last6;
-    });
-  });
-  if(coincidencias.length <= 1) {
-    TC_CLI = coincidencias[0] || null;
-  } else {
-    TC_CLI = coincidencias.slice().sort(function(a,b){
-      const factA = S.invoices.filter(i => i.clientId===a.id).length;
-      const factB = S.invoices.filter(i => i.clientId===b.id).length;
-      return factB - factA; // el de mas facturas primero
-    })[0];
-  }
+  TC_CLI = tiendaBuscarCliente(ph);
   TN = TC_CLI ? TC_CLI.name : 'visitante';
 
   const modoTienda = getTiendaModo();
@@ -11377,12 +11402,14 @@ async function tiendaConfirmar() {
   try {
     const cargar = window._fbLoadTienda || window._fbLoad;
     if(cargar) {
+      const _esperaMs = (S.clients && S.clients.length) ? 4000 : 12000;
       const data = await Promise.race([
         cargar(),
-        new Promise(resolve => setTimeout(()=>resolve(null), 4000))
+        new Promise(resolve => setTimeout(()=>resolve(null), _esperaMs))
       ]);
       if(data) Object.assign(S, data);
     }
+    try { tiendaRematchCliente(); } catch(e) {}
   } catch(e) { console.warn('Verificación de último momento falló, se sigue de largo', e); }
 
   // Verificar productos que ya no están disponibles en la tienda (deshabilitados después de agregarlos al carrito)
