@@ -1195,6 +1195,7 @@ select option{background:var(--surface2)}
     <div id="cli-tab-lista-content">
       <div class="search-bar"><span style="color:var(--text3)">&#128269;</span><input type="text" id="cli-search" placeholder="Buscar cliente..." oninput="renderClis(this.value)"></div>
       <div id="cli-list"></div>
+      <button onclick="limpiarVisitantes()" style="display:block;width:100%;margin:18px 0 6px;padding:12px;border-radius:12px;border:1.5px dashed var(--border);background:transparent;color:var(--text3);font-size:14px;font-weight:700;cursor:pointer">🧹 Limpiar &quot;Visitante&quot; de la tienda</button>
     </div>
     <div id="cli-tab-sugeridor-content" style="display:none"></div>
     <div id="cli-tab-ranking-content" style="display:none"></div>
@@ -1460,7 +1461,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Cuenta: <strong id="cfg-cuenta" style="color:var(--text)">—</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.2.5</strong> · 09/10/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.2.6</strong> · 09/10/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Cerrar sesión en este dispositivo</button>
         <button id="btn-eliminar-cuenta" onclick="eliminarCuenta()" style="display:none;margin-top:10px;width:100%;padding:10px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🗑️ Eliminar mi cuenta y datos</button>
       </div>
@@ -6891,6 +6892,23 @@ function _recalcInv(inv) {
   // Guardar crédito en el cliente
   const cli = S.clients.find(c=>c.id===inv.clientId);
   if(cli) cli.credito = inv.aFavor > 0 ? inv.aFavor : (cli.credito||0);
+}
+// Borra los clientes "Visitante +549..." que creó la tienda automáticamente (CLI-WEB-...)
+// y que NO tienen ninguna factura. Los que tienen facturas no se tocan.
+function limpiarVisitantes() {
+  const conFactura = {};
+  S.invoices.forEach(function(i){ if(i.clientId) conFactura[i.clientId] = true; });
+  const esVisitante = function(c){ return String(c.id).indexOf('CLI-WEB-') === 0 && /^Visitante/i.test(c.name||''); };
+  const borrar = S.clients.filter(function(c){ return esVisitante(c) && !conFactura[c.id]; });
+  const quedan = S.clients.filter(function(c){ return esVisitante(c) && conFactura[c.id]; }).length;
+  if(!borrar.length) { alert('No hay "Visitante" sin facturas para borrar.' + (quedan ? '\nQuedan ' + quedan + ' con facturas (no se tocan).' : '')); return; }
+  if(!confirm('Se van a borrar ' + borrar.length + ' clientes "Visitante" que no tienen facturas.' + (quedan ? '\nLos ' + quedan + ' que tienen facturas NO se tocan.' : '') + '\n\n¿Borrar?')) return;
+  const ids = {};
+  borrar.forEach(function(c){ ids[c.id] = true; try{ if(window._fbDeleteDoc) _fbDeleteDoc('clients', c.id); }catch(e){} });
+  S.clients = S.clients.filter(function(c){ return !ids[c.id]; });
+  save(['clients'], true);
+  renderClis();
+  toast(borrar.length + ' visitantes eliminados');
 }
 function delCli(id) {
   const cli = S.clients.find(c=>c.id===id);
