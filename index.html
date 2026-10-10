@@ -1195,7 +1195,6 @@ select option{background:var(--surface2)}
     <div id="cli-tab-lista-content">
       <div class="search-bar"><span style="color:var(--text3)">&#128269;</span><input type="text" id="cli-search" placeholder="Buscar cliente..." oninput="renderClis(this.value)"></div>
       <div id="cli-list"></div>
-      <button onclick="limpiarVisitantes()" style="display:block;width:100%;margin:18px 0 6px;padding:12px;border-radius:12px;border:1.5px dashed var(--border);background:transparent;color:var(--text3);font-size:14px;font-weight:700;cursor:pointer">🧹 Limpiar &quot;Visitante&quot; de la tienda</button>
     </div>
     <div id="cli-tab-sugeridor-content" style="display:none"></div>
     <div id="cli-tab-ranking-content" style="display:none"></div>
@@ -1347,6 +1346,7 @@ select option{background:var(--surface2)}
 
   <div class="page" id="page-config">
     <div style="font-family:Inter,sans-serif;font-size:20px;font-weight:800;margin-bottom:20px">&#9881;&#65039; Configuración</div>
+        <div style="margin:18px 4px 8px;font-size:13px;font-weight:800;letter-spacing:.5px;color:var(--text3);text-transform:uppercase">🏪 Negocio y tienda</div>
     <div class="card" style="margin-bottom:12px">
       <div class="card-header"><span class="card-title">🏪 Mi negocio</span></div>
       <div style="padding:14px 16px">
@@ -1419,6 +1419,15 @@ select option{background:var(--surface2)}
       </div>
     </div>
     <div class="card" style="margin-bottom:12px">
+      <div class="card-header"><span class="card-title">🖼️ Banners de la tienda</span></div>
+      <div style="padding:14px 16px">
+        <div style="font-size:14px;color:var(--text3);margin-bottom:12px">Imágenes destacadas que aparecen arriba del catálogo en la tienda. Tocá un banner y lleva al cliente al producto. El precio se toma solo del producto.</div>
+        <div id="banners-list" style="margin-bottom:12px"></div>
+        <button onclick="openBannerModal()" class="btn btn-primary btn-full">+ Agregar banner</button>
+      </div>
+    </div>
+    <div style="margin:18px 4px 8px;font-size:13px;font-weight:800;letter-spacing:.5px;color:var(--text3);text-transform:uppercase">🔧 Datos y mantenimiento</div>
+    <div class="card" style="margin-bottom:12px">
       <div class="card-header"><span class="card-title">&#128190; Backup de datos</span></div>
       <div style="padding:14px 16px">
         <div style="font-size:14px;color:var(--text3);margin-bottom:12px">Descargá una copia de todos tus datos como archivo JSON en tu celu.</div>
@@ -1447,12 +1456,11 @@ select option{background:var(--surface2)}
         <button onclick="document.getElementById('restore-input').click()" class="btn btn-ghost btn-full" style="border-color:var(--accent3);color:var(--accent3)">&#128194; Seleccionar archivo</button>
       </div>
     </div>
-    <div class="card" style="margin-bottom:12px">
-      <div class="card-header"><span class="card-title">🖼️ Banners de la tienda</span></div>
+        <div class="card" style="margin-bottom:12px">
+      <div class="card-header"><span class="card-title">🧹 Limpieza de clientes</span></div>
       <div style="padding:14px 16px">
-        <div style="font-size:14px;color:var(--text3);margin-bottom:12px">Imágenes destacadas que aparecen arriba del catálogo en la tienda. Tocá un banner y lleva al cliente al producto. El precio se toma solo del producto.</div>
-        <div id="banners-list" style="margin-bottom:12px"></div>
-        <button onclick="openBannerModal()" class="btn btn-primary btn-full">+ Agregar banner</button>
+        <div style="font-size:14px;color:var(--text3);margin-bottom:12px">Borra los clientes &quot;Visitante +549...&quot; que crea la tienda sola, siempre que no tengan facturas. Los que ya tienen nombre real o facturas no se tocan.</div>
+        <button onclick="limpiarVisitantes()" class="btn btn-ghost btn-full">🧹 Limpiar &quot;Visitante&quot;</button>
       </div>
     </div>
     <div class="card">
@@ -1461,7 +1469,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Cuenta: <strong id="cfg-cuenta" style="color:var(--text)">—</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.2.6</strong> · 09/10/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.2.7</strong> · 09/10/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Cerrar sesión en este dispositivo</button>
         <button id="btn-eliminar-cuenta" onclick="eliminarCuenta()" style="display:none;margin-top:10px;width:100%;padding:10px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🗑️ Eliminar mi cuenta y datos</button>
       </div>
