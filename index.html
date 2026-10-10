@@ -263,11 +263,10 @@
   window._fbSave = async function(data, fields, forceWrite) {
     try {
       // Backup local
+      // (Antes guardaba 3 copias completas acá; con datos de ~5 MB ya no entran y
+      // le quitaban lugar a la copia principal. Ahora solo se limpian las viejas.)
       try {
-        const bk = 'mneg_bk_' + Date.now();
-        localStorage.setItem(bk, JSON.stringify(data));
-        const keys = Object.keys(localStorage).filter(k=>k.startsWith('mneg_bk_')).sort();
-        while(keys.length > 3) localStorage.removeItem(keys.shift());
+        Object.keys(localStorage).filter(k=>k.startsWith('mneg_bk_')).forEach(k=>localStorage.removeItem(k));
       } catch(e) {}
 
       // Escritura completa (restore backup) — escribe TODO sin dirty tracking
@@ -1477,7 +1476,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Cuenta: <strong id="cfg-cuenta" style="color:var(--text)">—</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.2.8</strong> · 09/10/2026</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong style="color:var(--accent);font-size:15px">4.2.9</strong> · 09/10/2026</div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Cerrar sesión en este dispositivo</button>
         <button id="btn-eliminar-cuenta" onclick="eliminarCuenta()" style="display:none;margin-top:10px;width:100%;padding:10px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🗑️ Eliminar mi cuenta y datos</button>
       </div>
@@ -2060,16 +2059,31 @@ function _syncShow(state) {
     el._hideT = setTimeout(()=>{ el.style.opacity='0'; setTimeout(()=>el.style.display='none',300); }, 4000);
   }
 }
+// Guarda la copia local del celular. Si ya no entra (la memoria del navegador es ~5 MB
+// y los datos de Surtimar la superaron el 10/10/2026), se BORRA la copia vieja:
+// antes quedaba congelada sin aviso y la app podía mostrar datos desactualizados.
+function _guardarLocal(obj) {
+  try { localStorage.setItem(SK, JSON.stringify(obj)); window._copiaLocalOk = true; return true; }
+  catch(e) {
+    try {
+      Object.keys(localStorage).filter(function(k){ return k.indexOf('mneg_bk_') === 0; }).forEach(function(k){ localStorage.removeItem(k); });
+      localStorage.setItem(SK, JSON.stringify(obj)); window._copiaLocalOk = true; return true;
+    } catch(e2) {}
+    try { localStorage.removeItem(SK); } catch(e3) {}
+    window._copiaLocalOk = false;
+    return false;
+  }
+}
 function save(fields, forceWrite) {
   _lastSaveTime = Date.now();
-  try {
-    localStorage.setItem(SK, JSON.stringify({
+  {
+    _guardarLocal({
       products:S.products, clients:S.clients, invoices:S.invoices, gruposMay:S.gruposMay||[],
       compras:S.compras, proveedores:S.proveedores, listaCompras:S.listaCompras||null, cobranzas:S.cobranzas||[], ajustes:S.ajustes||[],
       banners:S.banners||[], bannersTs:S.bannersTs||0, config:S.config||{}, tiendaModo:S.tiendaModo||'abierta', listacompras:S.listacompras||[],
       nInv:S.nInv, nCli:S.nCli, nProd:S.nProd, nComp:S.nComp, nProv:S.nProv
-    }));
-  } catch(e) {}
+    });
+  }
   _syncShow('saving');
   const data = {
     products:S.products, clients:S.clients, invoices:S.invoices,
@@ -2105,7 +2119,7 @@ async function loadFromFirebase(puedeAplicar) {
     if (puedeAplicar && !puedeAplicar()) return false;
     Object.assign(S, d);
     // Actualizar localStorage con datos de Firebase
-    try { localStorage.setItem(SK, JSON.stringify(d)); } catch(e) {}
+    _guardarLocal(d);
     // Refrescar UI con datos reales
     try{renderProds();}catch(e){} 
     try{renderClis();}catch(e){} 
@@ -7908,33 +7922,18 @@ async function initApp() {
   if(window._initAppCorrio) return;
   window._initAppCorrio = true;
   if(window._bizKey) SK = window._bizKey;
-  // 1. Cargar desde localStorage inmediatamente (app arranca rápido)
-  const hasLocalData = load();
-
-  if(hasLocalData) {
-    // Hay datos guardados en este celular: se muestra la app YA y se actualiza desde
-    // Firebase en segundo plano (antes se esperaba toda la descarga antes de mostrar nada).
-    _initPostCarga(true);
-    const _saveAntes = _lastSaveTime;
-    loadFromFirebase(function(){
-      // Si el usuario guardó algo mientras bajaban los datos, NO se pisa lo suyo:
-      // se descarta esta actualización (la próxima sincronización la trae).
-      return _lastSaveTime === _saveAntes;
-    }).then(function(ok){
-      if(ok) _initPostCarga(false);
-    }).catch(function(){});
-    return;
-  }
-
-  // Sin datos locales: no queda otra que esperar a Firebase
+  // SIEMPRE se esperan los datos de Firebase (la fuente real). La versión 4.2.5 mostraba
+  // primero la copia del celular y eso, con la copia congelada por falta de memoria,
+  // mostró datos de la madrugada (10/10/2026). La copia local queda solo para sin conexión.
   const hasFbData = await loadFromFirebase();
   if(!hasFbData) {
-    // No hay datos locales NI de Firebase. Antes esto cargaba un catálogo de prueba
-    // hardcodeado que terminaba mezclándose con datos reales — eliminado por ser
-    // la causa de que clientes nuevos se confundieran con datos fantasma (ej. Zulma).
-    // Ahora se avisa explícitamente en vez de inventar datos.
-    console.error('ADVERTENCIA: no se pudo cargar ningún dato (ni local ni Firebase). Revisar conexión y sincronizar.');
-    setTimeout(function(){ try{ toast('⚠️ No se encontraron datos — verificá tu conexión y sincronizá'); }catch(e){} }, 500);
+    const hasLocalData = load();
+    if(hasLocalData) {
+      setTimeout(function(){ try{ alert('⚠️ No se pudo conectar con Firebase.\nEstás viendo los datos guardados en este celular, que pueden estar DESACTUALIZADOS.\nNo cargues nada hasta sincronizar.'); }catch(e){} }, 300);
+    } else {
+      console.error('ADVERTENCIA: no se pudo cargar ningún dato (ni local ni Firebase).');
+      setTimeout(function(){ try{ toast('⚠️ No se encontraron datos — verificá tu conexión y sincronizá'); }catch(e){} }, 500);
+    }
   }
   _initPostCarga(true);
 }
@@ -8154,7 +8153,7 @@ async function syncManual() {
     } catch(e) {}
 
     // 4. Guardar en localStorage — si falla (cuota llena) no es crítico
-    try { localStorage.setItem(SK, JSON.stringify(fbData)); } catch(eLs) { console.warn('localStorage lleno:', eLs); }
+    _guardarLocal(fbData);
 
     // 5. Recalcular y renderizar — si algo falla acá, los datos ya están bajados
     try { recalcAllStocks(); recalcClientCredits(); } catch(eR) { console.error('recalc error:', eR); }
@@ -10391,7 +10390,7 @@ function tiendaInit() {
           try {
             let previo = {};
             try { previo = JSON.parse(localStorage.getItem(SK)) || {}; } catch(e2) {}
-            localStorage.setItem(SK, JSON.stringify(Object.assign(previo, data)));
+            _guardarLocal(Object.assign(previo, data));
           } catch(e) {}
         }
         try { tiendaAplicarNombre(); tiendaActTotal(); } catch(e) {}
