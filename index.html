@@ -9,6 +9,13 @@
 <meta name="apple-mobile-web-app-title" content="Surtimar">
 <meta name="theme-color" content="#0d9488">
 <link rel="manifest" href="manifest.json">
+<script>
+// Tienda de Surtimar: se instala como "Surtimar Tienda" (abre directo en la tienda, sin barras)
+(function(){try{var q=location.search;if(q.indexOf('tienda')!==-1&&!/[?&]n=/.test(q)){
+  var l=document.querySelector('link[rel=manifest]');if(l)l.href='manifest-tienda.json';
+  var m=document.querySelector('meta[name=theme-color]');if(m)m.content='#123a7a';
+}}catch(e){}})();
+</script>
 <link rel="apple-touch-icon" href="icon-192.png">
 <!-- Cropper.js: recortar/rotar fotos de factura de proveedor antes de subirlas -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
@@ -575,6 +582,37 @@
       if(cfgSnap.exists()) Object.assign(result, cfgSnap.data());
       return result;
     } catch(e) { console.error('Firebase load tienda error:', e); return null; }
+  };
+
+  // ===== TIENDA RAPIDA (4.6.0) =====
+  // La app del negocio publica UN documento con lo que la tienda muestra (sin costos,
+  // proveedores ni stock interno). La tienda lee ese documento y la configuracion:
+  // 2 lecturas en vez de ~2.500. Si no existe o falla, la tienda usa la carga de antes.
+  window._fbLeerCatalogo = async function() {
+    const [catSnap, cfgSnap] = await Promise.all([getDoc(v2doc('meta', 'catalogo')), getDoc(v2config())]);
+    if(!catSnap.exists()) return null;
+    const c = catSnap.data() || {};
+    if(!Array.isArray(c.prods) || !c.prods.length) return null;
+    const r = { products: c.prods, __catalogo: { cig: c.cig || [], tel6: !!c.tel6 } };
+    if(cfgSnap.exists()) Object.assign(r, cfgSnap.data());
+    return r;
+  };
+  window._fbPublicarCatalogo = async function(cat) {
+    await setDoc(v2doc('meta', 'catalogo'), Object.assign({}, cat, { t: serverTimestamp() }));
+  };
+  // Cliente por los ultimos 6 digitos del telefono (campo tel6 que mantiene la app)
+  window._fbBuscarClienteTel = async function(last6) {
+    const sn = await getDocs(query(v2col('clients'), where('tel6', 'array-contains', last6)));
+    return sn.docs.map(d => sinMod(d));
+  };
+  window._fbTodosLosClientes = async function() {
+    const sn = await getDocs(v2col('clients'));
+    return sn.docs.map(d => sinMod(d));
+  };
+  // Solo las facturas de ESE cliente (saldo, nivel y "Mis compras")
+  window._fbFacturasDeCliente = async function(cliId) {
+    const sn = await getDocs(query(v2col('invoices'), where('clientId', '==', cliId)));
+    return sn.docs.map(d => sinMod(d));
   };
 
   // Tienda de un negocio que no es Surtimar: el visitante solo puede CREAR su
@@ -1627,7 +1665,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Cuenta: <strong id="cfg-cuenta" style="color:var(--text)">—</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong id="cfg-ver" style="color:var(--accent);font-size:15px">4.5.1</strong> · <span id="cfg-ver-fecha">11/10/2026</span></div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong id="cfg-ver" style="color:var(--accent);font-size:15px">4.6.0</strong> · <span id="cfg-ver-fecha">11/10/2026</span></div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Cerrar sesión en este dispositivo</button>
         <button id="btn-eliminar-cuenta" onclick="eliminarCuenta()" style="display:none;margin-top:10px;width:100%;padding:10px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🗑️ Eliminar mi cuenta y datos</button>
       </div>
@@ -2247,7 +2285,7 @@ function save(fields, forceWrite) {
   };
   if(window._fbSave) {
     window._fbSave(data, fields, forceWrite)
-      .then(()=>{ _syncShow('ok'); try{_syncMarkDirty(_hayPend());}catch(e){} })
+      .then(()=>{ _syncShow('ok'); try{_syncMarkDirty(_hayPend());}catch(e){} try{ _catalogoProgramar(); }catch(e){} })
       .catch(e=>{ console.error('Firebase save error:',e); _syncShow('error'); try{_syncMarkDirty(true);}catch(e2){} });
   } else {
     _syncShow('ok');
@@ -2481,6 +2519,7 @@ function _aplicarDatosFirebase(d) {
   window._modoSinActualizar = false;
   _avisoCopia(false);
   _copiaProgramar();
+  try { _catalogoProgramar(); } catch(e) {}
 }
 
 // ---- Pantalla de "Actualizando..." (no se puede cargar nada hasta tener los datos reales) ----
@@ -2695,6 +2734,99 @@ async function _actualizarEnSegundoPlano() {
     }
   } finally { _actualizandoBg = false; _despertarBg = null; }
 }
+// ===================== TIENDA RAPIDA: lo que publica la app (4.6.0) =====================
+function _tel6De(phone) {
+  const out = [];
+  String(phone || '').split(',').forEach(function(n){
+    const d = n.replace(/\D/g, '');
+    if(d.length >= 6) { const k = d.slice(-6); if(out.indexOf(k) < 0) out.push(k); }
+  });
+  return out;
+}
+// Cada cliente lleva "tel6" (ultimos 6 digitos de sus telefonos) para que la tienda lo
+// encuentre sin bajar la lista entera de clientes.
+function _clientesTel6() {
+  let cambio = false;
+  (S.clients || []).forEach(function(c){
+    if(!c || !c.id) return;
+    const t = _tel6De(c.phone);
+    const actual = Array.isArray(c.tel6) ? c.tel6 : [];
+    if(!c.phone && !actual.length) return;
+    if(JSON.stringify(actual) !== JSON.stringify(t)) { c.tel6 = t; cambio = true; try { _markDirty('clients', c.id); } catch(e) {} }
+  });
+  if(cambio) { try { save(['clients']); } catch(e) {} }
+  return cambio;
+}
+const _CAT_CAMPOS = ['id','name','price','image','category','oferta','ofertaDesde','wholesalePrice','wholesaleQty','grupoMay','bultoQty','variantes','fracMin','desc','emoji','sinStockManual','createdAt','visibleSince'];
+function _armarCatalogo() {
+  const prods = (S.products || []).filter(function(p){ return p && p.visible !== false && p.price > 0 && p.name && p.name.trim(); }).map(function(p){
+    const o = {};
+    _CAT_CAMPOS.forEach(function(k){ const v = p[k]; if(v !== undefined && v !== null && v !== '') o[k] = v; });
+    if(o.image && String(o.image).indexOf('data:') === 0) delete o.image; // las viejas en base64 se pasan a la nube aparte
+    if(p.priceHistory && p.priceHistory.length) o.priceHistory = [p.priceHistory[p.priceHistory.length - 1]];
+    o.visible = true;
+    return o;
+  });
+  let cig = [];
+  try { cig = (S.products || []).filter(function(p){ return fideEsCigarrillo(p); }).map(function(p){ return p.id; }); } catch(e) {}
+  let pendCli = 0;
+  try { pendCli = ((window._dirtyExport && window._dirtyExport().up) || {}).clients ? window._dirtyExport().up.clients.length : 0; } catch(e) {}
+  const tel6 = !pendCli && (S.clients || []).every(function(c){
+    if(!c || !c.phone) return true;
+    return JSON.stringify(c.tel6 || []) === JSON.stringify(_tel6De(c.phone));
+  });
+  return { v: 1, prods: prods, cig: cig, tel6: tel6 };
+}
+function _hashTexto(t) { let h = 5381; for(let i = 0; i < t.length; i++) { h = ((h << 5) + h + t.charCodeAt(i)) | 0; } return String(h >>> 0) + ':' + t.length; }
+let _catT = null, _catUltimo = null, _catPublicando = false;
+function _catalogoProgramar() {
+  if(_ES_TIENDA_URL || !window._datosFirebaseOk) return;
+  if(_catT) clearTimeout(_catT);
+  _catT = setTimeout(_catalogoPublicar, 4000);
+}
+window._catalogoProgramar = _catalogoProgramar;
+async function _catalogoPublicar() {
+  _catT = null;
+  if(_ES_TIENDA_URL || !window._datosFirebaseOk || typeof window._fbPublicarCatalogo !== 'function') return;
+  if(_catPublicando) { _catalogoProgramar(); return; }
+  _catPublicando = true;
+  try {
+    try { _clientesTel6(); } catch(e) {}
+    try { await _migrarFotosViejas(); } catch(e) {}
+    const cat = _armarCatalogo();
+    if(!cat.prods.length) return;
+    const h = _hashTexto(JSON.stringify(cat));
+    let previo = null; try { previo = localStorage.getItem('rev_cat_firma_' + SK); } catch(e) {}
+    if(h === _catUltimo || h === previo) return;
+    await window._fbPublicarCatalogo(cat);
+    _catUltimo = h; try { localStorage.setItem('rev_cat_firma_' + SK, h); } catch(e) {}
+    // Si los clientes todavia se estaban subiendo, volver a publicar cuando terminen (tel6 listo)
+    if(!cat.tel6) setTimeout(_catalogoProgramar, 40000);
+  } catch(e) { console.warn('Catalogo de la tienda no publicado:', e); }
+  finally { _catPublicando = false; }
+}
+// Fotos viejas guardadas adentro del producto (base64): se suben a la nube una sola vez.
+let _fotosMigradas = false;
+async function _migrarFotosViejas() {
+  if(_fotosMigradas || typeof window._fbUploadPhoto !== 'function' || !navigator.onLine) return;
+  _fotosMigradas = true;
+  const viejas = (S.products || []).filter(function(p){ return p && typeof p.image === 'string' && p.image.indexOf('data:image') === 0; });
+  if(!viejas.length) return;
+  let n = 0;
+  for(const p of viejas) {
+    try {
+      const blob = await (await fetch(p.image)).blob();
+      const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+      const file = new File([blob], p.id + '.' + ext, { type: blob.type || 'image/jpeg' });
+      const url = await window._fbUploadPhoto(file, p.id);
+      const actual = S.products.find(function(x){ return x.id === p.id; });
+      if(url && actual && actual.image === p.image) { actual.image = url; try { _markDirty('products', p.id); } catch(e) {} n++; }
+    } catch(e) { console.warn('Foto no migrada', p.id, e); }
+  }
+  if(n) { try { save(['products']); } catch(e) {} try { renderProds(); } catch(e) {} toast('📷 ' + n + ' foto' + (n > 1 ? 's' : '') + ' pasada' + (n > 1 ? 's' : '') + ' a la nube'); }
+}
+// ===================== FIN TIENDA RAPIDA (app) =====================
+
 // Reintento automatico de subida: cada 30 s y apenas vuelve la señal
 let _subiendoPend = false;
 async function _subirPendientes() {
@@ -2778,6 +2910,14 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.6.0', f:'11/10/2026', t:[
+    'Tienda nueva, mucho más rápida: el cliente ya no descarga la base entera del negocio. Antes cada visita bajaba unos 10.000 registros (compras, cobranzas, todas las facturas…); ahora baja un catálogo liviano y, al poner su número, solo SUS facturas.',
+    'Diseño nuevo de la tienda: ofertas grandes, "Cambiaron de precio" en una línea, categorías en recuadros con fotos y, adentro de cada categoría, todas las categorías fijas arriba (sin carrusel). Contadores grandes de unidades y bultos.',
+    'Botón "Mi perfil" en la tienda: saldo, nivel del mes y compras del último mes (tocando una se ve el detalle). El saldo a favor o pendiente se sigue viendo arriba.',
+    'La tienda se desplaza como una página normal (el navegador esconde su barra) y ofrece instalarla en el celular como app ("Surtimar Tienda").',
+    'La app publica sola el catálogo de la tienda cada vez que cambiás productos. A la tienda ya no llegan costos ni proveedores.',
+    'Las fotos viejas que estaban guardadas dentro del producto se pasan solas a la nube. Arreglado: "galletitas" en minúscula ya no se crea sola.'
+  ]},
   {v:'4.5.1', f:'11/10/2026', t:[
     'Arreglo: después de sincronizar a mano, el botón 🔄 quedaba amarillo y dejaba de avisar cuando el otro celular cargaba o borraba algo. Ahora el aviso funciona siempre.',
     'Arreglo: cuando borrás algo (factura, compra, cliente), el otro celular ahora recibe el aviso de sincronizar.',
@@ -4025,8 +4165,9 @@ function tiendaLimpiarBuscar() {
 }
 
 function tiendaIrAProducto(pid) {
-  // Ir a categoria "Todas" sin filtro y hacer scroll al producto
-  window.T_CAT = 'todas';
+  // 4.6.0: abre la categoria del producto y lo resalta
+  const _pp = (S.products||[]).find(function(x){ return x.id === pid; });
+  if(_pp) { _tnPushCat(); window.T_CAT = _tnCatDe(_pp); } else window.T_CAT = 'todas';
   const buscar = document.getElementById('tienda-buscar');
   if(buscar && buscar.value) {
     buscar.value = '';
@@ -8732,13 +8873,11 @@ function _arranqueSinDatos() {
 }
 // La tienda sigue exactamente como antes (su propia carga liviana y su copia aparte)
 async function _initAppTienda(_modoLocal) {
-  let hasFbData = _modoLocal ? false : await loadFromFirebase();
-  if(!hasFbData && !_modoLocal) {
-    await new Promise(function(r){ setTimeout(r, 2500); });
-    hasFbData = await loadFromFirebase();
-  }
-  if(!hasFbData) { _arranqueSinDatos(); return; }
-  _initPostCarga(true);
+  // 4.6.0: la tienda carga SOLO lo suyo (tiendaInit: catalogo + configuracion, y despues las
+  // facturas del cliente). Antes, ademas, cada visitante bajaba la base entera del negocio
+  // (compras, cobranzas, ajustes, proveedores, todas las facturas: ~7.300 documentos por visita)
+  // sin usarla para nada. Eso era la mayor parte de la lentitud y del costo de Firebase.
+  return;
 }
 
 // Pasos que siempre se hacen después de tener los datos en memoria.
@@ -8751,9 +8890,12 @@ function _initPostCarga(primeraVez) {
   (function migrateProducts() {
     let changed = false;
     S.products.forEach(p => {
-      if (p.name && p.name.toLowerCase().startsWith('galletitas') && p.category !== 'galletitas') {
-        p.category = 'galletitas'; changed = true;
-      }
+      // Antes forzaba 'galletitas' en minuscula y quedaban dos categorias en la tienda.
+      const _c = (p.category || '').trim();
+      let _nuevo = null;
+      if (!_c && p.name && p.name.toLowerCase().startsWith('galletitas')) _nuevo = 'Galletitas';
+      else if (_c.toLowerCase() === 'galletitas' && _c !== 'Galletitas') _nuevo = 'Galletitas';
+      if (_nuevo) { p.category = _nuevo; changed = true; try { _markDirty('products', p.id); } catch(e) {} }
     });
     if (changed) { try { save(['products']); } catch(e) {} }
   })();
@@ -10745,6 +10887,125 @@ function renderInvoiceHTML(inv) {
 </script>
 
 <!-- ===== TIENDA ONLINE ===== -->
+<style>
+/* ===== Tienda 4.6.0 ===== */
+#tienda-app{--tn-azul:#123a7a;--tn-azul2:#1f5fc4;--tn-amarillo:#ffd400;--tn-rojo:#d92d2d;--tn-verde:#16803c;--tn-txt:#14213d;--tn-gris:#6b7280;--tn-borde:#dbe5f3;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--tn-txt)}
+#tienda-app.tn-pagina{position:relative!important;inset:auto!important;overflow:visible!important;overflow-x:clip!important;min-height:100vh;z-index:auto!important;background:transparent!important}
+html.tn-html,body.tn-body{height:auto!important;min-height:100%;overflow:visible!important}
+body.tn-body{display:block!important;background:linear-gradient(180deg,#dfeaff 0%,#eef4ff 35%,#f7faff 100%) fixed!important}
+#tienda-titulo{max-width:100%!important;height:auto!important;max-height:90px}
+#tienda-app #tienda-catalogo{background:transparent!important;padding-bottom:110px!important}
+#tienda-nivel-info,#tienda-logout-btn,#tienda-cart-btn{display:none!important}
+.tn-hdr{background:linear-gradient(135deg,#0f2f66 0%,#1a4fa3 60%,#2563c9 100%);color:#fff;padding:10px 14px 12px}
+.tn-hrow{display:flex;align-items:center;gap:10px;min-width:0}
+.tn-logo{background:#fff;border-radius:12px;padding:4px 9px;display:flex;align-items:center;flex-shrink:0}
+.tn-logo img{height:30px;width:auto;display:block}
+.tn-hdr .tienda-nombre-txt{font-size:18px;font-weight:900;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.tn-perfil{margin-left:auto;flex-shrink:0;background:rgba(255,255,255,.14);border:1.5px solid rgba(255,255,255,.55);color:#fff;border-radius:999px;padding:7px 12px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
+.tn-hola{margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;font-weight:700;min-height:18px}
+.tn-hola #tienda-saludo{color:#e6efff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.tn-hola #tienda-saldo-info{cursor:pointer}
+.tn-buscar{margin-top:10px;background:#fff;border-radius:999px;display:flex;align-items:center;gap:8px;padding:0 6px 0 14px;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.tn-buscar input{flex:1;border:0;outline:0;background:transparent;font-size:15px;padding:11px 0;color:var(--tn-txt);min-width:0;font-family:inherit}
+.tn-inst{margin:10px 12px 0;background:#fff;border:1.5px solid #3483fa;border-radius:14px;padding:9px 10px 9px 12px;display:none;gap:10px;align-items:center;box-shadow:0 2px 8px rgba(18,58,122,.08)}
+.tn-inst b{font-size:13.5px;display:block}.tn-inst span{font-size:12px;color:var(--tn-gris);display:block}
+.tn-inst .tn-ib{margin-left:auto;background:#3483fa;color:#fff;border:0;border-radius:10px;padding:9px 12px;font-weight:800;font-size:13px;white-space:nowrap;cursor:pointer;font-family:inherit}
+.tn-inst .tn-ix{background:none;border:0;color:#9aa3b2;font-size:18px;padding:4px;cursor:pointer}
+.tn-sec{padding:14px 12px 4px}
+.tn-sech{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:9px}
+.tn-sech h2{font-size:17px;font-weight:900;margin:0;letter-spacing:-.2px}
+.tn-sech small{color:var(--tn-gris);font-size:12px;font-weight:600}
+.tn-ofertas{background:linear-gradient(135deg,#e02d2d,#f05a28);padding:12px 0 14px;margin-top:12px}
+.tn-ofertas .tn-sech{padding:0 12px}
+.tn-ofertas h2{color:#fff}
+.tn-ofertas .tn-vt{background:none;border:0;color:#ffe1d6;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit;white-space:nowrap}
+.tn-carr{display:flex;gap:10px;overflow-x:auto;padding:0 12px;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.tn-carr::-webkit-scrollbar,.tn-chips::-webkit-scrollbar{display:none}
+.tn-of{flex:0 0 42%;max-width:190px;background:#fff;border-radius:14px;padding:8px;scroll-snap-align:start;position:relative;cursor:pointer}
+.tn-of img,.tn-of .tn-ph{width:100%;aspect-ratio:1/1;object-fit:contain;border-radius:10px;background:#f4f6fb;display:flex;align-items:center;justify-content:center;font-size:40px}
+.tn-of .n{font-size:12.5px;font-weight:700;margin-top:6px;line-height:1.25;height:31px;overflow:hidden}
+.tn-of .pr{font-size:17px;font-weight:900;color:var(--tn-rojo);margin-top:3px}
+.tn-of .tag{position:absolute;top:6px;left:6px;background:var(--tn-amarillo);color:#7a1d00;font-size:10px;font-weight:900;border-radius:6px;padding:2px 6px}
+.tn-of .ad{margin-top:6px;width:100%;border:0;border-radius:9px;padding:7px;font-weight:800;font-size:12.5px;background:var(--tn-azul);color:#fff;cursor:pointer;font-family:inherit}
+.tn-of .ad.on{background:#dcfce7;color:#14532d}
+.tn-chips{display:flex;gap:8px;overflow-x:auto;padding:0 12px 2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.tn-cp{flex:0 0 auto;display:flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--tn-borde);border-radius:999px;padding:4px 11px 4px 4px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+.tn-cp img,.tn-cp .tn-ph{width:28px;height:28px;border-radius:50%;object-fit:cover;background:#f4f6fb;display:flex;align-items:center;justify-content:center;font-size:15px}
+.tn-cp s{color:#9aa3b2;font-weight:600}
+.tn-up{color:var(--tn-rojo)}.tn-dn{color:var(--tn-verde)}
+.tn-cats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tn-cat{background:#fff;border-radius:16px;padding:8px;border:1.5px solid var(--tn-borde);box-shadow:0 2px 10px rgba(18,58,122,.06);text-align:left;cursor:pointer;font-family:inherit;color:var(--tn-txt)}
+.tn-mos{display:grid;grid-template-columns:1fr 1fr;gap:4px;border-radius:12px;overflow:hidden;background:#f4f6fb}
+.tn-mos img,.tn-mos .tn-ph{width:100%;aspect-ratio:1/1;object-fit:contain;background:#fff;display:flex;align-items:center;justify-content:center;font-size:30px}
+.tn-cat .cn{font-size:15.5px;font-weight:900;margin:8px 2px 0;display:flex;align-items:center;gap:6px}
+.tn-cat .cc{font-size:12px;color:var(--tn-gris);margin:1px 2px 2px;font-weight:600}
+.tn-stick{position:sticky;top:0;z-index:20;background:rgba(239,245,255,.97);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);padding:8px 10px;border-bottom:1px solid var(--tn-borde);display:none}
+.tn-top2{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.tn-volver{background:#fff;border:1.5px solid var(--tn-azul);color:var(--tn-azul);border-radius:999px;padding:6px 12px;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit;white-space:nowrap}
+.tn-bmini{flex:1;background:#fff;border:1px solid var(--tn-borde);border-radius:999px;padding:7px 12px;color:#9aa3b2;font-size:13px;cursor:pointer;text-align:left;font-family:inherit}
+#tienda-cats.tn-catgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;overflow:visible;padding:0}
+.tn-cg{background:#fff;border:1.5px solid var(--tn-borde);border-radius:10px;padding:5px 2px;font-size:11px;font-weight:800;text-align:center;line-height:1.15;color:var(--tn-txt);cursor:pointer;font-family:inherit;overflow:hidden;text-overflow:ellipsis}
+.tn-cg i{display:block;font-style:normal;font-size:16px}
+.tn-cg.on{background:var(--tn-azul);border-color:var(--tn-azul);color:#fff}
+.tn-cattit{display:flex;align-items:baseline;justify-content:space-between;padding:12px 2px 2px}
+.tn-cattit h2{margin:0;font-size:18px;font-weight:900}
+.tn-cattit small{color:var(--tn-gris);font-weight:600;font-size:12px}
+#tienda-lista{padding:0!important}
+.tn-cont{padding:0 10px}
+.tn-lista{display:flex;flex-direction:column;gap:10px;padding-top:8px}
+.tn-pc{background:#fff;border-radius:16px;border:1.5px solid var(--tn-borde);padding:10px;box-shadow:0 2px 8px rgba(18,58,122,.05);position:relative;overflow:hidden}
+.tn-pc.sel{border-color:#3483fa;box-shadow:0 0 0 2px rgba(52,131,250,.18)}
+.tn-pt{display:flex;gap:11px}
+.tn-pt>img,.tn-pt>.tn-ph{width:92px;height:92px;flex:0 0 92px;border-radius:12px;object-fit:contain;background:#f4f6fb;border:1px solid #eef1f7;display:flex;align-items:center;justify-content:center;font-size:40px}
+.tn-pi{min-width:0;flex:1}
+.tn-pn{font-size:15px;font-weight:800;line-height:1.25}
+.tn-pb{font-size:12px;color:var(--tn-gris);margin-top:2px;font-weight:600}
+.tn-pp{font-size:22px;font-weight:900;color:var(--tn-azul2);margin-top:4px}
+.tn-pp small{font-size:12px;color:var(--tn-gris);font-weight:700}
+.tn-pm{font-size:12.5px;color:var(--tn-verde);font-weight:800;margin-top:1px}
+.tn-pd{font-size:11.5px;color:#64748b;margin-top:3px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tn-ofb{display:inline-block;background:var(--tn-rojo);color:#fff;font-size:10px;font-weight:900;border-radius:6px;padding:1px 6px;margin-left:5px;vertical-align:middle}
+.tn-rib{position:absolute;top:34px;left:-30px;width:160px;transform:rotate(-30deg);background:#dc2626;color:#fff;text-align:center;font-weight:900;font-size:11px;padding:3px 0;z-index:2;pointer-events:none}
+.tn-steps{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.tn-steps.uno{grid-template-columns:1fr}
+.tn-st{display:flex;align-items:center;border:1.5px solid #cbd7ea;border-radius:999px;padding:3px}
+.tn-st button{width:42px;height:42px;border-radius:50%;border:0;font-size:24px;font-weight:700;background:#eef3fb;color:var(--tn-azul);cursor:pointer;flex-shrink:0;font-family:inherit;line-height:1}
+.tn-st button.mas{background:var(--tn-azul);color:#fff}
+.tn-st button:disabled{opacity:.35}
+.tn-st .v{flex:1;text-align:center;line-height:1;min-width:0}
+.tn-st .v b{display:block;font-size:19px}
+.tn-st .v span{font-size:10px;letter-spacing:1px;color:var(--tn-gris);font-weight:800;text-transform:uppercase}
+.tn-var,.tn-nodisp{width:100%;margin-top:10px;border:0;border-radius:12px;padding:12px;font-weight:800;font-size:14.5px;cursor:pointer;font-family:inherit}
+.tn-var{background:var(--tn-azul);color:#fff}
+.tn-nodisp{background:#eee;color:#999;cursor:not-allowed}
+.tn-vacio{text-align:center;padding:40px 16px;color:#555;font-size:14.5px}
+.tn-busq{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#e7f0ff;border:1.5px solid #3483fa;border-radius:12px;padding:9px 12px;margin-top:10px}
+.tn-busq span{font-size:13px;color:#1a5cc4;font-weight:700}
+.tn-busq button{background:#3483fa;color:#fff;border:0;border-radius:8px;padding:7px 12px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap}
+#tienda-footer.tn-bar{background:linear-gradient(135deg,#0f2f66,#1a4fa3)!important;border-top:0!important;box-shadow:0 -4px 16px rgba(0,0,0,.18);padding:10px 14px calc(10px + env(safe-area-inset-bottom))!important}
+.tn-bar-row{display:flex;align-items:center;gap:10px}
+.tn-bar-row b{font-size:15.5px;color:var(--tn-amarillo);display:block}
+.tn-bar-row span{font-size:12.5px;color:#cfe0ff;display:block}
+.tn-bar-row #tienda-btn-confirmar{margin-left:auto;flex:0 0 auto;background:var(--tn-amarillo);color:#0f2f66;border:0;border-radius:12px;padding:12px 16px;font-weight:900;font-size:14.5px;cursor:pointer;font-family:inherit}
+.tn-sheet{position:fixed;inset:0;background:rgba(10,20,40,.5);z-index:10010;display:none;align-items:flex-end;justify-content:center}
+.tn-sbox{background:#f6f9ff;width:100%;max-width:560px;max-height:88vh;overflow:auto;border-radius:20px 20px 0 0;padding:14px 14px calc(22px + env(safe-area-inset-bottom));color:var(--tn-txt);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.tn-sbox h3{margin:2px 0 4px;font-size:19px}
+.tn-card{background:#fff;border-radius:14px;border:1px solid var(--tn-borde);padding:12px;margin-bottom:10px}
+.tn-niv{color:#fff;border:0}
+.tn-prog{background:rgba(255,255,255,.3);border-radius:99px;height:9px;overflow:hidden;margin-top:8px}
+.tn-prog div{height:100%;background:#fff;border-radius:99px}
+.tn-fx{padding:9px 0;border-bottom:1px solid #eef1f7;font-size:13.5px;cursor:pointer}
+.tn-fx:last-child{border:0}
+.tn-fx .r{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.tn-fx .det{display:none;margin-top:6px;font-size:12.5px;color:#475569;line-height:1.5;background:#f8fafc;border-radius:8px;padding:6px 8px}
+.tn-fx.ab .det{display:block}
+.tn-est{font-size:11px;font-weight:800;border-radius:6px;padding:2px 7px;white-space:nowrap}
+.tn-est.pg{background:#dcfce7;color:#14532d}.tn-est.pe{background:#fee2e2;color:#991b1b}
+.tn-btn{width:100%;border:0;border-radius:12px;padding:13px;font-weight:800;font-size:15px;margin-top:6px;cursor:pointer;font-family:inherit}
+.tn-btn.az{background:var(--tn-azul);color:#fff}.tn-btn.cl{background:#fff;color:var(--tn-azul);border:1.5px solid var(--tn-azul)}
+.tn-paso{display:flex;gap:10px;align-items:flex-start;margin:10px 0;font-size:14.5px;line-height:1.4}
+.tn-paso i{font-style:normal;flex:0 0 26px;height:26px;border-radius:50%;background:var(--tn-azul);color:#fff;font-weight:900;display:flex;align-items:center;justify-content:center;font-size:13px}
+</style>
 <div id="tienda-app" style="display:none;position:fixed;inset:0;background:#ededed;color:#333;z-index:9999;overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:100vh;min-height:100dvh">
 
   <!-- Pantalla de bienvenida -->
@@ -10767,47 +11028,43 @@ function renderInvoiceHTML(inv) {
     </div>
   </div>
 
-  <!-- Catálogo -->
-  <div id="tienda-catalogo" style="display:none;padding-bottom:120px;background:#ededed">
-    <div style="background:#3483fa;padding:10px 16px 10px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px">
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <img src="data:image/png;base64,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" class="logo-surtimar" style="height:44px;width:auto" id="tienda-cat-titulo" alt="Surtimar">
-            <div class="solo-otro tienda-nombre-txt" style="font-size:18px;font-weight:800;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Tienda online</div>
-            <div style="font-size:14px;font-weight:600;color:rgba(255,255,255,.9);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="tienda-saludo"></div>
-            <button id="tienda-logout-btn" onclick="tiendaCerrarSesion()" style="display:none;background:#fff;border:none;color:#3483fa;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0">Cambiar</button>
-          </div>
-          <div id="tienda-saldo-info" style="display:none;margin-top:3px"></div>
-          <div id="tienda-nivel-info" style="display:none;margin-top:4px"></div>
-        </div>
-        <button onclick="tiendaVerCarrito()" style="position:relative;background:#ffe600;border:none;color:#333;border-radius:12px;padding:8px 12px;font-size:20px;cursor:pointer;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.15);flex-shrink:0" id="tienda-cart-btn">
-          🛒<span id="tienda-badge" style="display:none;position:absolute;top:-8px;right:-8px;background:#e53e3e;color:#fff;font-size:11px;font-weight:800;padding:2px 6px;border-radius:10px;min-width:18px;text-align:center">0</span>
-        </button>
+  <!-- Catálogo (diseño 4.6.0) -->
+  <div id="tienda-catalogo" style="display:none;padding-bottom:110px">
+    <div class="tn-hdr">
+      <div class="tn-hrow">
+        <div class="tn-logo logo-surtimar"><img src="data:image/png;base64,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" id="tienda-cat-titulo" alt="Surtimar"></div>
+        <div class="solo-otro tienda-nombre-txt">Tienda online</div>
+        <button class="tn-perfil" id="tn-perfil-btn" onclick="tnAbrirPerfil()">👤 Mi perfil</button>
+      </div>
+      <div class="tn-hola"><span id="tienda-saludo"></span><span id="tienda-saldo-info" style="display:none" onclick="tnAbrirPerfil()"></span></div>
+      <div id="tienda-nivel-info"></div>
+      <button id="tienda-logout-btn" onclick="tiendaCerrarSesion()">Cambiar</button>
+      <button id="tienda-cart-btn" onclick="tiendaVerCarrito()"><span id="tienda-badge" style="display:none">0</span></button>
+      <div class="tn-buscar">
+        <span style="color:#9aa3b2;font-size:16px">🔍</span>
+        <input id="tienda-buscar" type="text" placeholder="Buscar productos o marcas…" autocomplete="off" oninput="tiendaRender();document.getElementById('tienda-buscar-x').style.display=this.value?'flex':'none'">
+        <button id="tienda-buscar-x" onclick="tiendaLimpiarBuscar()" style="display:none;background:#3483fa;color:#fff;border:none;border-radius:50%;width:32px;height:32px;font-size:15px;cursor:pointer;align-items:center;justify-content:center;line-height:1;flex-shrink:0">✕</button>
       </div>
     </div>
-    <div style="position:sticky;top:0;z-index:10;background:#3483fa;padding:8px 16px 8px;box-shadow:0 4px 16px rgba(52,131,250,.35)">
-      <!-- Buscador blanco bien visible -->
-      <div style="background:#fff;border-radius:12px;display:flex;align-items:center;padding:0 12px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.1)">
-        <span style="color:#999;font-size:16px;margin-right:8px">🔍</span>
-        <input id="tienda-buscar" type="text" placeholder="Buscar producto..." oninput="tiendaRender();document.getElementById('tienda-buscar-x').style.display=this.value?'flex':'none'"
-          style="flex:1;padding:12px 0;font-size:14px;background:transparent;border:none;color:#333;outline:none;font-family:Inter,sans-serif">
-        <button id="tienda-buscar-x" onclick="tiendaLimpiarBuscar()" style="display:none;background:#3483fa;color:#fff;border:none;border-radius:50%;width:30px;height:30px;font-size:15px;cursor:pointer;align-items:center;justify-content:center;line-height:1;flex-shrink:0">✕</button>
-      </div>
-      <!-- Categorías sobre fondo crema con borde redondeado -->
-      <div style="background:#ededed;margin:0 -16px;padding:10px 16px 8px;border-radius:16px 16px 0 0">
-        <div id="tienda-cats" style="display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:4px 0"></div>
-      </div>
+    <div class="tn-inst" id="tn-instalar">
+      <div style="font-size:26px">📲</div>
+      <div><b>Instalá la tienda</b><span>Se abre al toque, como una app</span></div>
+      <button class="tn-ib" onclick="tnInstalar()">Instalar</button>
+      <button class="tn-ix" onclick="tnOcultarInstalar()" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="tn-stick" id="tn-stick">
+      <div class="tn-top2"><button class="tn-volver" onclick="tnVolverInicio()">← Inicio</button><button class="tn-bmini" onclick="tnIrABuscar()">🔍 Buscar…</button></div>
+      <div id="tienda-cats" class="tn-catgrid"></div>
     </div>
     <!-- Banner destacado (carrusel) -->
     <div id="tienda-banners" style="display:none;padding:12px 16px 0;max-width:100%;overflow:hidden;box-sizing:border-box"></div>
     <!-- Vista toggle -->
-    <div style="display:flex;justify-content:flex-end;padding:8px 16px;gap:6px">
+    <div style="display:none">
       <button onclick="tiendaSetVista('lista')" id="tienda-btn-lista" style="padding:7px 12px;border-radius:8px;border:none;background:#3483fa;color:#fff;font-size:15px;cursor:pointer">☰</button>
       <button onclick="tiendaSetVista('grilla')" id="tienda-btn-grilla" style="padding:7px 12px;border-radius:8px;border:1px solid #e0e4f0;background:#f0f4ff;color:#3483fa;font-size:15px;cursor:pointer">⊞</button>
     </div>
     <div id="tienda-lista" style="padding:0 16px;display:flex;flex-direction:column;gap:8px"></div>
-    <div id="tienda-hint" style="margin:10px 16px 0;background:#ededed;border:1.5px solid #ffe600;border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:10px;font-size:13px;color:#555">
+    <div id="tienda-hint" style="display:none;margin:10px 16px 0;background:#ededed;border:1.5px solid #ffe600;border-radius:12px;padding:10px 14px;align-items:center;gap:10px;font-size:13px;color:#555">
       <span style="font-size:22px">👆</span>
       <span>Tocá cualquier producto para agregarlo al carrito. Cuando termines, confirmá tu pedido.</span>
     </div>
@@ -10816,7 +11073,7 @@ function renderInvoiceHTML(inv) {
   <!-- Carrito como panel slide-up -->
   <div id="tienda-carrito" style="display:none;position:fixed;bottom:0;left:0;right:0;top:0;z-index:10003;background:rgba(0,0,0,.5)" onclick="if(event.target===this)tiendaVolverCatalogo()">
     <div style="position:absolute;bottom:0;left:0;right:0;background:#fff;border-radius:20px 20px 0 0;max-height:85vh;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom)">
-      <div style="background:#3483fa;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-radius:20px 20px 0 0">
+      <div style="background:linear-gradient(135deg,#0f2f66,#1a4fa3);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-radius:20px 20px 0 0">
         <div style="font-family:Inter,sans-serif;font-size:16px;font-weight:800;color:#fff">🛒 Tu pedido</div>
         <div style="display:flex;align-items:center;gap:12px">
           <span id="tienda-carrito-count" style="font-size:13px;color:rgba(255,255,255,.8)"></span>
@@ -10844,19 +11101,18 @@ function renderInvoiceHTML(inv) {
   </div>
 
   <!-- Footer fijo con total y botón confirmar -->
-  <div id="tienda-footer" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:2px solid #e0e0e0;padding:12px 16px;padding-bottom:calc(12px + env(safe-area-inset-bottom));z-index:10002">
+  <div id="tienda-footer" class="tn-bar" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:10002">
     <div id="tienda-envio-mini" style="display:none;border-radius:8px;padding:6px 10px;font-size:12.5px;line-height:1.3;margin-bottom:8px"></div>
-    <div style="display:flex;align-items:center;gap:10px">
-      <div style="flex-shrink:0">
-        <div style="color:#666;font-size:12px;line-height:1.2">Total del pedido</div>
-        <span id="tienda-total" style="font-family:Inter,sans-serif;font-size:19px;font-weight:800;color:#333">$0.00</span>
-      </div>
-      <button id="tienda-btn-confirmar" onclick="tiendaVerCarrito()"
-        style="flex:1;padding:12px 10px;background:#3483fa;color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;font-family:Inter,sans-serif;cursor:pointer;line-height:1.25;text-align:center">
-        🛒 Revisar y confirmar<br><span style="font-size:10.5px;font-weight:400;opacity:.85">Mirá tu pedido antes de enviarlo</span>
-      </button>
+    <div class="tn-bar-row">
+      <div style="min-width:0;flex:1"><b id="tn-bar-tit">Tu pedido está vacío</b><span id="tn-bar-sub">Elegí una categoría y cargá unidades o bultos</span><span id="tienda-total" style="display:none">$0.00</span></div>
+      <button id="tienda-btn-confirmar" onclick="tiendaVerCarrito()">Ver pedido</button>
     </div>
   </div>
+
+  <!-- Mi perfil -->
+  <div class="tn-sheet" id="tn-perfil" onclick="if(event.target===this)tnCerrarPerfilBoton()"><div class="tn-sbox" id="tn-perfil-box"></div></div>
+  <!-- Pasos para instalar -->
+  <div class="tn-sheet" id="tn-inst-sheet" onclick="if(event.target===this)this.style.display='none'"><div class="tn-sbox" id="tn-inst-box"></div></div>
 
   <!-- Overlay DEDICADO para guardar/confirmar pedido (no pisa #tienda-carrito) -->
   <div id="tienda-confirm-overlay" style="display:none;position:fixed;inset:0;z-index:10005;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:20px"></div>
@@ -10921,6 +11177,7 @@ function tiendaAdminEntrar() {
   document.getElementById('tienda-catalogo').style.display='block';
   tiendaModoMensaje();
   document.getElementById('tienda-saludo').textContent = 'Vista admin 👁️';
+  try { const pb = document.getElementById('tn-perfil-btn'); if(pb) pb.style.display = 'none'; } catch(e) {}
   document.getElementById('tienda-footer').style.display='block';
   document.getElementById('tienda-titulo').style.color = '#3483fa';
   tiendaAplicarNombre();
@@ -11077,26 +11334,235 @@ function tiendaAbrirDetalle(pid) {
     +'</div>'
     +'</div>';
 }
+// ===================== TIENDA 4.6.0: datos del cliente, perfil e instalacion =====================
+const _TN_CACHE_CFG = ['banners','bannersTs','tiendaModo','gruposMay','config','nInv','nCli','nProd','nComp','nProv','nGrupo'];
+function _tnCacheKey() { return 'tienda_v2_' + SK; }
+// Copia propia de la tienda: solo catalogo y configuracion. Nunca clientes ni facturas.
+function _tiendaCacheLeer() {
+  try {
+    const d = JSON.parse(localStorage.getItem(_tnCacheKey()) || 'null');
+    if(!d || !Array.isArray(d.products) || !d.products.length) return false;
+    S.products = d.products;
+    _TN_CACHE_CFG.forEach(function(k){ if(d[k] !== undefined) S[k] = d[k]; });
+    if(d.cat) window._tiendaCat = d.cat;
+    S.invoices = [];
+    if(!Array.isArray(S.clients)) S.clients = [];
+    return true;
+  } catch(e) { return false; }
+}
+function _tiendaCacheGuardar(data) {
+  try {
+    const o = { ts: Date.now(), products: data.products || S.products || [], cat: window._tiendaCat || null };
+    _TN_CACHE_CFG.forEach(function(k){ if(data[k] !== undefined) o[k] = data[k]; else if(S[k] !== undefined) o[k] = S[k]; });
+    localStorage.setItem(_tnCacheKey(), JSON.stringify(o));
+  } catch(e) {}
+}
+// Carga rapida: catalogo publicado (1 documento). Si no esta, la carga completa de antes.
+async function _tiendaCargarRapido() {
+  try {
+    const d = await window._fbLeerCatalogo();
+    if(d) return d;
+  } catch(e) { console.warn('Tienda: catalogo rapido no disponible, se usa la carga completa', e); }
+  const d2 = await window._fbLoadTienda();
+  if(!d2) throw new Error('Sin datos de la tienda');
+  return d2;
+}
+function _tiendaSaludo() {
+  if(TC_PHONE === 'admin') return;
+  const c = TC_CLI;
+  const nombre = c && c.name && !/\(web\)/i.test(c.name) && !/^Visitante/i.test(c.name) ? c.name : null;
+  const sal = document.getElementById('tienda-saludo');
+  if(sal) sal.textContent = nombre ? 'Hola, ' + nombre + '!' : 'Hola! ¿Qué vas a comprar hoy?';
+}
+// Busca SOLO a este cliente (por los ultimos 6 digitos) y SOLO sus facturas.
+let _tiendaIdentificando = null;
+function _tiendaIdentificar() {
+  if(window._tiendaModoCarga !== 'rapida' || !TC_PHONE || TC_PHONE === 'admin') return Promise.resolve();
+  if(_tiendaIdentificando) return _tiendaIdentificando;
+  const tel = TC_PHONE;
+  _tiendaIdentificando = (async function(){
+    const last6 = tel.slice(-6);
+    let lista = null;
+    try { if(window._tiendaCat && window._tiendaCat.tel6 && window._fbBuscarClienteTel) lista = await window._fbBuscarClienteTel(last6); } catch(e) { lista = null; }
+    // Telefono no encontrado (cliente nuevo o indice incompleto): se revisa la lista completa, como antes
+    if(!lista || !lista.length) { try { if(window._fbTodosLosClientes) lista = await window._fbTodosLosClientes(); } catch(e) { lista = null; } }
+    if(tel !== TC_PHONE) return;
+    if(lista) {
+      const ids = {}; lista.forEach(function(c){ ids[c.id] = 1; });
+      // conservar una ficha creada recien en este celular que todavia no figure en el servidor
+      const propias = (S.clients || []).filter(function(c){ return c && !ids[c.id] && String(c.id).indexOf('CLI-WEB-') === 0 && _tel6De(c.phone).indexOf(last6) >= 0; });
+      S.clients = lista.concat(propias);
+    }
+    const c = tiendaBuscarCliente(tel);
+    if(c) { TC_CLI = c; TN = c.name || 'visitante'; _tiendaSaludo(); }
+    if(TC_CLI && TC_CLI.id && window._fbFacturasDeCliente) {
+      try {
+        const f = await window._fbFacturasDeCliente(TC_CLI.id);
+        if(tel !== TC_PHONE) return;
+        const fids = {}; f.forEach(function(i){ fids[i.id] = 1; });
+        const recientes = (S.invoices || []).filter(function(i){ return i && !fids[i.id] && i.clientId === TC_CLI.id && (Date.now() - (i.ts || 0)) < 6 * 3600 * 1000; });
+        S.invoices = f.concat(recientes);
+        window._tiendaFactOk = true;
+      } catch(e) { console.warn('Tienda: no se pudieron leer las compras del cliente', e); }
+    } else {
+      window._tiendaFactOk = true;
+    }
+    try { tiendaRenderSaldo(); } catch(e) {}
+    try { const ov = document.getElementById('tn-perfil'); if(ov && ov.style.display === 'flex') _tnPerfilRender(); } catch(e) {}
+  })().finally(function(){ _tiendaIdentificando = null; });
+  return _tiendaIdentificando;
+}
+// ---- Mi perfil ----
+function tnAbrirPerfil() {
+  const ov = document.getElementById('tn-perfil');
+  if(!ov || TC_PHONE === 'admin') return;
+  _tnPerfilRender();
+  ov.style.display = 'flex';
+  try { history.pushState({ tienda: 'perfil' }, '', ''); } catch(e) {}
+  if(window._tiendaModoCarga === 'rapida' && !window._tiendaFactOk) { try { _tiendaIdentificar(); } catch(e) {} }
+}
+function tnCerrarPerfil() {
+  const ov = document.getElementById('tn-perfil');
+  if(ov) ov.style.display = 'none';
+}
+function tnCerrarPerfilBoton() {
+  const abierto = document.getElementById('tn-perfil') && document.getElementById('tn-perfil').style.display === 'flex';
+  tnCerrarPerfil();
+  if(abierto && history.state && history.state.tienda === 'perfil') { window._tnIgnorarPop = true; try { history.back(); } catch(e) { window._tnIgnorarPop = false; } }
+}
+function _tnPerfilRender() {
+  const box = document.getElementById('tn-perfil-box');
+  if(!box) return;
+  const cargando = window._tiendaModoCarga === 'rapida' && !window._tiendaFactOk;
+  const c = TC_CLI;
+  const nombre = c && c.name && !/\(web\)/i.test(c.name) && !/^Visitante/i.test(c.name) ? c.name : '';
+  let h = '<h3>👤 Mi perfil</h3><div style="font-size:13px;color:#64748b;margin-bottom:10px">' + _tnEsc(nombre ? nombre + ' · ' : '') + 'Tel. ' + _tnEsc(TC_PHONE) + '</div>';
+  if(cargando) {
+    h += '<div class="tn-card" style="text-align:center;color:#64748b;font-weight:700">⏳ Cargando tus datos…</div>';
+  } else {
+    const cliAct = c ? ((S.clients || []).find(function(x){ return x.id === c.id; }) || c) : null;
+    const credito = (cliAct && cliAct.credito) || 0;
+    const deuda = c ? (S.invoices || []).filter(function(i){ return i.clientId === c.id && i.status !== 'pagada' && i.status !== 'cancelada' && i.type !== 'presupuesto'; })
+      .reduce(function(a, i){ return a + Math.max(0, i.saldo || 0); }, 0) : 0;
+    const neto = deuda - credito;
+    let lbl, txt, color, est;
+    if(neto > 0) { lbl = 'Saldo pendiente'; txt = fmtPesos(neto); color = 'var(--tn-rojo)'; est = '<span class="tn-est pe">PENDIENTE</span>'; }
+    else if(credito > 0) { lbl = 'Saldo a favor'; txt = fmtPesos(credito); color = 'var(--tn-verde)'; est = '<span class="tn-est pg">A FAVOR</span>'; }
+    else { lbl = 'Saldo'; txt = 'Estás al día'; color = 'var(--tn-verde)'; est = '<span class="tn-est pg">✓</span>'; }
+    h += '<div class="tn-card" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div><div style="font-size:12px;color:var(--tn-gris);font-weight:700">' + lbl + '</div>'
+      + '<div style="font-size:22px;font-weight:900;color:' + color + '">' + txt + '</div></div>' + est + '</div>';
+    if(c && c.id && fideActiva()) {
+      const e = fideEstado(c.id);
+      const grad = e.actual ? e.actual.grad : 'linear-gradient(135deg,#1a3a6b,#3483fa)';
+      h += '<div class="tn-card tn-niv" style="background:' + grad + '">'
+        + '<div style="font-size:15px;font-weight:900">' + (e.actual ? e.actual.emoji + ' Nivel ' + e.actual.nombre : '🎁 Todavía sin nivel este mes') + '</div>'
+        + '<div style="font-size:12px;opacity:.92;margin-top:2px">Llevás ' + fmtPesos(e.gasto) + ' comprados este mes por la tienda</div>';
+      if(e.siguiente) {
+        h += '<div class="tn-prog"><div style="width:' + Math.max(0, Math.min(100, e.progreso)).toFixed(0) + '%"></div></div>'
+          + '<div style="font-size:12.5px;font-weight:700;margin-top:7px">Te faltan ' + fmtPesos(e.faltaSiguiente) + ' para ' + e.siguiente.nombre + ' y llevarte una ' + _tnEsc(e.siguiente.premio) + ' 🎁</div>';
+      } else if(e.actual) {
+        h += '<div style="font-size:12.5px;font-weight:700;margin-top:7px">¡Llegaste al nivel máximo! Te llevás una ' + _tnEsc(e.actual.premio) + ' 🎁</div>';
+      }
+      if(e.actual && e.actual.umbral > e.gasto) {
+        h += '<div style="font-size:12px;font-weight:700;margin-top:6px">⚠️ Para mantener tu nivel necesitás llegar a ' + fmtPesos(e.actual.umbral) + ' este mes.</div>';
+      }
+      h += '<div style="font-size:10.5px;opacity:.8;margin-top:8px">Se calcula del 1 al último día del mes · solo compras por la tienda · no incluye cigarrillos</div></div>';
+    }
+    const d = new Date(Date.now() - 31 * 86400000);
+    const desde = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    const compras = c ? (S.invoices || []).filter(function(i){ return i.clientId === c.id && i.type !== 'presupuesto' && i.status !== 'cancelada' && (i.date || '') >= desde; })
+      .sort(function(a, b){ return (b.date || '').localeCompare(a.date || '') || ((b.ts || 0) - (a.ts || 0)); }) : [];
+    h += '<div class="tn-card"><div style="font-weight:900;margin-bottom:2px">🧾 Mis compras del último mes</div>';
+    if(!compras.length) h += '<div style="font-size:13px;color:var(--tn-gris);padding:6px 0">Todavía no hay compras en el último mes.</div>';
+    compras.forEach(function(i){
+      const f = (i.date || '').split('-');
+      const fecha = f.length === 3 ? f[2] + '/' + f[1] : (i.date || '');
+      const n = (i.items || []).length;
+      const debe = (i.saldo || 0) > 0 && i.status !== 'pagada';
+      h += '<div class="tn-fx" onclick="this.classList.toggle(\'ab\')"><div class="r"><span>' + fecha + ' · ' + n + ' producto' + (n !== 1 ? 's' : '') + '</span>'
+        + '<span><b>' + fmtPesos(i.total || 0) + '</b> ' + (debe ? '<span class="tn-est pe">PENDIENTE</span>' : '<span class="tn-est pg">PAGADA</span>') + '</span></div>'
+        + '<div class="det">' + (i.items || []).map(function(it){ return _tnEsc((it.qty || 0) + ' × ' + (it.desc || '') + ' — ' + fmtPesos((it.qty || 0) * (it.price || 0))); }).join('<br>') + '</div></div>';
+    });
+    if(compras.length) h += '<div style="font-size:11.5px;color:var(--tn-gris);margin-top:6px">Tocá una compra para ver el detalle.</div>';
+    h += '</div>';
+  }
+  h += '<div style="font-size:10.5px;color:#94a3b8;text-align:center;margin:2px 0 6px">' + (window._tiendaModoCarga === 'rapida' ? '⚡ Carga rápida' : 'Carga completa') + '</div>';
+  h += '<button class="tn-btn az" onclick="tnCerrarPerfilBoton()">Cerrar</button>'
+    + '<button class="tn-btn cl" onclick="tnCerrarPerfilBoton();tiendaCerrarSesion()">Cambiar de número</button>';
+  box.innerHTML = h;
+}
+// ---- Instalar la tienda en el celular ----
+function _tnEsStandalone() {
+  try {
+    return (window.matchMedia && (matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || matchMedia('(display-mode: minimal-ui)').matches))
+      || window.navigator.standalone === true;
+  } catch(e) { return false; }
+}
+function _tnInstalarInit() {
+  const el = document.getElementById('tn-instalar');
+  if(!el) return;
+  let oculto = 0; try { oculto = parseInt(localStorage.getItem('tn_inst_oculto') || '0') || 0; } catch(e) {}
+  const mostrar = _ES_TIENDA_URL && !_esOtroNegocio() && !_tnEsStandalone() && !(oculto && (Date.now() - oculto) < 3 * 86400000);
+  el.style.display = mostrar ? 'flex' : 'none';
+}
+function tnOcultarInstalar() {
+  try { localStorage.setItem('tn_inst_oculto', String(Date.now())); } catch(e) {}
+  const el = document.getElementById('tn-instalar'); if(el) el.style.display = 'none';
+}
+function tnInstalar() {
+  const pr = window._tnPrompt || (typeof deferredPrompt !== 'undefined' ? deferredPrompt : null);
+  if(pr) {
+    window._tnPrompt = null;
+    try {
+      pr.prompt();
+      pr.userChoice.then(function(r){ if(r && r.outcome === 'accepted') { const el = document.getElementById('tn-instalar'); if(el) el.style.display = 'none'; } }).catch(function(){});
+      return;
+    } catch(e) {}
+  }
+  // Sin el cartel automatico de Android (iPhone, WhatsApp, Instagram...): explicar los pasos
+  const ua = navigator.userAgent || '';
+  const ios = /iPhone|iPad|iPod/i.test(ua);
+  const pasos = ios
+    ? ['Tocá el botón <b>Compartir</b> (el cuadrado con la flecha ↑) en la barra de Safari.', 'Bajá y elegí <b>“Agregar a inicio”</b>.', 'Tocá <b>Agregar</b>. Listo: te queda el ícono de Surtimar.']
+    : ['Tocá los <b>tres puntitos ⋮</b> arriba a la derecha.', 'Si aparece <b>“Abrir en Chrome”</b>, tocalo y volvé a tocar los tres puntitos.', 'Elegí <b>“Instalar app”</b> o <b>“Agregar a la pantalla principal”</b> y confirmá.'];
+  const box = document.getElementById('tn-inst-box'), sh = document.getElementById('tn-inst-sheet');
+  if(!box || !sh) return;
+  box.innerHTML = '<h3>📲 Instalá la tienda</h3><div style="font-size:13px;color:#64748b;margin-bottom:4px">La abrís con un toque desde la pantalla de tu celular, al instante y sin barras.</div>'
+    + pasos.map(function(t, i){ return '<div class="tn-paso"><i>' + (i + 1) + '</i><div>' + t + '</div></div>'; }).join('')
+    + '<button class="tn-btn az" onclick="document.getElementById(\'tn-inst-sheet\').style.display=\'none\'">Entendido</button>';
+  sh.style.display = 'flex';
+}
+window.addEventListener('beforeinstallprompt', function(e){
+  if(!_ES_TIENDA_URL) return;
+  try { e.preventDefault(); } catch(x) {}
+  window._tnPrompt = e;
+  setTimeout(function(){ const b = document.getElementById('pwa-install-banner'); if(b) b.style.display = 'none'; }, 0);
+});
+window.addEventListener('appinstalled', function(){ const el = document.getElementById('tn-instalar'); if(el) el.style.display = 'none'; });
+// ===================== FIN TIENDA 4.6.0 =====================
+
 function tiendaInit() {
   if(!window.location.search.includes('tienda')) return;
   // Ocultar app principal
   document.querySelectorAll('.page,.bottom-nav,.top-bar,.fab').forEach(e=>e.style.display='none');
   const shell = document.getElementById('app-shell');
   if(shell) shell.style.display='none';
-  document.body.style.background = '#ededed';
-  document.body.style.overflow = 'hidden';
-  document.documentElement.style.background = '#ededed';
-  // Override dark CSS variables for tienda
-  document.documentElement.style.setProperty('--bg','#ededed');
+  // 4.6.0: la tienda se desplaza como pagina normal (antes era un recuadro fijo con scroll
+  // propio y por eso el navegador nunca escondia su barra de arriba).
+  document.documentElement.classList.add('tn-html');
+  document.body.classList.add('tn-body');
+  document.documentElement.style.background = '#eef4ff';
+  document.documentElement.style.setProperty('--bg','#eef4ff');
+  document.getElementById('tienda-app').classList.add('tn-pagina');
   document.getElementById('tienda-app').style.display='block';
   document.getElementById('tienda-titulo').style.color = '#3483fa';
   tiendaAplicarNombre();
   // Fix login bg
   const loginEl = document.getElementById('tienda-login');
-  if(loginEl) loginEl.style.background = '#ededed';
+  if(loginEl) loginEl.style.background = 'transparent';
   // Fix entrar btn
   const btnEntrar = document.getElementById('tienda-entrar-btn');
-  if(btnEntrar) { btnEntrar.style.background = '#3483fa'; btnEntrar.style.color = '#fff'; }
+  if(btnEntrar) { btnEntrar.style.background = '#123a7a'; btnEntrar.style.color = '#fff'; }
   const btn = document.getElementById('tienda-entrar-btn');
 
   // Reentrar con el número guardado en este celular. Si la página se recarga
@@ -11107,7 +11573,7 @@ function tiendaInit() {
     let savedPhone = null;
     try { savedPhone = localStorage.getItem('tienda_phone'); } catch(e) {}
     if(!savedPhone) return;
-    if(!(S.products && S.products.length && S.clients && S.clients.length)) return; // sin catálogo o sin clientes todavía, no sirve entrar
+    if(!(S.products && S.products.length)) return; // sin catálogo todavía, no sirve entrar (el cliente se busca aparte)
     const inp = document.getElementById('tienda-phone-input');
     if(inp) inp.value = savedPhone;
     yaEntro = true;
@@ -11118,7 +11584,8 @@ function tiendaInit() {
   // Antes la tienda esperaba 800ms + toda la descarga de Firebase antes de dejar
   // entrar: eso hacía la espera larga y, al refrescar, mostraba el login de nuevo.
   if(window._bizKey) SK = window._bizKey;
-  try { load(); } catch(e) {}
+  // Copia propia de la tienda (catalogo + configuracion). Si no hay, la copia vieja de antes.
+  if(!_tiendaCacheLeer()) { try { load(); } catch(e) {} S.invoices = []; }
   if(btn) { btn.disabled = false; btn.textContent = 'Ver productos →'; }
   autoEntrar();
 
@@ -11130,27 +11597,27 @@ function tiendaInit() {
   const TIENDA_MAX_INTENTOS = 3;
   function tryLoad() {
     // Usa la carga liviana: la tienda no necesita compras, cobranzas ni proveedores.
-    const cargar = window._fbLoadTienda || window._fbLoad;
+    const cargar = _ES_TIENDA_URL
+      ? ((window._fbLeerCatalogo && window._fbLoadTienda) ? _tiendaCargarRapido : null)
+      : (window._fbLoadTienda || window._fbLoad);
     if(cargar) {
       cargar().then(data => {
         _tiendaIntentos = 0; // éxito: resetear para un eventual reintento futuro
         window._tiendaUltimaSyncOk = Date.now(); // para el reintento por antigüedad, no solo por vacío
         try { localStorage.setItem('tienda_ultima_sync_ok', String(window._tiendaUltimaSyncOk)); } catch(e) {}
         if(data) {
+          const _cat = data.__catalogo; delete data.__catalogo;
+          window._tiendaCat = _cat || null;
+          window._tiendaModoCarga = _cat ? 'rapida' : 'normal';
           Object.assign(S, data);
-          // Guardar en el celular para que el próximo ingreso (y el refresh con el
-          // dedo) sea instantáneo. Se MEZCLA con lo que ya habia guardado: la carga
-          // de la tienda es parcial y, sin esto, en el celular del administrador
-          // borraria compras y cobranzas del almacenamiento local.
-          try {
-            let previo = {};
-            try { previo = JSON.parse(localStorage.getItem(SK)) || {}; } catch(e2) {}
-            _guardarLocal(Object.assign(previo, data));
-          } catch(e) {}
+          // Copia propia de la tienda: solo catalogo y configuracion (nunca clientes ni facturas).
+          // Ya no se toca la copia de la app del negocio.
+          try { _tiendaCacheGuardar(data); } catch(e) {}
         }
         try { tiendaAplicarNombre(); tiendaActTotal(); } catch(e) {}
         try { tiendaRematchCliente(); } catch(e) {}
         autoEntrar(); // por si no había datos locales
+        if(yaEntro && window._tiendaModoCarga === 'rapida') { try { _tiendaIdentificar(); } catch(e) {} }
         if(yaEntro) {
           try { tiendaRender(); } catch(e) {}
           // Los datos frescos pueden traer pagos hechos despues de la ultima visita:
@@ -11171,6 +11638,7 @@ function tiendaInit() {
     }
   }
   tryLoad();
+  try { _tnInstalarInit(); } catch(e) {}
 
   // Reintentar también si el cliente vuelve a la pestaña (por ej. tras haber
   // bloqueado el celular con la descarga a mitad de camino, algo tipico de
@@ -11229,6 +11697,13 @@ function fideMesActual() {
   const d = new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
 }
+// En la tienda rapida el catalogo no trae los productos ocultos: la app manda aparte
+// la lista de ids de cigarrillos para no sumarlos al nivel.
+function _fideCigIds() {
+  const o = {};
+  try { ((window._tiendaCat && window._tiendaCat.cig) || []).forEach(function(id){ o[id] = 1; }); } catch(e) {}
+  return o;
+}
 // Cuanto compro un cliente este mes, contando SOLO tienda y sin cigarrillos
 function fideGastoDelMes(clientId, mes) {
   if(!clientId) return 0;
@@ -11239,9 +11714,10 @@ function fideGastoDelMes(clientId, mes) {
     if(inv.type === 'presupuesto' || inv.status === 'cancelada') return;
     if((inv.date||'').slice(0,7) !== mes) return;
     if((inv.notes||'').toLowerCase().indexOf('tienda online') < 0) return; // solo tienda
+    const _cig = _fideCigIds();
     (inv.items||[]).forEach(function(it) {
       const p = S.products.find(function(x){ return x.id === it.prodId; });
-      if(fideEsCigarrillo(p)) return;
+      if(fideEsCigarrillo(p) || _cig[it.prodId]) return;
       total += (it.qty||0) * (it.price||0);
     });
   });
@@ -11309,10 +11785,10 @@ function tiendaRenderSaldo() {
   const saldoNeto = deudaFacturas - credito;
   if(credito > 0 && saldoNeto <= 0) {
     saldoEl.style.display = 'block';
-    saldoEl.innerHTML = '<span style="background:rgba(255,255,255,.2);border-radius:8px;padding:3px 10px;font-size:12px;font-weight:700;color:#bbf7d0">✓ Tenés $'+credito.toFixed(0)+' a favor</span>';
+    saldoEl.innerHTML = '<span style="background:rgba(255,255,255,.2);border-radius:8px;padding:3px 10px;font-size:12px;font-weight:700;color:#bbf7d0">✓ Tenés '+fmtPesos(credito)+' a favor</span>';
   } else if(saldoNeto > 0) {
     saldoEl.style.display = 'block';
-    saldoEl.innerHTML = '<span style="background:rgba(220,38,38,.3);border-radius:8px;padding:3px 10px;font-size:12px;font-weight:700;color:#fecaca">⚠ Saldo pendiente: $'+saldoNeto.toFixed(0)+'</span>';
+    saldoEl.innerHTML = '<span style="background:rgba(220,38,38,.3);border-radius:8px;padding:3px 10px;font-size:12px;font-weight:700;color:#fecaca">⚠ Saldo pendiente: '+fmtPesos(saldoNeto)+'</span>';
   } else {
     saldoEl.style.display = 'none';
   }
@@ -11345,7 +11821,8 @@ function tiendaRenderNivel() {
     + '</div>'
     + '</div>';
 }
-function tiendaAbrirNivel() {
+function tiendaAbrirNivel() { tnAbrirPerfil(); }
+function tiendaAbrirNivelViejo() {
   if(!fideActiva()) return;
   if(!TC_CLI || !TC_CLI.id) return;
   const e = fideEstado(TC_CLI.id);
@@ -11407,6 +11884,10 @@ function tiendaCerrarNivel() {
 }
 function tiendaCerrarSesion() {
   try { localStorage.removeItem('tienda_phone'); } catch(e) {}
+  try { tnCerrarPerfil(); } catch(e) {}
+  window._tiendaFactOk = false;
+  // Celular compartido: no dejar en memoria los datos del cliente anterior
+  if(window._tiendaModoCarga === 'rapida') { S.invoices = []; S.clients = []; }
   TC_PHONE = ''; TC_CLI = null; TN = '';
   document.getElementById('tienda-phone-input').value = '';
   document.getElementById('tienda-catalogo').style.display='none';
@@ -11435,9 +11916,13 @@ function tiendaBuscarCliente(telefono) {
     });
   });
   if(coincidencias.length <= 1) return coincidencias[0] || null;
+  // La tienda ya no baja todas las facturas: se prefiere la ficha real (CLI-123) antes que
+  // una ficha "web" creada por un visitante no reconocido; despues, la que tenga mas facturas.
+  const esWeb = function(c){ return /^CLI-WEB/i.test(String(c.id||'')) || /\(web\)/i.test(c.name||'') || /^Visitante/i.test(c.name||''); };
   return coincidencias.slice().sort(function(a,b){
-    const factA = S.invoices.filter(i => i.clientId===a.id).length;
-    const factB = S.invoices.filter(i => i.clientId===b.id).length;
+    if(esWeb(a) !== esWeb(b)) return esWeb(a) ? 1 : -1;
+    const factA = (S.invoices||[]).filter(i => i.clientId===a.id).length;
+    const factB = (S.invoices||[]).filter(i => i.clientId===b.id).length;
     return factB - factA;
   })[0];
 }
@@ -11490,6 +11975,9 @@ function tiendaEntrar() {
   try { tiendaRenderSaldo(); } catch(e) {}
   try { tiendaRenderNivel(); } catch(e) {}
   document.getElementById('tienda-footer').style.display='block';
+  try { const pb = document.getElementById('tn-perfil-btn'); if(pb) pb.style.display = ''; } catch(e) {}
+  window._tiendaFactOk = false;
+  if(window._tiendaModoCarga === 'rapida') { try { _tiendaIdentificar(); } catch(e) {} }
   if(modoTienda !== 'abierta') tiendaModoMensaje();
   window.T_CAT = 'todas';
   tiendaSetVista('grilla');
@@ -11567,204 +12055,229 @@ let _tiendaPagina = 1;
 const TIENDA_PAGE_SIZE = 20;
 let _tiendaMantenerPagina = false; // lo pone en true solo el scroll infinito, para no resetear al pedir más
 function tiendaRender() {
-  // Cualquier llamada normal (buscar, cambiar de categoría, entrar) vuelve a la
-  // página 1. Solo el scroll infinito la mantiene y avanza, marcando el flag antes.
+  // 4.6.0: inicio con ofertas, cambios de precio, nuevos y categorias en recuadros;
+  // dentro de una categoria, la lista con contadores de unidades y bultos.
   if(!_tiendaMantenerPagina) _tiendaPagina = 1;
   _tiendaMantenerPagina = false;
-  try { tiendaRenderBanners(); } catch(e) {}
-  const q = (document.getElementById('tienda-buscar').value||'').toLowerCase();
-  const cat = window.T_CAT||'todas';
-  let prods = S.products.filter(p => p.visible !== false && p.price > 0 && p.name && p.name.trim());
-  if(q) prods = prods.filter(p => p.name.toLowerCase().includes(q)||(p.category||'').toLowerCase().includes(q));
-  if(cat === 'ofertas') prods = prods.filter(p => p.oferta);
-  else if(cat !== 'todas') prods = prods.filter(p => (p.category||'').toLowerCase() === cat.toLowerCase());
+  const q = ((document.getElementById('tienda-buscar') || {}).value || '').toLowerCase().trim();
+  const cat = window.T_CAT || 'todas';
+  const enInicio = cat === 'todas' && !q;
   const lista = document.getElementById('tienda-lista');
-  if(!prods.length) {
-    let vacioHtml = '';
-    if(q) {
-      vacioHtml = '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:#e7f0ff;border:1.5px solid #3483fa;border-radius:12px;padding:10px 14px;margin-bottom:12px">'
-        + '<span style="font-size:13px;color:#1a5cc4;font-weight:600">🔍 Mostrando tu búsqueda</span>'
-        + '<button onclick="tiendaLimpiarBuscar()" style="background:#3483fa;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">✕ Ver todo</button>'
-        + '</div>';
-    }
-    // Si el catálogo entero (sin filtrar) está vacío, es porque todavía no
-    // llegaron los datos de Firebase — no es que "no haya productos". Antes
-    // decía "Sin productos disponibles" en los dos casos por igual, lo cual
-    // es directamente falso mientras está cargando (y espantoso para un
-    // cliente nuevo o con el celular recién limpiado: parece una tienda vacía).
-    const mensajeVacio = (!S.products || !S.products.length)
-      ? '⏳ Cargando productos, un momento por favor...'
-      : 'Sin productos disponibles';
-    lista.innerHTML = vacioHtml + '<div style="text-align:center;padding:40px;color:#555">'+mensajeVacio+'</div>';
-    tiendaRenderCats();
+  if(!lista) return;
+  const todos = (S.products || []).filter(p => p && p.visible !== false && p.price > 0 && p.name && p.name.trim());
+  if(enInicio) { try { tiendaRenderBanners(); } catch(e) {} }
+  else { const bn = document.getElementById('tienda-banners'); if(bn) bn.style.display = 'none'; }
+  tiendaRenderCats();
+  if(!todos.length) {
+    lista.innerHTML = '<div class="tn-vacio">' + ((!S.products || !S.products.length) ? '⏳ Cargando productos, un momento por favor...' : 'Sin productos disponibles') + '</div>';
+    tiendaActBadge(); tiendaActTotal();
     return;
   }
-  // Ordenar: precio cambiado últimas 24h primero, luego el resto
-  const now = Date.now();
-  prods.sort((a,b) => {
-    const aRecent = a.priceHistory&&a.priceHistory.length&&(now-new Date(a.priceHistory[a.priceHistory.length-1].date).getTime())<86400000?1:0;
-    const bRecent = b.priceHistory&&b.priceHistory.length&&(now-new Date(b.priceHistory[b.priceHistory.length-1].date).getTime())<86400000?1:0;
-    return bRecent - aRecent;
-  });
-  // Sección ofertas y banners
-  let html = '';
-  // Cartel de filtro activo (cuando hay búsqueda) — para que el cliente sepa volver
+  if(enInicio) {
+    lista.innerHTML = _tnInicioHtml(todos);
+    tiendaActBadge(); tiendaActTotal();
+    return;
+  }
+  let prods;
+  if(q) prods = todos.filter(p => p.name.toLowerCase().includes(q) || (p.category || '').toLowerCase().includes(q));
+  else if(cat === 'ofertas') prods = todos.filter(p => p.oferta);
+  else prods = todos.filter(p => _tnCatDe(p).toLowerCase() === String(cat).toLowerCase());
+  prods = prods.slice().sort((a, b) => ((b.oferta ? 1 : 0) - (a.oferta ? 1 : 0)) || a.name.localeCompare(b.name, 'es'));
+  let html = '<div class="tn-cont">';
   if(q) {
-    html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:#e7f0ff;border:1.5px solid #3483fa;border-radius:12px;padding:10px 14px;margin-bottom:12px">'
-      + '<span style="font-size:13px;color:#1a5cc4;font-weight:600">🔍 Mostrando tu búsqueda</span>'
-      + '<button onclick="tiendaLimpiarBuscar()" style="background:#3483fa;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">✕ Ver todo</button>'
-      + '</div>';
-  }
-  if(!q && cat==='todas') {
-    const ofertas = prods.filter(p=>p.oferta).sort(function(a,b){
-      return ((b.ofertaDesde||'')<(a.ofertaDesde||'') ? -1 : 1);
-    });
-    if(ofertas.length) {
-      html += '<div style="background:#fff7ed;border-radius:16px;padding:0;border:1.5px solid #fed7aa;margin-bottom:12px;overflow:hidden;box-shadow:0 2px 10px rgba(247,144,30,.1)">';
-      html += '<div style="background:#f7901e;padding:10px 14px;font-size:14px;font-weight:800;color:#fff">🔥 OFERTAS</div>';
-      html += '<div style="display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:14px">';
-      ofertas.forEach(p => {
-        const prevPrice = p.priceHistory&&p.priceHistory.length ? p.priceHistory[p.priceHistory.length-1].price : null;
-        const qty = TC[p.id]||0;
-        html += '<div onclick="tiendaIrAProducto(\'' + p.id + '\')" style="flex-shrink:0;width:130px;background:#fff;border-radius:14px;padding:10px;text-align:center;border:1.5px solid #ffe0e0;box-shadow:0 2px 8px rgba(0,0,0,.06);cursor:pointer">';
-        html += p.image
-          ? '<img src="'+p.image+'" loading="lazy" decoding="async" style="width:80px;height:80px;border-radius:10px;object-fit:cover;margin-bottom:4px">'
-          : '<div style="font-size:28px;margin-bottom:4px">'+(p.emoji||'📦')+'</div>';
-        html += '<div style="font-size:12px;font-weight:600;margin-bottom:4px;line-height:1.3;color:#333">'+p.name+'</div>';
-        if(prevPrice && prevPrice !== p.price) html += '<div style="font-size:11px;color:#999;text-decoration:line-through">$'+prevPrice.toFixed(0)+'</div>';
-        const precioOferta = (p.wholesalePrice && p.wholesalePrice > 0 && p.wholesalePrice < p.price) ? p.wholesalePrice : p.price;
-        html += '<div style="font-size:16px;font-weight:800;color:#3483fa">$'+precioOferta.toFixed(0)+'</div>';
-        html += qty===0
-          ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="margin-top:8px;width:100%;background:#3483fa;color:#fff;border:none;border-radius:8px;padding:6px;font-weight:700;font-size:12px;cursor:pointer">Agregar</button>'
-          : '<div style="margin-top:8px;display:flex;align-items:center;justify-content:center;gap:6px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#eef0f5;color:#3483fa;border:none;border-radius:6px;width:28px;height:28px;font-size:16px;cursor:pointer;font-weight:700">−</button><span style="font-weight:700;color:#333">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:6px;width:28px;height:28px;font-size:16px;cursor:pointer;font-weight:700">+</button></div>';
-        html += '</div>';
-      });
-      html += '</div></div>';
-    }
-  }
-  // Novedades de precio: subidas Y bajadas últimas 48hs, mezcladas y ordenadas por fecha
-  if(!q && cat==='todas') {
-    const novedades = prods.filter(p => {
-      if(!p.priceHistory||!p.priceHistory.length) return false;
-      const last = p.priceHistory[p.priceHistory.length-1];
-      const horas = (now - new Date(last.date).getTime()) / 3600000;
-      return horas <= 48 && last.price !== p.price;
-    }).sort(function(a,b){
-      const da = a.priceHistory[a.priceHistory.length-1].date||'';
-      const db = b.priceHistory[b.priceHistory.length-1].date||'';
-      return db < da ? -1 : 1;
-    });
-    if(novedades.length) {
-      html += '<div style="background:#f8faff;border-radius:16px;padding:0;border:1.5px solid #c7d7f0;margin-bottom:12px;overflow:hidden;box-shadow:0 2px 10px rgba(30,58,95,.08)">';
-      html += '<div style="background:#1e3a5f;padding:10px 14px;font-size:14px;font-weight:800;color:#fff">💰 Cambiaron de precio <span style="font-size:11px;color:rgba(255,255,255,.75);font-weight:400">últimas 48hs</span></div>';
-      html += '<div style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:14px">';
-      novedades.forEach(p => {
-        const last = p.priceHistory[p.priceHistory.length-1];
-        const subio = p.price > last.price;
-        const pct = Math.abs(Math.round((p.price - last.price) / last.price * 100));
-        const color = subio ? '#dc2626' : '#16a34a';
-        const bgCard = subio ? '#fff8f8' : '#f0fdf4';
-        const border = subio ? '#fca5a5' : '#86efac';
-        const badge = subio ? '▲ +'+pct+'%' : '▼ -'+pct+'%';
-        html += '<div onclick="tiendaIrAProducto(\''+p.id+'\')" style="flex-shrink:0;width:120px;background:'+bgCard+';border-radius:14px;overflow:hidden;border:2px solid '+border+';box-shadow:0 2px 8px rgba(0,0,0,.08);cursor:pointer">';
-        html += p.image
-          ? '<img src="'+p.image+'" loading="lazy" decoding="async" style="width:100%;height:75px;object-fit:cover;display:block">'
-          : '<div style="width:100%;height:75px;background:'+bgCard+';display:flex;align-items:center;justify-content:center;font-size:28px">'+(p.emoji||'📦')+'</div>';
-        html += '<div style="padding:8px">';
-        html += '<div style="font-size:11px;font-weight:600;color:#222;line-height:1.3;margin-bottom:5px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">'+p.name+'</div>';
-        html += '<div style="font-size:11px;color:#999;text-decoration:line-through;margin-bottom:1px">$'+last.price.toFixed(0)+'</div>';
-        html += '<div style="font-size:15px;font-weight:900;color:'+color+';margin-bottom:4px">$'+p.price.toFixed(0)+'</div>';
-        html += '<div style="display:inline-block;background:'+color+';color:#fff;border-radius:8px;padding:4px 8px;font-size:12px;font-weight:900;letter-spacing:.5px">'+badge+'</div>';
-        html += '</div></div>';
-      });
-      html += '</div></div>';
-    }
-  }
-  // Sección "Nuevos en la tienda" (última semana, solo si no hay filtro)
-  if(!q && cat==='todas') {
-    const ahora = Date.now();
-    const unaSemana = 7 * 24 * 3600 * 1000;
-    const nuevos = prods.filter(p => {
-      // Antes solo miraba createdAt (cuando se creó el producto) — un producto
-      // que ya existía hace meses pero recién ahora se activa como visible
-      // nunca aparecía acá, aunque sea la primera vez que el cliente lo ve.
-      // Ahora se usa la fecha mas reciente entre "se creó" y "se hizo visible".
-      const desdeVisible = p.visibleSince ? new Date(p.visibleSince).getTime() : 0;
-      const fechaRelevante = Math.max(p.createdAt||0, desdeVisible);
-      if(!fechaRelevante) return false;
-      return (ahora - fechaRelevante) <= unaSemana;
-    }).sort(function(a,b){
-      const fa = Math.max(a.createdAt||0, a.visibleSince?new Date(a.visibleSince).getTime():0);
-      const fb = Math.max(b.createdAt||0, b.visibleSince?new Date(b.visibleSince).getTime():0);
-      return fb - fa;
-    });
-    if(nuevos.length) {
-      html += '<div style="background:#f0fdf4;border-radius:16px;padding:0;border:1.5px solid #bbf7d0;margin-bottom:12px;overflow:hidden;box-shadow:0 2px 10px rgba(22,163,74,.08)">';
-      html += '<div style="background:#16a34a;padding:10px 14px;font-size:14px;font-weight:800;color:#fff">🆕 Agregados recientemente</div>';
-      html += '<div style="display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:14px">';
-      nuevos.forEach(p => {
-        const imgBox = p.image
-          ? '<img src="'+p.image+'" loading="lazy" decoding="async" style="width:100%;height:90px;object-fit:cover;display:block">'
-          : '<div style="width:100%;height:90px;background:#e8f5e9;display:flex;align-items:center;justify-content:center"><span style="font-size:26px">'+(p.emoji||'📦')+'</span></div>';
-        html += '<div onclick="tiendaIrAProducto(\''+p.id+'\')" style="flex-shrink:0;width:130px;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #bbf7d0;box-shadow:0 1px 4px rgba(0,0,0,.06);cursor:pointer">'
-          + imgBox
-          + '<div style="padding:8px">'
-          + '<div style="font-size:12px;font-weight:600;color:#1e293b;line-height:1.3;margin-bottom:4px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">'+p.name+'</div>'
-          + '<div style="font-size:14px;font-weight:800;color:#16a34a">$'+p.price.toFixed(0)+'</div>'
-          + '</div>'
-          + '</div>';
-      });
-      html += '</div></div>';
-    }
-  }
-  // Scroll infinito: se calcula mas abajo, DESPUES de que la lista quede en su
-  // orden final (incluido el reordenamiento por categoria de la vista grilla),
-  // para que las paginas sean un prefijo estable del mismo orden y no se repitan
-  // encabezados de categoria entre una pagina y la siguiente.
-  const totalFiltrados = prods.length;
-
-  if(T_VISTA_TIPO === 'grilla') {
-    if(cat === 'todas' && !q) {
-      // Rotar el punto de partida del orden alfabético según la semana del año,
-      // para que la categoría que aparece primero cambie con el tiempo (refresh visual sin curación manual)
-      const cats = [...new Set(prods.map(p=>(p.category||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
-      const semanaDelAnio = Math.floor((Date.now() - new Date(new Date().getFullYear(),0,1)) / (7*24*3600*1000));
-      const offset = cats.length ? semanaDelAnio % cats.length : 0;
-      const catsRotadas = cats.slice(offset).concat(cats.slice(0, offset));
-      const ordenCat = {}; catsRotadas.forEach((c,i)=>{ ordenCat[c]=i; });
-      prods.sort((a,b)=>{
-        const cA=(a.category||'').trim();const cB=(b.category||'').trim();
-        const oA = cA ? (ordenCat[cA]??999) : 1000;
-        const oB = cB ? (ordenCat[cB]??999) : 1000;
-        if(oA!==oB) return oA-oB;
-        return a.name.localeCompare(b.name,'es');
-      });
-      let lastCat = null; let gridItems = '';
-      const prodsPagina = prods.slice(0, _tiendaPagina * TIENDA_PAGE_SIZE);
-      for(const p of prodsPagina) {
-        const pCat = (p.category||'').trim();
-        if(pCat && pCat !== lastCat) {
-          gridItems += '<div style="grid-column:1/-1;display:flex;justify-content:center;margin:8px 0 2px"><div style="background:#ffe600;color:#333;padding:4px 18px;border-radius:20px;font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase">'+pCat+'</div></div>';
-          lastCat = pCat;
-        }
-        gridItems += tiendaProdCardGrid(p);
-      }
-      lista.innerHTML = html + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 0 4px;width:100%">'+gridItems+'</div>';
-    } else {
-      lista.innerHTML = html + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 0 4px;width:100%">'+prods.slice(0, _tiendaPagina * TIENDA_PAGE_SIZE).map(tiendaProdCardGrid).join('')+'</div>';
-    }
+    html += '<div class="tn-busq"><span>🔍 Resultados de tu búsqueda</span><button onclick="tiendaLimpiarBuscar()">✕ Ver todo</button></div>';
   } else {
-    lista.innerHTML = html + prods.slice(0, _tiendaPagina * TIENDA_PAGE_SIZE).map(tiendaProdCard).join('');
+    const nom = cat === 'ofertas' ? '🔥 Ofertas' : (_tnEmojiCat(cat) + ' ' + _tnCatNombre(cat));
+    html += '<div class="tn-cattit"><h2>' + nom + '</h2><small>' + prods.length + ' producto' + (prods.length !== 1 ? 's' : '') + '</small></div>';
   }
-  // Indicador de "cargando mas" / centinela para el scroll infinito
-  const hayMasProductos = totalFiltrados > _tiendaPagina * TIENDA_PAGE_SIZE;
-  if(hayMasProductos) {
-    lista.innerHTML += '<div id="tienda-scroll-centinela" style="text-align:center;padding:16px;color:#999;font-size:13px">Cargando más productos…</div>';
-  }
+  if(!prods.length) html += '<div class="tn-vacio">' + (q ? 'No encontramos productos con esa búsqueda' : 'No hay productos en esta categoría') + '</div>';
+  html += '<div class="tn-lista">' + prods.slice(0, _tiendaPagina * TIENDA_PAGE_SIZE).map(tiendaProdCardNueva).join('') + '</div>';
+  if(prods.length > _tiendaPagina * TIENDA_PAGE_SIZE) html += '<div id="tienda-scroll-centinela" style="text-align:center;padding:16px;color:#999;font-size:13px">Cargando más productos…</div>';
+  html += '</div>';
+  lista.innerHTML = html;
   try { _tiendaSetupScrollInfinito(); } catch(e) {}
-  tiendaRenderCats();
   tiendaActBadge();
   tiendaActTotal();
+}
+// ---- Ayudas del diseño 4.6.0 ----
+function _tnEsc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function _tnCatDe(p) { return ((p && p.category) || '').trim() || 'Otros'; }
+const _TN_CAT_EMOJI = {
+  'aceites':'🫙','bebidas':'🥤','galletitas':'🍪','golosinas':'🍬','snacks':'🍿',
+  'limpieza':'🧴','higiene':'🧴','lácteos':'🥛','lacteos':'🥛','harinas':'🌾',
+  'conservas':'🥫','condimentos':'🧂','azúcar':'🍚','azucar':'🍚','arroz':'🍚',
+  'fideos':'🍝','pasta':'🍝','aceite':'🫙','yerba':'🧉','café':'☕','cafe':'☕',
+  'té':'🍵','te':'🍵','infusiones':'🍵','carnes':'🥩','fiambres':'🥩',
+  'congelados':'❄️','verduras':'🥦','frutas':'🍎','panadería':'🥖','panaderia':'🥖',
+  'cigarrillos':'🚬','tabaco':'🚬','kiosco':'🛍️','varios':'📦','despensa':'🥫',
+  'desayuno':'🥐','cerveza':'🍺','vinos':'🍷','licores':'🥃','gaseosas':'🥤',
+  'agua':'💧','jugos':'🧃','quesos':'🧀','otros':'📦','ofertas':'🔥'
+};
+function _tnEmojiCat(c) { return _TN_CAT_EMOJI[String(c || '').toLowerCase().trim()] || '📦'; }
+function _tnCategorias() {
+  const m = {};
+  (S.products || []).forEach(function(p){
+    if(!p || p.visible === false || !(p.price > 0) || !p.name) return;
+    const c = _tnCatDe(p), k = c.toLowerCase();
+    if(!m[k]) m[k] = { key: c, n: 0, prods: [] };
+    m[k].n++; m[k].prods.push(p);
+  });
+  return Object.values(m).sort(function(a, b){
+    const fa = /^(varios|otros)$/i.test(a.key) ? 1 : 0, fb = /^(varios|otros)$/i.test(b.key) ? 1 : 0;
+    return (fa - fb) || (b.n - a.n) || a.key.localeCompare(b.key, 'es');
+  });
+}
+function _tnCatNombre(cat) {
+  const c = _tnCategorias().find(function(x){ return x.key.toLowerCase() === String(cat).toLowerCase(); });
+  return _tnEsc(c ? c.key : cat);
+}
+function _tnImg(p) {
+  return p.image
+    ? '<img src="' + _tnEsc(p.image) + '" loading="lazy" decoding="async" alt="" onerror="this.onerror=null;this.style.opacity=0">'
+    : '<div class="tn-ph">' + (p.emoji || '📦') + '</div>';
+}
+function _tnInicioHtml(todos) {
+  let h = '';
+  const ahora = Date.now();
+  // Ofertas (grande)
+  const ofertas = todos.filter(p => p.oferta).sort(function(a, b){ return ((b.ofertaDesde || '') < (a.ofertaDesde || '') ? -1 : 1); });
+  if(ofertas.length) {
+    h += '<div class="tn-ofertas"><div class="tn-sech"><h2>🔥 OFERTAS DE LA SEMANA</h2>'
+      + '<button class="tn-vt" onclick="tiendaAbrirCat(\'ofertas\')">Ver las ' + ofertas.length + ' →</button></div><div class="tn-carr">';
+    ofertas.forEach(function(p){
+      const precio = (p.wholesalePrice && p.wholesalePrice > 0 && p.wholesalePrice < p.price) ? p.wholesalePrice : p.price;
+      const enPedido = Object.keys(TC).filter(function(k){ return tcProdId(k) === p.id; }).reduce(function(a, k){ return a + TC[k]; }, 0);
+      h += '<div class="tn-of" onclick="tiendaIrAProducto(\'' + p.id + '\')"><span class="tag">OFERTA</span>' + _tnImg(p)
+        + '<div class="n">' + _tnEsc(p.name) + '</div><div class="pr">' + fmtPesos(precio) + '</div>'
+        + (p.sinStockManual ? '<button class="ad" disabled style="background:#eee;color:#999">No disponible</button>'
+          : '<button class="ad' + (enPedido ? ' on' : '') + '" data-tid="' + p.id + '" onclick="event.stopPropagation();tiendaAdd(this.dataset.tid)">' + (enPedido ? '✓ ' + enPedido + ' en tu pedido' : '+ Agregar') + '</button>')
+        + '</div>';
+    });
+    h += '</div></div>';
+  }
+  // Cambiaron de precio (chico)
+  const cambios = todos.filter(function(p){
+    if(!p.priceHistory || !p.priceHistory.length) return false;
+    const last = p.priceHistory[p.priceHistory.length - 1];
+    return (ahora - new Date(last.date).getTime()) / 3600000 <= 48 && last.price !== p.price;
+  }).sort(function(a, b){
+    const da = a.priceHistory[a.priceHistory.length - 1].date || '', db = b.priceHistory[b.priceHistory.length - 1].date || '';
+    return db < da ? -1 : 1;
+  });
+  if(cambios.length) {
+    h += '<div class="tn-sec" style="padding-bottom:0"><div class="tn-sech" style="margin-bottom:7px"><h2 style="font-size:14px">💰 Cambiaron de precio</h2><small>últimas 48 hs</small></div></div><div class="tn-chips">';
+    cambios.forEach(function(p){
+      const last = p.priceHistory[p.priceHistory.length - 1], subio = p.price > last.price;
+      h += '<div class="tn-cp" onclick="tiendaIrAProducto(\'' + p.id + '\')">' + _tnImg(p) + '<span>' + _tnEsc(p.name.length > 24 ? p.name.slice(0, 23) + '…' : p.name) + '</span>'
+        + '<s>' + fmtPesos(last.price) + '</s><span class="' + (subio ? 'tn-up' : 'tn-dn') + '">' + fmtPesos(p.price) + (subio ? ' ↑' : ' ↓') + '</span></div>';
+    });
+    h += '</div>';
+  }
+  // Agregados recientemente (chico)
+  const semana = 7 * 24 * 3600 * 1000;
+  const fechaDe = function(p){ return Math.max(p.createdAt || 0, p.visibleSince ? new Date(p.visibleSince).getTime() : 0); };
+  const nuevos = todos.filter(function(p){ const f = fechaDe(p); return f && (ahora - f) <= semana; }).sort(function(a, b){ return fechaDe(b) - fechaDe(a); });
+  if(nuevos.length) {
+    h += '<div class="tn-sec" style="padding-bottom:0"><div class="tn-sech" style="margin-bottom:7px"><h2 style="font-size:14px">🆕 Agregados recientemente</h2></div></div><div class="tn-chips">';
+    nuevos.forEach(function(p){
+      h += '<div class="tn-cp" onclick="tiendaIrAProducto(\'' + p.id + '\')">' + _tnImg(p) + '<span>' + _tnEsc(p.name.length > 26 ? p.name.slice(0, 25) + '…' : p.name) + '</span><span class="tn-dn">' + fmtPesos(p.price) + '</span></div>';
+    });
+    h += '</div>';
+  }
+  // Categorias en recuadros con mosaico de 4 fotos
+  const cats = _tnCategorias();
+  h += '<div class="tn-sec"><div class="tn-sech"><h2>CATEGORÍAS</h2><small>tocá una para ver sus productos</small></div><div class="tn-cats">';
+  cats.forEach(function(c){
+    const fotos = c.prods.slice().sort(function(a, b){ return ((b.image ? 1 : 0) - (a.image ? 1 : 0)) || ((b.oferta ? 1 : 0) - (a.oferta ? 1 : 0)) || a.name.localeCompare(b.name, 'es'); }).slice(0, 4);
+    while(fotos.length < 4) fotos.push({ emoji: _tnEmojiCat(c.key) });
+    h += '<button class="tn-cat" data-cat="' + _tnEsc(c.key) + '" onclick="tiendaAbrirCat(this.dataset.cat)"><div class="tn-mos">' + fotos.map(_tnImg).join('') + '</div>'
+      + '<div class="cn">' + _tnEmojiCat(c.key) + ' ' + _tnEsc(c.key) + '</div><div class="cc">' + c.n + ' producto' + (c.n !== 1 ? 's' : '') + '</div></button>';
+  });
+  h += '</div></div>';
+  return h;
+}
+function tiendaProdCardNueva(p) {
+  const hasVar = p.variantes && p.variantes.length;
+  const qty = hasVar
+    ? Object.entries(TC).filter(function(e){ return tcProdId(e[0]) === p.id; }).reduce(function(s, e){ return s + e[1]; }, 0)
+    : (TC[p.id] || 0);
+  const step = p.fracMin && p.fracMin > 1 ? p.fracMin : 1;
+  const sinStock = !!p.sinStockManual;
+  const bq = bultoDe(p);
+  const det = p.desc ? ' onclick="tiendaAbrirDetalle(\'' + p.id + '\')" style="cursor:pointer"' : '';
+  const img = p.image
+    ? '<img src="' + _tnEsc(p.image) + '" loading="lazy" decoding="async" alt="" onerror="this.onerror=null;this.style.opacity=0"' + det + '>'
+    : '<div class="tn-ph"' + det + '>' + (p.emoji || '📦') + '</div>';
+  const sub = hasVar ? (p.variantes.length + ' variantes para elegir')
+    : (bq > 1 ? 'Bulto x' + bq + ' unidades' : (step > 1 ? 'Se vende de a ' + step : 'Por unidad'));
+  const pc = getPriceChangeHtml(p, '22px', '#1f5fc4', 'margin-top:4px');
+  const precio = pc ? pc : '<div class="tn-pp">' + fmtPesos(p.price) + ' <small>/ unidad</small></div>';
+  let mayor = '';
+  if(p.wholesalePrice && p.wholesaleQty) {
+    mayor = (qty > 0 && tiendaGetPrice(p, qty) === p.wholesalePrice)
+      ? '<div class="tn-pm">⭐ Precio mayorista aplicado: ' + fmtPesos(p.wholesalePrice) + '</div>'
+      : '<div class="tn-pm">' + fmtPesos(p.wholesalePrice) + ' llevando ' + p.wholesaleQty + ' o más</div>';
+  }
+  const descHtml = p.desc ? '<div class="tn-pd"' + det + '>' + _tnEsc(p.desc) + '</div>' : '';
+  let ctrl;
+  if(sinStock) ctrl = '<button class="tn-nodisp" disabled>No disponible por ahora</button>';
+  else if(hasVar) ctrl = '<button class="tn-var" data-tid="' + p.id + '" onclick="tiendaAdd(this.dataset.tid)">Elegir variante' + (qty ? ' · ' + qty + ' en tu pedido' : '') + '</button>';
+  else {
+    const bul = bq > 1 ? Math.floor(qty / bq) : 0;
+    const sue = qty - bul * (bq > 1 ? bq : 0);
+    const lbl = _tnEsc(_labelUnidad(p));
+    ctrl = '<div class="tn-steps' + (bq > 1 ? '' : ' uno') + '">'
+      + '<div class="tn-st"><button data-tid="' + p.id + '" onclick="tiendaDec(this.dataset.tid)"' + (sue > 0 ? '' : ' disabled') + ' aria-label="menos">−</button>'
+      + '<div class="v"><b>' + sue + '</b><span>' + lbl + '</span></div>'
+      + '<button class="mas" data-tid="' + p.id + '" onclick="tiendaAdd(this.dataset.tid)" aria-label="más">+</button></div>'
+      + (bq > 1 ? '<div class="tn-st"><button data-tid="' + p.id + '" onclick="tiendaDecBulto(this.dataset.tid)"' + (bul > 0 ? '' : ' disabled') + ' aria-label="menos bultos">−</button>'
+        + '<div class="v"><b>' + bul + '</b><span>Bultos</span></div>'
+        + '<button class="mas" data-tid="' + p.id + '" onclick="tiendaAddBulto(this.dataset.tid)" aria-label="más bultos">+</button></div>' : '')
+      + '</div>';
+  }
+  return '<div class="tn-pc' + (qty > 0 ? ' sel' : '') + '" data-prod-id="' + p.id + '">'
+    + (sinStock ? '<div class="tn-rib">SIN STOCK</div>' : '')
+    + '<div class="tn-pt">' + img + '<div class="tn-pi"><div class="tn-pn">' + _tnEsc(p.name) + (p.oferta ? '<span class="tn-ofb">OFERTA</span>' : '') + '</div>'
+    + '<div class="tn-pb">' + sub + '</div>' + precio + mayor + descHtml + '</div></div>' + ctrl + '</div>';
+}
+function tiendaDecBulto(id) {
+  const p = S.products.find(function(x){ return x.id === id; });
+  const bq = bultoDe(p);
+  if(!p || bq < 2) { tiendaDec(id); return; }
+  TC[id] = (TC[id] || 0) - bq;
+  if(TC[id] <= 0) delete TC[id];
+  _tiendaActualizarTarjeta(id);
+  if(document.getElementById('tienda-carrito').style.display !== 'none') tiendaRenderCarrito();
+  tiendaActTotal();
+  tiendaActBadge();
+}
+function _tiendaScrollArriba() {
+  const app = document.getElementById('tienda-app');
+  if(app && app.classList.contains('tn-pagina')) window.scrollTo(0, 0);
+  else if(app) app.scrollTop = 0;
+}
+function _tnPushCat() {
+  const bq = document.getElementById('tienda-buscar');
+  if((window.T_CAT || 'todas') === 'todas' && !(bq && bq.value)) { try { history.pushState({ tienda: 'cat' }, '', ''); } catch(e) {} }
+}
+function tiendaAbrirCat(c) {
+  _tnPushCat();
+  window.T_CAT = c || 'todas';
+  const bq = document.getElementById('tienda-buscar');
+  if(bq && bq.value) { bq.value = ''; const x = document.getElementById('tienda-buscar-x'); if(x) x.style.display = 'none'; }
+  tiendaRender();
+  _tiendaScrollArriba();
+}
+function tiendaIrInicio(desdeAtras) {
+  window.T_CAT = 'todas';
+  const bq = document.getElementById('tienda-buscar');
+  if(bq && bq.value) { bq.value = ''; const x = document.getElementById('tienda-buscar-x'); if(x) x.style.display = 'none'; }
+  tiendaRender();
+  _tiendaScrollArriba();
+}
+function tnIrABuscar() {
+  _tiendaScrollArriba();
+  setTimeout(function(){ const b = document.getElementById('tienda-buscar'); if(b) b.focus(); }, 250);
 }
 // Scroll infinito: observa el centinela que queda al final de la lista (mientras
 // haya mas productos por mostrar) y, apenas entra en pantalla, pide la pagina
@@ -11781,34 +12294,31 @@ function _tiendaSetupScrollInfinito() {
       _tiendaMantenerPagina = true;
       tiendaRender();
     }
-  }, { root: document.getElementById('tienda-app'), rootMargin: '400px' });
+  }, { root: (document.getElementById('tienda-app').classList.contains('tn-pagina') ? null : document.getElementById('tienda-app')), rootMargin: '400px' });
   _tiendaScrollObserver.observe(centinela);
 }
 function tiendaRenderCats() {
+  // 4.6.0: grilla fija arriba con TODAS las categorias (sin carrusel que haya que deslizar)
   const el = document.getElementById('tienda-cats');
-  if(!el) return;
-  const cats = [...new Set(S.products.filter(p=>p.visible!==false&&p.price>0&&p.category).map(p=>p.category))].sort();
-  const hasOfertas = S.products.some(p=>p.oferta&&p.visible!==false);
-  const cat = window.T_CAT||'todas';
-  const CAT_EMOJI = {
-    'aceites':'🫙','bebidas':'🥤','galletitas':'🍪','golosinas':'🍬','snacks':'🍿',
-    'limpieza':'🧹','higiene':'🧴','lácteos':'🥛','lacteos':'🥛','harinas':'🌾',
-    'conservas':'🥫','condimentos':'🧂','azúcar':'🍚','azucar':'🍚','arroz':'🍚',
-    'fideos':'🍝','pasta':'🍝','aceite':'🫙','yerba':'🧉','café':'☕','cafe':'☕',
-    'té':'🍵','te':'🍵','infusiones':'🍵','carnes':'🥩','fiambres':'🥩',
-    'congelados':'❄️','verduras':'🥦','frutas':'🍎','panadería':'🥖','panaderia':'🥖',
-    'cigarrillos':'🚬','tabaco':'🚬','kiosco':'🛍️','varios':'📦','despensa':'🛒',
-    'desayuno':'🥐','cerveza':'🍺','vinos':'🍷','licores':'🥃','gaseosas':'🥤',
-    'agua':'💧','jugos':'🧃','lácteo':'🥛','lacteo':'🥛','quesos':'🧀'
-  };
-  const getEmoji = (c) => {
-    const key = c.toLowerCase().trim();
-    return CAT_EMOJI[key] || '📦';
-  };
-  const btnStyle = (active) => 'flex-shrink:0;padding:11px 20px;border-radius:24px;border:none;font-size:16px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 1px 4px rgba(52,131,250,.15);'+(active?'background:#3483fa;color:#fff':'background:#fff;color:#3483fa;border:2px solid #3483fa40');
-  el.innerHTML = '<button style="'+btnStyle(cat==='todas')+'" onclick="window.T_CAT=&quot;todas&quot;;tiendaRender()">🏪 Todas</button>'
-    +(hasOfertas?'<button style="'+btnStyle(cat==='ofertas')+'" onclick="window.T_CAT=&quot;ofertas&quot;;tiendaRender()">🔥 Ofertas</button>':'')
-    +cats.map(c=>'<button style="'+btnStyle(cat===c)+'" onclick="window.T_CAT=&quot;'+c+'&quot;;tiendaRender()">'+getEmoji(c)+' '+c+'</button>').join('');
+  const stick = document.getElementById('tn-stick');
+  const bq = document.getElementById('tienda-buscar');
+  const q = bq && bq.value ? bq.value.trim() : '';
+  const cat = window.T_CAT || 'todas';
+  const enInicio = cat === 'todas' && !q;
+  if(stick) stick.style.display = enInicio ? 'none' : 'block';
+  if(!el || enInicio) return;
+  const items = _tnCategorias().map(function(c){ return { key: c.key, nombre: c.key }; });
+  if((S.products || []).some(function(p){ return p.oferta && p.visible !== false && p.price > 0; })) items.unshift({ key: 'ofertas', nombre: 'Ofertas' });
+  el.style.gridTemplateColumns = 'repeat(' + (items.length <= 8 ? 4 : 5) + ',1fr)';
+  el.innerHTML = items.map(function(x){
+    const on = !q && x.key.toLowerCase() === String(cat).toLowerCase();
+    return '<button class="tn-cg' + (on ? ' on' : '') + '" data-cat="' + _tnEsc(x.key) + '" onclick="tiendaAbrirCat(this.dataset.cat)"><i>' + _tnEmojiCat(x.key) + '</i>' + _tnEsc(x.nombre) + '</button>';
+  }).join('');
+}
+function tnVolverInicio() {
+  const st = history.state;
+  if(st && st.tienda === 'cat') { history.back(); return; }  // el popstate lleva al inicio
+  tiendaIrInicio(true);
 }
 
 // ── Helpers para keys de carrito con variante ──────────────────────────────
@@ -11953,7 +12463,7 @@ function _tiendaActualizarTarjeta(prodId) {
   if (!p) return;
   const el = document.querySelector('[data-prod-id="'+prodId+'"]');
   if (!el) { tiendaRender(); return; }
-  const nuevoHtml = T_VISTA_TIPO === 'grilla' ? tiendaProdCardGrid(p) : tiendaProdCard(p);
+  const nuevoHtml = tiendaProdCardNueva(p);
   const temp = document.createElement('div');
   temp.innerHTML = nuevoHtml;
   const nuevoEl = temp.firstElementChild;
@@ -12083,6 +12593,12 @@ function tiendaActTotal() {
   if(totalEl) totalEl.textContent='$'+total.toFixed(2);
   const totalCEl = document.getElementById('tienda-total-carrito');
   if(totalCEl) totalCEl.textContent='$'+total.toFixed(2);
+  try {
+    const n = Object.keys(TC).filter(function(k){ return TC[k] > 0; }).length;
+    const tt = document.getElementById('tn-bar-tit'), ts = document.getElementById('tn-bar-sub');
+    if(tt) tt.textContent = n ? 'Tu pedido · ' + fmtPesos(total) : 'Tu pedido está vacío';
+    if(ts) ts.textContent = n ? (n + ' producto' + (n > 1 ? 's' : '') + ' cargado' + (n > 1 ? 's' : '')) : 'Elegí una categoría y cargá unidades o bultos';
+  } catch(e) {}
   try { tiendaRenderEnvio(total); } catch(e) {}
 }
 
@@ -12263,14 +12779,22 @@ async function tiendaConfirmar() {
   // igual — mejor dejar pasar el pedido que trabar al cliente por mala señal
   // justo en este momento.
   try {
-    const cargar = window._fbLoadTienda || window._fbLoad;
+    // Tienda rapida: se relee solo el catalogo (1 documento) y, si el cliente todavia no
+    // fue reconocido, se lo busca antes de crear una ficha nueva.
+    const _rapida = _ES_TIENDA_URL && window._tiendaModoCarga === 'rapida' && typeof window._fbLeerCatalogo === 'function';
+    const cargar = _rapida
+      ? function(){ return window._fbLeerCatalogo().then(function(d){ if(d) delete d.__catalogo; return d; }); }
+      : (window._fbLoadTienda || window._fbLoad);
     if(cargar) {
-      const _esperaMs = (S.clients && S.clients.length) ? 4000 : 12000;
+      const _esperaMs = (_rapida || (S.clients && S.clients.length)) ? 4000 : 12000;
       const data = await Promise.race([
         cargar(),
         new Promise(resolve => setTimeout(()=>resolve(null), _esperaMs))
       ]);
       if(data) Object.assign(S, data);
+    }
+    if(_rapida && !TC_CLI) {
+      try { await Promise.race([_tiendaIdentificar(), new Promise(function(r){ setTimeout(r, 6000); })]); } catch(e) {}
     }
     try { tiendaRematchCliente(); } catch(e) {}
   } catch(e) { console.warn('Verificación de último momento falló, se sigue de largo', e); }
@@ -12330,7 +12854,7 @@ async function tiendaConfirmar() {
   if(!cli) {
     const color = '#'+Math.floor(Math.random()*0xffffff).toString(16).padStart(6,'0');
     const nombreVisitante = 'Visitante +549'+TC_PHONE.replace(/^549/,'').replace(/^0/,'');
-    cli = {id:'CLI-WEB-'+Date.now(), name: nombreVisitante, phone: TC_PHONE, email:'', type:'minorista', color, credito:0};
+    cli = {id:'CLI-WEB-'+Date.now(), name: nombreVisitante, phone: TC_PHONE, email:'', type:'minorista', color, credito:0, tel6: _tel6De(TC_PHONE)};
     S.clients.push(cli);
     S.nCli++;
     try{renderClis();}catch(e){}
@@ -12433,6 +12957,7 @@ async function _tiendaGuardarYAbrir() {
     // El pedido nuevo cambia el gasto del mes y el saldo: refrescar ambos
     try { tiendaRenderNivel(); } catch(e) {}
     try { tiendaRenderSaldo(); } catch(e) {}
+    try { tiendaActTotal(); } catch(e) {}
     ov.innerHTML =
       '<div style="background:#fff;border-radius:18px;padding:36px 26px;text-align:center;max-width:360px;width:100%;box-shadow:0 8px 30px rgba(0,0,0,.25)">'
       +'<div style="font-size:54px;margin-bottom:12px">📲</div>'
@@ -12464,10 +12989,17 @@ function tiendaCerrarConfirm() {
 
 // Manejar botón atrás en tienda
 window.addEventListener('popstate', function(e) {
+  if(window._tnIgnorarPop) { window._tnIgnorarPop = false; return; }
   if(document.getElementById('tienda-app').style.display !== 'none') {
     const car = document.getElementById('tienda-carrito');
+    const per = document.getElementById('tn-perfil');
+    const bq = document.getElementById('tienda-buscar');
     if(car && car.style.display !== 'none') {
       tiendaVolverCatalogo();
+    } else if(per && per.style.display === 'flex') {
+      tnCerrarPerfil();
+    } else if(T_VISTA === 'catalogo' && ((window.T_CAT || 'todas') !== 'todas' || (bq && bq.value))) {
+      tiendaIrInicio(true);
     } else {
       history.back();
     }
