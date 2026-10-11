@@ -31,7 +31,7 @@
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc, getDocs, collection, writeBatch, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getFirestore, doc, setDoc, getDoc, getDocs, collection, writeBatch, deleteDoc, onSnapshot, query, where, Timestamp, serverTimestamp, getCountFromServer } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, deleteUser, reauthenticateWithPopup } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
   import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject, listAll } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
@@ -110,6 +110,18 @@
   function cleanUndefined(obj) {
     return JSON.parse(JSON.stringify(obj, function(k,v){ return v === undefined ? null : v; }));
   }
+  // Cada registro que se sube lleva la hora del SERVIDOR de su ultimo cambio (_mod).
+  // Asi el otro celular puede pedir solo lo que cambio desde la ultima vez.
+  function conMod(obj) {
+    const o = cleanUndefined(obj);
+    // El visitante de la tienda de OTRO negocio solo puede crear su pedido con las reglas actuales:
+    // ahi no se agrega ningun campo extra (el dueno lo detecta por el control de cantidad).
+    if(_esTienda && _bizUid) return o;
+    o._mod = serverTimestamp();
+    return o;
+  }
+  // _mod no se guarda en la app (es solo para sincronizar)
+  function sinMod(d) { const o = d.data(); if(o && o._mod !== undefined) delete o._mod; return o; }
 
   // Obtener referencia a colección individual v2
   // Seguridad: en el panel, sin sesion iniciada no se toca ninguna ruta.
@@ -271,7 +283,7 @@
           const chunk = records.slice(i, i + BATCH_SIZE);
           chunk.forEach(rec => {
             if(!rec.id) return;
-            batch.set(v2doc(col, rec.id), cleanUndefined(rec));
+            batch.set(v2doc(col, rec.id), conMod(rec));
           });
           await batch.commit();
           done += chunk.length;
@@ -318,7 +330,7 @@
           for(let i = 0; i < records.length; i += 400) {
             const batch = writeBatch(db);
             records.slice(i, i+400).forEach(rec => {
-              if(rec && rec.id) batch.set(v2doc(col, rec.id), cleanUndefined(rec));
+              if(rec && rec.id) batch.set(v2doc(col, rec.id), conMod(rec));
             });
             allBatches.push(batch.commit());
           }
@@ -352,7 +364,7 @@
           for(let i = 0; i < aEnviar.length; i += 400) {
             const batch = writeBatch(db);
             aEnviar.slice(i, i+400).forEach(rec => {
-              batch.set(v2doc(f, rec.id), cleanUndefined(rec));
+              batch.set(v2doc(f, rec.id), conMod(rec));
               enviados.push([f, rec.id, _seq[f].get(rec.id)]);
               _vuelo[f].set(rec.id, _seq[f].get(rec.id));
             });
@@ -443,7 +455,7 @@
         for(let i = 0; i < aEnviar.length; i += 400) {
           const batch = writeBatch(db);
           aEnviar.slice(i, i+400).forEach(rec => {
-            batch.set(v2doc(col, rec.id), cleanUndefined(rec));
+            batch.set(v2doc(col, rec.id), conMod(rec));
             enviados.push([col, rec.id, _seq[col].get(rec.id)]); // limpiar SOLO tras confirmar
             _vuelo[col].set(rec.id, _seq[col].get(rec.id));
           });
@@ -528,7 +540,7 @@
       }
       const result = {};
       COLS.forEach((col, i) => {
-        result[col] = colSnaps[i].docs.map(d => d.data());
+        result[col] = colSnaps[i].docs.map(d => sinMod(d));
       });
       if(cfgSnap.exists()) Object.assign(result, cfgSnap.data());
       // (Antes aca se borraba la lista de cambios sin subir: si una subida habia fallado,
@@ -557,7 +569,7 @@
       if(colRes[0].status !== 'fulfilled') throw colRes[0].reason; // sin productos no hay tienda
       const result = {};
       COLS_TIENDA.forEach((col, i) => {
-        if(colRes[i].status === 'fulfilled') result[col] = colRes[i].value.docs.map(d => d.data());
+        if(colRes[i].status === 'fulfilled') result[col] = colRes[i].value.docs.map(d => sinMod(d));
         else console.warn('Tienda: no se pudo leer ' + col, colRes[i].reason);
       });
       if(cfgSnap.exists()) Object.assign(result, cfgSnap.data());
@@ -570,25 +582,77 @@
   // (las reglas de Firestore no se lo permiten, y no hace falta: el stock se
   // recalcula solo cuando el negocio abre la app).
   window._fbTiendaGuardarPedido = async function(inv, cliNuevo) {
-    if(cliNuevo) await setDoc(v2doc('clients', cliNuevo.id), cleanUndefined(cliNuevo));
+    if(cliNuevo) await setDoc(v2doc('clients', cliNuevo.id), conMod(cliNuevo));
     window._tcPendingCliNuevo = null; // ya quedo guardado: un reintento no lo vuelve a crear
-    await setDoc(v2doc('invoices', inv.id), cleanUndefined(inv));
+    await setDoc(v2doc('invoices', inv.id), conMod(inv));
   };
 
   // Eliminar documento individual de Firestore
+  // Lapida: queda anotado que se borro algo para que el otro celular tambien lo saque.
+  // Va en un doc chico aparte (meta/borrados). Si no se puede escribir, no pasa nada:
+  // el control por cantidad del otro celular lo detecta igual y baja todo de nuevo.
+  function _clave(col, id) { return col + '__' + String(id).replace(/[.\/%]/g, function(c){ return '%' + c.charCodeAt(0).toString(16); }); }
+  async function _lapida(col, id) {
+    try { await setDoc(v2doc('meta', 'borrados'), { [_clave(col, id)]: serverTimestamp() }, { merge: true }); } catch(e) {}
+  }
   window._fbDeleteDoc = async function(col, id) {
     if(_delQ[col]) { _delQ[col].add(id); if(_dirty[col]) _dirty[col].delete(id); _copiaAvisar(); }
     try {
       await deleteDoc(v2doc(col, id));
+      _lapida(col, id);
       if(_delQ[col] && _delQ[col].delete(id)) { try { window._copiaProgramar && window._copiaProgramar(true); } catch(e) {} }
     }
     catch(e) { console.error('Firebase delete error:', e); }
+  };
+  // ---- Sincronizacion incremental ----
+  // Hora del servidor (para no depender del reloj del celular). Si no se puede, reloj del celular.
+  window._fbServerNow = async function() {
+    try {
+      await setDoc(v2doc('meta', 'reloj'), { t: serverTimestamp() });
+      const sn = await getDoc(v2doc('meta', 'reloj'));
+      const t = sn.exists() && sn.data() && sn.data().t;
+      if(t && typeof t.toMillis === 'function') return t.toMillis();
+    } catch(e) {}
+    return Date.now();
+  };
+  // Pide SOLO lo modificado desde "desdeMs" (hora de servidor) + el doc de configuracion + las lapidas
+  window._fbSyncInc = async function(desdeMs) {
+    const desde = Timestamp.fromMillis(desdeMs);
+    const [snaps, cfgSnap, borrSnap] = await Promise.all([
+      Promise.all(COLS.map(col => getDocs(query(v2col(col), where('_mod', '>', desde))))),
+      getDoc(v2config()),
+      getDoc(v2doc('meta', 'borrados')).catch(function(){ return null; })
+    ]);
+    if(snaps.some(s => s && s.metadata && s.metadata.fromCache) || (cfgSnap && cfgSnap.metadata && cfgSnap.metadata.fromCache)) {
+      throw new Error('Datos de cache (sin conexion)');
+    }
+    const cambios = {};
+    COLS.forEach((col, i) => { cambios[col] = snaps[i].docs.map(d => sinMod(d)); });
+    const borrados = [];
+    if(borrSnap && borrSnap.exists && borrSnap.exists()) {
+      const o = borrSnap.data() || {};
+      Object.keys(o).forEach(function(k){
+        const v = o[k]; const ms = v && typeof v.toMillis === 'function' ? v.toMillis() : 0;
+        if(ms > desdeMs) {
+          const i = k.indexOf('__'); if(i < 0) return;
+          let id = k.slice(i + 2); try { id = decodeURIComponent(id); } catch(e) {}
+          borrados.push({ col: k.slice(0, i), id: id });
+        }
+      });
+    }
+    return { cambios: cambios, borrados: borrados, cfg: cfgSnap.exists() ? cfgSnap.data() : {} };
+  };
+  // Cantidad real de documentos en el servidor por coleccion (para detectar lo que se hubiera escapado)
+  window._fbContar = async function() {
+    const r = await Promise.all(COLS.map(col => getCountFromServer(v2col(col)).then(s => s.data().count)));
+    const o = {}; COLS.forEach((col, i) => { o[col] = r[i]; });
+    return o;
   };
   // Reintenta los borrados que no llegaron a Firebase (sin señal, app cerrada, etc.)
   window._fbReintentarBorrados = async function() {
     for(const col of COLS) {
       for(const id of Array.from(_delQ[col])) {
-        try { await deleteDoc(v2doc(col, id)); _delQ[col].delete(id); } catch(e) { return; }
+        try { await deleteDoc(v2doc(col, id)); _delQ[col].delete(id); _lapida(col, id); } catch(e) { return; }
       }
     }
     try { window._copiaProgramar && window._copiaProgramar(true); } catch(e) {}
@@ -1545,6 +1609,14 @@ select option{background:var(--surface2)}
       </div>
     </div>
     <div class="card" style="margin-bottom:12px">
+      <div class="card-header"><span class="card-title">🔄 Recargar todos los datos</span></div>
+      <div style="padding:14px 16px">
+        <div style="font-size:14px;color:var(--text3);margin-bottom:12px">La app ya baja solo lo que cambió. Si algo no coincide con el otro celular, este botón descarga todo de nuevo desde Firebase (tarda unos 20 segundos). No borra nada.</div>
+        <button onclick="syncManual(true)" class="btn btn-ghost btn-full">🔄 Recargar todo</button>
+        <div id="cfg-info-sync" style="font-size:12px;color:var(--text3);margin-top:8px"></div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:12px">
       <div class="card-header"><span class="card-title">✨ Novedades</span></div>
       <div style="padding:14px 16px" id="cfg-novedades"></div>
     </div>
@@ -1554,7 +1626,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Cuenta: <strong id="cfg-cuenta" style="color:var(--text)">—</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong id="cfg-ver" style="color:var(--accent);font-size:15px">4.4.1</strong> · <span id="cfg-ver-fecha">11/10/2026</span></div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong id="cfg-ver" style="color:var(--accent);font-size:15px">4.5.0</strong> · <span id="cfg-ver-fecha">11/10/2026</span></div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Cerrar sesión en este dispositivo</button>
         <button id="btn-eliminar-cuenta" onclick="eliminarCuenta()" style="display:none;margin-top:10px;width:100%;padding:10px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🗑️ Eliminar mi cuenta y datos</button>
       </div>
@@ -2298,7 +2370,7 @@ async function _copiaEscribir() {
       if(full) _guardarLocal(_estadoLocal());
     } else if(full) {
       await _IDB.putMany([
-        ['state:' + SK, { v:1, ts: Date.now(), sync: window._ultimaSyncFb || 0, state: _estadoLocal() }],
+        ['state:' + SK, { v:1, ts: Date.now(), sync: window._ultimaSyncFb || 0, srv: window._lastSrv || 0, fullAt: window._fullAt || 0, state: _estadoLocal() }],
         ['pend:' + SK, _pendExportar()]
       ]);
       window._copiaLocalOk = true;
@@ -2328,7 +2400,7 @@ async function _copiaLeer() {
   const r = await _IDB.getMany(['state:' + SK, 'pend:' + SK]);
   const st = r[0];
   if(!st || !st.state) return null;
-  return { state: st.state, sync: st.sync || 0, ts: st.ts || 0, pend: r[1] || null };
+  return { state: st.state, sync: st.sync || 0, srv: st.srv || 0, fullAt: st.fullAt || 0, ts: st.ts || 0, pend: r[1] || null };
 }
 window._copiaBorrar = function() { return _IDB.delMany(['state:' + SK, 'pend:' + SK]).catch(function(){}); };
 // Al salir de la app, escribir enseguida lo que quede
@@ -2400,6 +2472,8 @@ function _aplicarDatosFirebase(d) {
   _CONTADORES.forEach(function(k){ if((S[k] || 0) < cont[k]) S[k] = cont[k]; });
   _fixCounters();
   _reconstruirListaCompras();
+  const _mc = _metaCarga.get(d);
+  if(_mc) { window._lastSrv = _mc.srv; if(_mc.full || !window._fullAt) window._fullAt = Date.now(); }
   window._datosConfiables = true;
   window._datosFirebaseOk = true;
   window._ultimaSyncFb = Date.now();
@@ -2464,15 +2538,75 @@ function _trabajarConCopia() {
   _avisoCopia(true);
   _actualizarEnSegundoPlano();
 }
-let _cargaP = null;
-function _fbLoadSeguro() {
-  if(_cargaP) return _cargaP; // si ya hay una descarga en curso, esperar esa (no bajar todo dos veces)
-  _cargaP = (async function(){
+// ---- Descarga: normalmente solo lo que cambio; completa 1 vez por dia o si algo no cuadra ----
+const _COLS8 = ['products','invoices','clients','compras','proveedores','cobranzas','ajustes','listacompras'];
+const _MARGEN_SRV = 2 * 60 * 1000;          // se retrocede 2 min por escrituras que se cruzan
+const _COMPLETA_CADA = 24 * 3600 * 1000;    // descarga completa de seguridad
+const _metaCarga = new WeakMap();
+function _hayBase() { return _COLS8.every(function(c){ return Array.isArray(S[c]); }) && ((S.products||[]).length > 0 || (S.invoices||[]).length > 0); }
+function _puedeIncremental(ignorarEdad) {
+  return !_ES_TIENDA_URL && !!window._lastSrv && !!window._fullAt && _hayBase()
+    && (ignorarEdad || (Date.now() - window._fullAt) < _COMPLETA_CADA)
+    && typeof window._fbSyncInc === 'function' && typeof window._fbContar === 'function' && typeof window._fbServerNow === 'function';
+}
+function _construirDesdeInc(inc) {
+  const d = {};
+  _COLS8.forEach(function(col){
+    const m = new Map();
+    (S[col] || []).forEach(function(r){ if(r && r.id) m.set(r.id, r); });
+    ((inc.cambios && inc.cambios[col]) || []).forEach(function(r){ if(r && r.id) m.set(r.id, r); });
+    d[col] = Array.from(m.values());
+  });
+  (inc.borrados || []).forEach(function(b){
+    if(!d[b.col]) return;
+    d[b.col] = d[b.col].filter(function(r){ return !(r && r.id === b.id); });
+  });
+  // mismo orden que la descarga completa (por id)
+  _COLS8.forEach(function(col){ d[col].sort(function(a, b){ return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0); }); });
+  Object.assign(d, inc.cfg || {});
+  return d;
+}
+async function _descargaIncremental(ignorarEdad) {
+  const tIni = Date.now();
+  const t0 = await window._fbServerNow();
+  let d = _construirDesdeInc(await window._fbSyncInc(window._lastSrv));
+  // Control por cantidad: si lo que hay no coincide con el servidor, algo se escapo -> descarga completa
+  if(!_hayPend()) {
+    const iguales = function(cnt){ return _COLS8.every(function(c){ return d[c].length === cnt[c]; }); };
+    let ok = iguales(await window._fbContar());
+    if(!ok) { // un segundo pase por si otro celular escribio justo en el medio
+      d = _construirDesdeInc(await window._fbSyncInc(window._lastSrv));
+      ok = iguales(await window._fbContar());
+    }
+    if(!ok) throw new Error('conteo distinto');
+  }
+  _metaCarga.set(d, { srv: t0 - _MARGEN_SRV, full: false, t: tIni });
+  return d;
+}
+async function _descargaCompleta() {
+  const tIni = Date.now();
+  const t0 = typeof window._fbServerNow === 'function' ? await window._fbServerNow() : Date.now();
+  const d = await window._fbLoad();
+  if(d) _metaCarga.set(d, { srv: t0 - _MARGEN_SRV, full: true, t: tIni });
+  return d;
+}
+const _cargaPs = {};
+function _fbLoadSeguro(opts) {
+  opts = opts || {};
+  const clave = opts.completo ? 'full' : 'auto';
+  if(_cargaPs[clave]) return _cargaPs[clave]; // si ya hay una descarga en curso, esperar esa (no bajar todo dos veces)
+  _cargaPs[clave] = (async function(){
     if(typeof window._fbLoad !== 'function') return null;
     const t0 = Date.now();
     try {
       const d = await Promise.race([
-        window._fbLoad(),
+        (async function(){
+          if(!opts.completo && _puedeIncremental(opts.ignorarEdad)) {
+            try { return await _descargaIncremental(); }
+            catch(e) { console.warn('Incremental falló, descarga completa:', e); window._ultimoErrorCarga = String((e && e.message) || e).slice(0,90); }
+          }
+          return await _descargaCompleta();
+        })(),
         new Promise(function(r){ setTimeout(function(){ window._ultimoErrorCarga = 'sin respuesta en 60 s'; r(null); }, 60000); })
       ]);
       if(!d) return null;
@@ -2485,12 +2619,14 @@ function _fbLoadSeguro() {
         return null;
       }
       window._msCarga = Date.now() - t0;
+      const m = _metaCarga.get(d);
+      window._tipoCarga = m && !m.full ? 'rápida' : 'completa';
       window._ultimoErrorCarga = '';
       return d;
     } catch(e) { window._ultimoErrorCarga = String((e && e.message) || e).slice(0,90); return null; }
   })();
-  _cargaP.then(function(){ _cargaP = null; }, function(){ _cargaP = null; });
-  return _cargaP;
+  _cargaPs[clave].then(function(){ delete _cargaPs[clave]; }, function(){ delete _cargaPs[clave]; });
+  return _cargaPs[clave];
 }
 // Cuando se esta trabajando con la copia, los datos nuevos se aplican recien cuando
 // no hay nada a medio cargar (misma regla que el boton de sincronizar).
@@ -2505,14 +2641,36 @@ function _aplicarCuandoSeaSeguro(d) {
     if(!_datosEnEspera) return;
     let riesgo = null; try { riesgo = _riesgoAlSincronizar(); } catch(e) {}
     if(riesgo) { _esperaT = setTimeout(intentar, 3000); return; }
-    const dd = _datosEnEspera; _datosEnEspera = null; _ultimoDAplicado = dd;
+    const dd = _datosEnEspera; _datosEnEspera = null;
+    // Si mientras tanto se guardo algo en este celular, estos datos quedaron viejos: bajar de nuevo
+    const mm = _metaCarga.get(dd);
+    if(mm && mm.t && _lastSaveTime > mm.t) {
+      _fbLoadSeguro({ ignorarEdad: true }).then(function(d2){ if(d2) _aplicarCuandoSeaSeguro(d2); });
+      return;
+    }
+    _ultimoDAplicado = dd;
     _aplicarDatosFirebase(dd);
     _bloqueo(null);
     try { _initPostCarga(false); } catch(e) { console.error(e); }
     try { updateStockBadge(); renderProdCatChips(); } catch(e) {}
     toast('✅ Datos al día' + (window._msCarga ? ' · ' + Math.round(window._msCarga/1000) + ' s' : ''));
     _subirPendientes();
+    _programarCompleta();
   })();
+}
+// Una vez por dia (o si nunca se hizo) se baja TODO como red de seguridad, en segundo plano,
+// y se aplica cuando no hay nada a medio cargar.
+let _completaProg = false;
+function _programarCompleta() {
+  if(_ES_TIENDA_URL || _completaProg) return;
+  if(window._fullAt && (Date.now() - window._fullAt) < _COMPLETA_CADA) return;
+  _completaProg = true;
+  setTimeout(async function(){
+    try {
+      const d = await _fbLoadSeguro({ completo: true });
+      if(d) _aplicarCuandoSeaSeguro(d);
+    } finally { _completaProg = false; }
+  }, 8000);
 }
 let _actualizandoBg = false, _despertarBg = null;
 async function _actualizarEnSegundoPlano() {
@@ -2520,13 +2678,14 @@ async function _actualizarEnSegundoPlano() {
   _actualizandoBg = true;
   try {
     while(!window._datosFirebaseOk) {
-      const d = await _fbLoadSeguro();
+      const d = await _fbLoadSeguro({ ignorarEdad: true });
       if(d) {
         if(window._modoSinActualizar) _aplicarCuandoSeaSeguro(d);
         else {
           _aplicarDatosFirebase(d); _bloqueo(null);
           try { _initPostCarga(false); } catch(e) { console.error(e); }
           _subirPendientes();
+          _programarCompleta();
         }
         break;
       }
@@ -2617,6 +2776,12 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.5.0', f:'11/10/2026', t:[
+    'Arranque mucho más rápido: la app ya no descarga todos los datos cada vez, solo lo que cambió desde la última vez (de ~20 segundos a unos pocos).',
+    'Lo que cargues en un celular aparece en el otro al sincronizar, y lo que borres se borra también en el otro.',
+    'Una vez por día la app hace una descarga completa en segundo plano como red de seguridad. Si algo no cuadra, se descarga todo sola.',
+    'Nuevo botón "Recargar todo" en Configuración → Datos y mantenimiento, por si alguna vez querés bajar todo de nuevo.'
+  ]},
   {v:'4.4.1', f:'11/10/2026', t:[
     'Al abrir, el cartel "Actualizando datos…" ahora muestra los segundos que lleva y el aviso de "los datos tardan en llegar" recién aparece después de 30 segundos (antes salía a los 10 aunque hubiera buena señal).',
     'Si falla la descarga, se reintenta enseguida y se muestra el motivo en letra chica. Al terminar aparece "Datos al día" con el tiempo que tardó.'
@@ -2732,6 +2897,10 @@ function showPage(p) {
         inpMes.value = mesAnterior.getFullYear()+'-'+String(mesAnterior.getMonth()+1).padStart(2,'0');
       }
       _facturasMesActualizarConteo();
+    }catch(e){}
+    try{
+      const inf = document.getElementById('cfg-info-sync');
+      if(inf) inf.textContent = window._ultimaSyncFb ? ('Última descarga: ' + _fechaCorta(window._ultimaSyncFb) + (window._tipoCarga ? ' (' + window._tipoCarga + (window._msCarga ? ', ' + Math.round(window._msCarga/100)/10 + ' s' : '') + ')' : '')) : '';
     }catch(e){}
     try{
       const fmt = (S.config && S.config.formatoFactura) || 'imagen';
@@ -8496,6 +8665,7 @@ async function initApp() {
     _pendImportar(copia.pend);
     window._datosConfiables = true;
     window._ultimaSyncFb = copia.sync || copia.ts || 0;
+    window._lastSrv = copia.srv || 0; window._fullAt = copia.fullAt || 0;
     try { _initPostCarga(true); } catch(e) { console.error('init copia:', e); }
   }
   if(_modoLocal) {
@@ -8511,10 +8681,10 @@ async function initApp() {
   // El cartel de "tardan en llegar" solo aparece si pasan 30 s o si el celular dice que no hay conexión
   const tLento = setTimeout(function(){ if(!window._datosFirebaseOk && !window._modoSinActualizar) _bloqueo('lento', hayCopia); }, 30000);
   if(navigator.onLine === false) setTimeout(function(){ if(!window._datosFirebaseOk && !window._modoSinActualizar && navigator.onLine === false) _bloqueo('lento', hayCopia); }, 3000);
-  let d = await _fbLoadSeguro();
+  let d = await _fbLoadSeguro({ ignorarEdad: true });
   if(!d && !window._datosFirebaseOk) {
     await new Promise(function(r){ setTimeout(r, 2500); });
-    d = await _fbLoadSeguro();
+    d = await _fbLoadSeguro({ ignorarEdad: true });
   }
   if(window._datosFirebaseOk) { clearTimeout(tLento); return; } // ya lo aplicó otro camino
   if(d) {
@@ -8524,8 +8694,9 @@ async function initApp() {
     _aplicarDatosFirebase(d);
     _bloqueo(null);
     try { _initPostCarga(!hayCopia); } catch(e) { console.error('init:', e); }
-    toast('✅ Datos al día' + (window._msCarga ? ' · ' + Math.round(window._msCarga/1000) + ' s' : ''));
+    toast('✅ Datos al día' + (window._msCarga ? ' · ' + Math.round(window._msCarga/1000) + ' s' : '') + (window._tipoCarga === 'rápida' ? ' (rápida)' : ''));
     _subirPendientes();
+    _programarCompleta();
     return;
   }
   if(!hayCopia) {
@@ -8683,7 +8854,7 @@ function _riesgoAlSincronizar() {
   if(modales.length > 0) return 'Tenés una ventana de edición abierta sin guardar';
   return null;
 }
-async function syncManual() {
+async function syncManual(completo) {
   const riesgo = _riesgoAlSincronizar();
   if(riesgo) {
     const ok = confirm('⚠️ ' + riesgo + '.\n\nSi sincronizás ahora podés perder esos cambios.\n\n¿Sincronizar igual?');
@@ -8705,7 +8876,8 @@ async function syncManual() {
     }
 
     // 2. Bajar datos frescos de Firebase (siempre, aunque la subida haya fallado)
-    const fbData = await window._fbLoad();
+    if(completo) toast('⏳ Descargando todo… (unos 20 s)');
+    const fbData = await _fbLoadSeguro({ completo: !!completo });
     if (!fbData) { toast('❌ No se pudo conectar con Firebase'); if(btn) btn.textContent='🔄'; return; }
 
     const resumenActivo = document.getElementById('page-resumen-factura') &&
@@ -8734,7 +8906,7 @@ async function syncManual() {
     _syncMarkDirty(_hayPend());
     if(_hayPend()) _subirPendientes();
     try { await window._fbMarcarVisto(); _marcarNovedades(false); } catch(e) {}
-    toast(_hayPend() ? '⚠️ Sincronizado, pero quedan cambios por subir (se reintenta solo)' : '✅ Sincronizado');
+    toast(_hayPend() ? '⚠️ Sincronizado, pero quedan cambios por subir (se reintenta solo)' : (completo ? '✅ Todo recargado' : '✅ Sincronizado'));
 
   } catch(e) {
     console.error('Error sync:', e);
