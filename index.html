@@ -1480,7 +1480,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Cuenta: <strong id="cfg-cuenta" style="color:var(--text)">—</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong id="cfg-ver" style="color:var(--accent);font-size:15px">4.3.0</strong> · <span id="cfg-ver-fecha">10/10/2026</span></div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong id="cfg-ver" style="color:var(--accent);font-size:15px">4.3.2</strong> · <span id="cfg-ver-fecha">10/10/2026</span></div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Cerrar sesión en este dispositivo</button>
         <button id="btn-eliminar-cuenta" onclick="eliminarCuenta()" style="display:none;margin-top:10px;width:100%;padding:10px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🗑️ Eliminar mi cuenta y datos</button>
       </div>
@@ -2179,6 +2179,12 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.3.2', f:'10/10/2026', t:[
+    'Fotos de facturas de proveedor: ahora el botón "Borrar" sigue habilitado aunque salgas y vuelvas a entrar a la app, y solo borra las fotos que ya descargaste en el ZIP.'
+  ]},
+  {v:'4.3.1', f:'10/10/2026', t:[
+    'Arreglo: con conexión lenta, la app podía abrir sin datos o con el aviso "No se pudo conectar con Firebase" y no se actualizaba sola. Ahora espera a que termine el inicio de sesión y reintenta una vez.'
+  ]},
   {v:'4.3.0', f:'10/10/2026', t:[
     'Nueva sección "Novedades" en Configuración: te cuenta qué cambió en cada versión.'
   ]},
@@ -4323,13 +4329,36 @@ function calcPrecioDesdeMargen() {
 // tocando el boton — ninguna compra, venta o recalculo lo toca nunca. Sirve
 // para casos como "me queda 1 pero no lo quiero vender hasta saber el precio
 // de reposicion", o "compre de nuevo pero todavia no defini el precio nuevo".
-let _mesFacturasDescargado = null; // que mes se descargo de verdad, para la traba de seguridad del borrado
-
-function _facturasMesCambio() {
-  // Cambiar de mes vuelve a trabar el borrado, hasta descargar ESE mes puntual
-  _mesFacturasDescargado = null;
+// Fotos descargadas por mes: se guardan en el celular (sobreviven a cerrar la app).
+// Se anotan los IDs de compra cuya foto SI entro al ZIP; el borrado solo toca esas.
+let _factDescMem = {};
+function _factDescLeer() {
+  try { const r = localStorage.getItem('mneg_fact_desc'); if(r) return Object.assign({}, JSON.parse(r), _factDescMem); } catch(e) {}
+  return Object.assign({}, _factDescMem);
+}
+function _factDescGuardar(obj) {
+  _factDescMem = obj;
+  try { localStorage.setItem('mneg_fact_desc', JSON.stringify(obj)); } catch(e) {}
+}
+function _facturasMesPendientesBorrar(mes) {
+  const ids = (_factDescLeer()[mes] || []);
+  return (S.compras||[]).filter(function(c){ return (c.date||'').startsWith(mes) && c.facturaUrl && ids.indexOf(c.id) >= 0; });
+}
+function _facturasMesActualizarBoton() {
   const btn = document.getElementById('btn-borrar-facturas-mes');
-  if(btn) { btn.disabled = true; btn.style.opacity = '.5'; btn.textContent = '🗑️ Borrar facturas de este mes (descargá primero)'; }
+  const mesInp = document.getElementById('cfg-mes-facturas');
+  if(!btn || !mesInp) return;
+  const mes = mesInp.value;
+  const n = mes ? _facturasMesPendientesBorrar(mes).length : 0;
+  if(n > 0) {
+    btn.disabled = false; btn.style.opacity = '1';
+    btn.textContent = '🗑️ Borrar ' + n + ' foto' + (n>1?'s':'') + ' ya descargada' + (n>1?'s':'') + ' de ' + mes;
+  } else {
+    btn.disabled = true; btn.style.opacity = '.5';
+    btn.textContent = '🗑️ Borrar facturas de este mes (descargá primero)';
+  }
+}
+function _facturasMesCambio() {
   _facturasMesActualizarConteo();
 }
 function _facturasMesActualizarConteo() {
@@ -4343,6 +4372,7 @@ function _facturasMesActualizarConteo() {
   el.textContent = cant>0
     ? cant + ' factura' + (cant>1?'s':'') + ' con foto guardada' + (cant>1?'s':'') + ' en ' + nombreMes + ' ' + anio
     : 'No hay facturas con foto guardadas en ' + nombreMes + ' ' + anio;
+  _facturasMesActualizarBoton();
 }
 
 async function descargarFacturasDelMes() {
@@ -4359,6 +4389,7 @@ async function descargarFacturasDelMes() {
   const zip = new JSZip();
   const provs = {}; (S.proveedores||[]).forEach(function(p){ provs[p.id] = p.name; });
   let ok = 0, fallidas = 0;
+  const idsOk = [];
 
   for(let i=0; i<compras.length; i++) {
     const c = compras[i];
@@ -4368,6 +4399,7 @@ async function descargarFacturasDelMes() {
       const blob = await resp.blob();
       const nombreProv = (provs[c.provId] || 'Sin proveedor').replace(/[\/\\?%*:|"<>]/g, '-');
       zip.folder(nombreProv).file(c.id + '.jpg', blob);
+      idsOk.push(c.id);
       ok++;
     } catch(e) {
       console.error('No se pudo bajar la foto de', c.id, e);
@@ -4393,23 +4425,21 @@ async function descargarFacturasDelMes() {
   if(progEl) progEl.style.display = 'none';
   toast(ok + ' foto' + (ok>1?'s':'') + ' descargada' + (ok>1?'s':'') + (fallidas>0 ? ' (' + fallidas + ' no se pudieron bajar)' : '') + ' ✓');
 
-  // Habilitar el borrado SOLO para este mes, y SOLO si se bajaron todas las
-  // fotos sin fallos — si alguna fallo, no habilitar (podria perderse esa
-  // foto sin haber quedado respaldada en el ZIP).
-  if(fallidas === 0) {
-    _mesFacturasDescargado = mes;
-    const btn = document.getElementById('btn-borrar-facturas-mes');
-    if(btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🗑️ Borrar facturas de ' + mes; }
-  }
+  // Se anotan (en el celular) las fotos que SI entraron al ZIP; el borrado
+  // queda habilitado solo para esas, tambien despues de cerrar la app.
+  const reg = _factDescLeer();
+  reg[mes] = Array.from(new Set((reg[mes]||[]).concat(idsOk)));
+  _factDescGuardar(reg);
+  _facturasMesActualizarBoton();
 }
 
 async function borrarFacturasDelMes() {
   const mes = document.getElementById('cfg-mes-facturas').value;
-  if(_mesFacturasDescargado !== mes) { toast('Primero descargá las facturas de este mes'); return; }
-  if(!confirm('¿Ya guardaste el archivo ZIP en un lugar seguro (tu celular, Drive, etc.)?\n\nEsto va a borrar las fotos de Firebase para liberar espacio. No se puede deshacer.')) return;
-  if(!confirm('Última confirmación: se van a borrar TODAS las fotos de factura de ' + mes + '. Los datos de la compra (fecha, productos, montos) NO se tocan, solo las fotos.\n\n¿Confirmás?')) return;
+  const compras = _facturasMesPendientesBorrar(mes);
+  if(!compras.length) { toast('Primero descargá las facturas de este mes'); _facturasMesActualizarBoton(); return; }
+  if(!confirm('Se van a borrar ' + compras.length + ' foto(s) que ya descargaste (archivo facturas-' + mes + '.zip). ¿Verificaste que el ZIP está guardado y se abre bien?\n\nEsto va a borrar las fotos de Firebase para liberar espacio. No se puede deshacer.')) return;
+  if(!confirm('Última confirmación: se van a borrar las ' + compras.length + ' fotos de factura de ' + mes + ' que ya descargaste. Los datos de la compra (fecha, productos, montos) NO se tocan, solo las fotos.\n\n¿Confirmás?')) return;
 
-  const compras = (S.compras||[]).filter(function(c){ return (c.date||'').startsWith(mes) && c.facturaUrl; });
   const progEl = document.getElementById('facturas-mes-progreso');
   const textoEl = document.getElementById('facturas-mes-texto');
   if(progEl) progEl.style.display = 'block';
@@ -4432,9 +4462,11 @@ async function borrarFacturasDelMes() {
   try{ renderComps(); }catch(e){}
 
   if(progEl) progEl.style.display = 'none';
-  _mesFacturasDescargado = null;
-  const btn = document.getElementById('btn-borrar-facturas-mes');
-  if(btn) { btn.disabled = true; btn.style.opacity = '.5'; btn.textContent = '🗑️ Borrar facturas de este mes (descargá primero)'; }
+  const reg2 = _factDescLeer();
+  reg2[mes] = (reg2[mes]||[]).filter(function(id){ return (S.compras||[]).some(function(c){ return c.id===id && c.facturaUrl; }); });
+  if(!reg2[mes].length) delete reg2[mes];
+  _factDescMem = {}; _factDescGuardar(reg2);
+  _facturasMesActualizarConteo();
 
   toast(borradas + ' foto' + (borradas>1?'s':'') + ' borrada' + (borradas>1?'s':'') + (fallidas>0 ? ' (' + fallidas + ' no se pudieron borrar)' : '') + ' ✓');
 }
@@ -7979,13 +8011,20 @@ let _fbListenerActive = false;
 async function initApp() {
   // Arranque UNA sola vez: antes, el "plan B" de 3 segundos volvía a llamar a initApp
   // aunque ya hubiera arrancado y descargaba TODO dos veces (y podía pisar lo recién editado).
-  if(window._initAppCorrio) return;
-  window._initAppCorrio = true;
+  if(window._initAppCorrio === true) return;
+  // Modo "local": se arrancó sin sesión de Firebase. Si después la sesión llega, se vuelve a arrancar.
+  const _modoLocal = !window._firebaseReady;
+  window._initAppCorrio = _modoLocal ? 'local' : true;
   if(window._bizKey) SK = window._bizKey;
   // SIEMPRE se esperan los datos de Firebase (la fuente real). La versión 4.2.5 mostraba
   // primero la copia del celular y eso, con la copia congelada por falta de memoria,
   // mostró datos de la madrugada (10/10/2026). La copia local queda solo para sin conexión.
-  const hasFbData = await loadFromFirebase();
+  let hasFbData = _modoLocal ? false : await loadFromFirebase();
+  if(!hasFbData && !_modoLocal) {
+    // Un reintento a los 2,5 s (la señal del celular a veces falla un instante)
+    await new Promise(function(r){ setTimeout(r, 2500); });
+    hasFbData = await loadFromFirebase();
+  }
   if(!hasFbData) {
     const hasLocalData = load();
     if(hasLocalData) {
@@ -9648,10 +9687,17 @@ function updateStockBadge() {
   if (badge) { badge.textContent = alertCount; badge.style.display = alertCount > 0 ? '' : 'none'; }
 }
 
-  // Fallback: si Firebase tarda más de 3 segundos, iniciar igual
+  // Plan B: solo si Firebase directamente no cargó (sin internet al abrir) se arranca con la copia
+  // local a los 3 s. Si Firebase cargó pero el inicio de sesión tarda (conexión lenta), se ESPERA:
+  // arrancar antes de tiempo dejaba la app sin datos hasta recargar (10/10/2026, 19:31).
   setTimeout(() => {
-    if (!_fbListenerActive) initApp();
+    if (!window._firebaseReady && !window._fbLoad) initApp();
   }, 3000);
+  // Último recurso: si a los 20 s todavía no hay sesión, se muestra la copia local con aviso;
+  // cuando el inicio de sesión termine, se vuelve a arrancar y se actualiza todo.
+  setTimeout(() => {
+    if (!window._firebaseReady) initApp();
+  }, 20000);
 }
 // hasData check removed
 checkPriceBanner();
