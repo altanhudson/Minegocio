@@ -1665,7 +1665,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Cuenta: <strong id="cfg-cuenta" style="color:var(--text)">—</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong id="cfg-ver" style="color:var(--accent);font-size:15px">4.6.0</strong> · <span id="cfg-ver-fecha">11/10/2026</span></div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong id="cfg-ver" style="color:var(--accent);font-size:15px">4.6.1</strong> · <span id="cfg-ver-fecha">11/10/2026</span></div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Cerrar sesión en este dispositivo</button>
         <button id="btn-eliminar-cuenta" onclick="eliminarCuenta()" style="display:none;margin-top:10px;width:100%;padding:10px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🗑️ Eliminar mi cuenta y datos</button>
       </div>
@@ -2910,6 +2910,11 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.6.1', f:'11/10/2026', t:[
+    'Tienda: cada categoría tiene su color, así se distinguen de un vistazo.',
+    'Tienda: el botón para volver ahora dice "← Volver atrás" y se ve mucho más.',
+    'Tienda: los productos que se combinan para el precio mayorista (ej. distintos gustos de una misma marca) lo avisan: "Combinalo con…", cuánto llevás del total y un botón "Ver gustos" que los muestra todos juntos.'
+  ]},
   {v:'4.6.0', f:'11/10/2026', t:[
     'Tienda nueva, mucho más rápida: el cliente ya no descarga la base entera del negocio. Antes cada visita bajaba unos 10.000 registros (compras, cobranzas, todas las facturas…); ahora baja un catálogo liviano y, al poner su número, solo SUS facturas.',
     'Diseño nuevo de la tienda: ofertas grandes, "Cambiaron de precio" en una línea, categorías en recuadros con fotos y, adentro de cada categoría, todas las categorías fijas arriba (sin carrusel). Contadores grandes de unidades y bultos.',
@@ -10937,11 +10942,15 @@ body.tn-body{display:block!important;background:linear-gradient(180deg,#dfeaff 0
 .tn-cat{background:#fff;border-radius:16px;padding:8px;border:1.5px solid var(--tn-borde);box-shadow:0 2px 10px rgba(18,58,122,.06);text-align:left;cursor:pointer;font-family:inherit;color:var(--tn-txt)}
 .tn-mos{display:grid;grid-template-columns:1fr 1fr;gap:4px;border-radius:12px;overflow:hidden;background:#f4f6fb}
 .tn-mos img,.tn-mos .tn-ph{width:100%;aspect-ratio:1/1;object-fit:contain;background:#fff;display:flex;align-items:center;justify-content:center;font-size:30px}
-.tn-cat .cn{font-size:15.5px;font-weight:900;margin:8px 2px 0;display:flex;align-items:center;gap:6px}
-.tn-cat .cc{font-size:12px;color:var(--tn-gris);margin:1px 2px 2px;font-weight:600}
+.tn-cat{padding:0!important;overflow:hidden;border-width:2px!important}
+.tn-cat .tn-mos{margin:8px 8px 0;border-radius:12px}
+.tn-cat .tn-cpie{margin-top:8px;padding:8px 10px 9px;color:#fff}
+.tn-cat .cn{font-size:15.5px;font-weight:900;margin:0;display:flex;align-items:center;gap:6px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.25)}
+.tn-cat .cc{font-size:12px;color:rgba(255,255,255,.92);margin:1px 0 0;font-weight:700}
+.tn-cg{border-bottom-width:4px!important}
 .tn-stick{position:sticky;top:0;z-index:20;background:rgba(239,245,255,.97);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);padding:8px 10px;border-bottom:1px solid var(--tn-borde);display:none}
 .tn-top2{display:flex;align-items:center;gap:8px;margin-bottom:7px}
-.tn-volver{background:#fff;border:1.5px solid var(--tn-azul);color:var(--tn-azul);border-radius:999px;padding:6px 12px;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit;white-space:nowrap}
+.tn-volver{background:var(--tn-azul);border:0;color:#fff;border-radius:999px;padding:9px 16px;font-weight:900;font-size:14px;cursor:pointer;font-family:inherit;white-space:nowrap;box-shadow:0 2px 8px rgba(18,58,122,.3)}
 .tn-bmini{flex:1;background:#fff;border:1px solid var(--tn-borde);border-radius:999px;padding:7px 12px;color:#9aa3b2;font-size:13px;cursor:pointer;text-align:left;font-family:inherit}
 #tienda-cats.tn-catgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;overflow:visible;padding:0}
 .tn-cg{background:#fff;border:1.5px solid var(--tn-borde);border-radius:10px;padding:5px 2px;font-size:11px;font-weight:800;text-align:center;line-height:1.15;color:var(--tn-txt);cursor:pointer;font-family:inherit;overflow:hidden;text-overflow:ellipsis}
@@ -10964,6 +10973,9 @@ body.tn-body{display:block!important;background:linear-gradient(180deg,#dfeaff 0
 .tn-pp small{font-size:12px;color:var(--tn-gris);font-weight:700}
 .tn-pm{font-size:12.5px;color:var(--tn-verde);font-weight:800;margin-top:1px}
 .tn-pd{font-size:11.5px;color:#64748b;margin-top:3px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tn-combo{background:#f3e8ff;border:1.5px solid #c4b5fd;color:#5b21b6;border-radius:10px;padding:7px 10px;font-size:12.5px;font-weight:700;line-height:1.35;margin-top:8px}
+.tn-combo button{background:#7c3aed;color:#fff;border:0;border-radius:8px;padding:4px 9px;font-size:12px;font-weight:800;margin-left:4px;cursor:pointer;font-family:inherit}
+.tn-combo .ok{color:#15803d}
 .tn-ofb{display:inline-block;background:var(--tn-rojo);color:#fff;font-size:10px;font-weight:900;border-radius:6px;padding:1px 6px;margin-left:5px;vertical-align:middle}
 .tn-rib{position:absolute;top:34px;left:-30px;width:160px;transform:rotate(-30deg);background:#dc2626;color:#fff;text-align:center;font-weight:900;font-size:11px;padding:3px 0;z-index:2;pointer-events:none}
 .tn-steps{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
@@ -11053,7 +11065,7 @@ body.tn-body{display:block!important;background:linear-gradient(180deg,#dfeaff 0
       <button class="tn-ix" onclick="tnOcultarInstalar()" aria-label="Cerrar">✕</button>
     </div>
     <div class="tn-stick" id="tn-stick">
-      <div class="tn-top2"><button class="tn-volver" onclick="tnVolverInicio()">← Inicio</button><button class="tn-bmini" onclick="tnIrABuscar()">🔍 Buscar…</button></div>
+      <div class="tn-top2"><button class="tn-volver" onclick="tnVolverInicio()">← Volver atrás</button><button class="tn-bmini" onclick="tnIrABuscar()">🔍 Buscar…</button></div>
       <div id="tienda-cats" class="tn-catgrid"></div>
     </div>
     <!-- Banner destacado (carrusel) -->
@@ -12081,14 +12093,20 @@ function tiendaRender() {
   let prods;
   if(q) prods = todos.filter(p => p.name.toLowerCase().includes(q) || (p.category || '').toLowerCase().includes(q));
   else if(cat === 'ofertas') prods = todos.filter(p => p.oferta);
+  else if(String(cat).indexOf('grupo:') === 0) { const g = String(cat).slice(6); prods = todos.filter(p => (p.grupoMay || '').toLowerCase().trim() === g); }
   else prods = todos.filter(p => _tnCatDe(p).toLowerCase() === String(cat).toLowerCase());
   prods = prods.slice().sort((a, b) => ((b.oferta ? 1 : 0) - (a.oferta ? 1 : 0)) || a.name.localeCompare(b.name, 'es'));
   let html = '<div class="tn-cont">';
   if(q) {
     html += '<div class="tn-busq"><span>🔍 Resultados de tu búsqueda</span><button onclick="tiendaLimpiarBuscar()">✕ Ver todo</button></div>';
   } else {
-    const nom = cat === 'ofertas' ? '🔥 Ofertas' : (_tnEmojiCat(cat) + ' ' + _tnCatNombre(cat));
-    html += '<div class="tn-cattit"><h2>' + nom + '</h2><small>' + prods.length + ' producto' + (prods.length !== 1 ? 's' : '') + '</small></div>';
+    const esGrupo = String(cat).indexOf('grupo:') === 0;
+    const nom = cat === 'ofertas' ? '🔥 Ofertas' : (esGrupo ? '🔀 Se combinan entre sí' : (_tnEmojiCat(cat) + ' ' + _tnCatNombre(cat)));
+    html += '<div class="tn-cattit"><h2 style="color:' + (esGrupo ? '#7c3aed' : _tnColorCat(cat)) + '">' + nom + '</h2><small>' + prods.length + ' producto' + (prods.length !== 1 ? 's' : '') + '</small></div>';
+    if(esGrupo && prods.length) {
+      const gi = _tnGrupoInfo(prods[0]);
+      if(gi) html += '<div class="tn-combo" style="margin-top:6px">Mezclá los gustos como quieras: llevando <b>' + gi.min + ' o más</b> en total entre todos, pagás el precio mayorista en cada uno.</div>';
+    }
   }
   if(!prods.length) html += '<div class="tn-vacio">' + (q ? 'No encontramos productos con esa búsqueda' : 'No hay productos en esta categoría') + '</div>';
   html += '<div class="tn-lista">' + prods.slice(0, _tiendaPagina * TIENDA_PAGE_SIZE).map(tiendaProdCardNueva).join('') + '</div>';
@@ -12114,6 +12132,17 @@ const _TN_CAT_EMOJI = {
   'agua':'💧','jugos':'🧃','quesos':'🧀','otros':'📦','ofertas':'🔥'
 };
 function _tnEmojiCat(c) { return _TN_CAT_EMOJI[String(c || '').toLowerCase().trim()] || '📦'; }
+// Color propio de cada categoria (para que no quede todo igual)
+const _TN_CAT_COLOR = { 'galletitas':'#c2410c','golosinas':'#db2777','despensa':'#059669','bebidas':'#0284c7','snacks':'#d97706',
+  'limpieza':'#0891b2','higiene':'#0d9488','cigarrillos':'#475569','varios':'#7c3aed','otros':'#6d28d9','ofertas':'#dc2626',
+  'lacteos':'#2563eb','lácteos':'#2563eb','almacén':'#059669','almacen':'#059669','kiosco':'#9333ea','vinos':'#9f1239','gaseosas':'#0284c7' };
+const _TN_PALETA = ['#2563eb','#16a34a','#ea580c','#9333ea','#0891b2','#be123c','#ca8a04','#4f46e5'];
+function _tnColorCat(c) {
+  const k = String(c || '').toLowerCase().trim();
+  if(_TN_CAT_COLOR[k]) return _TN_CAT_COLOR[k];
+  let h = 0; for(let i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) | 0;
+  return _TN_PALETA[Math.abs(h) % _TN_PALETA.length];
+}
 function _tnCategorias() {
   const m = {};
   (S.products || []).forEach(function(p){
@@ -12190,11 +12219,33 @@ function _tnInicioHtml(todos) {
   cats.forEach(function(c){
     const fotos = c.prods.slice().sort(function(a, b){ return ((b.image ? 1 : 0) - (a.image ? 1 : 0)) || ((b.oferta ? 1 : 0) - (a.oferta ? 1 : 0)) || a.name.localeCompare(b.name, 'es'); }).slice(0, 4);
     while(fotos.length < 4) fotos.push({ emoji: _tnEmojiCat(c.key) });
-    h += '<button class="tn-cat" data-cat="' + _tnEsc(c.key) + '" onclick="tiendaAbrirCat(this.dataset.cat)"><div class="tn-mos">' + fotos.map(_tnImg).join('') + '</div>'
-      + '<div class="cn">' + _tnEmojiCat(c.key) + ' ' + _tnEsc(c.key) + '</div><div class="cc">' + c.n + ' producto' + (c.n !== 1 ? 's' : '') + '</div></button>';
+    const col = _tnColorCat(c.key);
+    h += '<button class="tn-cat" style="border-color:' + col + ';background:' + col + '14" data-cat="' + _tnEsc(c.key) + '" onclick="tiendaAbrirCat(this.dataset.cat)"><div class="tn-mos">' + fotos.map(_tnImg).join('') + '</div>'
+      + '<div class="tn-cpie" style="background:' + col + '"><div class="cn">' + _tnEmojiCat(c.key) + ' ' + _tnEsc(c.key) + '</div><div class="cc">' + c.n + ' producto' + (c.n !== 1 ? 's' : '') + '</div></div></button>';
   });
   h += '</div></div>';
   return h;
+}
+// Mayorista por grupo: varios gustos que suman juntos para llegar al minimo (ya funcionaba; ahora se muestra)
+function _tnGrupoInfo(p) {
+  const g = (p && p.grupoMay || '').toLowerCase().trim();
+  if(!g || !(p.wholesalePrice && p.wholesaleQty)) return null;
+  const miembros = (S.products || []).filter(function(x){ return x && x.visible !== false && x.price > 0 && (x.grupoMay || '').toLowerCase().trim() === g; });
+  if(miembros.length < 2) return null;
+  const gDef = (S.gruposMay || []).find(function(d){ return d.nombre && d.nombre.toLowerCase().trim() === g; });
+  const min = (gDef && gDef.minMay > 0) ? gDef.minMay : p.wholesaleQty;
+  let lleva = 0;
+  Object.keys(TC).forEach(function(k){ const ep = miembros.find(function(m){ return m.id === tcProdId(k); }); if(ep) lleva += TC[k]; });
+  return { g: g, miembros: miembros, min: min, lleva: lleva };
+}
+function tiendaVerGrupo(g) {
+  window._tnCatPrevia = window.T_CAT || 'todas';
+  try { history.pushState({ tienda: 'grupo' }, '', ''); } catch(e) {}
+  window.T_CAT = 'grupo:' + g;
+  const bq = document.getElementById('tienda-buscar');
+  if(bq && bq.value) { bq.value = ''; const x = document.getElementById('tienda-buscar-x'); if(x) x.style.display = 'none'; }
+  tiendaRender();
+  _tiendaScrollArriba();
 }
 function tiendaProdCardNueva(p) {
   const hasVar = p.variantes && p.variantes.length;
@@ -12219,6 +12270,17 @@ function tiendaProdCardNueva(p) {
       : '<div class="tn-pm">' + fmtPesos(p.wholesalePrice) + ' llevando ' + p.wholesaleQty + ' o más</div>';
   }
   const descHtml = p.desc ? '<div class="tn-pd"' + det + '>' + _tnEsc(p.desc) + '</div>' : '';
+  let comboHtml = '';
+  const gi = _tnGrupoInfo(p);
+  if(gi) {
+    const otros = gi.miembros.filter(function(m){ return m.id !== p.id; });
+    const enGrupo = String(window.T_CAT || '').indexOf('grupo:') === 0;
+    const nombres = otros.length <= 2 ? otros.map(function(m){ return _tnEsc(m.name); }).join(' y ') : (otros.length + ' gustos más');
+    let txt = '🔀 <b>Combinalo</b> con ' + nombres + ': sumando ' + gi.min + ' entre todos tenés precio mayorista.';
+    if(gi.lleva > 0 && gi.lleva < gi.min) txt += '<br>Llevás <b>' + gi.lleva + ' de ' + gi.min + '</b> — te faltan ' + (gi.min - gi.lleva) + '.';
+    else if(gi.lleva >= gi.min) txt += '<br><span class="ok">✓ ¡Ya tenés el precio mayorista en todos!</span>';
+    comboHtml = '<div class="tn-combo">' + txt + (enGrupo ? '' : ' <button data-g="' + _tnEsc(gi.g) + '" onclick="tiendaVerGrupo(this.dataset.g)">Ver gustos</button>') + '</div>';
+  }
   let ctrl;
   if(sinStock) ctrl = '<button class="tn-nodisp" disabled>No disponible por ahora</button>';
   else if(hasVar) ctrl = '<button class="tn-var" data-tid="' + p.id + '" onclick="tiendaAdd(this.dataset.tid)">Elegir variante' + (qty ? ' · ' + qty + ' en tu pedido' : '') + '</button>';
@@ -12238,7 +12300,7 @@ function tiendaProdCardNueva(p) {
   return '<div class="tn-pc' + (qty > 0 ? ' sel' : '') + '" data-prod-id="' + p.id + '">'
     + (sinStock ? '<div class="tn-rib">SIN STOCK</div>' : '')
     + '<div class="tn-pt">' + img + '<div class="tn-pi"><div class="tn-pn">' + _tnEsc(p.name) + (p.oferta ? '<span class="tn-ofb">OFERTA</span>' : '') + '</div>'
-    + '<div class="tn-pb">' + sub + '</div>' + precio + mayor + descHtml + '</div></div>' + ctrl + '</div>';
+    + '<div class="tn-pb">' + sub + '</div>' + precio + mayor + descHtml + '</div></div>' + comboHtml + ctrl + '</div>';
 }
 function tiendaDecBulto(id) {
   const p = S.products.find(function(x){ return x.id === id; });
@@ -12312,12 +12374,13 @@ function tiendaRenderCats() {
   el.style.gridTemplateColumns = 'repeat(' + (items.length <= 8 ? 4 : 5) + ',1fr)';
   el.innerHTML = items.map(function(x){
     const on = !q && x.key.toLowerCase() === String(cat).toLowerCase();
-    return '<button class="tn-cg' + (on ? ' on' : '') + '" data-cat="' + _tnEsc(x.key) + '" onclick="tiendaAbrirCat(this.dataset.cat)"><i>' + _tnEmojiCat(x.key) + '</i>' + _tnEsc(x.nombre) + '</button>';
+    const col = _tnColorCat(x.key);
+    return '<button class="tn-cg' + (on ? ' on' : '') + '" style="border-bottom-color:' + col + (on ? ';background:' + col + ';border-color:' + col : '') + '" data-cat="' + _tnEsc(x.key) + '" onclick="tiendaAbrirCat(this.dataset.cat)"><i>' + _tnEmojiCat(x.key) + '</i>' + _tnEsc(x.nombre) + '</button>';
   }).join('');
 }
 function tnVolverInicio() {
   const st = history.state;
-  if(st && st.tienda === 'cat') { history.back(); return; }  // el popstate lleva al inicio
+  if(st && (st.tienda === 'cat' || st.tienda === 'grupo')) { history.back(); return; }  // el popstate lleva al inicio
   tiendaIrInicio(true);
 }
 
@@ -12468,6 +12531,17 @@ function _tiendaActualizarTarjeta(prodId) {
   temp.innerHTML = nuevoHtml;
   const nuevoEl = temp.firstElementChild;
   if (nuevoEl) el.replaceWith(nuevoEl);
+  // Otros gustos del mismo grupo en pantalla: su "Llevás X de Y" y su precio cambian juntos
+  const g = (p.grupoMay || '').toLowerCase().trim();
+  if (g) {
+    (S.products || []).forEach(function(x){
+      if (x.id === p.id || (x.grupoMay || '').toLowerCase().trim() !== g) return;
+      const e2 = document.querySelector('[data-prod-id="'+x.id+'"]');
+      if (!e2) return;
+      const t2 = document.createElement('div'); t2.innerHTML = tiendaProdCardNueva(x);
+      if (t2.firstElementChild) e2.replaceWith(t2.firstElementChild);
+    });
+  }
 }
 function tiendaAdd(id) {
   const p0 = S.products.find(x=>x.id===tcProdId(id));
@@ -12998,6 +13072,9 @@ window.addEventListener('popstate', function(e) {
       tiendaVolverCatalogo();
     } else if(per && per.style.display === 'flex') {
       tnCerrarPerfil();
+    } else if(T_VISTA === 'catalogo' && String(window.T_CAT || '').indexOf('grupo:') === 0 && window._tnCatPrevia) {
+      window.T_CAT = window._tnCatPrevia; window._tnCatPrevia = null;
+      tiendaRender(); _tiendaScrollArriba();
     } else if(T_VISTA === 'catalogo' && ((window.T_CAT || 'todas') !== 'todas' || (bq && bq.value))) {
       tiendaIrInicio(true);
     } else {
