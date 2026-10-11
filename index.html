@@ -181,25 +181,66 @@
     compras: new Set(), proveedores: new Set(), cobranzas: new Set(),
     ajustes: new Set(), listacompras: new Set(), config: false
   };
+  // Numero de "version" de cada marca: al confirmar una subida solo se quita la marca
+  // si el registro NO se volvio a modificar mientras viajaba (antes se perdia).
+  const _seq = {}; COLS.forEach(function(c){ _seq[c] = new Map(); });
+  let _seqCfg = 0;
+  // Borrados pendientes de confirmar por Firebase (se reintentan; sobreviven a recargar)
+  const _delQ = {}; COLS.forEach(function(c){ _delQ[c] = new Set(); });
+  // Registros que ya estan viajando a Firebase con esa misma version: no mandarlos dos veces
+  const _vuelo = {}; COLS.forEach(function(c){ _vuelo[c] = new Map(); });
+  function _enVuelo(col, id) { return _vuelo[col].has(id) && _vuelo[col].get(id) === _seq[col].get(id); }
+  function _finVuelo(enviados) { enviados.forEach(function(e){ if(_vuelo[e[0]].get(e[1]) === e[2]) _vuelo[e[0]].delete(e[1]); }); }
+  function _copiaAvisar() { try { if(typeof window._copiaProgramar === 'function') window._copiaProgramar(); } catch(e) {} }
   window._markDirty = function(col, id) {
-    if(col === 'config') { _dirty.config = true; }
+    if(col === 'config') { _dirty.config = true; _seqCfg++; }
     else if(_dirty[col]) {
       _dirty[col].add(id);
-      // Sellar el registro con timestamp para resolver conflictos entre dispositivos en sync
+      _seq[col].set(id, (_seq[col].get(id) || 0) + 1);
+      if(_delQ[col]) _delQ[col].delete(id);
+      // Sellar el registro con la hora del cambio (antes usaba window.S, que no existe, y nunca sellaba)
       try {
-        if(window.S && window.S[col]) {
-          const rec = window.S[col].find(function(r){ return r && r.id === id; });
-          if(rec) rec.updatedAt = new Date().toISOString();
+        const _S = (typeof S !== 'undefined') ? S : null;
+        if(_S && _S[col]) {
+          const rec = _S[col].find(function(r){ return r && r.id === id; });
+          if(rec) rec.updatedAt = Date.now();
         }
       } catch(e) {}
     }
     window._syncPendingFlag = true;
     try { if(typeof window._syncMarkDirty === 'function') window._syncMarkDirty(true); } catch(e) {}
+    _copiaAvisar();
   };
   function _clearDirty() {
     COLS.forEach(c => _dirty[c].clear());
     _dirty.config = false;
   }
+  // Quita las marcas de lo que Firebase confirmo, salvo lo que se volvio a tocar en el medio
+  function _confirmarEnviados(enviados, cfgEnviado) {
+    enviados.forEach(function(e){ if(_seq[e[0]].get(e[1]) === e[2]) _dirty[e[0]].delete(e[1]); });
+    if(cfgEnviado !== null && cfgEnviado === _seqCfg) _dirty.config = false;
+    try { window._copiaProgramar && window._copiaProgramar(true); } catch(e) {}
+  }
+  window._hayPendientes = function() {
+    if(_dirty.config) return true;
+    return COLS.some(function(c){ return _dirty[c].size > 0 || _delQ[c].size > 0; });
+  };
+  window._dirtyExport = function() {
+    const o = { up:{}, del:{}, cfg: !!_dirty.config };
+    COLS.forEach(function(c){
+      if(_dirty[c].size) o.up[c] = Array.from(_dirty[c]);
+      if(_delQ[c].size) o.del[c] = Array.from(_delQ[c]);
+    });
+    return o;
+  };
+  window._dirtyImport = function(o) {
+    if(!o) return;
+    Object.keys(o.up || {}).forEach(function(c){ if(_dirty[c]) (o.up[c] || []).forEach(function(id){ _dirty[c].add(id); _seq[c].set(id, (_seq[c].get(id) || 0) + 1); }); });
+    Object.keys(o.del || {}).forEach(function(c){ if(_delQ[c]) (o.del[c] || []).forEach(function(id){ _delQ[c].add(id); }); });
+    if(o.cfg) { _dirty.config = true; _seqCfg++; }
+  };
+  // Si la app arranco sin Firebase y se cargaron cosas, pasar esas marcas a la cola real
+  try { if(window._pendLocal) { window._dirtyImport(window._pendLocal); window._pendLocal = { up:{}, del:{}, cfg:false }; } } catch(e) {}
 
   // === MIGRACIÓN V1 → V2 ===
   window._migrateV2 = async function(progressCb) {
@@ -293,6 +334,8 @@
 
       // Escritura selectiva — solo dirty records de los fields solicitados
       const batches = [];
+      const enviados = [];
+      let cfgEnviado = null;
       const cfgUpdates = {};
       let hasCfg = false;
 
@@ -301,15 +344,20 @@
           const dirtyIds = _dirty[f];
           if(!dirtyIds || dirtyIds.size === 0) return;
           const records = (data[f] || []).filter(r => r && r.id && dirtyIds.has(r.id));
-          if(records.length === 0) return;
-          for(let i = 0; i < records.length; i += 400) {
+          // Marcas de registros que ya no existen (se borraron): no hay nada que subir
+          const existentes = new Set(records.map(r => r.id));
+          Array.from(dirtyIds).forEach(id => { if(!existentes.has(id)) dirtyIds.delete(id); });
+          const aEnviar = records.filter(r => !_enVuelo(f, r.id));
+          if(aEnviar.length === 0) return;
+          for(let i = 0; i < aEnviar.length; i += 400) {
             const batch = writeBatch(db);
-            records.slice(i, i+400).forEach(rec => {
+            aEnviar.slice(i, i+400).forEach(rec => {
               batch.set(v2doc(f, rec.id), cleanUndefined(rec));
+              enviados.push([f, rec.id, _seq[f].get(rec.id)]);
+              _vuelo[f].set(rec.id, _seq[f].get(rec.id));
             });
             batches.push(batch.commit());
           }
-          dirtyIds.clear();
         } else if(CONFIG_FIELDS.includes(f)) {
           cfgUpdates[f] = data[f] !== undefined ? data[f] : null;
           hasCfg = true;
@@ -317,6 +365,7 @@
       });
 
       if(hasCfg || _dirty.config) {
+        cfgEnviado = _seqCfg;
         const cfgSnap = await getDoc(v2config());
         const existing = cfgSnap.exists() ? cfgSnap.data() : {};
         const merged = {...existing, ...cfgUpdates};
@@ -366,13 +415,13 @@
           }
         });
         batches.push(setDoc(v2config(), cleanUndefined(merged)));
-        _dirty.config = false;
       }
 
       if(batches.length > 0) {
         try { batches.push(_latidoWrite()); } catch(e) {}
-        await Promise.all(batches);
+        try { await Promise.all(batches); } finally { _finVuelo(enviados); }
       }
+      _confirmarEnviados(enviados, cfgEnviado);
 
     } catch(e) { console.error('Firebase save error:', e); throw e; }
   };
@@ -382,24 +431,30 @@
   window._fbSaveDirty = async function(data) {
     try {
       const batches = [];
-      const _toClear = [];
+      const enviados = [];
       for(const col of COLS) {
         const dirtyIds = _dirty[col];
         if(!dirtyIds || dirtyIds.size === 0) continue;
         const records = (data[col] || []).filter(r => r && r.id && dirtyIds.has(r.id));
-        if(records.length === 0) { dirtyIds.clear(); continue; }
-        for(let i = 0; i < records.length; i += 400) {
+        const existentes = new Set(records.map(r => r.id));
+        Array.from(dirtyIds).forEach(id => { if(!existentes.has(id)) dirtyIds.delete(id); });
+        const aEnviar = records.filter(r => !_enVuelo(col, r.id));
+        if(aEnviar.length === 0) continue;
+        for(let i = 0; i < aEnviar.length; i += 400) {
           const batch = writeBatch(db);
-          records.slice(i, i+400).forEach(rec => {
+          aEnviar.slice(i, i+400).forEach(rec => {
             batch.set(v2doc(col, rec.id), cleanUndefined(rec));
+            enviados.push([col, rec.id, _seq[col].get(rec.id)]); // limpiar SOLO tras confirmar
+            _vuelo[col].set(rec.id, _seq[col].get(rec.id));
           });
           batches.push(batch.commit());
         }
-        _toClear.push(dirtyIds); // limpiar SOLO tras confirmar (si falla, no se pierde)
       }
       // Config: solo si está dirty
       let _clearConfig = false;
+      let cfgEnviado = null;
       if(_dirty.config) {
+        cfgEnviado = _seqCfg;
         const cfgSnap = await getDoc(v2config());
         const existing = cfgSnap.exists() ? cfgSnap.data() : {};
         const merged = {...existing};
@@ -453,10 +508,9 @@
       if(batches.length > 0 || _clearConfig) {
         try { batches.push(_latidoWrite()); } catch(e) {}
       }
-      if(batches.length > 0) await Promise.all(batches);
+      if(batches.length > 0) { try { await Promise.all(batches); } finally { _finVuelo(enviados); } }
       // Confirmado por el servidor → recién ahora marcar como sincronizado
-      _toClear.forEach(s => s.clear());
-      if(_clearConfig) _dirty.config = false;
+      _confirmarEnviados(enviados, cfgEnviado);
     } catch(e) { console.error('Firebase saveDirty error:', e); throw e; }
   };
 
@@ -467,12 +521,18 @@
         Promise.all(COLS.map(col => getDocs(v2col(col)))),
         getDoc(v2config())
       ]);
+      // Sin señal, Firestore puede devolver lo que tenga en su memoria (incompleto o vacio):
+      // eso NO son los datos reales, se trata como "no se pudo cargar".
+      if(colSnaps.some(s => s && s.metadata && s.metadata.fromCache) || (cfgSnap && cfgSnap.metadata && cfgSnap.metadata.fromCache)) {
+        throw new Error('Datos de cache (sin conexion)');
+      }
       const result = {};
       COLS.forEach((col, i) => {
         result[col] = colSnaps[i].docs.map(d => d.data());
       });
       if(cfgSnap.exists()) Object.assign(result, cfgSnap.data());
-      _clearDirty(); // después de cargar, nada está dirty
+      // (Antes aca se borraba la lista de cambios sin subir: si una subida habia fallado,
+      // ese cambio se perdia. Ahora la app los vuelve a aplicar encima y los reintenta.)
       return result;
     } catch(e) { console.error('Firebase load error:', e); return null; }
   };
@@ -517,8 +577,21 @@
 
   // Eliminar documento individual de Firestore
   window._fbDeleteDoc = async function(col, id) {
-    try { await deleteDoc(v2doc(col, id)); }
+    if(_delQ[col]) { _delQ[col].add(id); if(_dirty[col]) _dirty[col].delete(id); _copiaAvisar(); }
+    try {
+      await deleteDoc(v2doc(col, id));
+      if(_delQ[col] && _delQ[col].delete(id)) { try { window._copiaProgramar && window._copiaProgramar(true); } catch(e) {} }
+    }
     catch(e) { console.error('Firebase delete error:', e); }
+  };
+  // Reintenta los borrados que no llegaron a Firebase (sin señal, app cerrada, etc.)
+  window._fbReintentarBorrados = async function() {
+    for(const col of COLS) {
+      for(const id of Array.from(_delQ[col])) {
+        try { await deleteDoc(v2doc(col, id)); _delQ[col].delete(id); } catch(e) { return; }
+      }
+    }
+    try { window._copiaProgramar && window._copiaProgramar(true); } catch(e) {}
   };
 
   // Sincronización manual — no onSnapshot
@@ -572,6 +645,7 @@
       }
       borrar.forEach(function(k){ localStorage.removeItem(k); });
     } catch(e) {}
+    try { if(typeof window._copiaBorrar === 'function') await window._copiaBorrar(); } catch(e) {}
   };
   window._fbUploadPhoto = async function(file, productId) {
     try {
@@ -1375,11 +1449,11 @@ select option{background:var(--surface2)}
       <div class="card-header"><span class="card-title">🧮 Facturación</span></div>
       <div style="padding:14px 16px">
         <label style="display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;margin-bottom:8px;cursor:pointer">
-          <input type="checkbox" id="cfg-ret-activo" onchange="cfgFactCambio()" style="width:20px;height:20px;accent-color:var(--accent)"> Descuento por retiro en el local
+          <input type="checkbox" id="cfg-ret-activo" onchange="cfgFactCambio();cfgRetAuto()" style="width:20px;height:20px;accent-color:var(--accent)"> Descuento por retiro en el local
         </label>
         <div id="cfg-ret-box" style="display:none;margin:0 0 14px 30px">
           <label style="font-size:13px;color:var(--text3);display:block;margin-bottom:4px">Porcentaje (%)</label>
-          <input type="number" id="cfg-ret-pct" inputmode="decimal" min="0" max="50" step="0.5" placeholder="5" style="width:110px;padding:8px 10px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface);font-size:15px;color:var(--text)">
+          <input type="number" id="cfg-ret-pct" onchange="cfgRetAuto()" inputmode="decimal" min="0" max="50" step="0.5" placeholder="5" style="width:110px;padding:8px 10px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface);font-size:15px;color:var(--text)">
         </div>
         <label style="display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;margin:6px 0 4px;cursor:pointer">
           <input type="checkbox" id="cfg-esp-activa" onchange="cfgFactCambio()" style="width:20px;height:20px;accent-color:var(--accent)"> Categoría especial
@@ -1480,7 +1554,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Cuenta: <strong id="cfg-cuenta" style="color:var(--text)">—</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong id="cfg-ver" style="color:var(--accent);font-size:15px">4.3.2</strong> · <span id="cfg-ver-fecha">10/10/2026</span></div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong id="cfg-ver" style="color:var(--accent);font-size:15px">4.4.0</strong> · <span id="cfg-ver-fecha">11/10/2026</span></div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Cerrar sesión en este dispositivo</button>
         <button id="btn-eliminar-cuenta" onclick="eliminarCuenta()" style="display:none;margin-top:10px;width:100%;padding:10px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🗑️ Eliminar mi cuenta y datos</button>
       </div>
@@ -2080,7 +2154,8 @@ function _guardarLocal(obj) {
 }
 function save(fields, forceWrite) {
   _lastSaveTime = Date.now();
-  {
+  if(!_ES_TIENDA_URL) _copiaProgramar();
+  else {
     _guardarLocal({
       products:S.products, clients:S.clients, invoices:S.invoices, gruposMay:S.gruposMay||[],
       compras:S.compras, proveedores:S.proveedores, listaCompras:S.listaCompras||null, cobranzas:S.cobranzas||[], ajustes:S.ajustes||[],
@@ -2099,7 +2174,7 @@ function save(fields, forceWrite) {
   };
   if(window._fbSave) {
     window._fbSave(data, fields, forceWrite)
-      .then(()=>{ _syncShow('ok'); try{_syncMarkDirty(false);}catch(e){} })
+      .then(()=>{ _syncShow('ok'); try{_syncMarkDirty(_hayPend());}catch(e){} })
       .catch(e=>{ console.error('Firebase save error:',e); _syncShow('error'); try{_syncMarkDirty(true);}catch(e2){} });
   } else {
     _syncShow('ok');
@@ -2115,6 +2190,348 @@ function load() {
   } catch(e) { return false; }
 }
 
+// ===================== COPIA DEL CELULAR EN INDEXEDDB (4.4.0) =====================
+// localStorage tiene ~5 MB y los datos de Surtimar ya no entran (10/10/2026).
+// IndexedDB tiene cientos de MB. Se guardan dos cosas, juntas:
+//   state:<clave> -> la ultima copia completa de los datos
+//   pend:<clave>  -> la lista de cambios que todavia NO confirmo Firebase
+// Al abrir la app se muestra la copia al instante (sin poder cargar nada) y cuando
+// llegan los datos de Firebase se le vuelven a aplicar encima los cambios pendientes.
+const _ES_TIENDA_URL = location.search.indexOf('tienda') !== -1;
+const _IDB = (function(){
+  let _p = null;
+  function abrir() {
+    if(_p) return _p;
+    _p = new Promise(function(res, rej){
+      try {
+        const rq = indexedDB.open('revendit', 1);
+        rq.onupgradeneeded = function(){ try { rq.result.createObjectStore('kv'); } catch(e) {} };
+        rq.onsuccess = function(){ res(rq.result); };
+        rq.onerror = function(){ rej(rq.error || new Error('idb')); };
+        rq.onblocked = function(){ rej(new Error('idb bloqueada')); };
+      } catch(e) { rej(e); }
+    });
+    _p.catch(function(){ _p = null; });
+    return _p;
+  }
+  function tx(modo, fn) {
+    return abrir().then(function(db){
+      return new Promise(function(res, rej){
+        const t = db.transaction('kv', modo);
+        const st = t.objectStore('kv');
+        const out = fn(st);
+        t.oncomplete = function(){ res(out && out.map ? out.map(function(r){ return r.result; }) : true); };
+        t.onerror = function(){ rej(t.error || new Error('idb tx')); };
+        t.onabort = function(){ rej(t.error || new Error('idb abort')); };
+      });
+    });
+  }
+  return {
+    getMany: function(keys){ return tx('readonly', function(st){ return keys.map(function(k){ return st.get(k); }); }); },
+    putMany: function(pares){ return tx('readwrite', function(st){ pares.forEach(function(p){ st.put(p[1], p[0]); }); return null; }); },
+    delMany: function(keys){ return tx('readwrite', function(st){ keys.forEach(function(k){ st.delete(k); }); return null; }); }
+  };
+})();
+
+// Si Firebase todavia no cargo (sin señal al abrir), igual se anotan los cambios.
+window._pendLocal = window._pendLocal || { up:{}, del:{}, cfg:false };
+if(typeof window._markDirty !== 'function') {
+  window._markDirty = function(col, id) {
+    const P = window._pendLocal;
+    if(col === 'config') P.cfg = true;
+    else { P.up[col] = P.up[col] || []; if(P.up[col].indexOf(id) < 0) P.up[col].push(id); }
+    window._syncPendingFlag = true;
+    try { _syncMarkDirty(true); } catch(e) {}
+    _copiaProgramar();
+  };
+}
+if(typeof window._fbDeleteDoc !== 'function') {
+  window._fbDeleteDoc = async function(col, id) {
+    const P = window._pendLocal;
+    P.del[col] = P.del[col] || []; if(P.del[col].indexOf(id) < 0) P.del[col].push(id);
+    if(P.up[col]) P.up[col] = P.up[col].filter(function(x){ return x !== id; });
+    _copiaProgramar();
+  };
+}
+function _pendExportar() {
+  try { if(typeof window._dirtyExport === 'function') return window._dirtyExport(); } catch(e) {}
+  return JSON.parse(JSON.stringify(window._pendLocal || { up:{}, del:{}, cfg:false }));
+}
+function _pendImportar(p) {
+  if(!p) return;
+  if(typeof window._dirtyImport === 'function') { window._dirtyImport(p); return; }
+  const P = window._pendLocal;
+  Object.keys(p.up || {}).forEach(function(c){ P.up[c] = Array.from(new Set((P.up[c] || []).concat(p.up[c] || []))); });
+  Object.keys(p.del || {}).forEach(function(c){ P.del[c] = Array.from(new Set((P.del[c] || []).concat(p.del[c] || []))); });
+  if(p.cfg) P.cfg = true;
+}
+function _hayPend() {
+  try { if(typeof window._hayPendientes === 'function') return !!window._hayPendientes(); } catch(e) {}
+  const P = window._pendLocal || {};
+  return !!(P.cfg || Object.keys(P.up || {}).some(function(c){ return (P.up[c] || []).length; }) || Object.keys(P.del || {}).some(function(c){ return (P.del[c] || []).length; }));
+}
+function _estadoLocal() {
+  return {
+    products:S.products, clients:S.clients, invoices:S.invoices, gruposMay:S.gruposMay||[],
+    compras:S.compras, proveedores:S.proveedores, listaCompras:S.listaCompras||null, cobranzas:S.cobranzas||[], ajustes:S.ajustes||[],
+    banners:S.banners||[], bannersTs:S.bannersTs||0, config:S.config||{}, tiendaModo:S.tiendaModo||'abierta', listacompras:S.listacompras||[],
+    nInv:S.nInv, nCli:S.nCli, nProd:S.nProd, nComp:S.nComp, nProv:S.nProv, nGrupo:S.nGrupo
+  };
+}
+let _copiaT = null, _copiaOcupada = false, _copiaFull = false, _copiaPendSucia = false, _copiaVieja = false;
+function _copiaProgramar(soloPend) {
+  if(_ES_TIENDA_URL) return;
+  if(soloPend) _copiaPendSucia = true; else _copiaFull = true;
+  if(_copiaT || _copiaOcupada) return;
+  _copiaT = setTimeout(_copiaEscribir, 60);
+}
+window._copiaProgramar = _copiaProgramar;
+async function _copiaEscribir() {
+  if(_copiaT) { clearTimeout(_copiaT); _copiaT = null; }
+  if(_copiaOcupada) return;
+  const full = _copiaFull, pend = _copiaPendSucia || full;
+  if(!full && !pend) return;
+  _copiaFull = false; _copiaPendSucia = false; _copiaOcupada = true;
+  try {
+    if(!window._datosConfiables) {
+      // Todavia no hay datos confiables (ni de Firebase ni de una copia buena): como antes
+      if(full) _guardarLocal(_estadoLocal());
+    } else if(full) {
+      await _IDB.putMany([
+        ['state:' + SK, { v:1, ts: Date.now(), sync: window._ultimaSyncFb || 0, state: _estadoLocal() }],
+        ['pend:' + SK, _pendExportar()]
+      ]);
+      window._copiaLocalOk = true;
+      if(!_copiaVieja) {
+        // La copia vieja de localStorage ya no se usa: liberar ese espacio
+        _copiaVieja = true;
+        try { localStorage.removeItem(SK); } catch(e) {}
+        try { Object.keys(localStorage).filter(function(k){ return k.indexOf('mneg_bk_') === 0; }).forEach(function(k){ localStorage.removeItem(k); }); } catch(e) {}
+      }
+    } else {
+      await _IDB.putMany([['pend:' + SK, _pendExportar()]]);
+    }
+  } catch(e) {
+    console.error('Copia local (IndexedDB):', e);
+    window._copiaLocalOk = false;
+    if(full) _guardarLocal(_estadoLocal());
+  }
+  _copiaOcupada = false;
+  if(_copiaFull || _copiaPendSucia) _copiaT = setTimeout(_copiaEscribir, 60);
+}
+async function _copiaEscribirYa() {
+  for(let i = 0; i < 100 && _copiaOcupada; i++) await new Promise(function(r){ setTimeout(r, 30); });
+  await _copiaEscribir();
+  for(let i = 0; i < 100 && (_copiaOcupada || _copiaT); i++) { if(_copiaT && !_copiaOcupada) await _copiaEscribir(); else await new Promise(function(r){ setTimeout(r, 30); }); }
+}
+async function _copiaLeer() {
+  const r = await _IDB.getMany(['state:' + SK, 'pend:' + SK]);
+  const st = r[0];
+  if(!st || !st.state) return null;
+  return { state: st.state, sync: st.sync || 0, ts: st.ts || 0, pend: r[1] || null };
+}
+window._copiaBorrar = function() { return _IDB.delMany(['state:' + SK, 'pend:' + SK]).catch(function(){}); };
+// Al salir de la app, escribir enseguida lo que quede
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'hidden' && _copiaT) _copiaEscribir(); });
+window.addEventListener('pagehide', function(){ if(_copiaT) _copiaEscribir(); });
+
+// Contadores de numeros (factura, compra, cliente...) siempre por encima del mas alto existente
+function _fixCounters() {
+  function maxNum(arr, prefix) {
+    let max = 0;
+    (arr||[]).forEach(function(r) {
+      if(!r || !r.id) return;
+      const m = String(r.id).match(new RegExp('^'+prefix+'-0*(\\d+)'));
+      if(m) { const n = parseInt(m[1]); if(n > max) max = n; }
+    });
+    return max;
+  }
+  const minCli = maxNum(S.clients, 'CLI') + 1;
+  const minProd = maxNum(S.products, 'PROD') + 1;
+  const minProv = maxNum(S.proveedores, 'PROV') + 1;
+  const minComp = maxNum(S.compras, 'COMP') + 1;
+  const minInv = maxNum(S.invoices, 'FAC') + 1;
+  if((S.nCli||0) < minCli) { console.warn('Corrigiendo nCli:', S.nCli, '->', minCli); S.nCli = minCli; }
+  if((S.nProd||0) < minProd) { console.warn('Corrigiendo nProd:', S.nProd, '->', minProd); S.nProd = minProd; }
+  if((S.nProv||0) < minProv) { console.warn('Corrigiendo nProv:', S.nProv, '->', minProv); S.nProv = minProv; }
+  if((S.nComp||0) < minComp) { console.warn('Corrigiendo nComp:', S.nComp, '->', minComp); S.nComp = minComp; }
+  if((S.nInv||0) < minInv) { console.warn('Corrigiendo nInv:', S.nInv, '->', minInv); S.nInv = minInv; }
+}
+function _reconstruirListaCompras() {
+  try {
+    const lcDoc = (S.listacompras||[]).find(function(d){ return d && d.id==='main'; });
+    if(lcDoc) {
+      S.listaCompras = {
+        notas: lcDoc.notas||{}, estados: lcDoc.estados||{},
+        cantidades: lcDoc.cantidades||{}, orden: lcDoc.orden||{},
+        ocultos: lcDoc.ocultos||[], updatedAt: lcDoc.updatedAt
+      };
+    }
+  } catch(e) {}
+}
+
+// Pone los datos de Firebase y les vuelve a aplicar encima lo que este celular
+// cargo y todavia no se confirmo (en vez de pisarlo, como pasaba antes).
+const _CAMPOS_CFG_LOCAL = ['config','banners','bannersTs','gruposMay','tiendaModo'];
+const _CONTADORES = ['nInv','nCli','nProd','nComp','nProv','nGrupo'];
+function _aplicarDatosFirebase(d) {
+  const pend = _pendExportar();
+  const loc = {};
+  Object.keys(pend.up || {}).forEach(function(col){
+    const m = {}; (S[col] || []).forEach(function(r){ if(r && r.id) m[r.id] = r; }); loc[col] = m;
+  });
+  const cfgLocal = {}; _CAMPOS_CFG_LOCAL.forEach(function(k){ cfgLocal[k] = S[k]; });
+  const cont = {}; _CONTADORES.forEach(function(k){ cont[k] = S[k] || 0; });
+  Object.assign(S, d);
+  Object.keys(pend.up || {}).forEach(function(col){
+    if(!Array.isArray(S[col])) S[col] = [];
+    (pend.up[col] || []).forEach(function(id){
+      const r = loc[col] && loc[col][id];
+      if(!r) return;
+      const i = S[col].findIndex(function(x){ return x && x.id === id; });
+      if(i >= 0) S[col][i] = r; else S[col].push(r);
+    });
+  });
+  Object.keys(pend.del || {}).forEach(function(col){
+    const borr = new Set(pend.del[col] || []);
+    if(borr.size && Array.isArray(S[col])) S[col] = S[col].filter(function(r){ return !(r && borr.has(r.id)); });
+  });
+  if(pend.cfg) _CAMPOS_CFG_LOCAL.forEach(function(k){ if(cfgLocal[k] !== undefined) S[k] = cfgLocal[k]; });
+  _CONTADORES.forEach(function(k){ if((S[k] || 0) < cont[k]) S[k] = cont[k]; });
+  _fixCounters();
+  _reconstruirListaCompras();
+  window._datosConfiables = true;
+  window._datosFirebaseOk = true;
+  window._ultimaSyncFb = Date.now();
+  window._modoSinActualizar = false;
+  _avisoCopia(false);
+  _copiaProgramar();
+}
+
+// ---- Pantalla de "Actualizando..." (no se puede cargar nada hasta tener los datos reales) ----
+function _fechaCorta(ts) {
+  if(!ts) return 'sin fecha';
+  const d = new Date(ts);
+  const z = function(n){ return String(n).padStart(2,'0'); };
+  return z(d.getDate()) + '/' + z(d.getMonth()+1) + ' ' + z(d.getHours()) + ':' + z(d.getMinutes());
+}
+function _bloqueo(modo, hayCopia) {
+  let el = document.getElementById('bloqueo-datos');
+  if(!modo) { if(el) el.remove(); return; }
+  if(!el) {
+    el = document.createElement('div');
+    el.id = 'bloqueo-datos';
+    el.style.cssText = 'position:fixed;inset:0;z-index:99990;background:rgba(15,23,42,.35);display:flex;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 70px) 16px 16px;box-sizing:border-box';
+    document.body.appendChild(el);
+  }
+  const caja = 'background:var(--surface,#fff);color:var(--text,#111);border-radius:14px;padding:16px 18px;max-width:360px;width:100%;box-shadow:0 8px 30px rgba(0,0,0,.25);font-size:15px;line-height:1.4;text-align:center';
+  if(modo === 'lento') {
+    el.innerHTML = '<div style="' + caja + '"><div style="font-size:26px">📶</div>'
+      + '<div style="font-weight:700;margin:4px 0 6px">No llegan los datos actualizados</div>'
+      + '<div style="font-size:13px;color:var(--text3,#666)">Puede ser falta de señal o conexión lenta. Seguimos intentando solos.</div>'
+      + (hayCopia ? '<button id="btn-usar-copia" style="display:block;width:100%;margin-top:12px;background:#fef3c7;border:1px solid #f59e0b;color:#92400e;border-radius:10px;padding:10px 12px;font-size:15px;font-weight:700;line-height:1.3;text-align:center;cursor:pointer;font-family:inherit"><span style="display:block">Trabajar con la copia del celular</span><span style="display:block;font-size:12px;font-weight:400;margin-top:3px">Copia del ' + _fechaCorta(window._ultimaSyncFb) + '. Lo que cargues se sube solo cuando vuelva la señal.</span></button>' : '')
+      + '</div>';
+    const b = document.getElementById('btn-usar-copia');
+    if(b) b.onclick = _trabajarConCopia;
+  } else {
+    el.innerHTML = '<div style="' + caja + '"><div style="font-size:15px;font-weight:700">⏳ ' + (modo === 'cargando' ? 'Cargando datos…' : 'Actualizando datos…') + '</div>'
+      + (modo === 'actualizando' ? '<div style="font-size:12px;color:var(--text3,#666);margin-top:4px">Ya ves la última copia; en unos segundos se habilita para cargar.</div>' : '')
+      + '</div>';
+  }
+}
+function _avisoCopia(on) {
+  let el = document.getElementById('aviso-copia');
+  if(!on) { if(el) el.remove(); return; }
+  if(!el) {
+    el = document.createElement('div');
+    el.id = 'aviso-copia';
+    el.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(var(--nav-h,56px) + 8px);z-index:9998;background:#fef3c7;color:#92400e;border:1px solid #f59e0b;border-radius:10px;padding:6px 10px;font-size:12px;line-height:1.3;text-align:center;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.12)';
+    document.body.appendChild(el);
+  }
+  el.textContent = '⚠️ Sin actualizar · copia del ' + _fechaCorta(window._ultimaSyncFb) + ' · lo que cargues se sube solo';
+}
+function _trabajarConCopia() {
+  window._modoSinActualizar = true;
+  _bloqueo(null);
+  _avisoCopia(true);
+  _actualizarEnSegundoPlano();
+}
+async function _fbLoadSeguro() {
+  if(typeof window._fbLoad !== 'function') return null;
+  try {
+    const d = await Promise.race([
+      window._fbLoad(),
+      new Promise(function(r){ setTimeout(function(){ r(null); }, 25000); })
+    ]);
+    if(!d) return null;
+    // Control de cordura: si llega VACIO lo que en el celular tiene cientos de registros,
+    // no se aplica (seria una respuesta incompleta, no un borrado real).
+    const vacio = function(c){ return !Array.isArray(d[c]) || d[c].length === 0; };
+    if(vacio('products') && vacio('invoices') && ((S.products||[]).length > 20 || (S.invoices||[]).length > 20)) {
+      console.warn('Carga de Firebase vacía: se ignora');
+      return null;
+    }
+    return d;
+  } catch(e) { return null; }
+}
+// Cuando se esta trabajando con la copia, los datos nuevos se aplican recien cuando
+// no hay nada a medio cargar (misma regla que el boton de sincronizar).
+let _datosEnEspera = null, _esperaT = null;
+function _aplicarCuandoSeaSeguro(d) {
+  if(d) _datosEnEspera = d;
+  if(_esperaT) return;
+  (function intentar(){
+    _esperaT = null;
+    if(!_datosEnEspera) return;
+    let riesgo = null; try { riesgo = _riesgoAlSincronizar(); } catch(e) {}
+    if(riesgo) { _esperaT = setTimeout(intentar, 3000); return; }
+    const dd = _datosEnEspera; _datosEnEspera = null;
+    _aplicarDatosFirebase(dd);
+    _bloqueo(null);
+    try { _initPostCarga(false); } catch(e) { console.error(e); }
+    try { updateStockBadge(); renderProdCatChips(); } catch(e) {}
+    toast('✅ Datos actualizados');
+    _subirPendientes();
+  })();
+}
+let _actualizandoBg = false, _despertarBg = null;
+async function _actualizarEnSegundoPlano() {
+  if(_actualizandoBg) { if(_despertarBg) _despertarBg(); return; }
+  _actualizandoBg = true;
+  try {
+    while(!window._datosFirebaseOk) {
+      const d = await _fbLoadSeguro();
+      if(d) {
+        if(window._modoSinActualizar) _aplicarCuandoSeaSeguro(d);
+        else {
+          _aplicarDatosFirebase(d); _bloqueo(null);
+          try { _initPostCarga(false); } catch(e) { console.error(e); }
+          _subirPendientes();
+        }
+        break;
+      }
+      await new Promise(function(r){ _despertarBg = r; setTimeout(r, 15000); });
+      _despertarBg = null;
+    }
+  } finally { _actualizandoBg = false; _despertarBg = null; }
+}
+// Reintento automatico de subida: cada 30 s y apenas vuelve la señal
+let _subiendoPend = false;
+async function _subirPendientes() {
+  if(_ES_TIENDA_URL || !window._datosConfiables || !window._firebaseReady) return;
+  if(typeof window._fbSaveDirty !== 'function' || !_hayPend() || _subiendoPend) return;
+  _subiendoPend = true;
+  try {
+    await window._fbSaveDirty(S);
+    if(typeof window._fbReintentarBorrados === 'function') await window._fbReintentarBorrados();
+  } catch(e) {}
+  finally { _subiendoPend = false; }
+  try { _syncMarkDirty(_hayPend()); } catch(e) {}
+}
+setInterval(function(){ if(!document.hidden) _subirPendientes(); }, 30000);
+window.addEventListener('online', function(){ _subirPendientes(); if(!window._datosFirebaseOk && window._initAppCorrio && !_ES_TIENDA_URL) _actualizarEnSegundoPlano(); });
+// ===================== FIN COPIA DEL CELULAR =====================
+
 async function loadFromFirebase(puedeAplicar) {
   if (!window._fbLoad) return false;
   try {
@@ -2122,6 +2539,7 @@ async function loadFromFirebase(puedeAplicar) {
     if (!d) return false;
     if (puedeAplicar && !puedeAplicar()) return false;
     Object.assign(S, d);
+    window._datosFirebaseOk = true;
     // Actualizar localStorage con datos de Firebase
     _guardarLocal(d);
     // Refrescar UI con datos reales
@@ -2179,6 +2597,14 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.4.0', f:'11/10/2026', t:[
+    'La app abre al instante mostrando la última copia guardada en el celular, con el aviso "Actualizando datos…". En unos segundos llegan los datos reales y se habilita para cargar.',
+    'Lo que cargues ya no se pierde si no hay señal o se cierra la app: queda guardado en el celular y se sube solo cuando vuelve la conexión (se reintenta cada 30 segundos).',
+    'Si no hay señal al abrir, podés elegir "Trabajar con la copia del celular": un cartel amarillo te avisa que los datos pueden no estar al día.',
+    'La copia del celular ahora se guarda en un espacio mucho más grande (antes se llenaba y quedaba congelada).',
+    'Configuración → Facturación: el descuento por retiro se guarda solo al tildarlo o destildarlo.',
+    'Arreglos: los números de factura y compra se corrigen también al sincronizar; el registro semanal del valor del inventario solo se toma con los datos ya actualizados.'
+  ]},
   {v:'4.3.2', f:'10/10/2026', t:[
     'Fotos de facturas de proveedor: ahora el botón "Borrar" sigue habilitado aunque salgas y vuelvas a entrar a la app, y solo borra las fotos que ya descargaste en el ZIP.'
   ]},
@@ -3127,7 +3553,7 @@ function saveCfgNegocio() {
   S.config.negocio = { nombre: nombre, whatsapp: waRaw, envio: envio, envioMinimo: envio === 'desde' ? min : 0, envioCosto: envio === 'desde' ? costo : 0, ts: Date.now() };
   try{ _markDirty('config'); }catch(e){}
   try{ save(['config']); }catch(e){}
-  try{ if(typeof window._fbSaveDirty === 'function') window._fbSaveDirty(S); }catch(e){}
+  try{ if(typeof window._fbSaveDirty === 'function') window._fbSaveDirty(S).catch(function(){}); }catch(e){}
   toast('✓ Datos del negocio guardados');
 }
 function cfgFactCambio() {
@@ -3157,6 +3583,14 @@ function cfgFactCargar() {
   }).join('');
   cfgFactCambio();
 }
+// El descuento por retiro se guarda solo al tocarlo (antes había que tocar "Guardar" y,
+// si no, al volver a entrar aparecía tildado de nuevo).
+function cfgRetAuto() {
+  const c = document.getElementById('cfg-ret-activo');
+  const pct = Number(document.getElementById('cfg-ret-pct').value);
+  if(!c) return;
+  if(!c.checked || (pct > 0 && pct <= 50)) saveCfgFacturacion();
+}
 function saveCfgFacturacion() {
   const retActivo = document.getElementById('cfg-ret-activo').checked;
   const pct = Number(document.getElementById('cfg-ret-pct').value);
@@ -3174,7 +3608,7 @@ function saveCfgFacturacion() {
   S.config.catEspecial = { activa: espActiva, nombre: nombre || ceAnt.nombre || '', emoji: ceAnt.emoji || '⭐', categoria: cat || ceAnt.categoria || '', unidad: unidad, ts: ahora };
   try{ _markDirty('config'); }catch(e){}
   try{ save(['config']); }catch(e){}
-  try{ if(typeof window._fbSaveDirty === 'function') window._fbSaveDirty(S); }catch(e){}
+  try{ if(typeof window._fbSaveDirty === 'function') window._fbSaveDirty(S).catch(function(){}); }catch(e){}
   try{ aplicarCfgFacturacion(); }catch(e){}
   toast('✓ Facturación guardada');
 }
@@ -3186,7 +3620,7 @@ function saveCfgHorarioCorte(val) {
   S.config.horarioCorteTs = Date.now();
   try{ _markDirty('config'); }catch(e){}
   try{save(['config']);}catch(e){}
-  try{ if(typeof window._fbSaveDirty === 'function') window._fbSaveDirty(S); }catch(e){}
+  try{ if(typeof window._fbSaveDirty === 'function') window._fbSaveDirty(S).catch(function(){}); }catch(e){}
   toast('Horario de corte guardado: '+val);
 }
 function tiendaFechaFactura() {
@@ -7215,7 +7649,7 @@ function updDash() {
   const invEl = document.getElementById('dash-inv-valor');
   const valorInv = calcValorInventario();
   if(invEl) invEl.textContent = '$'+Math.round(valorInv).toLocaleString('es-AR');
-  registrarValorInventarioSemanal(valorInv);
+  if(window._datosFirebaseOk) registrarValorInventarioSemanal(valorInv);
   // Resumen día en facturas
   const dm = document.getElementById('dash-metricas');
   if(dm) dm.innerHTML = '';
@@ -7820,7 +8254,7 @@ function pagocliConfirm() {
 
   // Subir inmediatamente a Firebase — sin esto el pago solo existe en localStorage
   // hasta el próximo sync manual, y en el medio otro celular puede pisarlo.
-  try{ if(typeof window._fbSaveDirty === 'function') window._fbSaveDirty(S); }catch(e){}
+  try{ if(typeof window._fbSaveDirty === 'function') window._fbSaveDirty(S).catch(function(){}); }catch(e){}
 }
 
 
@@ -8009,62 +8443,101 @@ function confirmarCobroReparto(rutaIdx) {
 let _fbListenerActive = false;
 
 async function initApp() {
-  // Arranque UNA sola vez: antes, el "plan B" de 3 segundos volvía a llamar a initApp
-  // aunque ya hubiera arrancado y descargaba TODO dos veces (y podía pisar lo recién editado).
+  // Arranque UNA sola vez (el "plan B" de 3 s no debe volver a descargar todo).
   if(window._initAppCorrio === true) return;
   // Modo "local": se arrancó sin sesión de Firebase. Si después la sesión llega, se vuelve a arrancar.
   const _modoLocal = !window._firebaseReady;
+  if(_modoLocal && window._initAppCorrio === 'local') return;
+  const _veniaDeLocal = window._initAppCorrio === 'local';
   window._initAppCorrio = _modoLocal ? 'local' : true;
   if(window._bizKey) SK = window._bizKey;
-  // SIEMPRE se esperan los datos de Firebase (la fuente real). La versión 4.2.5 mostraba
-  // primero la copia del celular y eso, con la copia congelada por falta de memoria,
-  // mostró datos de la madrugada (10/10/2026). La copia local queda solo para sin conexión.
+  if(_ES_TIENDA_URL) return _initAppTienda(_modoLocal);
+
+  if(_veniaDeLocal) {
+    // Si la sesión resultó ser de OTRO negocio que el de la copia mostrada, empezar de cero
+    if(window._skLocal && window._skLocal !== SK) { location.reload(); return; }
+    // Ya se está trabajando con lo que había en el celular: actualizar sin trabar la pantalla
+    window._modoSinActualizar = true;
+    if(window._datosConfiables) _avisoCopia(true);
+    _actualizarEnSegundoPlano();
+    return;
+  }
+
+  // 1) Copia del celular (IndexedDB): se muestra al instante, sin dejar cargar nada todavía
+  let copia = null;
+  try { copia = await _copiaLeer(); } catch(e) { console.warn('Sin copia local:', e); }
+  const hayCopia = !!(copia && copia.state && Array.isArray(copia.state.products) && Array.isArray(copia.state.invoices));
+  if(hayCopia) {
+    Object.assign(S, copia.state);
+    _pendImportar(copia.pend);
+    window._datosConfiables = true;
+    window._ultimaSyncFb = copia.sync || copia.ts || 0;
+    try { _initPostCarga(true); } catch(e) { console.error('init copia:', e); }
+  }
+  if(_modoLocal) {
+    window._skLocal = SK;
+    if(hayCopia) { window._modoSinActualizar = true; _avisoCopia(true); }
+    else _arranqueSinDatos();
+    return;
+  }
+
+  // 2) Datos reales de Firebase
+  _bloqueo(hayCopia ? 'actualizando' : 'cargando');
+  const tLento = setTimeout(function(){ if(!window._datosFirebaseOk && !window._modoSinActualizar) _bloqueo('lento', hayCopia); }, 10000);
+  let d = await _fbLoadSeguro();
+  if(!d && !window._datosFirebaseOk) {
+    await new Promise(function(r){ setTimeout(r, 2500); });
+    d = await _fbLoadSeguro();
+  }
+  if(window._datosFirebaseOk) { clearTimeout(tLento); return; } // ya lo aplicó otro camino
+  if(d) {
+    clearTimeout(tLento);
+    if(window._modoSinActualizar) { _aplicarCuandoSeaSeguro(d); return; }
+    _aplicarDatosFirebase(d);
+    _bloqueo(null);
+    try { _initPostCarga(!hayCopia); } catch(e) { console.error('init:', e); }
+    _subirPendientes();
+    return;
+  }
+  if(!hayCopia) {
+    // Sin copia nueva y sin Firebase: como antes (copia vieja con aviso) y se sigue intentando
+    clearTimeout(tLento);
+    _bloqueo(null);
+    _arranqueSinDatos();
+    window._modoSinActualizar = true;
+    _actualizarEnSegundoPlano();
+    return;
+  }
+  // Con copia: se ofrece trabajar con ella y se sigue intentando solo
+  if(!window._modoSinActualizar) _bloqueo('lento', true);
+  _actualizarEnSegundoPlano();
+}
+function _arranqueSinDatos() {
+  const hasLocalData = load();
+  if(hasLocalData) {
+    setTimeout(function(){ try{ alert('⚠️ No se pudo conectar con Firebase.\nEstás viendo los datos guardados en este celular, que pueden estar DESACTUALIZADOS.\nNo cargues nada hasta sincronizar.'); }catch(e){} }, 300);
+  } else {
+    console.error('ADVERTENCIA: no se pudo cargar ningún dato (ni local ni Firebase).');
+    setTimeout(function(){ try{ toast('⚠️ No se encontraron datos — verificá tu conexión y sincronizá'); }catch(e){} }, 500);
+  }
+  _initPostCarga(true);
+}
+// La tienda sigue exactamente como antes (su propia carga liviana y su copia aparte)
+async function _initAppTienda(_modoLocal) {
   let hasFbData = _modoLocal ? false : await loadFromFirebase();
   if(!hasFbData && !_modoLocal) {
-    // Un reintento a los 2,5 s (la señal del celular a veces falla un instante)
     await new Promise(function(r){ setTimeout(r, 2500); });
     hasFbData = await loadFromFirebase();
   }
-  if(!hasFbData) {
-    const hasLocalData = load();
-    if(hasLocalData) {
-      setTimeout(function(){ try{ alert('⚠️ No se pudo conectar con Firebase.\nEstás viendo los datos guardados en este celular, que pueden estar DESACTUALIZADOS.\nNo cargues nada hasta sincronizar.'); }catch(e){} }, 300);
-    } else {
-      console.error('ADVERTENCIA: no se pudo cargar ningún dato (ni local ni Firebase).');
-      setTimeout(function(){ try{ toast('⚠️ No se encontraron datos — verificá tu conexión y sincronizá'); }catch(e){} }, 500);
-    }
-  }
+  if(!hasFbData) { _arranqueSinDatos(); return; }
   _initPostCarga(true);
 }
 
 // Pasos que siempre se hacen después de tener los datos en memoria.
 function _initPostCarga(primeraVez) {
-  // FIX CRÍTICO: los contadores de ID (nCli, nProd, nProv, nComp, nInv) deben estar
-  // siempre por encima del ID más alto ya existente. Si quedan atrás (por ejemplo,
-  // porque el bloque de datos de prueba que los fijaba fue eliminado), un registro
-  // nuevo puede generar un ID ya usado y PISAR un cliente/producto/factura real.
-  // Esto corrige el contador a partir de los datos reales cada vez que se inicia la app.
-  (function fixCounters() {
-    function maxNum(arr, prefix) {
-      let max = 0;
-      (arr||[]).forEach(function(r) {
-        if(!r || !r.id) return;
-        const m = String(r.id).match(new RegExp('^'+prefix+'-0*(\\d+)'));
-        if(m) { const n = parseInt(m[1]); if(n > max) max = n; }
-      });
-      return max;
-    }
-    const minCli = maxNum(S.clients, 'CLI') + 1;
-    const minProd = maxNum(S.products, 'PROD') + 1;
-    const minProv = maxNum(S.proveedores, 'PROV') + 1;
-    const minComp = maxNum(S.compras, 'COMP') + 1;
-    const minInv = maxNum(S.invoices, 'FAC') + 1;
-    if((S.nCli||0) < minCli) { console.warn('Corrigiendo nCli:', S.nCli, '->', minCli); S.nCli = minCli; }
-    if((S.nProd||0) < minProd) { console.warn('Corrigiendo nProd:', S.nProd, '->', minProd); S.nProd = minProd; }
-    if((S.nProv||0) < minProv) { console.warn('Corrigiendo nProv:', S.nProv, '->', minProv); S.nProv = minProv; }
-    if((S.nComp||0) < minComp) { console.warn('Corrigiendo nComp:', S.nComp, '->', minComp); S.nComp = minComp; }
-    if((S.nInv||0) < minInv) { console.warn('Corrigiendo nInv:', S.nInv, '->', minInv); S.nInv = minInv; }
-  })();
+  // FIX CRÍTICO: los contadores de ID deben estar siempre por encima del ID más alto
+  // ya existente (si no, un registro nuevo podría PISAR uno real).
+  _fixCounters();
 
   // MIGRACIÓN: categoría galletitas donde corresponde
   (function migrateProducts() {
@@ -8079,19 +8552,10 @@ function _initPostCarga(primeraVez) {
 
   renderProds(); renderInvs(); renderClis(); renderProvs(); renderComps(); updDash();
 
-  // Badge de sync pendiente: mostrar si hay datos locales más nuevos que Firebase
-  _syncMarkDirty(false); // al iniciar no hay cambios pendientes
+  // Badge de sync pendiente: solo si quedaron cambios sin confirmar por Firebase
+  _syncMarkDirty(_hayPend());
   // Reconstruir S.listaCompras (objeto UI) desde S.listacompras (colección)
-  try {
-    const lcDoc = (S.listacompras||[]).find(function(d){ return d && d.id==='main'; });
-    if(lcDoc) {
-      S.listaCompras = {
-        notas: lcDoc.notas||{}, estados: lcDoc.estados||{},
-        cantidades: lcDoc.cantidades||{}, orden: lcDoc.orden||{},
-        ocultos: lcDoc.ocultos||[], updatedAt: lcDoc.updatedAt
-      };
-    }
-  } catch(e) {}
+  _reconstruirListaCompras();
   try { recalcAllStocks(); recalcClientCredits(); } catch(e) { console.error('recalc error:', e); }
   try { updTiendaModoUI(); } catch(e) {}
   try { renderNovedades(); avisoNuevaVersion(); } catch(e) {}
@@ -8223,37 +8687,10 @@ async function syncManual() {
     }
     S.editId = null;
 
-    // 3. Merge inteligente
-    const _COLS = ['products','invoices','clients','compras','proveedores','cobranzas','ajustes','listacompras'];
-    _COLS.forEach(function(col) {
-      if(!fbData[col]) return;
-      const localById = {};
-      (S[col]||[]).forEach(function(r){ if(r && r.id) localById[r.id] = r; });
-      S[col] = fbData[col].map(function(remote) {
-        const local = localById[remote.id];
-        if(!local) return remote;
-        const localTime = local.updatedAt ? new Date(local.updatedAt).getTime() : 0;
-        const remoteTime = remote.updatedAt ? new Date(remote.updatedAt).getTime() : 0;
-        return localTime > remoteTime ? local : remote;
-      }).filter(Boolean);
-    });
-    Object.keys(fbData).forEach(function(k){
-      if(!_COLS.includes(k)) S[k] = fbData[k];
-    });
-    // Sincronizar S.listaCompras (objeto usado por la UI) desde S.listacompras (colección)
-    try {
-      const lcDoc = (S.listacompras||[]).find(function(d){ return d && d.id==='main'; });
-      if(lcDoc) {
-        S.listaCompras = {
-          notas: lcDoc.notas||{}, estados: lcDoc.estados||{},
-          cantidades: lcDoc.cantidades||{}, orden: lcDoc.orden||{},
-          ocultos: lcDoc.ocultos||[], updatedAt: lcDoc.updatedAt
-        };
-      }
-    } catch(e) {}
-
-    // 4. Guardar en localStorage — si falla (cuota llena) no es crítico
-    _guardarLocal(fbData);
+    // 3. Datos de Firebase + lo que este celular todavía no logró subir (no se pierde)
+    //    y 4. copia del celular actualizada
+    _aplicarDatosFirebase(fbData);
+    try { _fixCounters(); } catch(e) {}
 
     // 5. Recalcular y renderizar — si algo falla acá, los datos ya están bajados
     try { recalcAllStocks(); recalcClientCredits(); } catch(eR) { console.error('recalc error:', eR); }
@@ -8264,10 +8701,10 @@ async function syncManual() {
     // cambiar de pestaña para ver los cambios (notas del otro celular, pedidos nuevos).
     try { if(document.getElementById('comp-lista') && document.getElementById('comp-lista').style.display !== 'none') renderListaCompras(); } catch(e) {}
 
-    _syncMarkDirty(false);
-    window._syncPendingFlag = false;
+    _syncMarkDirty(_hayPend());
+    if(_hayPend()) _subirPendientes();
     try { await window._fbMarcarVisto(); _marcarNovedades(false); } catch(e) {}
-    toast('✅ Sincronizado');
+    toast(_hayPend() ? '⚠️ Sincronizado, pero quedan cambios por subir (se reintenta solo)' : '✅ Sincronizado');
 
   } catch(e) {
     console.error('Error sync:', e);
@@ -8282,7 +8719,7 @@ async function syncManual() {
 document.addEventListener('visibilitychange', function() {
   if (document.visibilityState === 'hidden' && _syncDirty) {
     if (typeof window._fbSaveDirty === 'function') {
-      try { window._fbSaveDirty(S); } catch(e) {}
+      try { window._fbSaveDirty(S).catch(function(){}); } catch(e) {}
     }
   }
   // Al volver NO sincroniza automáticamente — solo manual o al abrir la app
@@ -9319,7 +9756,7 @@ function _listaCompraGuardar() {
   try{ _markDirty('listacompras','main'); }catch(e){}
   try{ save(['listacompras']); }catch(e){}
   // Subir inmediatamente a Firebase para que el otro celular lo vea al sincronizar
-  try{ if(typeof window._fbSaveDirty === 'function') window._fbSaveDirty(S); }catch(e){}
+  try{ if(typeof window._fbSaveDirty === 'function') window._fbSaveDirty(S).catch(function(){}); }catch(e){}
 }
 function listaOcultarProv(pvId) {
   if(!S.listaCompras) S.listaCompras = {};
