@@ -600,7 +600,8 @@
     try {
       await deleteDoc(v2doc(col, id));
       _lapida(col, id);
-      if(_delQ[col] && _delQ[col].delete(id)) { try { window._copiaProgramar && window._copiaProgramar(true); } catch(e) {} }
+      try { _latidoWrite().catch(function(){}); } catch(e) {}   // avisar al otro celular (antes un borrado solo no lo avisaba)
+      if(_delQ[col] && _delQ[col].delete(id)) { try { window._copiaProgramar && window._copiaProgramar(true); } catch(e) {} try { if(typeof window._syncMarkDirty === 'function') window._syncMarkDirty(window._hayPendientes()); } catch(e) {} }
     }
     catch(e) { console.error('Firebase delete error:', e); }
   };
@@ -652,7 +653,7 @@
   window._fbReintentarBorrados = async function() {
     for(const col of COLS) {
       for(const id of Array.from(_delQ[col])) {
-        try { await deleteDoc(v2doc(col, id)); _delQ[col].delete(id); _lapida(col, id); } catch(e) { return; }
+        try { await deleteDoc(v2doc(col, id)); _delQ[col].delete(id); _lapida(col, id); try { _latidoWrite().catch(function(){}); } catch(e2) {} } catch(e) { return; }
       }
     }
     try { window._copiaProgramar && window._copiaProgramar(true); } catch(e) {}
@@ -936,7 +937,7 @@ select option{background:var(--surface2)}
     <button class="btn btn-sm" id="btn-add" onclick="handleAdd()" style="background:#ffe600;color:#1a3a6b;border:none;font-weight:700;display:none">+ Nuevo</button>
     <div style="position:relative">
       <button id="btn-sync" onclick="syncManual()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:18px;padding:6px 10px;border-radius:8px;cursor:pointer;position:relative" title="Sincronizar">
-        🔄
+        <span id="sync-ico">🔄</span>
         <span id="sync-badge" style="display:none;position:absolute;top:-5px;right:-5px;background:#dc2626;color:#fff;border-radius:50%;width:19px;height:19px;font-size:12px;font-weight:800;align-items:center;justify-content:center;line-height:1;border:2px solid var(--surface)">!</span>
       </button>
     </div>
@@ -1626,7 +1627,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Cuenta: <strong id="cfg-cuenta" style="color:var(--text)">—</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong id="cfg-ver" style="color:var(--accent);font-size:15px">4.5.0</strong> · <span id="cfg-ver-fecha">11/10/2026</span></div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong id="cfg-ver" style="color:var(--accent);font-size:15px">4.5.1</strong> · <span id="cfg-ver-fecha">11/10/2026</span></div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Cerrar sesión en este dispositivo</button>
         <button id="btn-eliminar-cuenta" onclick="eliminarCuenta()" style="display:none;margin-top:10px;width:100%;padding:10px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🗑️ Eliminar mi cuenta y datos</button>
       </div>
@@ -2698,7 +2699,8 @@ async function _actualizarEnSegundoPlano() {
 let _subiendoPend = false;
 async function _subirPendientes() {
   if(_ES_TIENDA_URL || !window._datosConfiables || !window._firebaseReady) return;
-  if(typeof window._fbSaveDirty !== 'function' || !_hayPend() || _subiendoPend) return;
+  if(typeof window._fbSaveDirty !== 'function' || _subiendoPend) return;
+  if(!_hayPend()) { try { if(window._syncPendingFlag || _syncDirty) _syncMarkDirty(false); } catch(e) {} return; }
   _subiendoPend = true;
   try {
     await window._fbSaveDirty(S);
@@ -2776,6 +2778,11 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.5.1', f:'11/10/2026', t:[
+    'Arreglo: después de sincronizar a mano, el botón 🔄 quedaba amarillo y dejaba de avisar cuando el otro celular cargaba o borraba algo. Ahora el aviso funciona siempre.',
+    'Arreglo: cuando borrás algo (factura, compra, cliente), el otro celular ahora recibe el aviso de sincronizar.',
+    'Arreglo: el círculo rojo "!" ya no queda prendido de más después de borrar una factura.'
+  ]},
   {v:'4.5.0', f:'11/10/2026', t:[
     'Arranque mucho más rápido: la app ya no descarga todos los datos cada vez, solo lo que cambió desde la última vez (de ~20 segundos a unos pocos).',
     'Lo que cargues en un celular aparece en el otro al sincronizar, y lo que borres se borra también en el otro.',
@@ -8854,6 +8861,8 @@ function _riesgoAlSincronizar() {
   if(modales.length > 0) return 'Tenés una ventana de edición abierta sin guardar';
   return null;
 }
+// El icono va en su propio <span>: antes se pisaba todo el boton con textContent y se borraba el circulo rojo de aviso
+function _syncIco(t) { try { const e = document.getElementById('sync-ico'); if(e) e.textContent = t; } catch(x) {} }
 async function syncManual(completo) {
   const riesgo = _riesgoAlSincronizar();
   if(riesgo) {
@@ -8861,9 +8870,9 @@ async function syncManual(completo) {
     if(!ok) return;
   }
   const btn = document.getElementById('btn-sync');
-  if (btn) btn.textContent = '⏳';
+  _syncIco('⏳');
   try {
-    if (typeof window._fbLoad !== 'function') { if(btn) btn.textContent='🔄'; return; }
+    if (typeof window._fbLoad !== 'function') { _syncIco('🔄'); return; }
 
     // 1. Subir dirty — si falla, avisamos pero IGUAL intentamos bajar
     if ((_syncDirty || window._syncPendingFlag) && typeof window._fbSaveDirty === 'function') {
@@ -8878,13 +8887,13 @@ async function syncManual(completo) {
     // 2. Bajar datos frescos de Firebase (siempre, aunque la subida haya fallado)
     if(completo) toast('⏳ Descargando todo… (unos 20 s)');
     const fbData = await _fbLoadSeguro({ completo: !!completo });
-    if (!fbData) { toast('❌ No se pudo conectar con Firebase'); if(btn) btn.textContent='🔄'; return; }
+    if (!fbData) { toast('❌ No se pudo conectar con Firebase'); _syncIco('🔄'); return; }
 
     const resumenActivo = document.getElementById('page-resumen-factura') &&
       document.getElementById('page-resumen-factura').classList.contains('active');
     if (S.editId && resumenActivo) {
       toast('⚠️ Hay una factura abierta — cerrala antes de sincronizar');
-      if (btn) btn.textContent = '🔄';
+      _syncIco('🔄');
       return;
     }
     S.editId = null;
@@ -8914,7 +8923,7 @@ async function syncManual(completo) {
     const msg = e && e.message ? e.message.substring(0,80) : 'Error desconocido';
     toast('❌ Error al sincronizar: '+msg);
   }
-  if (btn) btn.textContent = '🔄';
+  _syncIco('🔄');
 }
 
 // Guardar en Firebase al minimizar/cerrar la app
