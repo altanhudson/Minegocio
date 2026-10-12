@@ -8,15 +8,28 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Surtimar">
 <meta name="theme-color" content="#0d9488">
-<link rel="manifest" href="manifest.json">
 <script>
-// Tienda de Surtimar: se instala como "Surtimar Tienda" (abre directo en la tienda, sin barras)
-(function(){try{var q=location.search;if(q.indexOf('tienda')!==-1&&!/[?&]n=/.test(q)){
-  var l=document.querySelector('link[rel=manifest]');if(l)l.href='manifest-tienda.json';
-  var m=document.querySelector('meta[name=theme-color]');if(m)m.content='#123a7a';
-}}catch(e){}})();
+// 4.6.4: el manifest y el ícono se eligen ACÁ, antes de que exista cualquier <link>.
+// Antes había un <link rel=manifest href=manifest.json> fijo en el HTML y se le cambiaba
+// la dirección por JavaScript: el iPhone (y a veces Android) ya había leído el primero,
+// así que al "Instalar" desde la tienda se instalaba la app "Revendit" (abre el panel).
+//  - Tienda de Surtimar (?tienda): manifest-tienda.json + ícono de la tienda.
+//  - Tienda de otro negocio (?tienda&n=...): SIN manifest -> el acceso directo abre esa misma tienda.
+//  - Panel (sin ?tienda): manifest.json de Revendit, como siempre.
+(function(){
+  var q = location.search, tienda = q.indexOf('tienda') !== -1, otro = /[?&]n=/.test(q);
+  var h = '';
+  if(!tienda) {
+    h = '<link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-192.png">';
+  } else if(!otro) {
+    h = '<link rel="manifest" href="manifest-tienda.json"><link rel="apple-touch-icon" href="tienda-192.png">';
+    try { var m = document.querySelector('meta[name=theme-color]'); if(m) m.content = '#123a7a'; } catch(e) {}
+  } else {
+    h = '<link rel="apple-touch-icon" href="icon-192.png">';
+  }
+  document.write(h);
+})();
 </script>
-<link rel="apple-touch-icon" href="icon-192.png">
 <!-- Cropper.js: recortar/rotar fotos de factura de proveedor antes de subirlas -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
@@ -87,6 +100,14 @@
       window._authUser = user;
       if(!user) {
         if(_bizActual !== null) { location.reload(); return; }
+        // 4.6.4: app instalada (pantalla completa) + este celular ya usó la tienda + sin
+        // sesión -> es un cliente que quedó con el ícono viejo: llevarlo a la tienda.
+        try {
+          var _inst = (window.matchMedia && (matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || matchMedia('(display-mode: minimal-ui)').matches)) || window.navigator.standalone === true;
+          var _usoTienda = false;
+          for(var _i = 0; _i < localStorage.length; _i++) { var _k = localStorage.key(_i) || ''; if(_k === 'tienda_phone' || _k.indexOf('tienda_v2_') === 0) { _usoTienda = true; break; } }
+          if(_inst && _usoTienda && location.search.indexOf('panel') === -1) { location.replace('/?tienda'); return; }
+        } catch(e) {}
         if(window._gateMostrarLogin) window._gateMostrarLogin();
         return;
       }
@@ -1665,7 +1686,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Cuenta: <strong id="cfg-cuenta" style="color:var(--text)">—</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong id="cfg-ver" style="color:var(--accent);font-size:15px">4.6.3</strong> · <span id="cfg-ver-fecha">11/10/2026</span></div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong id="cfg-ver" style="color:var(--accent);font-size:15px">4.6.4</strong> · <span id="cfg-ver-fecha">11/10/2026</span></div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Cerrar sesión en este dispositivo</button>
         <button id="btn-eliminar-cuenta" onclick="eliminarCuenta()" style="display:none;margin-top:10px;width:100%;padding:10px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🗑️ Eliminar mi cuenta y datos</button>
       </div>
@@ -2910,6 +2931,11 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.6.4', f:'12/10/2026', t:[
+    'Arreglado: al tocar "Instalar" o "Agregar a inicio" desde la tienda (sobre todo en iPhone) se instalaba la app "Revendit" que abre el panel. Ahora se instala "Surtimar" con el ícono de la tienda y abre directo la tienda.',
+    'Si un cliente ya tiene el ícono viejo instalado y lo abre sin sesión, lo lleva directo a la tienda en vez de mostrarle la pantalla de ingreso del panel.',
+    'La tienda borra del celular del cliente la copia completa del negocio que guardaba la tienda vieja (facturas, clientes, compras). La tienda nueva solo guarda el catálogo.'
+  ]},
   {v:'4.6.3', f:'11/10/2026', t:[
     'Tienda: "Cambiaron de precio" y "Agregados recientemente" ahora son tarjetitas con foto, nombre y precio (como las ofertas pero más chicas), con una etiqueta "BAJÓ", "SUBIÓ" o "NUEVO". Dejan de ser pastillas.'
   ]},
@@ -11410,6 +11436,17 @@ function _tiendaCacheGuardar(data) {
     const o = { ts: Date.now(), products: data.products || S.products || [], cat: window._tiendaCat || null };
     _TN_CACHE_CFG.forEach(function(k){ if(data[k] !== undefined) o[k] = data[k]; else if(S[k] !== undefined) o[k] = S[k]; });
     localStorage.setItem(_tnCacheKey(), JSON.stringify(o));
+  } catch(e) {}
+  // 4.6.4: la tienda vieja (hasta 4.5.x) guardaba en el celular del CLIENTE una copia
+  // ENTERA del negocio (~5 MB: todas las facturas, clientes, compras). La tienda nueva
+  // no la usa: si ya tenemos la copia propia de la tienda, borrar esa copia vieja.
+  try {
+    if(_ES_TIENDA_URL && !window._authUser) {
+      for(let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i) || '';
+        if(k.indexOf('mneg_v2') === 0 && (localStorage.getItem(k) || '').length > 200000) localStorage.removeItem(k);
+      }
+    }
   } catch(e) {}
 }
 // Carga rapida: catalogo publicado (1 documento). Si no esta, la carga completa de antes.
