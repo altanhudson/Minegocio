@@ -1665,7 +1665,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Cuenta: <strong id="cfg-cuenta" style="color:var(--text)">—</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong id="cfg-ver" style="color:var(--accent);font-size:15px">4.6.1</strong> · <span id="cfg-ver-fecha">11/10/2026</span></div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong id="cfg-ver" style="color:var(--accent);font-size:15px">4.6.2</strong> · <span id="cfg-ver-fecha">11/10/2026</span></div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Cerrar sesión en este dispositivo</button>
         <button id="btn-eliminar-cuenta" onclick="eliminarCuenta()" style="display:none;margin-top:10px;width:100%;padding:10px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🗑️ Eliminar mi cuenta y datos</button>
       </div>
@@ -2910,6 +2910,10 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.6.2', f:'11/10/2026', t:[
+    'Facturas urgentes: en cada factura hay un botón 🚨 "Urgente". Las marcadas aparecen siempre arriba de todo, en la sección "🚨 URGENTES", sin importar su número ni su fecha.',
+    'Una factura urgente sale sola de arriba cuando queda pagada (o cancelada). También se puede quitar a mano tocando 🚨 "Quitar".'
+  ]},
   {v:'4.6.1', f:'11/10/2026', t:[
     'Tienda: cada categoría tiene su color, así se distinguen de un vistazo.',
     'Tienda: el botón para volver ahora dice "← Volver atrás" y se ve mucho más.',
@@ -7019,6 +7023,7 @@ function saveInv() {
     status, notes:document.getElementById('i-notes').value,
     notaInterna:document.getElementById('i-nota-interna').value,
     preparado: S.editId ? ((S.invoices.find(x=>x.id===S.editId)||{}).preparado||false) : false,
+    urgente: (window.invEditId||S.editId) ? !!((S.invoices.find(x=>x.id===(window.invEditId||S.editId))||{}).urgente) : false,
     // El checklist de armado se perdía en cada edición porque la factura se
     // reconstruye desde cero acá y este campo no se copiaba de la versión anterior.
     itemsArmados: S.editId ? ((S.invoices.find(x=>x.id===S.editId)||{}).itemsArmados||{}) : {},
@@ -7214,6 +7219,7 @@ function unificarFacturasTienda(clientId, fecha) {
   base.descExtra = extUnif;
   base.total = totalUnificado - retUnif - extUnif;
   base.saldo = base.status==='pagada' ? 0 : base.total;
+  if(facts.some(i=>i.urgente)) base.urgente = true;
   _markDirty('invoices', base.id);
 
   // Borrar las facturas más viejas
@@ -7249,6 +7255,10 @@ function _estaArmado(inv, item, idx) {
   if(ia[key] !== undefined) return !!ia[key];
   return !!ia[idx];   // formato viejo (por posición)
 }
+// Factura urgente activa: marcada y todavía sin pagar (ni cancelada).
+function _esUrgente(inv) {
+  return !!(inv && inv.urgente && inv.status!=='pagada' && inv.status!=='cancelada');
+}
 function renderInvs() {
   try{renderInvDiaResumen();}catch(e){}
   const el=document.getElementById('inv-list');
@@ -7260,7 +7270,12 @@ function renderInvs() {
     const ql = sq.trim().toLowerCase();
     list = list.filter(i=>(i.clientName||'').toLowerCase().includes(ql)||i.id.toLowerCase().includes(ql)||i.date.split('-').reverse().join('/').includes(ql));
   }
-  if(!list.length){el.innerHTML='<div class="empty"><div class="ei">&#129534;</div><h3>Sin facturas</h3><p>Crea tu primera factura</p></div>';return;}
+  // Urgentes: van arriba de todo, sin importar fecha ni número. Salen solas al
+  // quedar pagadas (o canceladas) y se pueden quitar a mano con el botón 🚨.
+  const _todasFilt = list;
+  const _urg = list.filter(_esUrgente);
+  list = list.filter(i=>!_esUrgente(i));
+  if(!list.length && !_urg.length){el.innerHTML='<div class="empty"><div class="ei">&#129534;</div><h3>Sin facturas</h3><p>Crea tu primera factura</p></div>';return;}
   // Se dibujan solo las mas recientes: dibujar miles de facturas a la vez volvia lenta la app.
   // La busqueda y los filtros siguen buscando en TODAS; "Ver mas" muestra el resto.
   const _limInv = S.invLimite || 60;
@@ -7273,12 +7288,12 @@ function renderInvs() {
   const yesterday = _yest.getFullYear()+'-'+String(_yest.getMonth()+1).padStart(2,'0')+'-'+String(_yest.getDate()).padStart(2,'0');
   const fmtDay = d => { if(d===today) return 'Hoy'; if(d===yesterday) return 'Ayer'; if(d>today) return '📅 '+d.split('-').reverse().join('/'); return d.split('-').reverse().join('/'); };
   let lastDate = null;
-  el.innerHTML='<div style="display:flex;flex-direction:column;gap:10px">'+list.map((inv,ii)=>{
+  const _cardInv = (inv,ii,_enUrg)=>{
     let sep = '';
-    if(inv.date !== lastDate) {
+    if(!_enUrg && inv.date !== lastDate) {
       lastDate = inv.date;
       // Detectar si hay 2+ facturas del mismo cliente en esta fecha (manual o tienda)
-      const facsHoy = _listaTotal.filter(i => i.date===inv.date && i.type!=='presupuesto' && i.status!=='cancelada');
+      const facsHoy = _todasFilt.filter(i => i.date===inv.date && i.type!=='presupuesto' && i.status!=='cancelada');
       const clientesConDuplicados = {};
       facsHoy.forEach(i => {
         if(!clientesConDuplicados[i.clientId]) clientesConDuplicados[i.clientId] = {count:0, name:i.clientName};
@@ -7325,7 +7340,9 @@ function renderInvs() {
     }).join('');
     const _bc = inv.status==='pagada'||_cubiertoPorCredito?'#16a34a':_parcialPorCredito?'#f59e0b':(inv.pagos&&inv.pagos.length&&inv.saldo>0)?'#eab308':'#dc2626';
     const _bgc = inv.status==='pagada'||_cubiertoPorCredito?'rgba(22,163,74,0.06)':_parcialPorCredito?'rgba(245,158,11,0.06)':(inv.pagos&&inv.pagos.length&&inv.saldo>0)?'rgba(234,179,8,0.06)':'rgba(220,38,38,0.06)';
-    return '<div class="card" style="overflow:hidden;border:2px solid '+_bc+';background:'+_bgc+'">' 
+    const _urgOn = _esUrgente(inv);
+    return '<div class="card" style="overflow:hidden;border:2px solid '+_bc+';background:'+_bgc+(_urgOn?';box-shadow:0 0 0 2px #ea580c':'')+'">' 
+    +(_urgOn?'<div style="background:#ea580c;color:#fff;font-weight:900;font-size:13px;letter-spacing:.5px;padding:5px 14px">🚨 URGENTE</div>':'')
     +'<div data-action="toggleInv" data-id="'+inv.id+'" style="cursor:pointer">'
     +'<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:12px 14px 6px">'
     +'<div style="font-weight:900;font-size:18px;color:var(--text);flex:1;line-height:1.2">'+inv.clientName+'</div>'
@@ -7357,12 +7374,18 @@ function renderInvs() {
     +'<button data-action="shareInv" data-id="'+inv.id+'" style="'+btnStyle+'"><span style="font-size:20px">📤</span><span style="font-size:12px;font-weight:700;color:var(--text2)">Enviar</span></button>'
     +(saldo>0?'<button data-action="qpago" data-id="'+inv.id+'" style="'+btnStyle+'"><span style="font-size:20px">💰</span><span style="font-size:12px;font-weight:700;color:var(--accent)">Cobrar</span></button>':'')
     +'<button data-action="togPreparado" data-id="'+inv.id+'" style="'+btnStyle+'"><span style="font-size:20px">'+(inv.preparado?'✅':'📦')+'</span><span style="font-size:12px;font-weight:700;color:'+(inv.preparado?'#16a34a':'var(--text2)')+'">Preparado</span></button>'
+    +(inv.status!=='pagada'&&inv.status!=='cancelada'?'<button data-action="togUrgente" data-id="'+inv.id+'" style="'+btnStyle+(_urgOn?';background:#ffedd5':'')+'"><span style="font-size:20px">🚨</span><span style="font-size:12px;font-weight:700;color:'+(_urgOn?'#ea580c':'var(--text2)')+'">'+(_urgOn?'Quitar':'Urgente')+'</span></button>':'')
     +'<button data-action="delInv" data-id="'+inv.id+'" style="'+btnStyle+'"><span style="font-size:20px">🗑️</span><span style="font-size:12px;font-weight:700;color:var(--accent3)">Borrar</span></button>'
     +'<button data-action="verInv" data-id="'+inv.id+'" style="'+btnStyle+';border-right:none"><span style="font-size:20px">✏️</span><span style="font-size:12px;font-weight:700;color:var(--text2)">Ver/Editar</span></button>'
     +'</div></div>';
     })();
     return sep + cardHtml;
-  }).join('')+'</div>'
+  };
+  const _urgHtml = _urg.length
+    ? '<div id="inv-urg-hdr" style="display:flex;align-items:center;gap:8px;margin-bottom:4px;scroll-margin-top:90px"><div style="flex:1;height:2px;background:#ea580c"></div><span style="font-size:14px;font-weight:900;color:#ea580c;white-space:nowrap">🚨 URGENTES ('+_urg.length+')</span><div style="flex:1;height:2px;background:#ea580c"></div></div>'
+      + _urg.map((inv,ii)=>_cardInv(inv,ii,true)).join('')
+    : '';
+  el.innerHTML='<div style="display:flex;flex-direction:column;gap:10px">'+_urgHtml+list.map((inv,ii)=>_cardInv(inv,ii+(_urg.length?1:0),false)).join('')+'</div>'
   +(_listaTotal.length>list.length ? '<button onclick="S.invLimite=(S.invLimite||60)+60;renderInvs()" style="display:block;width:100%;margin:14px 0 6px;padding:14px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface);color:var(--accent);font-size:15px;font-weight:800;cursor:pointer">Ver más facturas ('+(_listaTotal.length-list.length)+' restantes)</button>' : '');
   const pend=S.invoices.filter(i=>i.status==='pendiente').length;
   const b=document.getElementById('nbadge');
@@ -7421,6 +7444,15 @@ document.getElementById('page-facturas').addEventListener('click', function(e){
     _markDirty('invoices',id); save(['invoices']);
     renderInvs();
     toast(inv.preparado?'✓ Marcado como preparado':'Desmarcado');
+  }
+  else if(action==='togUrgente') {
+    const inv=S.invoices.find(i=>i.id===id); if(!inv) return;
+    inv.urgente=!inv.urgente;
+    _markDirty('invoices',id); save(['invoices']);
+    renderInvs();
+    // Al marcarla sube arriba de todo: llevar la vista hasta ahí para que se vea.
+    if(inv.urgente){ try{ const h=document.getElementById('inv-urg-hdr'); if(h) h.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){} }
+    toast(inv.urgente?'🚨 Marcada como urgente':'Ya no es urgente');
   }
   else if(action==='shareInv') openShareInvoice(id);
   else if(action==='qpago') openQPago(id);
