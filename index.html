@@ -54,6 +54,7 @@
   import { getFirestore, doc, setDoc, getDoc, getDocs, collection, writeBatch, deleteDoc, onSnapshot, query, where, Timestamp, serverTimestamp, getCountFromServer } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, deleteUser, reauthenticateWithPopup } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
   import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject, listAll } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+  import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyD3h1qGQnU_zxteM6CeM-dPqYn21EG93Oo",
@@ -124,6 +125,16 @@
   }
   window._fbLogin = function() { return signInWithPopup(auth, new GoogleAuthProvider()); };
   window._fbLogout = function() { return signOut(auth); };
+  // 4.7.0 - Suscripcion: confirma la compra con el servidor (funcion verificarSuscripcion) y lee su registro
+  window._fbSubVerificar = async function(purchaseToken, productId) {
+    const fn = httpsCallable(getFunctions(app, 'southamerica-east1'), 'verificarSuscripcion');
+    const r = await fn({ purchaseToken: purchaseToken, productId: productId });
+    return r.data;
+  };
+  window._fbSubLeerDoc = async function() {
+    const u = auth.currentUser; if(!u) return null;
+    try { const sn = await getDoc(doc(db, 'suscripciones', u.uid)); return sn.exists() ? sn.data() : null; } catch(e) { return null; }
+  };
 
   // Documentos separados por colección — nunca se pisan entre sí
   // ===== ARQUITECTURA V2: DOCUMENTOS INDIVIDUALES =====
@@ -342,6 +353,7 @@
 
   // === SAVE V2: escribe solo los registros marcados como dirty ===
   window._fbSave = async function(data, fields, forceWrite) {
+    if(window.subBloqueado && window.subBloqueado()) throw new Error('Suscripcion vencida: solo lectura');
     try {
       // Backup local
       // (Antes guardaba 3 copias completas acá; con datos de ~5 MB ya no entran y
@@ -469,6 +481,7 @@
   // === SAVE DIRTY: sube SOLO los registros marcados como dirty (todas las colecciones) ===
   // Nunca escribe la base completa — así un dispositivo no pisa los cambios del otro.
   window._fbSaveDirty = async function(data) {
+    if(window.subBloqueado && window.subBloqueado()) throw new Error('Suscripcion vencida: solo lectura');
     try {
       const batches = [];
       const enviados = [];
@@ -614,7 +627,7 @@
     if(!catSnap.exists()) return null;
     const c = catSnap.data() || {};
     if(!Array.isArray(c.prods) || !c.prods.length) return null;
-    const r = { products: c.prods, __catalogo: { cig: c.cig || [], tel6: !!c.tel6 } };
+    const r = { products: c.prods, __catalogo: { cig: c.cig || [], tel6: !!c.tel6, sub: c.sub || null } };
     if(cfgSnap.exists()) Object.assign(r, cfgSnap.data());
     return r;
   };
@@ -1025,6 +1038,7 @@ select option{background:var(--surface2)}
 <div class="pages">
 
   <div class="page active" id="page-dashboard">
+    <div id="sub-banner" style="display:none"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
       <button onclick="openInv()" style="background:var(--accent);color:#ffffff;border:none;border-radius:var(--r);padding:16px 10px;font-family:Inter,sans-serif;font-size:15px;font-weight:800;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;active:transform:scale(.97)">
         <span style="font-size:28px">&#129534;</span>
@@ -1544,8 +1558,54 @@ select option{background:var(--surface2)}
 
   </div>
 
+  <div class="page" id="page-suscripcion">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <button class="btn btn-ghost" onclick="showPage('config')">&larr; Volver</button>
+      <div style="font-family:Inter,sans-serif;font-size:20px;font-weight:800">&#11088; Suscripción</div>
+    </div>
+    <div id="sub-contenido"></div>
+  </div>
+  <div class="page" id="page-exportar">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <button class="btn btn-ghost" onclick="showPage('config')">&larr; Volver</button>
+      <div style="font-family:Inter,sans-serif;font-size:20px;font-weight:800">&#128228; Exportar mis datos</div>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-header"><span class="card-title">Período</span></div>
+      <div id="exp-periodos" style="padding:14px 16px;display:flex;gap:8px;flex-wrap:wrap"></div>
+      <div style="padding:0 16px 14px;font-size:12px;color:var(--text3)">El período se aplica a ventas, compras y cobranzas. Clientes y productos se exportan completos.</div>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-header"><span class="card-title">Archivos CSV</span></div>
+      <div style="padding:6px 16px 14px">
+        <div style="font-size:12px;color:var(--text3);margin:8px 0 10px;line-height:1.4">Se abren en Excel o Google Sheets.</div>
+        <button class="btn btn-ghost btn-full" style="margin-bottom:8px" onclick="expCSV('ventas')">&#129534; Ventas (una fila por factura)</button>
+        <button class="btn btn-ghost btn-full" style="margin-bottom:8px" onclick="expCSV('ventasDet')">&#129534; Ventas por producto</button>
+        <button class="btn btn-ghost btn-full" style="margin-bottom:8px" onclick="expCSV('clientes')">&#128101; Clientes</button>
+        <button class="btn btn-ghost btn-full" style="margin-bottom:8px" onclick="expCSV('productos')">&#128230; Productos y stock</button>
+        <button class="btn btn-ghost btn-full" style="margin-bottom:8px" onclick="expCSV('compras')">&#128722; Compras</button>
+        <button class="btn btn-ghost btn-full" onclick="expCSV('cobranzas')">&#128176; Cobranzas</button>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-header"><span class="card-title">PDF y copia de seguridad</span></div>
+      <div style="padding:14px 16px">
+        <button class="btn btn-primary btn-full" onclick="expPDFResumen()">&#128196; Resumen de ventas (PDF)</button>
+        <button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="backupData()">&#128190; Copia de seguridad completa (.json)</button>
+        <div style="font-size:12px;color:var(--text3);margin-top:10px;line-height:1.4">La copia completa sirve para restaurar la app. Las fotos de productos y de facturas no se incluyen en ningún archivo.</div>
+      </div>
+    </div>
+  </div>
   <div class="page" id="page-config">
     <div style="font-family:Inter,sans-serif;font-size:20px;font-weight:800;margin-bottom:20px">&#9881;&#65039; Configuración</div>
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-header"><span class="card-title">&#11088; Suscripción y datos</span></div>
+      <div style="padding:14px 16px">
+        <div id="cfg-sub-resumen" style="font-size:14px;color:var(--text3);margin-bottom:12px;line-height:1.4"></div>
+        <button class="btn btn-primary btn-full" onclick="showPage('suscripcion')">&#11088; Mi suscripción</button>
+        <button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="showPage('exportar')">&#128228; Exportar mis datos</button>
+      </div>
+    </div>
         <div style="margin:18px 4px 8px;font-size:13px;font-weight:800;letter-spacing:.5px;color:var(--text3);text-transform:uppercase">🏪 Negocio y tienda</div>
     <div class="card" style="margin-bottom:12px">
       <div class="card-header"><span class="card-title">🏪 Mi negocio</span></div>
@@ -1689,7 +1749,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Cuenta: <strong id="cfg-cuenta" style="color:var(--text)">—</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong id="cfg-ver" style="color:var(--accent);font-size:15px">4.6.5</strong> · <span id="cfg-ver-fecha">11/10/2026</span></div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong id="cfg-ver" style="color:var(--accent);font-size:15px">4.7.0</strong> · <span id="cfg-ver-fecha">12/10/2026</span></div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Cerrar sesión en este dispositivo</button>
         <button id="btn-eliminar-cuenta" onclick="eliminarCuenta()" style="display:none;margin-top:10px;width:100%;padding:10px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🗑️ Eliminar mi cuenta y datos</button>
       </div>
@@ -2288,6 +2348,7 @@ function _guardarLocal(obj) {
   }
 }
 function save(fields, forceWrite) {
+  if(window.subBloqueado && window.subBloqueado()) { window.subAvisoBloqueo(); return; }   // 4.7.0: suscripcion vencida = solo lectura
   _lastSaveTime = Date.now();
   if(!_ES_TIENDA_URL) _copiaProgramar();
   else {
@@ -2799,7 +2860,9 @@ function _armarCatalogo() {
     if(!c || !c.phone) return true;
     return JSON.stringify(c.tel6 || []) === JSON.stringify(_tel6De(c.phone));
   });
-  return { v: 1, prods: prods, cig: cig, tel6: tel6 };
+  const _cat = { v: 1, prods: prods, cig: cig, tel6: tel6 };
+  try { const _si = window.subCatalogoInfo && window.subCatalogoInfo(); if(_si) _cat.sub = _si; } catch(e) {}
+  return _cat;
 }
 function _hashTexto(t) { let h = 5381; for(let i = 0; i < t.length; i++) { h = ((h << 5) + h + t.charCodeAt(i)) | 0; } return String(h >>> 0) + ':' + t.length; }
 let _catT = null, _catUltimo = null, _catPublicando = false;
@@ -2934,6 +2997,11 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.7.0', f:'12/10/2026', t:[
+    'Suscripción: nueva pantalla en Configuración > Mi suscripción, con la compra por Google Play (30 días gratis), el estado, la fecha de renovación y el acceso a administrar o cancelar. Por ahora el cobro NO está activado: nadie se bloquea.',
+    'Exportar mis datos (Configuración > Exportar mis datos): archivos CSV de ventas, ventas por producto, clientes, productos y stock, compras y cobranzas (con filtro de período), resumen de ventas del mes en PDF y copia de seguridad completa. Va a seguir funcionando aunque la suscripción esté vencida.',
+    'Preparado para cobrar: cuando se active, una cuenta sin suscripción queda en solo lectura y su tienda online muestra "Esta tienda está en pausa". Las cuentas de Surtimar nunca se bloquean.'
+  ]},
   {v:'4.6.5', f:'12/10/2026', t:[
     'Seguridad: cuando un cliente confirma un pedido en la tienda, solo se sube la factura (y su ficha si es nuevo). Ya no se suben productos, stock ni contadores desde el celular del cliente. Esto permite cerrar las reglas de Firebase para que nadie pueda leer ni modificar tus datos sin iniciar sesión.'
   ]},
@@ -3058,15 +3126,18 @@ function showPage(p) {
   const L = {dashboard:'+ Nuevo',facturas:'+ Factura',productos:'+ Producto',clientes:'+ Cliente',compras:'+ Compra',proveedores:'+ Proveedor',stock:'','cli-detalle':'','prov-detalle':'','prod-historial':'','nueva-factura':'','resumen-factura':'','nueva-compra':'','resumen-compra':'','reparto':'','cobrar-reparto':'','grupos':'','config':''};
   document.getElementById('btn-add').textContent = L[p] !== undefined ? L[p] : '+ Nuevo';
   const btnAdd = document.getElementById('btn-add');
-  const hideBtn = ['nueva-factura','resumen-factura','nueva-compra','resumen-compra','reparto','cobrar-reparto','config'].includes(p);
+  const hideBtn = ['nueva-factura','resumen-factura','nueva-compra','resumen-compra','reparto','cobrar-reparto','config','suscripcion','exportar'].includes(p);
   const emptyBtn = (L[p]==='');
   if(btnAdd) btnAdd.style.display = (hideBtn||emptyBtn) ? 'none' : '';
   const fab = document.querySelector('.fab');
-  const showFab = !['stock','cli-detalle','prov-detalle','prod-historial','prod-historial','grupos','nueva-factura','resumen-factura','nueva-compra','resumen-compra','reparto','cobrar-reparto','config'].includes(p);
+  const showFab = !['stock','cli-detalle','prov-detalle','prod-historial','prod-historial','grupos','nueva-factura','resumen-factura','nueva-compra','resumen-compra','reparto','cobrar-reparto','config','suscripcion','exportar'].includes(p);
   if(fab) fab.style.display = showFab ? 'flex' : 'none';
   const nav = document.querySelector('.bottom-nav');
   if(nav) nav.style.display = ['nueva-factura','resumen-factura','nueva-compra','resumen-compra','reparto','cobrar-reparto'].includes(p) ? 'none' : '';
   if(p==='dashboard') updDash();
+  if(p==='suscripcion') { try{ window.renderSuscripcion(); window.subActualizar(false); }catch(e){} }
+  if(p==='exportar') { try{ window.renderExportar(); }catch(e){} }
+  if(p==='config') { try{ window.subRefrescarUI(); }catch(e){} }
   if(p==='estadisticas') { estTab='ventas'; try{ aplicarCfgFacturacion(); }catch(e){} renderEstadisticas(); }
   if(p==='facturas') { try{ aplicarCfgFacturacion(); }catch(e){} }
   if(p==='config') {
@@ -11220,6 +11291,7 @@ let T_VISTA = 'login'; // login | catalogo | carrito
 
 // ========== MODO TIENDA ==========
 function getTiendaModo() {
+  if(window._tiendaPausada && window._tiendaPausada()) return 'cerrada';   // 4.7.0: el negocio no tiene suscripcion
   // 'solo_vista' era un modo viejo que se unificó con 'cerrada'. Si quedó guardado
   // de antes, se trata como cerrada para no dejar la tienda abierta por error.
   if(S.tiendaModo === 'solo_vista') return 'cerrada';
@@ -11707,6 +11779,7 @@ function tiendaInit() {
         if(data) {
           const _cat = data.__catalogo; delete data.__catalogo;
           window._tiendaCat = _cat || null;
+          try { tiendaModoMensaje(); } catch(e) {}
           window._tiendaModoCarga = _cat ? 'rapida' : 'normal';
           Object.assign(S, data);
           // Copia propia de la tienda: solo catalogo y configuracion (nunca clientes ni facturas).
@@ -11760,6 +11833,7 @@ function tiendaInit() {
   });
 }
 
+window._tiendaPausada = function() { try { return !!(window._bizUid && window._tiendaCat && window._tiendaCat.sub && window._tiendaCat.sub.pausada); } catch(e) { return false; } };
 function tiendaModoMensaje() {
   const modo = getTiendaModo();
   if(modo === 'abierta') return;
@@ -11772,7 +11846,7 @@ function tiendaModoMensaje() {
     banner.id = 'tienda-modo-banner';
     cat.insertBefore(banner, cat.firstChild);
   }
-  banner.innerHTML = '<div style="background:#fee2e2;border:1px solid #dc2626;color:#991b1b;padding:14px 16px;text-align:center;font-size:14px;font-weight:600;line-height:1.5">🔴 <strong>Tienda cerrada</strong><br>Podés ver los precios, pero no tomamos pedidos por ahora. Volvé pronto 😊</div>';
+  banner.innerHTML = '<div style="background:#fee2e2;border:1px solid #dc2626;color:#991b1b;padding:14px 16px;text-align:center;font-size:14px;font-weight:600;line-height:1.5">' + (window._tiendaPausada() ? '⏸️ <strong>Esta tienda está en pausa</strong><br>Podés ver los precios, pero por ahora no se pueden hacer pedidos. Consultá con tu proveedor.' : '🔴 <strong>Tienda cerrada</strong><br>Podés ver los precios, pero no tomamos pedidos por ahora. Volvé pronto 😊') + '</div>';
 }
 
 // ===== SISTEMA DE FIDELIZACION (niveles por compra en tienda) =====
@@ -12890,7 +12964,7 @@ function tiendaVaciarCarrito() {
 async function tiendaConfirmar() {
   // Con la tienda cerrada se puede mirar precios pero no enviar pedidos.
   if(getTiendaModo() === 'cerrada') {
-    alert('La tienda está cerrada en este momento y no podemos tomar pedidos. Podés ver los precios y volver más tarde 😊');
+    alert(window._tiendaPausada() ? 'Esta tienda está en pausa y no puede tomar pedidos. Consultá con tu proveedor.' : 'La tienda está cerrada en este momento y no podemos tomar pedidos. Podés ver los precios y volver más tarde 😊');
     return;
   }
   const items = Object.entries(TC).filter(([,q])=>q>0);
@@ -13362,5 +13436,365 @@ window.addEventListener('DOMContentLoaded', function(){
   </script>
 <input type="file" id="input-factura-retroactiva" accept="image/*" onchange="onFacturaFotoRetroactiva(this)" style="display:none">
 <input type="file" id="input-factura-retroactiva-camara" accept="image/*" capture="environment" onchange="onFacturaFotoRetroactiva(this)" style="display:none">
+<script>
+// ===================== SUSCRIPCION + EXPORTAR (4.7.0) =====================
+(function(){
+'use strict';
+var SUB = {
+  PRODUCTO: 'revendit_mensual',
+  PAQUETE: 'ar.com.surtimar.revendit',
+  // INTERRUPTOR DEL BLOQUEO. false = nadie se bloquea nunca (solo se muestra la pantalla y se puede comprar).
+  // Para empezar a cobrar de verdad: poner true y subir una version nueva.
+  COBRO_ACTIVO: false,
+  TOLERANCIA_MS: 8 * 86400000,      // dias de margen sobre el vencimiento guardado (gracia de Google = 7 dias)
+  REVISAR_CADA_MS: 6 * 3600000      // cada cuanto se vuelve a consultar a Google
+};
+var VENTAJAS = [
+  'Tienda online que factura y baja stock',
+  'Facturas en imagen o PDF para enviar',
+  'Agrupación de productos: precio mayorista automático',
+  'Ingreso de mercadería con foto de la factura',
+  'Estadísticas de ventas y ranking de clientes',
+  'Calculador de márgenes de ganancia',
+  'Identificador de productos según su margen',
+  'Sistema de fidelización de clientes',
+  'Envío gratis configurable y retiro en depósito',
+  'Sincronización entre todos tus dispositivos',
+  'Control de stock y seguimiento de movimientos',
+  'Modo "salir a entregar" para organizar el reparto',
+  'Flyers automáticos para WhatsApp (por selección o categoría)',
+  'Comparador de precios entre proveedores',
+  'Sugeridor de pedidos a proveedores (según ventas y días a cubrir)',
+  'Sugeridor de pedido por cliente',
+  'y más…'
+];
+var _checando = false, _detalles = undefined;
+
+function enTienda(){ try { return !!_ES_TIENDA_URL; } catch(e) { return false; } }
+function esDueno(){ return window._esDueno === true; }
+function uid(){ try { return (window._authUser && window._authUser.uid) || ''; } catch(e) { return ''; } }
+function key(){ return 'rev_sub_v1_' + uid(); }
+function leer(){ try { return JSON.parse(localStorage.getItem(key()) || 'null'); } catch(e) { return null; } }
+function guardar(o){ try { localStorage.setItem(key(), JSON.stringify(o)); } catch(e) {} }
+function h(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function fecha(ms){ try { return new Date(ms).toLocaleDateString('es-AR'); } catch(e) { return ''; } }
+function dias(ms){ return Math.ceil((ms - Date.now()) / 86400000); }
+
+// ---- estado de la suscripcion (de lo ultimo que Google confirmo, guardado en el celular) ----
+function estado(){
+  var c = leer(), ahora = Date.now();
+  if(!c) return { tipo: 'sin' };
+  var vence = c.vence || 0;
+  if(c.activo) {
+    if(c.estado === 'SUBSCRIPTION_STATE_CANCELED') {
+      if(ahora < vence) return { tipo: 'cancelada', vence: vence, c: c };
+    } else if(ahora < vence + SUB.TOLERANCIA_MS) {
+      if(c.estado === 'SUBSCRIPTION_STATE_IN_GRACE_PERIOD') return { tipo: 'gracia', vence: vence, c: c };
+      return { tipo: 'activa', vence: vence, c: c };
+    }
+  }
+  return { tipo: 'vencida', vence: vence, c: c };
+}
+window.subEstado = estado;
+window.subBloqueado = function(){
+  if(!SUB.COBRO_ACTIVO || esDueno() || enTienda()) return false;
+  var t = estado().tipo;
+  return !(t === 'activa' || t === 'gracia' || t === 'cancelada');
+};
+var _ultAviso = 0;
+window.subAvisoBloqueo = function(){
+  var n = Date.now(); if(n - _ultAviso < 4000) return; _ultAviso = n;
+  try { toast('🔒 Suscripción vencida: solo lectura. Este cambio NO se guardó.'); } catch(e) {}
+};
+// Dato que se publica junto con el catalogo de la tienda: si el dueno no tiene suscripcion, la tienda se pausa
+window.subCatalogoInfo = function(){
+  if(!SUB.COBRO_ACTIVO || esDueno() || !window._bizUid) return null;
+  return { pausada: window.subBloqueado() };
+};
+
+// ---- Google Play (solo funciona dentro de la app instalada desde Play) ----
+async function servicio(){
+  try {
+    if(!('getDigitalGoodsService' in window)) return null;
+    return await window.getDigitalGoodsService('https://play.google.com/billing');
+  } catch(e) { return null; }
+}
+async function detalles(){
+  if(_detalles !== undefined) return _detalles;
+  _detalles = null;
+  try {
+    var svc = await servicio();
+    if(svc) { var d = await svc.getDetails([SUB.PRODUCTO]); if(d && d[0]) _detalles = d[0]; }
+  } catch(e) {}
+  return _detalles;
+}
+function precioTexto(d){
+  if(!d || !d.price) return '';
+  try { return new Intl.NumberFormat('es-AR', { style: 'currency', currency: d.price.currency, maximumFractionDigits: 0 }).format(Number(d.price.value)); }
+  catch(e) { return d.price.currency + ' ' + d.price.value; }
+}
+function aplicarResultado(r){
+  guardar({ activo: !!r.activo, estado: r.estado || '', vence: r.vence || 0, chequeado: Date.now(), ausentes: 0 });
+}
+window.subActualizar = async function(forzar){
+  if(_checando || !window._authUser || enTienda()) return;
+  if(esDueno() && !forzar) return;
+  var c = leer();
+  if(!forzar && c && Date.now() - (c.chequeado || 0) < SUB.REVISAR_CADA_MS) return;
+  _checando = true;
+  try {
+    var svc = await servicio(), r = null;
+    if(svc) {
+      var lista = await svc.listPurchases();
+      var mia = (lista || []).filter(function(p){ return p.itemId === SUB.PRODUCTO; })[0];
+      if(mia) r = await window._fbSubVerificar(mia.purchaseToken, SUB.PRODUCTO);
+      if(r) aplicarResultado(r);
+      else if(c && c.activo) {
+        // Google no devolvio ninguna compra: se necesitan 2 consultas seguidas para dar la suscripcion por terminada
+        var aus = (c.ausentes || 0) + 1;
+        if((aus >= 2 && Date.now() > (c.vence || 0)) || Date.now() > (c.vence || 0) + SUB.TOLERANCIA_MS) guardar({ activo: false, estado: 'SUBSCRIPTION_STATE_EXPIRED', vence: c.vence || 0, chequeado: Date.now(), ausentes: aus });
+        else { c.chequeado = Date.now(); c.ausentes = aus; guardar(c); }
+      } else if(c) { c.chequeado = Date.now(); guardar(c); }
+    } else {
+      // Fuera de la app de Play (navegador): se usa el registro que dejo el servidor, si se puede leer
+      var d = await window._fbSubLeerDoc();
+      if(d) aplicarResultado(d);
+      else if(c) { c.chequeado = Date.now(); guardar(c); }
+    }
+  } catch(e) {
+    console.warn('Suscripcion: no se pudo verificar', e);   // sin señal o Google no responde: se mantiene el ultimo estado
+  } finally {
+    _checando = false;
+    refrescarUI();
+  }
+};
+window.subComprar = async function(){
+  var svc = await servicio();
+  if(!svc) { alert('Para suscribirte abrí Revendit desde la app instalada de Google Play. Desde el navegador no se puede cobrar.'); return; }
+  var resp = null;
+  try {
+    var req = new PaymentRequest(
+      [{ supportedMethods: 'https://play.google.com/billing', data: { sku: SUB.PRODUCTO } }],
+      { total: { label: 'Revendit mensual', amount: { currency: 'ARS', value: '0' } } }
+    );
+    resp = await req.show();
+    var token = resp.details && resp.details.purchaseToken;
+    if(!token) throw new Error('sin-token');
+    var r = await window._fbSubVerificar(token, SUB.PRODUCTO);
+    aplicarResultado(r);
+    await resp.complete('success');
+    toast(r.activo ? '✅ ¡Suscripción activa!' : 'Compra registrada. Actualizá el estado en unos minutos.');
+    if(r.activo && SUB.COBRO_ACTIVO) setTimeout(function(){ location.reload(); }, 1200);
+  } catch(e) {
+    try { if(resp) await resp.complete('fail'); } catch(e2) {}
+    if(e && (e.name === 'AbortError' || /cancel/i.test(String(e.message || '')))) { toast('Compra cancelada'); }
+    else { console.warn('Compra:', e); alert('No se pudo completar la suscripción. Si Google te cobró o te dejó la prueba activa, tocá "Actualizar estado". Si sigue igual, escribinos a revenditsoporte@gmail.com'); }
+  } finally { refrescarUI(); }
+};
+window.subAdministrar = function(){
+  window.open('https://play.google.com/store/account/subscriptions?sku=' + SUB.PRODUCTO + '&package=' + SUB.PAQUETE, '_blank');
+};
+window.subRefrescarManual = async function(){
+  toast('Consultando a Google Play…');
+  await window.subActualizar(true);
+  toast('Estado actualizado');
+};
+
+// ---- pantallas ----
+function card(inner, extra){ return '<div class="card" style="margin-bottom:12px;padding:14px 16px;' + (extra || '') + '">' + inner + '</div>'; }
+function btn(txt, fn, tipo){ return '<button class="btn ' + (tipo === 'p' ? 'btn-primary' : 'btn-ghost') + ' btn-full" style="margin-top:8px" onclick="' + fn + '">' + txt + '</button>'; }
+function lista(abierta){
+  return '<details' + (abierta ? ' open' : '') + ' style="margin-bottom:12px"><summary style="cursor:pointer;font-weight:700;font-size:14px;padding:10px 4px">¿Qué incluye?</summary>' +
+    card('<div style="font-size:14px;line-height:1.7">' + VENTAJAS.map(function(v){ return '<div>✔ ' + h(v) + '</div>'; }).join('') + '</div>') + '</details>';
+}
+window.renderSuscripcion = async function(){
+  var el = document.getElementById('sub-contenido'); if(!el) return;
+  var e = estado(), d = await detalles(), precio = precioTexto(d), enPlay = !!d || ('getDigitalGoodsService' in window);
+  var o = '';
+  if(esDueno()) o += card('<b>🏪 Cuenta de Surtimar</b><div style="font-size:13px;margin-top:4px;line-height:1.4">Tiene todo incluido sin cargo y nunca se bloquea. Esta pantalla sirve para probar la compra con una cuenta de prueba de Google Play.</div>', 'background:var(--surface2)');
+  if(!SUB.COBRO_ACTIVO && !esDueno()) o += card('<div style="font-size:13px;color:var(--text3);line-height:1.4">Por ahora Revendit se usa sin cargo mientras se prueba. El cobro todavía no está activado.</div>');
+  var precioHtml = precio ? '<div style="font-size:30px;font-weight:800;color:var(--accent)">' + h(precio) + '<span style="font-size:14px;font-weight:400;color:var(--text3)"> /mes</span></div><div style="font-size:12px;color:var(--text3)">Precio tomado de Google Play</div>'
+                          : '<div style="font-size:14px">El precio lo ves al suscribirte, en la pantalla de Google Play.</div>';
+  if(e.tipo === 'activa' || e.tipo === 'gracia' || e.tipo === 'cancelada') {
+    var dd = dias(e.vence);
+    var titulo = e.tipo === 'gracia' ? '⚠ Hubo un problema con el cobro' : (e.tipo === 'cancelada' ? 'Cancelaste la renovación' : 'Suscripción activa ✔');
+    var cuerpo = '';
+    if(e.tipo === 'gracia') cuerpo = 'Google Play va a reintentar el cobro. Actualizá tu medio de pago en Google Play para no perder el acceso.';
+    else if(e.tipo === 'cancelada') cuerpo = 'Seguís con acceso completo hasta el <b>' + fecha(e.vence) + '</b> (' + Math.max(dd, 0) + ' días). Después la app queda en solo lectura.';
+    else cuerpo = 'Próxima renovación: <b>' + fecha(e.vence) + '</b> (en ' + Math.max(dd, 0) + ' días).<div style="font-size:12px;color:var(--text3);margin-top:6px">Si estás en la prueba gratis, ese día se hace el primer cobro. Podés cancelar antes desde Google Play.</div>';
+    o += card('<div style="font-size:18px;font-weight:800;margin-bottom:6px">' + titulo + '</div><div style="font-size:14px;line-height:1.5">' + cuerpo + '</div>');
+    o += btn('Administrar suscripción en Google Play', 'subAdministrar()', 'g');
+    o += btn('🔄 Actualizar estado', 'subRefrescarManual()', 'g');
+    o += btn('📤 Exportar mis datos', "showPage('exportar')", 'g');
+    o += '<div style="height:12px"></div>' + lista(false);
+  } else if(e.tipo === 'vencida') {
+    o += card('<div style="font-size:18px;font-weight:800;margin-bottom:6px;color:var(--accent3)">Tu suscripción terminó</div><div style="font-size:14px;line-height:1.5">Tus datos están a salvo. Podés <b>ver</b> ventas, clientes, stock y compras, pero no cargar nada nuevo hasta reactivar. <b>Exportar tus datos sigue disponible.</b></div>', 'border-left:5px solid var(--accent3)');
+    o += card(precioHtml);
+    o += btn('Reactivar suscripción', 'subComprar()', 'p');
+    o += btn('📤 Exportar mis datos', "showPage('exportar')", 'g');
+    o += btn('🔄 Actualizar estado', 'subRefrescarManual()', 'g');
+    o += '<div style="height:12px"></div>' + lista(false);
+  } else {
+    o += '<div style="font-size:20px;font-weight:800;margin:4px 0 12px">Probá Revendit 30 días gratis</div>';
+    o += card('<div style="font-size:14px;margin-bottom:4px">Después de la prueba:</div>' + precioHtml);
+    o += btn('Empezar 30 días gratis', 'subComprar()', 'p');
+    o += '<div style="font-size:12px;color:var(--text3);margin:10px 0 14px;line-height:1.5">No se cobra nada durante los 30 días. Se paga con Google Play y podés cancelar cuando quieras desde Play Store → Pagos y suscripciones.</div>';
+    o += lista(true);
+    o += btn('🔄 Ya me suscribí: actualizar estado', 'subRefrescarManual()', 'g');
+    if(!enPlay) o += card('<div style="font-size:13px;line-height:1.4">Para suscribirte abrí Revendit desde la app instalada de Google Play. En el navegador no se puede cobrar.</div>', 'margin-top:12px;background:var(--surface2)');
+  }
+  el.innerHTML = o;
+};
+function refrescarUI(){
+  var e = estado(), b = document.getElementById('sub-banner'), r = document.getElementById('cfg-sub-resumen');
+  var t = '';
+  if(esDueno()) t = 'Cuenta de Surtimar: todo incluido, sin cargo.';
+  else if(e.tipo === 'activa') t = '✅ Suscripción activa. Próxima renovación: ' + fecha(e.vence) + '.';
+  else if(e.tipo === 'gracia') t = '⚠ Problema con el cobro: actualizá tu medio de pago en Google Play.';
+  else if(e.tipo === 'cancelada') t = 'Renovación cancelada. Acceso hasta el ' + fecha(e.vence) + '.';
+  else if(e.tipo === 'vencida') t = '🔒 Suscripción vencida: la app está en solo lectura.';
+  else t = 'Todavía no tenés suscripción. Probá 30 días gratis.';
+  if(!SUB.COBRO_ACTIVO && !esDueno()) t += ' (Cobro todavía no activado: sin bloqueo.)';
+  if(r) r.textContent = t;
+  if(b) {
+    var html = '';
+    if(SUB.COBRO_ACTIVO && !esDueno() && !enTienda()) {
+      if(window.subBloqueado()) html = '<div onclick="showPage(\'suscripcion\')" style="background:#fee2e2;border:1px solid #dc2626;color:#991b1b;border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:14px;font-weight:600;cursor:pointer">🔒 ' + (e.tipo === 'sin' ? 'Empezá tu prueba gratis para poder cargar datos.' : 'Suscripción vencida: solo lectura.') + ' <u>Ver</u></div>';
+      else if((e.tipo === 'cancelada' || e.tipo === 'gracia') || dias(e.vence) <= 7 && e.tipo === 'activa') html = '<div onclick="showPage(\'suscripcion\')" style="background:#fff3e0;border:1px solid #f57c00;color:#8a4b00;border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:14px;cursor:pointer">' + h(t) + ' <u>Ver</u></div>';
+    }
+    b.innerHTML = html; b.style.display = html ? 'block' : 'none';
+  }
+  try { if(document.getElementById('page-suscripcion').classList.contains('active')) window.renderSuscripcion(); } catch(e2) {}
+  try { if(typeof window._catalogoProgramar === 'function') window._catalogoProgramar(); } catch(e3) {}
+}
+window.subRefrescarUI = refrescarUI;
+document.addEventListener('firebaseReady', function(){
+  setTimeout(function(){ if(!enTienda()) { try { window.subActualizar(false); refrescarUI(); } catch(e) {} } }, 5000);
+});
+document.addEventListener('visibilitychange', function(){ if(!document.hidden && !enTienda()) { try { window.subActualizar(false); } catch(e) {} } });
+
+// ===================== EXPORTAR =====================
+var _expPeriodo = 'mes';
+var PERIODOS = [['mes', 'Este mes'], ['mesant', 'Mes anterior'], ['anio', 'Este año'], ['todo', 'Todo']];
+function f2(d){ return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function rango(){
+  var hoy = new Date(), y = hoy.getFullYear(), m = hoy.getMonth();
+  if(_expPeriodo === 'mes') return { d: f2(new Date(y, m, 1)), h: f2(new Date(y, m + 1, 0)), label: 'Este mes', slug: f2(new Date(y, m, 1)).slice(0, 7) };
+  if(_expPeriodo === 'mesant') return { d: f2(new Date(y, m - 1, 1)), h: f2(new Date(y, m, 0)), label: 'Mes anterior', slug: f2(new Date(y, m - 1, 1)).slice(0, 7) };
+  if(_expPeriodo === 'anio') return { d: y + '-01-01', h: y + '-12-31', label: 'Año ' + y, slug: String(y) };
+  return { d: '0000-01-01', h: '9999-12-31', label: 'Todo el historial', slug: 'todo' };
+}
+function enP(fechaStr, r){ var s = String(fechaStr || '').slice(0, 10); return s >= r.d && s <= r.h; }
+window.renderExportar = function(){
+  var el = document.getElementById('exp-periodos'); if(!el) return;
+  el.innerHTML = PERIODOS.map(function(p){
+    var on = p[0] === _expPeriodo;
+    return '<button class="btn ' + (on ? 'btn-primary' : 'btn-ghost') + '" style="padding:8px 14px;font-size:13px" onclick="expPeriodo(\'' + p[0] + '\')">' + p[1] + '</button>';
+  }).join('');
+};
+window.expPeriodo = function(p){ _expPeriodo = p; window.renderExportar(); };
+
+function celda(v){ v = (v == null) ? '' : String(v); if(/[;"\n\r]/.test(v)) v = '"' + v.replace(/"/g, '""') + '"'; return v; }
+function num(v){ var x = Number(v); if(!isFinite(x)) x = 0; return String(Math.round(x * 100) / 100).replace('.', ','); }
+function fd(s){ var m = /^(\d{4})-(\d\d)-(\d\d)/.exec(String(s || '')); return m ? (m[3] + '/' + m[2] + '/' + m[1]) : String(s || ''); }
+function csv(cab, filas){
+  var t = [cab.map(celda).join(';')].concat(filas.map(function(f){ return f.map(celda).join(';'); })).join('\r\n');
+  return new Blob(['﻿' + t], { type: 'text/csv;charset=utf-8' });
+}
+function descargar(blob, nombre){
+  var url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = nombre; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1500);
+}
+function entregar(blob, nombre, titulo){
+  try {
+    var file = new File([blob], nombre, { type: blob.type });
+    if(navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: titulo }).catch(function(e){ if(e && e.name !== 'AbortError') descargar(blob, nombre); });
+      return;
+    }
+  } catch(e) {}
+  descargar(blob, nombre);
+}
+function pagado(inv){ return (inv.pagos || []).reduce(function(s, p){ return s + (Number(p.monto) || 0); }, 0); }
+function ventasEnP(r){ return (S.invoices || []).filter(function(i){ return i && enP(i.date, r); }).sort(function(a, b){ return String(a.date).localeCompare(String(b.date)); }); }
+window.expCSV = function(tipo){
+  var r = rango(), cab, filas = [], nombre, vacio = false;
+  if(tipo === 'ventas') {
+    cab = ['Factura', 'Fecha', 'Cliente', 'Tipo', 'Estado', 'Total', 'Cobrado', 'Saldo', 'Notas'];
+    ventasEnP(r).forEach(function(i){ filas.push([i.id, fd(i.date), i.clientName, i.type || 'factura', i.status || '', num(i.total), num(pagado(i)), num(i.saldo), i.notes || '']); });
+    nombre = 'ventas_' + r.slug; vacio = !filas.length;
+  } else if(tipo === 'ventasDet') {
+    cab = ['Factura', 'Fecha', 'Cliente', 'Tipo', 'Estado', 'Producto', 'Cantidad', 'Precio unitario', 'Subtotal'];
+    ventasEnP(r).forEach(function(i){ (i.items || []).forEach(function(it){ filas.push([i.id, fd(i.date), i.clientName, i.type || 'factura', i.status || '', it.desc || it.name || '', num(it.qty), num(it.price), num((Number(it.qty) || 0) * (Number(it.price) || 0))]); }); });
+    nombre = 'ventas-por-producto_' + r.slug; vacio = !filas.length;
+  } else if(tipo === 'clientes') {
+    var deuda = {};
+    (S.invoices || []).forEach(function(i){ if(i && i.status !== 'cancelada' && i.type !== 'presupuesto') deuda[i.clientId] = (deuda[i.clientId] || 0) + (Number(i.saldo) || 0); });
+    cab = ['Código', 'Nombre', 'Tipo', 'Teléfono', 'Email', 'Dirección', 'CUIT/DNI', 'Saldo pendiente', 'Crédito a favor', 'Notas'];
+    (S.clients || []).forEach(function(c){ filas.push([c.id, c.name, c.type || '', c.phone || '', c.email || '', c.addr || '', c.tax || '', num(deuda[c.id] || 0), num(c.credito || 0), c.notes || '']); });
+    nombre = 'clientes_' + f2(new Date());
+  } else if(tipo === 'productos') {
+    cab = ['Código', 'Producto', 'Categoría', 'Precio', 'Precio mayorista', 'Cantidad mayorista', 'Costo', 'Stock', 'Stock mínimo', 'SKU'];
+    (S.products || []).forEach(function(p){ filas.push([p.id, p.name, p.category || '', num(p.price), num(p.wholesalePrice), p.wholesaleQty || '', num(p.cost), num(p.stock), p.minStock == null ? '' : p.minStock, p.sku || '']); });
+    nombre = 'productos-stock_' + f2(new Date());
+  } else if(tipo === 'compras') {
+    cab = ['Compra', 'Fecha', 'Proveedor', 'Estado', 'Producto', 'Cantidad', 'Costo unitario', 'Subtotal', 'Total compra'];
+    (S.compras || []).filter(function(c){ return c && enP(c.date, r); }).sort(function(a, b){ return String(a.date).localeCompare(String(b.date)); }).forEach(function(c){
+      var est = c.draft ? 'borrador' : 'confirmada';
+      if(!(c.items || []).length) filas.push([c.id, fd(c.date), c.provName || '', est, '', '', '', '', num(c.total)]);
+      (c.items || []).forEach(function(it){ filas.push([c.id, fd(c.date), c.provName || '', est, it.name || it.desc || '', num(it.qty), num(it.cost), num((Number(it.qty) || 0) * (Number(it.cost) || 0)), num(c.total)]); });
+    });
+    nombre = 'compras_' + r.slug; vacio = !filas.length;
+  } else if(tipo === 'cobranzas') {
+    cab = ['Cobro', 'Fecha', 'Cliente', 'Monto', 'Medio', 'Facturas'];
+    (S.cobranzas || []).filter(function(c){ return c && enP(c.date, r); }).sort(function(a, b){ return String(a.date).localeCompare(String(b.date)); }).forEach(function(c){ filas.push([c.id, fd(c.date), c.clientName || '', num(c.monto), c.method || '', (c.facturas || []).join(' ')]); });
+    nombre = 'cobranzas_' + r.slug; vacio = !filas.length;
+  } else return;
+  if(vacio) { toast('No hay datos en ese período'); return; }
+  entregar(csv(cab, filas), nombre + '.csv', 'Revendit - ' + nombre);
+  toast('Archivo listo (' + filas.length + ' filas)');
+};
+function pesos(v){ try { return '$ ' + Math.round(Number(v) || 0).toLocaleString('es-AR'); } catch(e) { return '$ ' + Math.round(v); } }
+function ascii(s){ return String(s == null ? '' : s).replace(/[^\x20-\x7E -ÿ]/g, ''); }
+window.expPDFResumen = function(){
+  if(!window.jspdf) { toast('Sin conexión para generar el PDF. Probá de nuevo.'); return; }
+  var r = rango();
+  var todas = ventasEnP(r).filter(function(i){ return i.status !== 'cancelada' && i.type !== 'presupuesto'; });
+  var norm = todas.filter(function(i){ return i.type !== 'cigarrillos'; });
+  var cig = todas.filter(function(i){ return i.type === 'cigarrillos'; });
+  if(!todas.length) { toast('No hay ventas en ese período'); return; }
+  function sum(arr, f){ return arr.reduce(function(s, x){ return s + (Number(f(x)) || 0); }, 0); }
+  var tot = sum(norm, function(i){ return i.total; }), cob = sum(norm, function(i){ return Math.min(pagado(i), Number(i.total) || 0); }), sal = sum(norm, function(i){ return i.saldo; });
+  var prod = {}, cli = {};
+  todas.forEach(function(i){
+    (i.items || []).forEach(function(it){ var k = it.desc || it.name || '?'; var o = prod[k] || (prod[k] = { q: 0, m: 0 }); o.q += Number(it.qty) || 0; o.m += (Number(it.qty) || 0) * (Number(it.price) || 0); });
+    var c = cli[i.clientName || '?'] || (cli[i.clientName || '?'] = { n: 0, m: 0 }); c.n++; c.m += Number(i.total) || 0;
+  });
+  var topP = Object.keys(prod).map(function(k){ return [k, prod[k]]; }).sort(function(a, b){ return b[1].m - a[1].m; }).slice(0, 10);
+  var topC = Object.keys(cli).map(function(k){ return [k, cli[k]]; }).sort(function(a, b){ return b[1].m - a[1].m; }).slice(0, 10);
+  try {
+    var pdf = new window.jspdf.jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+    var y = 50, neg = ascii((S.config && S.config.negocio && S.config.negocio.nombre) || 'Revendit');
+    function linea(t, x, sz, bold){ pdf.setFont('helvetica', bold ? 'bold' : 'normal'); pdf.setFontSize(sz || 11); pdf.text(ascii(t), x, y); }
+    function salto(n){ y += n; if(y > 790) { pdf.addPage(); y = 50; } }
+    linea('Resumen de ventas - ' + r.label, 40, 18, true); salto(20);
+    linea(neg + '  |  Generado el ' + new Date().toLocaleDateString('es-AR'), 40, 10); salto(26);
+    linea('Totales (facturas, sin cigarrillos)', 40, 13, true); salto(18);
+    [['Facturas emitidas', String(norm.length)], ['Total facturado', pesos(tot)], ['Cobrado de esas facturas', pesos(cob)], ['Saldo pendiente de esas facturas', pesos(sal)], ['Ticket promedio', pesos(norm.length ? tot / norm.length : 0)]].forEach(function(f){
+      linea(f[0], 50, 11); linea(f[1], 400, 11, true); salto(16);
+    });
+    if(cig.length) { salto(4); linea('Cigarrillos (se facturan aparte): ' + cig.length + ' facturas, ' + pesos(sum(cig, function(i){ return i.total; })), 50, 11); salto(18); }
+    salto(10); linea('Productos mas vendidos (por monto, incluye cigarrillos)', 40, 13, true); salto(18);
+    topP.forEach(function(p, n){ linea((n + 1) + '. ' + p[0].slice(0, 50), 50, 10); linea(p[1].q + ' uds', 360, 10); linea(pesos(p[1].m), 440, 10, true); salto(14); });
+    salto(10); linea('Mejores clientes (por monto, incluye cigarrillos)', 40, 13, true); salto(18);
+    topC.forEach(function(c, n){ linea((n + 1) + '. ' + c[0].slice(0, 45), 50, 10); linea(c[1].n + ' fact.', 360, 10); linea(pesos(c[1].m), 440, 10, true); salto(14); });
+    salto(14); pdf.setTextColor(120); linea('Los montos por producto se calculan sobre cantidad x precio, sin descuentos de la factura.', 40, 8);
+    entregar(pdf.output('blob'), 'resumen-ventas_' + r.slug + '.pdf', 'Resumen de ventas');
+  } catch(e) { console.error('PDF resumen:', e); toast('Error al generar el PDF'); }
+};
+})();
+</script>
+
 </body>
 </html>

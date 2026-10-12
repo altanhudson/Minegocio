@@ -1,4 +1,4 @@
-const CACHE_NAME = 'revendit-v13';
+const CACHE_NAME = 'revendit-v14';
 const urlsToCache = [
   '/',
   '/index.html'
