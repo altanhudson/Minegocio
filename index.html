@@ -644,6 +644,9 @@
     if(cliNuevo) await setDoc(v2doc('clients', cliNuevo.id), conMod(cliNuevo));
     window._tcPendingCliNuevo = null; // ya quedo guardado: un reintento no lo vuelve a crear
     await setDoc(v2doc('invoices', inv.id), conMod(inv));
+    // Avisar al celular del dueno (marca de ultimo cambio). Si no se puede, no pasa nada:
+    // el control por cantidad de la app lo detecta igual.
+    try { await _latidoWrite(); } catch(e) {}
   };
 
   // Eliminar documento individual de Firestore
@@ -1686,7 +1689,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Cuenta: <strong id="cfg-cuenta" style="color:var(--text)">—</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong id="cfg-ver" style="color:var(--accent);font-size:15px">4.6.4</strong> · <span id="cfg-ver-fecha">11/10/2026</span></div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong id="cfg-ver" style="color:var(--accent);font-size:15px">4.6.5</strong> · <span id="cfg-ver-fecha">11/10/2026</span></div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Cerrar sesión en este dispositivo</button>
         <button id="btn-eliminar-cuenta" onclick="eliminarCuenta()" style="display:none;margin-top:10px;width:100%;padding:10px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🗑️ Eliminar mi cuenta y datos</button>
       </div>
@@ -2931,6 +2934,9 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.6.5', f:'12/10/2026', t:[
+    'Seguridad: cuando un cliente confirma un pedido en la tienda, solo se sube la factura (y su ficha si es nuevo). Ya no se suben productos, stock ni contadores desde el celular del cliente. Esto permite cerrar las reglas de Firebase para que nadie pueda leer ni modificar tus datos sin iniciar sesión.'
+  ]},
   {v:'4.6.4', f:'12/10/2026', t:[
     'Arreglado: al tocar "Instalar" o "Agregar a inicio" desde la tienda (sobre todo en iPhone) se instalaba la app "Revendit" que abre el panel. Ahora se instala "Surtimar" con el ícono de la tienda y abre directo la tienda.',
     'Si un cliente ya tiene el ícono viejo instalado y lo abre sin sesión, lo lleva directo a la tienda en vez de mostrarle la pantalla de ingreso del panel.',
@@ -9036,6 +9042,7 @@ function _marcarNovedades(hay) {
   }
 }
 async function _chequearNovedades() {
+  if(_ES_TIENDA_URL) return;   // 4.6.5: la tienda del cliente no consulta el aviso del dueño
   if(typeof window._fbHayNovedades !== 'function') return;
   if(document.hidden) return;             // no gastar datos con la app en segundo plano
   if(window._syncEnCurso) return;         // no pisar un sync en progreso
@@ -13038,8 +13045,11 @@ async function tiendaConfirmar() {
     notes:'Pedido desde tienda online'+(_envio ? ' · '+_envio.wa : '')
   };
   S.invoices.unshift(inv);
-  if(_esOtroNegocio()) {
-    // Otro negocio: se sube solo la factura y el cliente nuevo (ver _fbTiendaGuardarPedido)
+  if(_esOtroNegocio() || _ES_TIENDA_URL) {
+    // 4.6.5: el visitante de la tienda (de Surtimar o de otro negocio) sube SOLO la factura y,
+    // si es nuevo, su ficha de cliente (ver _fbTiendaGuardarPedido). Antes la tienda de Surtimar
+    // subia tambien productos, stock, contadores y creditos: eso obligaba a dejar Firestore
+    // abierto a cualquiera. El stock y los contadores los recalcula el negocio al sincronizar.
     window._tcPendingInv = inv;
     window._tcPendingCliNuevo = TC_CLI ? null : cli;
     try{ recalcAllStocks(); }catch(e){}
@@ -13279,6 +13289,12 @@ window.addEventListener('DOMContentLoaded', function(){
       // (no hay un SW nuevo "esperando", solo cache fresca lista para usar).
       navigator.serviceWorker.addEventListener('message', event => {
         if(event.data && event.data.type === 'NUEVA_VERSION_LISTA') {
+          // 4.6.5: en la tienda del cliente, si todavia no armo ningun pedido, se actualiza sola
+          // (asi nadie queda con una version vieja de la tienda). Si ya tiene productos cargados,
+          // no se lo corta: queda el cartel "Actualizar".
+          try {
+            if(_ES_TIENDA_URL && typeof TC !== 'undefined' && Object.keys(TC).length === 0 && !window._tcPendingInv && !window._llegoAGuardar) { location.reload(); return; }
+          } catch(e) {}
           const banner = document.getElementById('sw-update-banner');
           if(banner) banner.style.display = 'flex';
         }
