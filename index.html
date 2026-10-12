@@ -1665,7 +1665,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Cuenta: <strong id="cfg-cuenta" style="color:var(--text)">—</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong id="cfg-ver" style="color:var(--accent);font-size:15px">4.6.2</strong> · <span id="cfg-ver-fecha">11/10/2026</span></div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong id="cfg-ver" style="color:var(--accent);font-size:15px">4.6.3</strong> · <span id="cfg-ver-fecha">11/10/2026</span></div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Cerrar sesión en este dispositivo</button>
         <button id="btn-eliminar-cuenta" onclick="eliminarCuenta()" style="display:none;margin-top:10px;width:100%;padding:10px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🗑️ Eliminar mi cuenta y datos</button>
       </div>
@@ -2910,6 +2910,9 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.6.3', f:'11/10/2026', t:[
+    'Tienda: "Cambiaron de precio" y "Agregados recientemente" ahora son tarjetitas con foto, nombre y precio (como las ofertas pero más chicas), con una etiqueta "BAJÓ", "SUBIÓ" o "NUEVO". Dejan de ser pastillas.'
+  ]},
   {v:'4.6.2', f:'11/10/2026', t:[
     'Facturas urgentes: en cada factura hay un botón 🚨 "Urgente". Las marcadas aparecen siempre arriba de todo, en la sección "🚨 URGENTES", sin importar su número ni su fecha.',
     'Una factura urgente sale sola de arriba cuando queda pagada (o cancelada). También se puede quitar a mano tocando 🚨 "Quitar".'
@@ -10970,6 +10973,14 @@ body.tn-body{display:block!important;background:linear-gradient(180deg,#dfeaff 0
 .tn-cp img,.tn-cp .tn-ph{width:28px;height:28px;border-radius:50%;object-fit:cover;background:#f4f6fb;display:flex;align-items:center;justify-content:center;font-size:15px}
 .tn-cp s{color:#9aa3b2;font-weight:600}
 .tn-up{color:var(--tn-rojo)}.tn-dn{color:var(--tn-verde)}
+.tn-mini{flex:0 0 auto;width:31%;max-width:128px;min-width:104px;background:#fff;border:1px solid var(--tn-borde);border-radius:12px;padding:6px;position:relative;cursor:pointer;scroll-snap-align:start;box-shadow:0 1px 6px rgba(18,58,122,.07)}
+.tn-mini img,.tn-mini .tn-ph{width:100%;aspect-ratio:1/1;object-fit:contain;border-radius:8px;background:#f4f6fb;display:flex;align-items:center;justify-content:center;font-size:30px}
+.tn-mini .n{font-size:11.5px;font-weight:700;margin-top:5px;line-height:1.2;height:28px;overflow:hidden}
+.tn-mini .pr{font-size:14px;font-weight:900;margin-top:2px;line-height:1.1}
+.tn-mini .pr s{display:block;font-size:10.5px;font-weight:600;color:#9aa3b2;line-height:1.1}
+.tn-mini .tag{position:absolute;top:4px;left:4px;font-size:9.5px;font-weight:900;border-radius:6px;padding:2px 5px;color:#fff}
+.tn-mini .tag.sube{background:var(--tn-rojo)}.tn-mini .tag.baja{background:var(--tn-verde)}.tn-mini .tag.nuevo{background:var(--tn-azul)}
+.tn-carr.tn-carr-mini{gap:8px}
 .tn-cats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .tn-cat{background:#fff;border-radius:16px;padding:8px;border:1.5px solid var(--tn-borde);box-shadow:0 2px 10px rgba(18,58,122,.06);text-align:left;cursor:pointer;font-family:inherit;color:var(--tn-txt)}
 .tn-mos{display:grid;grid-template-columns:1fr 1fr;gap:4px;border-radius:12px;overflow:hidden;background:#f4f6fb}
@@ -12226,11 +12237,11 @@ function _tnInicioHtml(todos) {
     return db < da ? -1 : 1;
   });
   if(cambios.length) {
-    h += '<div class="tn-sec" style="padding-bottom:0"><div class="tn-sech" style="margin-bottom:7px"><h2 style="font-size:14px">💰 Cambiaron de precio</h2><small>últimas 48 hs</small></div></div><div class="tn-chips">';
+    h += '<div class="tn-sec" style="padding-bottom:0"><div class="tn-sech" style="margin-bottom:7px"><h2 style="font-size:15px">💰 Cambiaron de precio</h2><small>últimas 48 hs</small></div></div><div class="tn-carr tn-carr-mini">';
     cambios.forEach(function(p){
       const last = p.priceHistory[p.priceHistory.length - 1], subio = p.price > last.price;
-      h += '<div class="tn-cp" onclick="tiendaIrAProducto(\'' + p.id + '\')">' + _tnImg(p) + '<span>' + _tnEsc(p.name.length > 24 ? p.name.slice(0, 23) + '…' : p.name) + '</span>'
-        + '<s>' + fmtPesos(last.price) + '</s><span class="' + (subio ? 'tn-up' : 'tn-dn') + '">' + fmtPesos(p.price) + (subio ? ' ↑' : ' ↓') + '</span></div>';
+      h += '<div class="tn-mini" onclick="tiendaIrAProducto(\'' + p.id + '\')"><span class="tag ' + (subio ? 'sube' : 'baja') + '">' + (subio ? 'SUBIÓ ↑' : 'BAJÓ ↓') + '</span>' + _tnImg(p)
+        + '<div class="n">' + _tnEsc(p.name) + '</div><div class="pr ' + (subio ? 'tn-up' : 'tn-dn') + '"><s>' + fmtPesos(last.price) + '</s>' + fmtPesos(p.price) + '</div></div>';
     });
     h += '</div>';
   }
@@ -12239,9 +12250,10 @@ function _tnInicioHtml(todos) {
   const fechaDe = function(p){ return Math.max(p.createdAt || 0, p.visibleSince ? new Date(p.visibleSince).getTime() : 0); };
   const nuevos = todos.filter(function(p){ const f = fechaDe(p); return f && (ahora - f) <= semana; }).sort(function(a, b){ return fechaDe(b) - fechaDe(a); });
   if(nuevos.length) {
-    h += '<div class="tn-sec" style="padding-bottom:0"><div class="tn-sech" style="margin-bottom:7px"><h2 style="font-size:14px">🆕 Agregados recientemente</h2></div></div><div class="tn-chips">';
+    h += '<div class="tn-sec" style="padding-bottom:0"><div class="tn-sech" style="margin-bottom:7px"><h2 style="font-size:15px">🆕 Agregados recientemente</h2></div></div><div class="tn-carr tn-carr-mini">';
     nuevos.forEach(function(p){
-      h += '<div class="tn-cp" onclick="tiendaIrAProducto(\'' + p.id + '\')">' + _tnImg(p) + '<span>' + _tnEsc(p.name.length > 26 ? p.name.slice(0, 25) + '…' : p.name) + '</span><span class="tn-dn">' + fmtPesos(p.price) + '</span></div>';
+      h += '<div class="tn-mini" onclick="tiendaIrAProducto(\'' + p.id + '\')"><span class="tag nuevo">NUEVO</span>' + _tnImg(p)
+        + '<div class="n">' + _tnEsc(p.name) + '</div><div class="pr" style="color:var(--tn-azul)">' + fmtPesos(p.price) + '</div></div>';
     });
     h += '</div>';
   }
