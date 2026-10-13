@@ -2997,6 +2997,9 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.7.2', f:'13/10/2026', t:[
+    'Compras: al tocar una compra ahora se abre el detalle (solo para ver): cada producto con cantidad, precio unitario y subtotal, y el total abajo. Para modificarla, tocá "Editar compra". También se puede compartir.'
+  ]},
   {v:'4.7.1', f:'12/10/2026', t:[
     'Suscripción: si la compra falla, el cartel ahora muestra el detalle técnico para poder encontrar la causa.'
   ]},
@@ -8385,7 +8388,7 @@ function renderComps(){
     '<div style="font-size:13px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:600;margin:12px 0 6px">'+fmtDate(date)+'</div>'
     +'<div class="card" style="margin-bottom:0">'
     +cs.map(c=>'<div class="list-item" style="flex-wrap:wrap;gap:6px">'
-      +'<div style="flex:1;min-width:0" data-action="openComp" data-id="'+c.id+'"><div style="font-weight:600;font-size:14px;display:flex;align-items:center;gap:6px">'+c.provName+(c.draft?'<span class="badge badge-blue">Borrador</span>':'')+'</div>'
+      +'<div style="flex:1;min-width:0;cursor:pointer" data-action="verComp" data-id="'+c.id+'"><div style="font-weight:600;font-size:14px;display:flex;align-items:center;gap:6px">'+c.provName+(c.draft?'<span class="badge badge-blue">Borrador</span>':'')+'</div>'
       +'<div style="font-size:14px;color:var(--text3)">'+c.id+' - '+c.items.length+' productos'+'</div></div>'
       +'<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'
       +'<div style="font-family:Inter,sans-serif;font-weight:800;color:var(--accent2);font-size:15px">$'+c.total.toFixed(0)+'</div>'
@@ -8398,6 +8401,108 @@ function renderComps(){
       +'</div>').join('')
     +'</div>'
   ).join('');
+}
+
+// ===== DETALLE DE COMPRA (solo lectura) =====
+// Tocar una compra en el historial abre esta vista: proveedor, fecha, cada
+// producto con cantidad x precio unitario y subtotal, y el total abajo.
+// Para modificarla esta el boton "Editar compra", que abre el modo edicion de
+// siempre (openComp). No usa la clase .modal-overlay a proposito: esa clase
+// hace que el boton de sincronizar avise "ventana de edicion abierta", y esta
+// vista no edita nada.
+function _vcEsc(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function _vcPesos(n){n=Math.round((Number(n)||0)*100)/100;const d=Number.isInteger(n)?0:2;return '$'+n.toLocaleString('es-AR',{minimumFractionDigits:d,maximumFractionDigits:d});}
+function _vcNum(n){return (Number(n)||0).toLocaleString('es-AR',{maximumFractionDigits:2});}
+function verComp(id){
+  const c = S.compras.find(x=>x.id===id);
+  if(!c) return;
+  let ov = document.getElementById('mvercomp-overlay');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id = 'mvercomp-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;display:none;align-items:flex-end;justify-content:center';
+    ov.addEventListener('click', function(ev){
+      if(ev.target===ov){ cerrarVerComp(); return; }
+      const b = ev.target.closest('[data-vc]');
+      if(!b) return;
+      const cid = ov.dataset.compId;
+      if(b.dataset.vc==='cerrar') cerrarVerComp();
+      else if(b.dataset.vc==='editar'){
+        // Se cierra sin history.back(): openComp cambia de pagina enseguida y un
+        // "atras" pendiente podria pisar esa navegacion.
+        ov.style.display = 'none';
+        try { if(history.state && history.state.verComp) history.replaceState({page:S.page}, '', ''); } catch(e) {}
+        openComp(cid);
+      }
+      else if(b.dataset.vc==='compartir') compartirComp(cid);
+      else if(b.dataset.vc==='factura') verFacturaCompra(cid);
+    });
+    document.body.appendChild(ov);
+  }
+  ov.dataset.compId = c.id;
+  const items = c.items||[];
+  const unidades = items.reduce((s,i)=>s+(Number(i.qty)||0),0);
+  const filas = items.length ? items.map((i,idx)=>{
+    const qty = Number(i.qty)||0, cost = Number(i.cost)||0;
+    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 16px;'+(idx<items.length-1?'border-bottom:1px solid var(--border)':'')+'">'
+      +'<div style="min-width:0"><div style="font-size:15px;font-weight:600;color:var(--text)">'+_vcEsc(i.name||'Producto')+'</div>'
+      +'<div style="font-size:14px;color:var(--text3);margin-top:2px">'+_vcNum(qty)+' × '+_vcPesos(cost)+'</div></div>'
+      +'<div style="font-size:15px;font-weight:700;color:var(--text);white-space:nowrap">'+_vcPesos(qty*cost)+'</div>'
+      +'</div>';
+  }).join('') : '<div style="padding:16px;color:var(--text3);font-size:14px">Esta compra no tiene productos</div>';
+  ov.innerHTML = '<div style="background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:600px;max-height:92dvh;display:flex;flex-direction:column;animation:slideUp .25s ease">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--surface);border-radius:20px 20px 0 0;border-bottom:1px solid var(--border);flex-shrink:0">'
+      +'<div style="font-weight:800;font-size:17px;color:var(--text)">Detalle de compra</div>'
+      +'<button class="close-btn" data-vc="cerrar" aria-label="Cerrar">✕</button>'
+    +'</div>'
+    +'<div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 16px">'
+      +'<div class="card" style="padding:12px 14px;margin-bottom:12px">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;gap:10px">'
+          +'<div style="font-size:16px;font-weight:700;color:var(--text)">'+_vcEsc(c.provName||'Sin proveedor')+'</div>'
+          +(c.draft?'<span class="badge badge-blue">Borrador</span>':'')
+        +'</div>'
+        +'<div style="font-size:14px;color:var(--text3);margin-top:4px">'+fmtDate(c.date)+' · '+items.length+' producto'+(items.length===1?'':'s')+'</div>'
+        +(c.notes?'<div style="font-size:14px;color:var(--text2);margin-top:6px">'+_vcEsc(c.notes)+'</div>':'')
+        +(c.facturaUrl?'<button class="btn btn-sm" data-vc="factura" style="margin-top:8px;background:#dcfce7;color:#16a34a;border:1px solid #16a34a44">📄 Ver foto de la factura</button>':'')
+      +'</div>'
+      +'<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:0 4px 6px"><span>Producto · cant × precio unit.</span><span>Subtotal</span></div>'
+      +'<div class="card" style="padding:0;margin-bottom:0">'+filas+'</div>'
+    +'</div>'
+    +'<div style="background:var(--surface);border-top:1px solid var(--border);padding:14px 16px calc(14px + env(safe-area-inset-bottom));flex-shrink:0">'
+      +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px">'
+        +'<div><div style="font-size:15px;font-weight:600;color:var(--text2)">Total de la compra</div><div style="font-size:13px;color:var(--text3)">'+_vcNum(unidades)+' unidades</div></div>'
+        +'<div style="font-family:Inter,sans-serif;font-size:26px;font-weight:800;color:var(--accent2)">'+_vcPesos(c.total)+'</div>'
+      +'</div>'
+      +'<div style="display:flex;gap:10px">'
+        +'<button class="btn btn-primary" data-vc="editar" style="flex:1;justify-content:center;padding:13px;font-size:15px">✏️ Editar compra</button>'
+        +'<button class="btn" data-vc="compartir" aria-label="Compartir" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:13px 16px;font-size:15px">📤</button>'
+      +'</div>'
+    +'</div>'
+  +'</div>';
+  ov.style.display = 'flex';
+  // Para que el boton "atras" de Android cierre esta vista en vez de cambiar de pagina
+  try { history.pushState({page:S.page, verComp:true}, '', ''); } catch(e) {}
+}
+function cerrarVerComp(desdeAtras){
+  const ov = document.getElementById('mvercomp-overlay');
+  if(!ov || ov.style.display==='none') return;
+  ov.style.display = 'none';
+  if(!desdeAtras){ try { if(history.state && history.state.verComp) { window._vcIgnorarPop = true; history.back(); } } catch(e) {} }
+}
+function compartirComp(id){
+  const c = S.compras.find(x=>x.id===id);
+  if(!c) return;
+  let texto = '🛒 Compra a '+(c.provName||'proveedor')+' - '+fmtDate(c.date)+'\n\n';
+  (c.items||[]).forEach(i=>{
+    const qty = Number(i.qty)||0, cost = Number(i.cost)||0;
+    texto += '• '+(i.name||'Producto')+': '+_vcNum(qty)+' × '+_vcPesos(cost)+' = '+_vcPesos(qty*cost)+'\n';
+  });
+  texto += '\nTOTAL: '+_vcPesos(c.total);
+  if(navigator.share) {
+    navigator.share({text: texto}).catch(function(){});
+  } else if(navigator.clipboard) {
+    navigator.clipboard.writeText(texto).then(function(){ toast('✓ Compra copiada'); }).catch(function(){ toast('No se pudo compartir'); });
+  }
 }
 
 // Agregar (o ver) la foto de la factura DESPUÉS de haber guardado la compra —
@@ -8464,7 +8569,8 @@ function deleteComp(id){
 document.getElementById('page-compras').addEventListener('click', function(e){
   const el=e.target.closest('[data-action]');
   if(!el) return;
-  if(el.dataset.action==='openComp') openComp(el.dataset.id);
+  if(el.dataset.action==='verComp') verComp(el.dataset.id);
+  else if(el.dataset.action==='openComp') openComp(el.dataset.id);
   else if(el.dataset.action==='confirmComp') { e.stopPropagation(); confirmComp(el.dataset.id); }
   else if(el.dataset.action==='deleteComp') { e.stopPropagation(); deleteComp(el.dataset.id); }
   else if(el.dataset.action==='verFacturaCompra') { e.stopPropagation(); verFacturaCompra(el.dataset.id); }
@@ -13398,6 +13504,10 @@ window.addEventListener('DOMContentLoaded', function(){
 
     // Android back button via History API
     window.addEventListener('popstate', function(e) {
+      // Detalle de compra: "atras" lo cierra y se queda en Compras
+      if(window._vcIgnorarPop) { window._vcIgnorarPop = false; return; }
+      const _vcOv = document.getElementById('mvercomp-overlay');
+      if(_vcOv && _vcOv.style.display !== 'none') { cerrarVerComp(true); return; }
       window._historyNav = true;
       const prev = e.state && e.state.page;
       if(prev && prev !== S.page) {
