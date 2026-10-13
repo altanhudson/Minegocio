@@ -1749,7 +1749,7 @@ select option{background:var(--surface2)}
         <div style="margin-bottom:6px">App: <strong style="color:var(--text)">Revendit</strong></div>
         <div style="margin-bottom:6px">Cuenta: <strong id="cfg-cuenta" style="color:var(--text)">—</strong></div>
         <div>Base de datos: <strong style="color:var(--text)">Firebase Firestore</strong></div>
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong id="cfg-ver" style="color:var(--accent);font-size:15px">4.7.0</strong> · <span id="cfg-ver-fecha">12/10/2026</span></div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--text3);font-size:13px">Versión <strong id="cfg-ver" style="color:var(--accent);font-size:15px">4.7.1</strong> · <span id="cfg-ver-fecha">12/10/2026</span></div>
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Cerrar sesión en este dispositivo</button>
         <button id="btn-eliminar-cuenta" onclick="eliminarCuenta()" style="display:none;margin-top:10px;width:100%;padding:10px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🗑️ Eliminar mi cuenta y datos</button>
       </div>
@@ -2997,6 +2997,9 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.7.1', f:'12/10/2026', t:[
+    'Suscripción: si la compra falla, el cartel ahora muestra el detalle técnico para poder encontrar la causa.'
+  ]},
   {v:'4.7.0', f:'12/10/2026', t:[
     'Suscripción: nueva pantalla en Configuración > Mi suscripción, con la compra por Google Play (30 días gratis), el estado, la fecha de renovación y el acceso a administrar o cancelar. Por ahora el cobro NO está activado: nadie se bloquea.',
     'Exportar mis datos (Configuración > Exportar mis datos): archivos CSV de ventas, ventas por producto, clientes, productos y stock, compras y cobranzas (con filtro de período), resumen de ventas del mes en PDF y copia de seguridad completa. Va a seguir funcionando aunque la suscripción esté vencida.',
@@ -13588,7 +13591,11 @@ window.subComprar = async function(){
   } catch(e) {
     try { if(resp) await resp.complete('fail'); } catch(e2) {}
     if(e && (e.name === 'AbortError' || /cancel/i.test(String(e.message || '')))) { toast('Compra cancelada'); }
-    else { console.warn('Compra:', e); alert('No se pudo completar la suscripción. Si Google te cobró o te dejó la prueba activa, tocá "Actualizar estado". Si sigue igual, escribinos a revenditsoporte@gmail.com'); }
+    else {
+      console.warn('Compra:', e);
+      var det = ''; try { det = '\n\nDetalle técnico: ' + (e && e.name ? e.name : 'error') + ' - ' + String((e && e.message) || e).slice(0, 160) + (e && e.code ? ' (' + e.code + ')' : '') + (resp ? ' [la pantalla de Google sí se abrió]' : ' [falló antes de abrir Google]'); } catch(e4) {}
+      alert('No se pudo completar la suscripción. Si Google te cobró o te dejó la prueba activa, tocá "Actualizar estado". Si sigue igual, escribinos a revenditsoporte@gmail.com' + det);
+    }
   } finally { refrescarUI(); }
 };
 window.subAdministrar = function(){
