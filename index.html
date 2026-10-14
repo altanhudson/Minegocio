@@ -1735,12 +1735,12 @@ select option{background:var(--surface2)}
         </div>
       </div>
     </div>
-    <style>#cfg-avanzado>summary{list-style:none}#cfg-avanzado>summary::-webkit-details-marker{display:none}#cfg-avanzado[open] .cfg-av-flecha{transform:rotate(180deg)}</style>
-    <details id="cfg-avanzado" style="margin-bottom:12px">
-      <summary style="cursor:pointer;display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;margin-bottom:12px">
+    <div id="cfg-avanzado" style="margin-bottom:12px">
+      <button type="button" id="cfg-av-btn" onclick="cfgAvanzadoToggle()" aria-expanded="false" style="width:100%;text-align:left;cursor:pointer;display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;font-family:inherit;color:inherit">
         <span style="flex:1;line-height:1.3"><span style="font-size:15px;font-weight:800;color:var(--text)">⚙️ Avanzado</span><br><span style="font-size:12.5px;color:var(--text3)">Restaurar, recuperar, limpiar y recargar datos</span></span>
         <span class="cfg-av-flecha" style="font-size:16px;color:var(--text3);transition:transform .2s">▼</span>
-      </summary>
+      </button>
+      <div id="cfg-av-cuerpo" style="display:none;margin-top:12px">
       <div style="font-size:12.5px;color:var(--text3);line-height:1.4;margin:0 4px 12px">Son herramientas para casos especiales. Si no estás seguro de para qué sirve alguna, no la uses.</div>
     <div class="card" style="margin-bottom:12px">
       <div class="card-header"><span class="card-title">&#128229; Restaurar backup</span></div>
@@ -1773,7 +1773,8 @@ select option{background:var(--surface2)}
         <div id="cfg-info-sync" style="font-size:12px;color:var(--text3);margin-top:8px"></div>
       </div>
     </div>
-    </details>
+      </div>
+    </div>
     <div class="card" style="margin-bottom:12px">
       <div class="card-header"><span class="card-title">✨ Novedades</span></div>
       <div style="padding:14px 16px" id="cfg-novedades"></div>
@@ -3137,6 +3138,9 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.11.1', f:'14/10/2026', t:[
+    'Configuración > Avanzado: se arregló el desplegable, que en algunos celulares no mostraba las herramientas al abrirlo.'
+  ]},
   {v:'4.11.0', f:'14/10/2026', t:[
     'Textos de ayuda: Banners de la tienda (formato 16:9 y dónde se ven), Grupo y Fracción mínima de los productos, Grupos Mayoristas, Categoría especial y "Fijar stock actual" ahora explican para qué sirven, con ejemplos.',
     'Configuración: Restaurar backup, Recuperar faltantes, Limpieza de clientes y Recargar todo pasaron a una sección "Avanzado" que se abre al tocarla.',
@@ -8789,6 +8793,16 @@ function _ppCfgRender() {
   el.innerHTML = '<button class="btn btn-ghost btn-full" onclick="ppMostrar()" style="margin-bottom:12px">🚀 Ver primeros pasos ('+hechos+' de '+pasos.length+')</button>';
 }
 // ===== FIN PRIMEROS PASOS =====
+// 4.11.1: desplegable "Avanzado" de Configuración (a mano, no depende del <details> del navegador)
+function cfgAvanzadoToggle() {
+  const cuerpo = document.getElementById('cfg-av-cuerpo'), btn = document.getElementById('cfg-av-btn');
+  if(!cuerpo || !btn) return;
+  const abrir = cuerpo.style.display === 'none';
+  cuerpo.style.display = abrir ? 'block' : 'none';
+  btn.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+  const f = btn.querySelector('.cfg-av-flecha'); if(f) f.style.transform = abrir ? 'rotate(180deg)' : '';
+  if(abrir) { try { setTimeout(function(){ btn.scrollIntoView({behavior:'smooth', block:'start'}); }, 50); } catch(e) {} }
+}
 function updDash() {
   try{ renderPrimerosPasos(); }catch(e){}
   const now = new Date();
