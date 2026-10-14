@@ -1461,7 +1461,7 @@ select option{background:var(--surface2)}
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
       <div>
         <div style="font-family:Inter,sans-serif;font-size:18px;font-weight:800">Grupos Mayoristas</div>
-        <div style="font-size:14px;color:var(--text3)">Define el mínimo por grupo para precio mayorista</div>
+        <div style="font-size:14px;color:var(--text3);line-height:1.4">Cantidad mínima <b>entre todos los productos del grupo</b> para que se aplique el precio mayorista. Ej: "jugos-1lt" mínimo 6 = con 6 unidades, mezclando sabores, ya sale mayorista.</div>
       </div>
       <button onclick="showPage('productos')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 14px;font-size:15px;cursor:pointer">← Volver</button>
     </div>
@@ -1558,6 +1558,7 @@ select option{background:var(--surface2)}
       <div style="position:sticky;bottom:0;left:0;right:0;background:var(--bg);padding:10px 0 4px;margin-top:4px">
         <button class="btn btn-primary btn-full" onclick="saveStockAjuste()">💾 Guardar ajuste</button>
         <button id="btn-fijar-stock" class="btn btn-full" onclick="fijarStockActual()" style="background:rgba(234,179,8,.15);border:1px solid #ca8a04;color:#854d0e;margin-top:8px">📸 Fijar stock actual como punto de partida</button>
+        <div style="margin-top:6px;font-size:12.5px;color:var(--text3);line-height:1.4">Toma el stock que ves hoy como base: las compras y ventas anteriores dejan de influir y, desde ahora, las nuevas suman y restan. Usalo solo si el stock te quedó desordenado.</div>
       </div>
     </div>
 
@@ -1664,7 +1665,7 @@ select option{background:var(--surface2)}
         <label style="display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;margin:6px 0 4px;cursor:pointer">
           <input type="checkbox" id="cfg-esp-activa" onchange="cfgFactCambio()" style="width:20px;height:20px;accent-color:var(--accent)"> Categoría especial
         </label>
-        <div style="font-size:12px;color:var(--text3);margin:0 0 10px 30px;line-height:1.4">Para productos que facturás aparte (ej. cigarrillos): tienen su propia pestaña en Facturas, no suman en el total de hoy ni en el aviso de deuda, y no llevan descuento por retiro.</div>
+        <div style="font-size:12.5px;color:var(--text3);margin:0 0 10px 30px;line-height:1.45"><b>Opcional.</b> Sirve si tenés una categoría de productos que querés facturar por separado (por ejemplo cigarrillos). Esos productos van en su propia pestaña dentro de Facturas, no suman en el total del día ni en el aviso de deuda, y no llevan descuento por retiro. <b>Si no lo necesitás, dejalo apagado.</b></div>
         <div id="cfg-esp-box" style="display:none;margin-left:30px">
           <label style="font-size:13px;color:var(--text3);display:block;margin-bottom:4px">Nombre (se ve en la pestaña y en la factura)</label>
           <input type="text" id="cfg-esp-nombre" maxlength="20" placeholder="Ej: Cigarrillos" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface);font-size:15px;color:var(--text);margin-bottom:10px">
@@ -1700,7 +1701,15 @@ select option{background:var(--surface2)}
     <div class="card" style="margin-bottom:12px">
       <div class="card-header"><span class="card-title">🖼️ Banners de la tienda</span></div>
       <div style="padding:14px 16px">
-        <div style="font-size:14px;color:var(--text3);margin-bottom:12px">Imágenes destacadas que aparecen arriba del catálogo en la tienda. Tocá un banner y lleva al cliente al producto. El precio se toma solo del producto.</div>
+        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:12px">
+          <div style="flex:none;width:92px;border:2px solid var(--border);border-radius:10px;padding:5px;background:var(--surface2)" aria-hidden="true">
+            <div style="height:6px;width:50%;border-radius:3px;background:var(--border);margin-bottom:4px"></div>
+            <div style="aspect-ratio:16/9;border-radius:4px;background:linear-gradient(135deg,#3483fa,#0d9488);color:#fff;font-size:8px;font-weight:900;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.1">TU<br>BANNER</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:4px"><div style="height:15px;background:var(--border);border-radius:3px"></div><div style="height:15px;background:var(--border);border-radius:3px"></div><div style="height:15px;background:var(--border);border-radius:3px"></div><div style="height:15px;background:var(--border);border-radius:3px"></div></div>
+          </div>
+          <div style="font-size:14px;color:var(--text3);line-height:1.4">Es el cartel grande que se ve <b>arriba de tu tienda</b>, antes de los productos. Sirve para destacar una promo o una oferta.</div>
+        </div>
+        <div style="font-size:13.5px;color:var(--text3);line-height:1.45;margin-bottom:12px">📐 La imagen tiene que ser <b>horizontal, formato 16:9</b> (como una foto de TV). Medida ideal: 1280 × 720. Si es de otra forma, se recorta al centro.<br>👆 Si le vinculás un producto, al tocarlo el cliente va a ese producto y se muestra su precio.</div>
         <div id="banners-list" style="margin-bottom:12px"></div>
         <button onclick="openBannerModal()" class="btn btn-primary btn-full">+ Agregar banner</button>
       </div>
@@ -1711,7 +1720,6 @@ select option{background:var(--surface2)}
       <div style="padding:14px 16px">
         <div style="font-size:14px;color:var(--text3);margin-bottom:12px">Descargá una copia de todos tus datos como archivo JSON en tu celu.</div>
         <button onclick="backupData()" class="btn btn-primary btn-full">&#11015;&#65039; Descargar backup</button>
-        <button onclick="resetStockCero()" class="btn btn-full" style="background:rgba(220,38,38,.1);border:1px solid var(--accent3);color:var(--accent3);margin-top:8px">🔄 Reset stock a cero (todos los productos)</button>
       </div>
     </div>
     <div class="card" style="margin-bottom:12px">
@@ -1727,6 +1735,13 @@ select option{background:var(--surface2)}
         </div>
       </div>
     </div>
+    <style>#cfg-avanzado>summary{list-style:none}#cfg-avanzado>summary::-webkit-details-marker{display:none}#cfg-avanzado[open] .cfg-av-flecha{transform:rotate(180deg)}</style>
+    <details id="cfg-avanzado" style="margin-bottom:12px">
+      <summary style="cursor:pointer;display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;margin-bottom:12px">
+        <span style="flex:1;line-height:1.3"><span style="font-size:15px;font-weight:800;color:var(--text)">⚙️ Avanzado</span><br><span style="font-size:12.5px;color:var(--text3)">Restaurar, recuperar, limpiar y recargar datos</span></span>
+        <span class="cfg-av-flecha" style="font-size:16px;color:var(--text3);transition:transform .2s">▼</span>
+      </summary>
+      <div style="font-size:12.5px;color:var(--text3);line-height:1.4;margin:0 4px 12px">Son herramientas para casos especiales. Si no estás seguro de para qué sirve alguna, no la uses.</div>
     <div class="card" style="margin-bottom:12px">
       <div class="card-header"><span class="card-title">&#128229; Restaurar backup</span></div>
       <div style="padding:14px 16px">
@@ -1758,6 +1773,7 @@ select option{background:var(--surface2)}
         <div id="cfg-info-sync" style="font-size:12px;color:var(--text3);margin-top:8px"></div>
       </div>
     </div>
+    </details>
     <div class="card" style="margin-bottom:12px">
       <div class="card-header"><span class="card-title">✨ Novedades</span></div>
       <div style="padding:14px 16px" id="cfg-novedades"></div>
@@ -1872,13 +1888,18 @@ select option{background:var(--surface2)}
       </div>
       <div class="form-group"><label class="fl">Nombre *</label><input type="text" id="p-name" placeholder="Nombre del producto"></div>
       <div class="form-group"><label class="fl">Categoria</label><input type="text" id="p-cat" placeholder="Bebidas..."></div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="fl">Grupo</label>
-          <input type="text" id="p-grupo" placeholder="ej: baggio-lt" oninput="renderMinGrupoProd()">
-          <div id="p-grupo-min-info" style="margin-top:6px;font-size:12.5px;color:var(--text3)"></div>
-        </div>
-        <div class="form-group"><label class="fl">Fracción mínima</label><input type="number" id="p-frac" placeholder="1" min="1" inputmode="numeric"></div>
+      <div class="form-group">
+        <label class="fl">Grupo <span style="font-size:11px;color:var(--text3);font-weight:400">(opcional)</span></label>
+        <input type="text" id="p-grupo" placeholder="Ej: jugos-1lt" oninput="renderMinGrupoProd()">
+        <div style="margin-top:6px;font-size:12.5px;color:var(--text3);line-height:1.4">Los productos con el <b>mismo grupo</b> suman sus cantidades para llegar al precio mayorista. Ej: si 3 sabores del mismo jugo tienen el grupo "jugos-1lt" y el mínimo es 6, con 6 unidades entre todos ya se cobra el mayorista.</div>
+        <div id="p-grupo-min-info" style="margin-top:6px;font-size:12.5px;color:var(--text3)"></div>
+      </div>
+      <div class="form-group">
+        <label class="fl">Fracción mínima <span style="font-size:11px;color:var(--text3);font-weight:400">(opcional)</span></label>
+        <input type="number" id="p-frac" placeholder="1" min="1" inputmode="numeric">
+        <div style="margin-top:6px;font-size:12.5px;color:var(--text3);line-height:1.4">Si el producto se vende de a varias unidades, poné cuántas. Ej: 6 = en la factura y en la tienda la cantidad sube de 6 en 6. Dejá 1 si se vende suelto.</div>
+      </div>
+      <div>
         <div class="form-group"><label class="fl">Código de barras</label>
           <div style="display:flex;gap:8px">
             <input type="text" id="p-barcode" placeholder="Ej: 7790895000123" inputmode="numeric" style="flex:1">
@@ -1943,7 +1964,7 @@ select option{background:var(--surface2)}
       <div class="form-group"><label class="fl">CUIT / ID Fiscal</label><input type="text" id="c-tax" placeholder="Opcional"></div>
       <div class="form-group"><label class="fl">Notas</label><textarea id="c-notes" placeholder="Notas..."></textarea></div>
       <div class="form-group"><label class="fl">Mensaje al enviar factura</label><input type="text" id="c-invmsg" placeholder="Gracias por su compra 🙏"></div>
-      <div class="form-group"><label class="fl">Compras previas (historial externo)</label><input type="number" id="c-prevCompras" placeholder="0" inputmode="numeric" min="0"></div>
+      <div class="form-group" id="c-prev-group"><label class="fl">Compras previas (historial externo)</label><input type="number" id="c-prevCompras" placeholder="0" inputmode="numeric" min="0"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" style="flex:1" onclick="closeM('mcli')">Cancelar</button>
@@ -1985,7 +2006,7 @@ select option{background:var(--surface2)}
     <div class="modal-body">
       <div class="form-group">
         <label class="fl">Imagen del banner (horizontal)</label>
-        <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Recomendado: formato horizontal (apaisado). Se recorta centrada para encajar.</div>
+        <div style="font-size:12.5px;color:var(--text3);line-height:1.4;margin-bottom:8px">Tiene que ser <b>horizontal, formato 16:9</b> (como una foto de TV o del celular acostado). Medida ideal: 1280 × 720. Si es de otra forma, se recorta al centro. Abajo ves cómo va a quedar.</div>
         <input type="file" id="banner-file" accept="image/*" style="display:none" onchange="onBannerPhoto(this)">
         <button onclick="document.getElementById('banner-file').click()" class="btn btn-ghost btn-full" style="border-color:var(--accent);color:var(--accent)">📷 Elegir imagen</button>
         <div id="banner-preview-wrap" style="display:none;margin-top:10px;position:relative;border-radius:12px;overflow:hidden;aspect-ratio:16/9;background:#f0f0f0">
@@ -3116,6 +3137,11 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.11.0', f:'14/10/2026', t:[
+    'Textos de ayuda: Banners de la tienda (formato 16:9 y dónde se ven), Grupo y Fracción mínima de los productos, Grupos Mayoristas, Categoría especial y "Fijar stock actual" ahora explican para qué sirven, con ejemplos.',
+    'Configuración: Restaurar backup, Recuperar faltantes, Limpieza de clientes y Recargar todo pasaron a una sección "Avanzado" que se abre al tocarla.',
+    'Se sacó el botón "Reset stock a cero", que no hacía nada. En cuentas de otros negocios ya no aparece "Compras previas" en el cliente.'
+  ]},
   {v:'4.10.0', f:'14/10/2026', t:[
     'Cuentas nuevas: en el inicio aparece "Primeros pasos", con 5 pasos que se tildan solos (nombre del negocio, productos, cliente, primera factura y compartir la tienda). Cada uno tiene un botón que lleva a la pantalla. Se puede ocultar y volver a ver desde Configuración.',
     'La pestaña de abajo "Resumen" ahora se llama "Inicio".'
@@ -5603,6 +5629,8 @@ function openCli(id) {
     ['c-name','c-phone','c-email','c-addr','c-tax','c-notes','c-prevCompras','c-invmsg'].forEach(f=>document.getElementById(f).value='');
     document.getElementById('c-type').value='persona';
   }
+  // 4.11.0: "Compras previas" viene del programa anterior de Surtimar; no se muestra en otros negocios
+  try { const _pg = document.getElementById('c-prev-group'); if(_pg) _pg.style.display = (typeof _esOtroNegocio === 'function' && _esOtroNegocio()) ? 'none' : ''; } catch(e) {}
   document.getElementById('mcli').classList.add('open');
 }
 function saveCli() {
@@ -5616,7 +5644,7 @@ function saveCli() {
     addr:document.getElementById('c-addr').value,
     tax:document.getElementById('c-tax').value,
     notes:document.getElementById('c-notes').value,
-    prevCompras:parseInt(document.getElementById('c-prevCompras').value)||0,
+    prevCompras:(function(){ const g=document.getElementById('c-prev-group'); if(g && g.style.display==='none'){ const o=S.editId?S.clients.find(x=>x.id===S.editId):null; return (o&&o.prevCompras)||0; } return parseInt(document.getElementById('c-prevCompras').value)||0; })(),
     invmsg:document.getElementById('c-invmsg').value.trim(),
     color: S.editId?(S.clients.find(x=>x.id===S.editId)||{}).color||CCOLS[0]:CCOLS[S.clients.length%CCOLS.length]
   };
