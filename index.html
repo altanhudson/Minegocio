@@ -2997,6 +2997,12 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.8.0', f:'13/10/2026', t:[
+    'Tienda: las categorías ahora tienen íconos 3D (Despensa, Galletitas, Golosinas, Cigarrillos, Limpieza, Bebidas, Snacks y Varios). Las demás siguen con el mosaico de fotos. Nombres más grandes y título "Elegí una categoría".',
+    'Tienda: las tarjetitas de "Cambiaron de precio" y "Agregados recientemente" son más chicas (entran unas 4 por pantalla).',
+    'Tienda: en "Ofertas de la semana", si el precio mostrado es el mayorista, ahora dice "llevando X o más".',
+    'Tienda: los carteles de productos que se combinan nombran el grupo (ej. Pehuamar) en lugar de "gustos".'
+  ]},
   {v:'4.7.2', f:'13/10/2026', t:[
     'Compras: al tocar una compra ahora se abre el detalle (solo para ver): cada producto con cantidad, precio unitario y subtotal, y el total abajo. Para modificarla, tocá "Editar compra". También se puede compartir.'
   ]},
@@ -11172,13 +11178,14 @@ body.tn-body{display:block!important;background:linear-gradient(180deg,#dfeaff 0
 .tn-ofertas .tn-sech{padding:0 12px}
 .tn-ofertas h2{color:#fff}
 .tn-ofertas .tn-vt{background:none;border:0;color:#ffe1d6;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit;white-space:nowrap}
-.tn-carr{display:flex;gap:10px;overflow-x:auto;padding:0 12px;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.tn-carr{display:flex;gap:10px;overflow-x:auto;padding:0 12px;scroll-padding:0 12px;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .tn-carr::-webkit-scrollbar,.tn-chips::-webkit-scrollbar{display:none}
 .tn-of{flex:0 0 42%;max-width:190px;background:#fff;border-radius:14px;padding:8px;scroll-snap-align:start;position:relative;cursor:pointer}
 .tn-of img,.tn-of .tn-ph{width:100%;aspect-ratio:1/1;object-fit:contain;border-radius:10px;background:#f4f6fb;display:flex;align-items:center;justify-content:center;font-size:40px}
 .tn-of .n{font-size:12.5px;font-weight:700;margin-top:6px;line-height:1.25;height:31px;overflow:hidden}
 .tn-of .pr{font-size:17px;font-weight:900;color:var(--tn-rojo);margin-top:3px}
 .tn-of .tag{position:absolute;top:6px;left:6px;background:var(--tn-amarillo);color:#7a1d00;font-size:10px;font-weight:900;border-radius:6px;padding:2px 6px}
+.tn-of .lv{font-size:11px;font-weight:700;color:#8a94a8;margin-top:1px;line-height:1.2;min-height:13px}
 .tn-of .ad{margin-top:6px;width:100%;border:0;border-radius:9px;padding:7px;font-weight:800;font-size:12.5px;background:var(--tn-azul);color:#fff;cursor:pointer;font-family:inherit}
 .tn-of .ad.on{background:#dcfce7;color:#14532d}
 .tn-chips{display:flex;gap:8px;overflow-x:auto;padding:0 12px 2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
@@ -11186,12 +11193,12 @@ body.tn-body{display:block!important;background:linear-gradient(180deg,#dfeaff 0
 .tn-cp img,.tn-cp .tn-ph{width:28px;height:28px;border-radius:50%;object-fit:cover;background:#f4f6fb;display:flex;align-items:center;justify-content:center;font-size:15px}
 .tn-cp s{color:#9aa3b2;font-weight:600}
 .tn-up{color:var(--tn-rojo)}.tn-dn{color:var(--tn-verde)}
-.tn-mini{flex:0 0 auto;width:31%;max-width:128px;min-width:104px;background:#fff;border:1px solid var(--tn-borde);border-radius:12px;padding:6px;position:relative;cursor:pointer;scroll-snap-align:start;box-shadow:0 1px 6px rgba(18,58,122,.07)}
-.tn-mini img,.tn-mini .tn-ph{width:100%;aspect-ratio:1/1;object-fit:contain;border-radius:8px;background:#f4f6fb;display:flex;align-items:center;justify-content:center;font-size:30px}
-.tn-mini .n{font-size:11.5px;font-weight:700;margin-top:5px;line-height:1.2;height:28px;overflow:hidden}
-.tn-mini .pr{font-size:14px;font-weight:900;margin-top:2px;line-height:1.1}
-.tn-mini .pr s{display:block;font-size:10.5px;font-weight:600;color:#9aa3b2;line-height:1.1}
-.tn-mini .tag{position:absolute;top:4px;left:4px;font-size:9.5px;font-weight:900;border-radius:6px;padding:2px 5px;color:#fff}
+.tn-mini{flex:0 0 auto;width:22.5%;max-width:98px;min-width:72px;background:#fff;border:1px solid var(--tn-borde);border-radius:11px;padding:5px;position:relative;cursor:pointer;scroll-snap-align:start;box-shadow:0 1px 6px rgba(18,58,122,.07)}
+.tn-mini img,.tn-mini .tn-ph{width:100%;aspect-ratio:1/1;object-fit:contain;border-radius:7px;background:#f4f6fb;display:flex;align-items:center;justify-content:center;font-size:24px}
+.tn-mini .n{font-size:10.5px;font-weight:700;margin-top:4px;line-height:1.15;height:24px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.tn-mini .pr{font-size:12.5px;font-weight:900;margin-top:2px;line-height:1.1}
+.tn-mini .pr s{display:block;font-size:9.5px;font-weight:600;color:#9aa3b2;line-height:1.1}
+.tn-mini .tag{position:absolute;top:3px;left:3px;font-size:8.5px;font-weight:900;border-radius:5px;padding:1px 4px;color:#fff}
 .tn-mini .tag.sube{background:var(--tn-rojo)}.tn-mini .tag.baja{background:var(--tn-verde)}.tn-mini .tag.nuevo{background:var(--tn-azul)}
 .tn-carr.tn-carr-mini{gap:8px}
 .tn-cats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -11201,7 +11208,15 @@ body.tn-body{display:block!important;background:linear-gradient(180deg,#dfeaff 0
 .tn-cat{padding:0!important;overflow:hidden;border-width:2px!important}
 .tn-cat .tn-mos{margin:8px 8px 0;border-radius:12px}
 .tn-cat .tn-cpie{margin-top:8px;padding:8px 10px 9px;color:#fff}
-.tn-cat .cn{font-size:15.5px;font-weight:900;margin:0;display:flex;align-items:center;gap:6px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.25)}
+.tn-cat .cn{font-size:19px;letter-spacing:-.2px;font-weight:900;margin:0;display:flex;align-items:center;justify-content:space-between;gap:6px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.25)}
+.tn-cat .cn span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tn-cat .cn .go{flex:none;width:24px;height:24px;border-radius:50%;background:#fff;text-align:center;line-height:21px;font-size:20px;text-shadow:none}
+.tn-cat{display:flex;flex-direction:column}
+.tn-cat .tn-cico{aspect-ratio:1/.92;flex:1 0 auto;position:relative;overflow:hidden;display:block}
+.tn-cat .tn-cico img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;border-radius:0}
+.tn-cat .tn-cico + .tn-cpie{margin-top:0}
+.tn-sech-cat h2{font-size:21px;letter-spacing:-.3px}
+.tn-sech-cat small{font-size:13px;font-weight:700;color:#1a3a6b}
 .tn-cat .cc{font-size:12px;color:rgba(255,255,255,.92);margin:1px 0 0;font-weight:700}
 .tn-cg{border-bottom-width:4px!important}
 .tn-stick{position:sticky;top:0;z-index:20;background:rgba(239,245,255,.97);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);padding:8px 10px;border-bottom:1px solid var(--tn-borde);display:none}
@@ -12371,11 +12386,12 @@ function tiendaRender() {
     html += '<div class="tn-busq"><span>🔍 Resultados de tu búsqueda</span><button onclick="tiendaLimpiarBuscar()">✕ Ver todo</button></div>';
   } else {
     const esGrupo = String(cat).indexOf('grupo:') === 0;
-    const nom = cat === 'ofertas' ? '🔥 Ofertas' : (esGrupo ? '🔀 Se combinan entre sí' : (_tnEmojiCat(cat) + ' ' + _tnCatNombre(cat)));
-    html += '<div class="tn-cattit"><h2 style="color:' + (esGrupo ? '#7c3aed' : _tnColorCat(cat)) + '">' + nom + '</h2><small>' + prods.length + ' producto' + (prods.length !== 1 ? 's' : '') + '</small></div>';
+    const gNom = (esGrupo && prods.length) ? ((_tnGrupoInfo(prods[0]) || {}).nombre || '') : '';
+    const nom = cat === 'ofertas' ? '🔥 Ofertas' : (esGrupo ? ('🔀 ' + (gNom ? _tnEsc(gNom) : 'Se combinan entre sí')) : (_tnEmojiCat(cat) + ' ' + _tnCatNombre(cat)));
+    html += '<div class="tn-cattit"><h2 style="color:' + (esGrupo ? '#7c3aed' : _tnColorCat(cat)) + '">' + nom + '</h2><small>' + (esGrupo && gNom ? 'se combinan entre sí · ' : '') + prods.length + ' producto' + (prods.length !== 1 ? 's' : '') + '</small></div>';
     if(esGrupo && prods.length) {
       const gi = _tnGrupoInfo(prods[0]);
-      if(gi) html += '<div class="tn-combo" style="margin-top:6px">Mezclá los gustos como quieras: llevando <b>' + gi.min + ' o más</b> en total entre todos, pagás el precio mayorista en cada uno.</div>';
+      if(gi) html += '<div class="tn-combo" style="margin-top:6px">Mezclá los productos ' + _tnEsc(gi.nombre) + ' como quieras: llevando <b>' + gi.min + ' o más</b> en total entre todos, pagás el precio mayorista en cada uno.</div>';
     }
   }
   if(!prods.length) html += '<div class="tn-vacio">' + (q ? 'No encontramos productos con esa búsqueda' : 'No hay productos en esta categoría') + '</div>';
@@ -12435,6 +12451,31 @@ function _tnImg(p) {
     ? '<img src="' + _tnEsc(p.image) + '" loading="lazy" decoding="async" alt="" onerror="this.onerror=null;this.style.opacity=0">'
     : '<div class="tn-ph">' + (p.emoji || '📦') + '</div>';
 }
+// ===== Iconos 3D de categorias (4.8.0) =====
+const _TN_ICONOS_CAT = { 'despensa':'despensa','galletitas':'galletitas','golosinas':'golosinas','cigarrillos':'cigarrillos','limpieza':'limpieza','bebidas':'bebidas','snacks':'snacks','varios':'varios','otros':'varios' };
+function _tnIconoCat(key) {
+  const k = String(key || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  return _TN_ICONOS_CAT[k] ? 'cat-' + _TN_ICONOS_CAT[k] + '.webp' : '';
+}
+function _tnMosaicoCat(c) {
+  const fotos = c.prods.slice().sort(function(a, b){ return ((b.image ? 1 : 0) - (a.image ? 1 : 0)) || ((b.oferta ? 1 : 0) - (a.oferta ? 1 : 0)) || a.name.localeCompare(b.name, 'es'); }).slice(0, 4);
+  while(fotos.length < 4) fotos.push({ emoji: _tnEmojiCat(c.key) });
+  return '<div class="tn-mos">' + fotos.map(_tnImg).join('') + '</div>';
+}
+function _tnCatVisual(c, col) {
+  const ico = _tnIconoCat(c.key);
+  if(!ico) return _tnMosaicoCat(c);
+  return '<div class="tn-cico" style="background:' + col + '26"><img src="' + ico + '" alt="" loading="lazy" decoding="async" onerror="_tnCatIcoError(this)"></div>';
+}
+// Si el archivo del icono no esta (todavia no subido / sin conexion), se vuelve al mosaico de fotos
+function _tnCatIcoError(img) {
+  try {
+    const btn = img.closest('.tn-cat'); if(!btn) return;
+    const c = _tnCategorias().find(function(x){ return x.key.toLowerCase() === String(btn.dataset.cat).toLowerCase(); });
+    const box = img.parentNode;
+    if(c && box) box.outerHTML = _tnMosaicoCat(c);
+  } catch(e) {}
+}
 function _tnInicioHtml(todos) {
   let h = '';
   const ahora = Date.now();
@@ -12446,8 +12487,10 @@ function _tnInicioHtml(todos) {
     ofertas.forEach(function(p){
       const precio = (p.wholesalePrice && p.wholesalePrice > 0 && p.wholesalePrice < p.price) ? p.wholesalePrice : p.price;
       const enPedido = Object.keys(TC).filter(function(k){ return tcProdId(k) === p.id; }).reduce(function(a, k){ return a + TC[k]; }, 0);
+      const esMay = p.wholesalePrice > 0 && p.wholesalePrice < p.price && p.wholesaleQty > 0;   // 4.8.0: si el precio mostrado es el mayorista, se aclara
       h += '<div class="tn-of" onclick="tiendaIrAProducto(\'' + p.id + '\')"><span class="tag">OFERTA</span>' + _tnImg(p)
         + '<div class="n">' + _tnEsc(p.name) + '</div><div class="pr">' + fmtPesos(precio) + '</div>'
+        + '<div class="lv">' + (esMay ? 'llevando ' + p.wholesaleQty + ' o más' : '') + '</div>'
         + (p.sinStockManual ? '<button class="ad" disabled style="background:#eee;color:#999">No disponible</button>'
           : '<button class="ad' + (enPedido ? ' on' : '') + '" data-tid="' + p.id + '" onclick="event.stopPropagation();tiendaAdd(this.dataset.tid)">' + (enPedido ? '✓ ' + enPedido + ' en tu pedido' : '+ Agregar') + '</button>')
         + '</div>';
@@ -12484,15 +12527,13 @@ function _tnInicioHtml(todos) {
     });
     h += '</div>';
   }
-  // Categorias en recuadros con mosaico de 4 fotos
+  // Categorias (4.8.0): icono 3D por categoria (cat-<nombre>.webp en la raiz); si la categoria no tiene icono o falta el archivo, mosaico de fotos
   const cats = _tnCategorias();
-  h += '<div class="tn-sec"><div class="tn-sech"><h2>CATEGORÍAS</h2><small>tocá una para ver sus productos</small></div><div class="tn-cats">';
+  h += '<div class="tn-sec"><div class="tn-sech tn-sech-cat"><h2>Elegí una categoría</h2><small>Tocá para ver todo ›</small></div><div class="tn-cats">';
   cats.forEach(function(c){
-    const fotos = c.prods.slice().sort(function(a, b){ return ((b.image ? 1 : 0) - (a.image ? 1 : 0)) || ((b.oferta ? 1 : 0) - (a.oferta ? 1 : 0)) || a.name.localeCompare(b.name, 'es'); }).slice(0, 4);
-    while(fotos.length < 4) fotos.push({ emoji: _tnEmojiCat(c.key) });
     const col = _tnColorCat(c.key);
-    h += '<button class="tn-cat" style="border-color:' + col + ';background:' + col + '14" data-cat="' + _tnEsc(c.key) + '" onclick="tiendaAbrirCat(this.dataset.cat)"><div class="tn-mos">' + fotos.map(_tnImg).join('') + '</div>'
-      + '<div class="tn-cpie" style="background:' + col + '"><div class="cn">' + _tnEmojiCat(c.key) + ' ' + _tnEsc(c.key) + '</div><div class="cc">' + c.n + ' producto' + (c.n !== 1 ? 's' : '') + '</div></div></button>';
+    h += '<button class="tn-cat" style="border-color:' + col + ';background:' + col + '14" data-cat="' + _tnEsc(c.key) + '" onclick="tiendaAbrirCat(this.dataset.cat)">' + _tnCatVisual(c, col)
+      + '<div class="tn-cpie" style="background:' + col + '"><div class="cn"><span>' + _tnEsc(c.key) + '</span><b class="go" style="color:' + col + '">›</b></div></div></button>';
   });
   h += '</div></div>';
   return h;
@@ -12507,7 +12548,7 @@ function _tnGrupoInfo(p) {
   const min = (gDef && gDef.minMay > 0) ? gDef.minMay : p.wholesaleQty;
   let lleva = 0;
   Object.keys(TC).forEach(function(k){ const ep = miembros.find(function(m){ return m.id === tcProdId(k); }); if(ep) lleva += TC[k]; });
-  return { g: g, miembros: miembros, min: min, lleva: lleva };
+  return { g: g, nombre: (gDef && gDef.nombre ? String(gDef.nombre).trim() : String(p.grupoMay || '').trim()), miembros: miembros, min: min, lleva: lleva };
 }
 function tiendaVerGrupo(g) {
   window._tnCatPrevia = window.T_CAT || 'todas';
@@ -12546,11 +12587,11 @@ function tiendaProdCardNueva(p) {
   if(gi) {
     const otros = gi.miembros.filter(function(m){ return m.id !== p.id; });
     const enGrupo = String(window.T_CAT || '').indexOf('grupo:') === 0;
-    const nombres = otros.length <= 2 ? otros.map(function(m){ return _tnEsc(m.name); }).join(' y ') : (otros.length + ' gustos más');
+    const nombres = otros.length <= 2 ? otros.map(function(m){ return _tnEsc(m.name); }).join(' y ') : ('otros ' + otros.length + ' productos ' + _tnEsc(gi.nombre));
     let txt = '🔀 <b>Combinalo</b> con ' + nombres + ': sumando ' + gi.min + ' entre todos tenés precio mayorista.';
     if(gi.lleva > 0 && gi.lleva < gi.min) txt += '<br>Llevás <b>' + gi.lleva + ' de ' + gi.min + '</b> — te faltan ' + (gi.min - gi.lleva) + '.';
     else if(gi.lleva >= gi.min) txt += '<br><span class="ok">✓ ¡Ya tenés el precio mayorista en todos!</span>';
-    comboHtml = '<div class="tn-combo">' + txt + (enGrupo ? '' : ' <button data-g="' + _tnEsc(gi.g) + '" onclick="tiendaVerGrupo(this.dataset.g)">Ver gustos</button>') + '</div>';
+    comboHtml = '<div class="tn-combo">' + txt + (enGrupo ? '' : ' <button data-g="' + _tnEsc(gi.g) + '" onclick="tiendaVerGrupo(this.dataset.g)">Ver todos los ' + _tnEsc(gi.nombre) + '</button>') + '</div>';
   }
   let ctrl;
   if(sinStock) ctrl = '<button class="tn-nodisp" disabled>No disponible por ahora</button>';
