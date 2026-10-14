@@ -241,6 +241,21 @@
   // Registros que ya estan viajando a Firebase con esa misma version: no mandarlos dos veces
   const _vuelo = {}; COLS.forEach(function(c){ _vuelo[c] = new Map(); });
   function _enVuelo(col, id) { return _vuelo[col].has(id) && _vuelo[col].get(id) === _seq[col].get(id); }
+  // 4.9.1: antes de subir la lista de compras, combinarla con la que está en el servidor
+  // (así un celular con la lista vieja no borra las notas/tildes que cargó el otro).
+  async function _lcPreMezcla(data) {
+    try {
+      if(_esTienda) return;
+      if(!_dirty.listacompras || !_dirty.listacompras.has('main')) return;
+      if(_enVuelo('listacompras', 'main')) return;
+      const rec = (data.listacompras || []).find(function(r){ return r && r.id === 'main'; });
+      if(!rec || typeof window._lcMezclar !== 'function') return;
+      const sn = await getDoc(v2doc('listacompras', 'main'));
+      if(!sn.exists()) return;
+      const trajo = window._lcMezclar(rec, sinMod(sn));
+      if(typeof window._lcTrasMezcla === 'function') window._lcTrasMezcla(trajo);
+    } catch(e) { console.warn('lista compras: no se pudo combinar', e); }
+  }
   function _finVuelo(enviados) { enviados.forEach(function(e){ if(_vuelo[e[0]].get(e[1]) === e[2]) _vuelo[e[0]].delete(e[1]); }); }
   function _copiaAvisar() { try { if(typeof window._copiaProgramar === 'function') window._copiaProgramar(); } catch(e) {} }
   window._markDirty = function(col, id) {
@@ -385,6 +400,7 @@
       }
 
       // Escritura selectiva — solo dirty records de los fields solicitados
+      if(fields.includes('listacompras')) await _lcPreMezcla(data);
       const batches = [];
       const enviados = [];
       let cfgEnviado = null;
@@ -483,6 +499,7 @@
   window._fbSaveDirty = async function(data) {
     if(window.subBloqueado && window.subBloqueado()) throw new Error('Suscripcion vencida: solo lectura');
     try {
+      await _lcPreMezcla(data);
       const batches = [];
       const enviados = [];
       for(const col of COLS) {
@@ -1039,6 +1056,7 @@ select option{background:var(--surface2)}
 
   <div class="page active" id="page-dashboard">
     <div id="sub-banner" style="display:none"></div>
+    <div id="pp-card" style="display:none"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
       <button onclick="openInv()" style="background:var(--accent);color:#ffffff;border:none;border-radius:var(--r);padding:16px 10px;font-family:Inter,sans-serif;font-size:15px;font-weight:800;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;active:transform:scale(.97)">
         <span style="font-size:28px">&#129534;</span>
@@ -1606,6 +1624,7 @@ select option{background:var(--surface2)}
         <button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="showPage('exportar')">&#128228; Exportar mis datos</button>
       </div>
     </div>
+        <div id="cfg-pp" style="display:none"></div>
         <div style="margin:18px 4px 8px;font-size:13px;font-weight:800;letter-spacing:.5px;color:var(--text3);text-transform:uppercase">🏪 Negocio y tienda</div>
     <div class="card" style="margin-bottom:12px">
       <div class="card-header"><span class="card-title">🏪 Mi negocio</span></div>
@@ -1759,7 +1778,7 @@ select option{background:var(--surface2)}
 </div>
 
 <nav class="bottom-nav">
-  <button class="nav-tab active" id="nav-dashboard" onclick="showPage('dashboard')"><span class="ni">&#128202;</span><span>Resumen</span></button>
+  <button class="nav-tab active" id="nav-dashboard" onclick="showPage('dashboard')"><span class="ni">&#127968;</span><span>Inicio</span></button>
   <button class="nav-tab" id="nav-compras" onclick="showPage('compras')" style="position:relative"><span class="ni">&#128717;</span><span>Compras</span><span class="nav-badge" id="nbadge" style="display:none">0</span></button>
   <button class="nav-tab" id="nav-proveedores" onclick="showPage('proveedores')"><span class="ni">&#127981;</span><span>Proveed.</span></button>
   <button class="nav-tab" id="nav-stock" onclick="showPage('stock')"><span class="ni">&#128200;</span><span>Stock</span><span class="nav-badge" id="stock-badge" style="display:none">0</span></button>
@@ -2562,9 +2581,107 @@ function _reconstruirListaCompras() {
         cantidades: lcDoc.cantidades||{}, orden: lcDoc.orden||{},
         ocultos: lcDoc.ocultos||[], updatedAt: lcDoc.updatedAt
       };
+      window._lcUltimo = _lcCopia(lcDoc);   // 4.9.1: punto de partida para saber qué cambió
     }
   } catch(e) {}
 }
+// ===== 4.9.1: LISTA DE COMPRAS SIN PISARSE ENTRE CELULARES =====
+// La lista se guarda como un solo documento. Antes, si un celular con la lista
+// vieja tildaba algo, subía el documento entero y borraba las notas (y tildes)
+// que el otro había cargado. Ahora cada nota, tilde, cantidad y orden guarda la
+// hora de su último cambio (doc.ts) y al subir o bajar se combinan uno por uno:
+// gana el cambio más nuevo. Lo que no tiene hora (datos de antes) no se pierde.
+const _LC_SECC = [['notas','n'],['estados','e'],['cantidades','c'],['orden','o']];
+const _LC_TOMBA_DIAS = 45;   // borrados más viejos que esto ya no hace falta recordarlos
+function _lcCopia(d) {
+  d = d || {};
+  return JSON.parse(JSON.stringify({ notas:d.notas||{}, estados:d.estados||{}, cantidades:d.cantidades||{}, orden:d.orden||{}, ocultos:d.ocultos||[] }));
+}
+// Marca con la hora actual lo que cambió desde la última vez
+function _lcSellar(doc) {
+  const ahora = Date.now();
+  const prev = window._lcUltimo;
+  if(!doc.ts || typeof doc.ts !== 'object') doc.ts = {};
+  if(prev) {
+    _LC_SECC.forEach(function(par){
+      const sec = par[0], k = par[1];
+      const a = prev[sec] || {}, b = doc[sec] || {};
+      if(!doc.ts[k] || typeof doc.ts[k] !== 'object') doc.ts[k] = {};
+      const claves = new Set(Object.keys(a).concat(Object.keys(b)));
+      claves.forEach(function(key){
+        if(JSON.stringify(a[key]) !== JSON.stringify(b[key])) doc.ts[k][key] = ahora;
+      });
+    });
+    if(JSON.stringify(prev.ocultos||[]) !== JSON.stringify(doc.ocultos||[])) doc.ts.oc = ahora;
+  }
+  window._lcUltimo = _lcCopia(doc);
+}
+// Combina L (este celular) con R (servidor) dentro de L. Devuelve true si algo de R ganó.
+function _lcMezclar(L, R) {
+  if(!L || !R) return false;
+  let trajo = false;
+  const tsL = (L.ts && typeof L.ts === 'object') ? L.ts : {};
+  const tsR = (R.ts && typeof R.ts === 'object') ? R.ts : {};
+  const tsOut = {};
+  const limite = Date.now() - _LC_TOMBA_DIAS*86400000;
+  _LC_SECC.forEach(function(par){
+    const sec = par[0], k = par[1];
+    const mL = L[sec] || {}, mR = R[sec] || {};
+    const tL = tsL[k] || {}, tR = tsR[k] || {};
+    const out = {}, tOut = {};
+    const claves = new Set(Object.keys(mL).concat(Object.keys(mR), Object.keys(tL), Object.keys(tR)));
+    claves.forEach(function(key){
+      const a = Number(tL[key])||0, b = Number(tR[key])||0;
+      let usa;
+      if(a === 0 && b === 0) usa = Object.prototype.hasOwnProperty.call(mL, key) ? 'L' : 'R';
+      else usa = a >= b ? 'L' : 'R';
+      const m = usa === 'L' ? mL : mR;
+      const existe = Object.prototype.hasOwnProperty.call(m, key);
+      if(existe) out[key] = m[key];
+      const t = Math.max(a, b);
+      if(t > 0 && (existe || t > limite)) tOut[key] = t;
+      if(usa === 'R' && JSON.stringify(mL[key]) !== JSON.stringify(mR[key])) trajo = true;
+    });
+    L[sec] = out; tsOut[k] = tOut;
+  });
+  const oa = Number(tsL.oc)||0, ob = Number(tsR.oc)||0;
+  if(ob > oa) {
+    if(JSON.stringify(L.ocultos||[]) !== JSON.stringify(R.ocultos||[])) trajo = true;
+    L.ocultos = (R.ocultos||[]).slice();
+  }
+  tsOut.oc = Math.max(oa, ob);
+  L.ts = tsOut;
+  if(trajo && R.updatedAt && (!L.updatedAt || R.updatedAt > L.updatedAt)) L.updatedAt = R.updatedAt;
+  return trajo;
+}
+// Después de combinar al subir: actualizar la pantalla sin cortar a quien escribe
+function _lcTrasMezcla(trajo) {
+  try { _reconstruirListaCompras(); } catch(e) {}
+  if(!trajo) return;
+  try {
+    const el = document.getElementById('comp-lista');
+    const escribiendo = document.activeElement && /^(TEXTAREA|INPUT)$/.test(document.activeElement.tagName) && el && el.contains(document.activeElement);
+    if(el && el.style.display !== 'none' && !escribiendo && typeof renderListaCompras === 'function') renderListaCompras();
+  } catch(e) {}
+}
+// Nota que se guarda sola mientras se escribe (antes había que tocar "Anotar")
+const _lcNotaT = {};
+function _lcNotaEscribiendo(pvId, el) {
+  el.dataset.sucio = '1';
+  clearTimeout(_lcNotaT[pvId]);
+  _lcNotaT[pvId] = setTimeout(function(){ _lcNotaFlush(pvId, el); }, 1200);
+}
+function _lcNotaFlush(pvId, el) {
+  clearTimeout(_lcNotaT[pvId]);
+  if(!el || el.dataset.sucio !== '1') return;
+  el.dataset.sucio = '';
+  if(!S.listaCompras) S.listaCompras = {};
+  if(!S.listaCompras.notas) S.listaCompras.notas = {};
+  if((S.listaCompras.notas[pvId]||'') === el.value) return;
+  S.listaCompras.notas[pvId] = el.value;
+  _listaCompraGuardar();
+}
+// ===== FIN 4.9.1 =====
 
 // Pone los datos de Firebase y les vuelve a aplicar encima lo que este celular
 // cargo y todavia no se confirmo (en vez de pisarlo, como pasaba antes).
@@ -2585,6 +2702,8 @@ function _aplicarDatosFirebase(d) {
       const r = loc[col] && loc[col][id];
       if(!r) return;
       const i = S[col].findIndex(function(x){ return x && x.id === id; });
+      // 4.9.1: la lista de compras se combina con la del servidor en vez de pisarla
+      if(col === 'listacompras' && i >= 0) { try { _lcMezclar(r, S[col][i]); } catch(e) {} }
       if(i >= 0) S[col][i] = r; else S[col].push(r);
     });
   });
@@ -2997,6 +3116,14 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.10.0', f:'14/10/2026', t:[
+    'Cuentas nuevas: en el inicio aparece "Primeros pasos", con 5 pasos que se tildan solos (nombre del negocio, productos, cliente, primera factura y compartir la tienda). Cada uno tiene un botón que lleva a la pantalla. Se puede ocultar y volver a ver desde Configuración.',
+    'La pestaña de abajo "Resumen" ahora se llama "Inicio".'
+  ]},
+  {v:'4.9.1', f:'14/10/2026', t:[
+    'Lista de compras: las notas ya no se borran cuando el otro celular tilda o cambia algo sin haber sincronizado. Cada nota, tilde y cantidad se combina con la del otro celular: gana el cambio más nuevo.',
+    'Lista de compras: la nota se guarda sola mientras escribís (el botón "Anotar" sigue estando, pero ya no hace falta).'
+  ]},
   {v:'4.9.0', f:'14/10/2026', t:[
     'Facturas: al armar el pedido (factura desplegada con tildes), cada producto sin tildar tiene un botón "Falta". Elegís cuántos faltan y la factura se corrige sola: total, saldo y stock. Si ya estaba paga, la diferencia queda como saldo a favor del cliente. Con "Deshacer" vuelve a la factura.',
     'Facturas: al tocar "Preparado", si faltaron productos te ofrece armar la factura para el día siguiente (nunca domingo) con esos productos y los mismos precios, o elegir otra fecha. Con "Más tarde" quedan avisados en la tarjeta hasta que los pases.',
@@ -3158,6 +3285,7 @@ function showPage(p) {
   if(p==='estadisticas') { estTab='ventas'; try{ aplicarCfgFacturacion(); }catch(e){} renderEstadisticas(); }
   if(p==='facturas') { try{ aplicarCfgFacturacion(); }catch(e){} }
   if(p==='config') {
+    try{ _ppCfgRender(); }catch(e){}
     try{ renderNovedades(); }catch(e){}
     try{ renderBannersList(); }catch(e){}
     try{ cfgNegocioCargar(); }catch(e){}
@@ -4027,6 +4155,7 @@ function saveCfgNegocio() {
   try{ save(['config']); }catch(e){}
   try{ if(typeof window._fbSaveDirty === 'function') window._fbSaveDirty(S).catch(function(){}); }catch(e){}
   toast('✓ Datos del negocio guardados');
+  try{ renderPrimerosPasos(); }catch(e){}
 }
 function cfgFactCambio() {
   const r = document.getElementById('cfg-ret-activo'), rb = document.getElementById('cfg-ret-box');
@@ -8527,7 +8656,113 @@ function registrarValorInventarioSemanal(valorInv) {
   try{ _markDirty('config'); }catch(e){}
   try{ save(['config']); }catch(e){}
 }
+// ===== 4.10.0: PRIMEROS PASOS (solo cuentas nuevas / otros negocios) =====
+// Tarjeta en el inicio con 5 pasos que se tildan solos según los datos.
+// Se guarda en S.config.primerosPasos = {oculto, compartio} (sincroniza entre celulares).
+function _ppCfg() { S.config = S.config || {}; if(!S.config.primerosPasos || typeof S.config.primerosPasos !== 'object') S.config.primerosPasos = {}; return S.config.primerosPasos; }
+function _ppAplica() {
+  try { if(typeof enTienda === 'function' && enTienda()) return false; } catch(e) {}
+  return typeof _esOtroNegocio === 'function' && _esOtroNegocio();
+}
+function _ppPasos() {
+  const cfg = (S.config && S.config.primerosPasos) || {};
+  const neg = (S.config && S.config.negocio) || {};
+  return [
+    { k:'neg', t:'Poné el nombre de tu negocio', s:'Aparece en tus facturas y en la tienda', ok: !!String(neg.nombre||'').trim(), ir:"_ppIr('neg')" },
+    { k:'prod', t:'Cargá tus productos', s:'Con nombre y precio alcanza', ok: (S.products||[]).length > 0, ir:"_ppIr('prod')" },
+    { k:'cli', t:'Agregá un cliente', s:'Con nombre y teléfono alcanza', ok: (S.clients||[]).length > 0, ir:"_ppIr('cli')" },
+    { k:'fac', t:'Hacé tu primera factura', s:'Elegís cliente y productos', ok: (S.invoices||[]).some(function(i){ return i && i.type !== 'presupuesto'; }), ir:"_ppIr('fac')" },
+    { k:'tie', t:'Compartí tu tienda online', s:'Tus clientes piden desde el celular', ok: !!cfg.compartio, ir:"_ppIr('tie')" }
+  ];
+}
+function _ppGuardar() {
+  try { _markDirty('config'); } catch(e) {}
+  try { save(['config']); } catch(e) {}
+}
+function _ppIr(k) {
+  if(k === 'neg') {
+    showPage('config');
+    setTimeout(function(){ const el = document.getElementById('cfg-neg-nombre'); if(el) { el.scrollIntoView({behavior:'smooth', block:'center'}); setTimeout(function(){ try{ el.focus(); }catch(e){} }, 400); } }, 150);
+  }
+  else if(k === 'prod') { showPage('productos'); openProd(); }
+  else if(k === 'cli') { showPage('clientes'); openCli(); }
+  else if(k === 'fac') { openInv(); }
+  else if(k === 'tie') { tiendaCompartirLink(); }
+}
+// Lo llama tiendaCompartirLink: compartir el link cuenta como paso hecho
+function _ppMarcarCompartio() {
+  if(!_ppAplica()) return;
+  const c = _ppCfg();
+  if(c.compartio) return;
+  c.compartio = true;
+  _ppGuardar();
+  try { renderPrimerosPasos(); } catch(e) {}
+}
+function ppOcultar() {
+  _ppCfg().oculto = true;
+  _ppGuardar();
+  renderPrimerosPasos();
+  toast('Lo podés volver a ver en Configuración');
+}
+function ppMostrar() {
+  _ppCfg().oculto = false;
+  _ppGuardar();
+  showPage('dashboard');
+  renderPrimerosPasos();
+  try { window.scrollTo(0, 0); const pg = document.getElementById('page-dashboard'); if(pg) pg.scrollTop = 0; } catch(e) {}
+}
+function renderPrimerosPasos() {
+  const el = document.getElementById('pp-card');
+  if(!el) return;
+  const cfg = (S.config && S.config.primerosPasos) || {};
+  if(!_ppAplica() || cfg.oculto) { el.innerHTML = ''; el.style.display = 'none'; try{ _ppCfgRender(); }catch(e){} return; }
+  const pasos = _ppPasos();
+  const hechos = pasos.filter(function(p){ return p.ok; }).length;
+  el.style.display = '';
+  if(hechos === pasos.length) {
+    el.innerHTML = '<div style="background:linear-gradient(135deg,#ecfdf5,#eff6ff);border:2px solid #34d399;border-radius:16px;padding:16px;margin-bottom:14px;text-align:center">'
+      + '<div style="font-size:18px;font-weight:900;color:#047857">🎉 ¡Listo! Ya usás Revendit</div>'
+      + '<div style="font-size:14px;color:var(--text2);margin:6px 0 12px">Completaste los 5 primeros pasos.</div>'
+      + '<button onclick="ppOcultar()" style="background:var(--accent);color:#fff;border:none;border-radius:12px;padding:10px 22px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">Entendido</button></div>';
+    try{ _ppCfgRender(); }catch(e){}
+    return;
+  }
+  const sig = pasos.findIndex(function(p){ return !p.ok; });
+  let h = '<div style="background:var(--surface);border:2px solid var(--accent2);border-radius:16px;overflow:hidden;margin-bottom:14px;box-shadow:0 2px 10px rgba(52,131,250,.15)">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px 6px"><span style="font-size:17px;font-weight:900;color:var(--text)">🚀 Primeros pasos</span><span style="font-size:13px;font-weight:800;color:var(--accent2)">'+hechos+' de '+pasos.length+'</span></div>'
+    + '<div style="height:8px;background:var(--surface2);border-radius:8px;margin:2px 14px 8px;overflow:hidden"><div style="height:100%;width:'+Math.max(3, Math.round(hechos*100/pasos.length))+'%;background:linear-gradient(90deg,#3483fa,#0d9488);border-radius:8px"></div></div>';
+  pasos.forEach(function(p, i){
+    const esSig = i === sig;
+    h += '<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid var(--border)'+(esSig?';background:#eff6ff':'')+'">'
+      + '<div style="flex:none;width:26px;height:26px;border-radius:50%;border:2px solid '+(p.ok?'var(--green)':'var(--border)')+';background:'+(p.ok?'var(--green)':'transparent')+';display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:900">'+(p.ok?'✓':'')+'</div>'
+      + '<div style="flex:1;line-height:1.25">'
+        + '<div style="font-size:15px;font-weight:'+(p.ok?'700':'800')+';color:'+(p.ok?'var(--text3)':'var(--text)')+(p.ok?';text-decoration:line-through':'')+'">'+p.t+'</div>'
+        + (p.ok ? '' : '<div style="font-size:12.5px;color:var(--text3)">'+p.s+'</div>')
+      + '</div>'
+      + (p.ok ? '' : '<button onclick="'+p.ir+'" style="flex:none;border-radius:12px;padding:8px 13px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;'+(esSig?'background:var(--accent);color:#fff;border:none':'background:var(--surface);color:var(--accent2);border:1.5px solid var(--accent2)')+'">Ir ›</button>')
+      + '</div>';
+  });
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-top:1px solid var(--border);font-size:13px;font-weight:700;color:var(--text3)">'
+    + '<span>'+(hechos ? 'Te falta'+(pasos.length-hechos>1?'n ':' ')+(pasos.length-hechos) : 'Se tildan solos al hacerlos')+'</span>'
+    + '<span onclick="ppOcultar()" style="color:var(--accent2);text-decoration:underline;cursor:pointer;padding:4px 0 4px 10px">Ocultar</span></div>';
+  h += '</div>';
+  el.innerHTML = h;
+  try{ _ppCfgRender(); }catch(e){}
+}
+// Botón en Configuración para volver a verla
+function _ppCfgRender() {
+  const el = document.getElementById('cfg-pp');
+  if(!el) return;
+  const cfg = (S.config && S.config.primerosPasos) || {};
+  if(!_ppAplica() || !cfg.oculto) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  const pasos = _ppPasos();
+  const hechos = pasos.filter(function(p){ return p.ok; }).length;
+  el.style.display = '';
+  el.innerHTML = '<button class="btn btn-ghost btn-full" onclick="ppMostrar()" style="margin-bottom:12px">🚀 Ver primeros pasos ('+hechos+' de '+pasos.length+')</button>';
+}
+// ===== FIN PRIMEROS PASOS =====
 function updDash() {
+  try{ renderPrimerosPasos(); }catch(e){}
   const now = new Date();
   const todayStr = localDateStr();
   const pend = S.invoices.filter(i=>i.status==='pendiente'&&i.type!=='presupuesto').length;
@@ -10769,6 +11004,7 @@ function _listaCompraGuardar() {
   doc.orden = S.listaCompras.orden||{};
   doc.ocultos = S.listaCompras.ocultos||[];
   doc.updatedAt = S.listaCompras.updatedAt;
+  try{ _lcSellar(doc); }catch(e){}   // 4.9.1: hora de cada cambio
   try{ _markDirty('listacompras','main'); }catch(e){}
   try{ save(['listacompras']); }catch(e){}
   // Subir inmediatamente a Firebase para que el otro celular lo vea al sincronizar
@@ -10935,6 +11171,8 @@ function listaCompartir() {
 function renderListaCompras() {
   const el = document.getElementById('lista-compras-content');
   if(!el) return;
+  // 4.9.1: guardar lo que se estaba escribiendo en las notas antes de redibujar
+  try { el.querySelectorAll('textarea[id^="nota-prov-"]').forEach(function(t){ if(t.dataset.sucio === '1') _lcNotaFlush(t.id.slice(10), t); }); } catch(e) {}
 
   const porProv = {};
   const sinProv = [];
@@ -11075,7 +11313,7 @@ function renderListaCompras() {
       + '</div>'
       + '<div style="padding:10px 14px">'
       + renderItems(items, pvId)
-      + '<textarea id="nota-prov-'+pvId+'" placeholder="Notas para este proveedor..." oninput="this.style.height=\'auto\';this.style.height=this.scrollHeight+\'px\';" style="width:100%;min-height:60px;resize:none;overflow:hidden;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;font-weight:700;background:var(--surface);color:var(--text);font-family:Inter,sans-serif;box-sizing:border-box;margin-top:8px">'+notaProv+'</textarea>'
+      + '<textarea id="nota-prov-'+pvId+'" placeholder="Notas para este proveedor..." oninput="this.style.height=\'auto\';this.style.height=this.scrollHeight+\'px\';_lcNotaEscribiendo(\''+pvId+'\',this)" onblur="_lcNotaFlush(\''+pvId+'\',this)" style="width:100%;min-height:60px;resize:none;overflow:hidden;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;font-weight:700;background:var(--surface);color:var(--text);font-family:Inter,sans-serif;box-sizing:border-box;margin-top:8px">'+notaProv+'</textarea>'
       + '<div style="display:flex;justify-content:flex-end;gap:6px;margin-top:4px">'
       + '<button onclick="listaNotaGuardar(\''+pvId+'\')" style="background:var(--accent2);border:none;border-radius:8px;padding:4px 12px;font-size:12px;font-weight:700;color:#fff;cursor:pointer" id="nota-btn-'+pvId+'">Anotar</button>'
       + '<button onclick="listaNotaCopiar(\''+pvId+'\')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:12px;color:var(--text2);cursor:pointer">\ud83d\udccb Copiar</button>'
@@ -11918,6 +12156,7 @@ function tiendaAdminVolver() {
   showPage('dashboard');
 }
 function tiendaCompartirLink() {
+  try{ _ppMarcarCompartio(); }catch(e){}
   // Otros negocios usan tienda.html: tiene la vista previa neutra para WhatsApp
   // (sin el logo de Surtimar) y redirige a la tienda del negocio.
   const url = window._bizUid ? 'https://surtimar.com.ar/tienda.html?n=' + window._bizUid : 'https://surtimar.com.ar?tienda';
