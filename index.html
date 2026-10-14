@@ -2997,6 +2997,11 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.9.0', f:'14/10/2026', t:[
+    'Facturas: al armar el pedido (factura desplegada con tildes), cada producto sin tildar tiene un botón "Falta". Elegís cuántos faltan y la factura se corrige sola: total, saldo y stock. Si ya estaba paga, la diferencia queda como saldo a favor del cliente. Con "Deshacer" vuelve a la factura.',
+    'Facturas: al tocar "Preparado", si faltaron productos te ofrece armar la factura para el día siguiente (nunca domingo) con esos productos y los mismos precios, o elegir otra fecha. Con "Más tarde" quedan avisados en la tarjeta hasta que los pases.',
+    'Facturas: al unificar dos facturas del mismo día, los productos que vienen de pendientes quedan en su propio renglón y no se pisan con el mismo producto del pedido nuevo.'
+  ]},
   {v:'4.8.0', f:'13/10/2026', t:[
     'Tienda: las categorías ahora tienen íconos 3D (Despensa, Galletitas, Golosinas, Cigarrillos, Limpieza, Bebidas, Snacks y Varios). Las demás siguen con el mosaico de fotos. Nombres más grandes y título "Elegí una categoría".',
     'Tienda: las tarjetitas de "Cambiaron de precio" y "Agregados recientemente" son más chicas (entran unas 4 por pantalla).',
@@ -7150,6 +7155,11 @@ function saveInv() {
     pagos:[], // se completa abajo
     saldo:0, aFavor:0
   };
+  // 4.9.0: la factura se reconstruye desde cero; conservar faltantes y su origen
+  {
+    const _prevF = (window.invEditId||S.editId) ? S.invoices.find(x=>x.id===(window.invEditId||S.editId)) : null;
+    if(_prevF) ['faltantes','faltantesPasados','dePendientesDe'].forEach(function(k){ if(_prevF[k]!==undefined) inv[k]=_prevF[k]; });
+  }
   // Preservar pagos existentes si es edición
   if(S.editId) {
     const prevInv = S.invoices.find(x=>x.id===S.editId);
@@ -7314,7 +7324,9 @@ function unificarFacturasTienda(clientId, fecha) {
   const itemMap = {}; // key: prodId+(variante||'') → item
   for(const inv of facts) { // de más vieja a más nueva
     for(const item of (inv.items||[])) {
-      const key = (item.prodId||item.desc||'')+'|'+(item.variante||'');
+      // 4.9.0: los que vienen de pendientes van en su propio renglón (con su precio),
+      // así no pisan ni son pisados por el mismo producto del pedido nuevo.
+      const key = (item.prodId||item.desc||'')+'|'+(item.variante||'')+(item.dePendiente?'|pend|'+item.price:'');
       itemMap[key] = {...item}; // la más nueva pisa a la anterior
     }
   }
@@ -7338,6 +7350,11 @@ function unificarFacturasTienda(clientId, fecha) {
   base.total = totalUnificado - retUnif - extUnif;
   base.saldo = base.status==='pagada' ? 0 : base.total;
   if(facts.some(i=>i.urgente)) base.urgente = true;
+  // 4.9.0: no perder los faltantes de las facturas que se borran
+  if(facts.some(i=>(i.faltantes||[]).length || (i.faltantesPasados||[]).length)) {
+    base.faltantes = [].concat(...facts.map(i=>i.faltantes||[]));
+    base.faltantesPasados = [].concat(...facts.map(i=>i.faltantesPasados||[]));
+  }
   _markDirty('invoices', base.id);
 
   // Borrar las facturas más viejas
@@ -7377,6 +7394,395 @@ function _estaArmado(inv, item, idx) {
 function _esUrgente(inv) {
   return !!(inv && inv.urgente && inv.status!=='pagada' && inv.status!=='cancelada');
 }
+// ===== 4.9.0: FALTANTES AL ARMAR EL PEDIDO =====
+// En el desplegable de la factura, cada producto sin tildar tiene un botón "Falta".
+// Al usarlo se saca de la factura la cantidad que falta (total, saldo y stock se
+// corrigen solos) y queda guardada en inv.faltantes con su precio. Al marcar la
+// factura como Preparado se ofrece armar una factura nueva con esos productos
+// para el próximo día hábil (nunca domingo).
+//   inv.faltantes         -> [{...item, qty:faltan, key, fid, origIdx, fts}] todavía sin pasar
+//   inv.faltantesPasados  -> los mismos, con aFactura/aFecha, una vez pasados
+//   inv.canceladaPorFaltantes -> true si se canceló porque faltó todo
+//   nueva.dePendientesDe  -> id de la factura de origen; sus ítems llevan dePendiente:true
+function _fBloq() {
+  if(window.subBloqueado && window.subBloqueado()) { try{ window.subAvisoBloqueo(); }catch(e){} return true; }
+  return false;
+}
+function _fFalts(inv) { return (inv && Array.isArray(inv.faltantes)) ? inv.faltantes : []; }
+function _fNum(n) { n = Number(n)||0; return Math.round(n*1000)/1000; }
+function _fClaveIndice(key) { return /^i\d+$/.test(String(key)); }
+// Porcentaje de descuento por retiro de la factura (mismo criterio que unificar)
+function _fRetPct(inv) {
+  if((inv.descRetiroPct||0) > 0) return inv.descRetiroPct;
+  return (inv.descRetiro||0) > 0 ? 5 : 0;
+}
+// Recalcula subtotal, descuentos y total desde los ítems (misma fórmula que saveInv)
+function _fTotales(inv) {
+  const items = inv.items || [];
+  const sub = items.reduce((s,i)=>s+(Number(i.qty)||0)*(Number(i.price)||0), 0);
+  const retPct = _fRetPct(inv);
+  const subRet = items.filter(i=>{ try{ return !isExcluded(i); }catch(e){ return true; } }).reduce((s,i)=>s+(Number(i.qty)||0)*(Number(i.price)||0), 0);
+  const ret = retPct > 0 ? subRet*(retPct/100) : 0;
+  const extPct = inv.descExtraPct || 0;
+  const ext = sub*(extPct/100);
+  inv.subtotal = sub;
+  if(retPct > 0) inv.descRetiroPct = retPct;
+  inv.descRetiro = ret;
+  inv.descExtra = ext;
+  inv.total = sub - ret - ext;
+}
+function _fPagado(inv) { return (inv.pagos||[]).reduce((s,p)=>s+(Number(p.monto)||0), 0); }
+// Ubica el ítem por producto+precio (no por posición: la lista puede haber cambiado)
+function _fBuscarItem(inv, key, price) {
+  const items = inv.items || [];
+  for(let i=0;i<items.length;i++) {
+    if(_keyItemArmado(items[i], i) === key && Number(items[i].price) === Number(price)) return i;
+  }
+  return -1;
+}
+function _fLimpiarMeta(o) {
+  const it = JSON.parse(JSON.stringify(o));
+  delete it.fid; delete it.key; delete it.origIdx; delete it.fts; delete it.aFactura; delete it.aFecha;
+  return it;
+}
+// Saca n unidades del ítem i y las guarda como faltante. Muta inv.
+function _fMutarFalta(inv, i, n) {
+  const item = inv.items[i];
+  const key = _keyItemArmado(item, i);
+  const q = Number(item.qty)||0;
+  n = Math.min(_fNum(n), q);
+  const entrada = _fLimpiarMeta(item);
+  entrada.qty = n;
+  if(n >= q - 1e-9) inv.items.splice(i, 1);
+  else item.qty = _fNum(q - n);
+  if(!Array.isArray(inv.faltantes)) inv.faltantes = [];
+  const ya = inv.faltantes.find(f=>f.key===key && Number(f.price)===Number(entrada.price));
+  if(ya) { ya.qty = _fNum((Number(ya.qty)||0) + n); }
+  else {
+    entrada.key = key;
+    entrada.fid = 'F' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+    entrada.origIdx = i;
+    entrada.fts = Date.now();
+    inv.faltantes.push(entrada);
+  }
+}
+// Devuelve a la factura los faltantes indicados. Muta inv.
+function _fMutarDeshacer(inv, fids) {
+  fids.forEach(fid=>{
+    const falts = _fFalts(inv);
+    const k = falts.findIndex(f=>f.fid===fid);
+    if(k < 0) return;
+    const f = falts[k];
+    falts.splice(k, 1);
+    const i = _fBuscarItem(inv, f.key, f.price);
+    if(i >= 0) inv.items[i].qty = _fNum((Number(inv.items[i].qty)||0) + (Number(f.qty)||0));
+    else {
+      const pos = Math.max(0, Math.min(Number(f.origIdx)||0, inv.items.length));
+      inv.items.splice(pos, 0, _fLimpiarMeta(f));
+    }
+  });
+}
+// Después de cambiar los ítems: total, saldo a favor (misma regla que editar
+// una factura en saveInv), saldo y estado. Devuelve el cambio de saldo a favor.
+function _fCerrarCuentas(inv, totalAntes) {
+  _fTotales(inv);
+  const pagado = _fPagado(inv);
+  const delta = Math.max(0, pagado - inv.total) - Math.max(0, pagado - totalAntes);
+  inv.saldo = Math.max(0, inv.total - pagado);
+  inv.aFavor = 0;
+  if(!(inv.items||[]).length) { inv.status = 'cancelada'; inv.canceladaPorFaltantes = true; }
+  else {
+    inv.canceladaPorFaltantes = false;
+    inv.status = inv.saldo <= 0 ? 'pagada' : 'pendiente';
+  }
+  return delta;
+}
+// Simula un cambio sobre una copia para saber cuánto cambia el saldo a favor
+function _fSimular(inv, mutar) {
+  const c = JSON.parse(JSON.stringify(inv));
+  mutar(c);
+  return _fCerrarCuentas(c, inv.total||0);
+}
+function _fAplicar(inv, mutar) {
+  const totalAntes = inv.total || 0;
+  mutar(inv);
+  const delta = _fCerrarCuentas(inv, totalAntes);
+  const cli = S.clients.find(c=>c.id===inv.clientId);
+  if(cli && Math.abs(delta) > 1e-9) { cli.credito = (cli.credito||0) + delta; try{ _markDirty('clients', cli.id); }catch(e){} }
+  try{ recalcAllStocks(); recalcClientCredits(); }catch(e){}
+  try{ _markDirty('invoices', inv.id); }catch(e){}
+  try{ save(['invoices','clients','products'], true); }catch(e){}
+  _fRefrescar(inv.id);
+  try{ updDash(); }catch(e){}
+  try{ renderProds(); }catch(e){}
+  return delta;
+}
+// Contenedor que hace scroll (para que la tarjeta no salte al redibujar)
+function _fScrollPadre(el) {
+  let p = el && el.parentElement;
+  while(p && p !== document.body) {
+    const oy = getComputedStyle(p).overflowY;
+    if((oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight) return p;
+    p = p.parentElement;
+  }
+  return document.scrollingElement || document.documentElement;
+}
+// Redibuja la lista manteniendo esa factura desplegada y en el mismo lugar
+function _fRefrescar(invId) {
+  const det0 = document.getElementById('inv-detail-'+invId);
+  const abierto = !det0 || det0.style.display !== 'none';
+  const top0 = det0 ? det0.getBoundingClientRect().top : null;
+  const sc = det0 ? _fScrollPadre(det0) : null;
+  try{ renderInvs(); }catch(e){}
+  const det = document.getElementById('inv-detail-'+invId);
+  if(det && abierto) {
+    det.style.display = '';
+    const a = document.getElementById('inv-arrow-'+invId); if(a) a.textContent = '▲';
+  }
+  if(det && top0 !== null && sc) {
+    const dif = det.getBoundingClientRect().top - top0;
+    if(Math.abs(dif) > 1) sc.scrollTop += dif;
+  }
+}
+function _fFechaCorta(s) { return String(s||'').split('-').reverse().slice(0,2).join('/'); }
+function _fFechaLarga(s) {
+  const p = String(s).split('-').map(Number);
+  const d = new Date(p[0], p[1]-1, p[2]);
+  const dias = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  return dias[d.getDay()] + ' ' + _fFechaCorta(s);
+}
+function _fSumarDias(s, n) {
+  const p = String(s).split('-').map(Number);
+  const d = new Date(p[0], p[1]-1, p[2]);
+  d.setDate(d.getDate() + n);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+// Próximo día hábil después de 'desde' (nunca domingo)
+function _fProxHabil(desde) {
+  let s = _fSumarDias(desde, 1);
+  const p = s.split('-').map(Number);
+  if(new Date(p[0], p[1]-1, p[2]).getDay() === 0) s = _fSumarDias(s, 1);
+  return s;
+}
+function _fEsDomingo(s) {
+  const p = String(s).split('-').map(Number);
+  return new Date(p[0], p[1]-1, p[2]).getDay() === 0;
+}
+
+// ---------- Filas del desplegable ----------
+function _fFilasHtml(inv) {
+  const falts = _fFalts(inv);
+  const usados = {};
+  const editable = inv.type !== 'presupuesto' && inv.status !== 'cancelada';
+  const btnUndo = (fids)=>'<span data-action="undoFalta" data-invid="'+inv.id+'" data-fids="'+fids.join(',')+'" style="flex-shrink:0;color:#ea580c;font-size:12.5px;font-weight:800;text-decoration:underline;cursor:pointer;padding:6px 2px">Deshacer</span>';
+  let h = (inv.items||[]).map((item, idx)=>{
+    const armado = _estaArmado(inv, item, idx);
+    const key = _keyItemArmado(item, idx);
+    const fs = falts.filter(f=>!usados[f.fid] && f.key===key && Number(f.price)===Number(item.price));
+    fs.forEach(f=>{ usados[f.fid] = 1; });
+    const fq = _fNum(fs.reduce((s,f)=>s+(Number(f.qty)||0), 0));
+    const puedeFalta = editable && !armado && !fq && !_fClaveIndice(key);
+    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)'+(fq?';background:#fff7ed;margin:0 -14px;padding:6px 14px':'')+'">'
+      +'<div data-action="togItemArmado" data-invid="'+inv.id+'" data-idx="'+idx+'" style="width:26px;height:26px;border-radius:6px;border:2px solid '+(armado?'var(--green)':'var(--border)')+';background:'+(armado?'var(--green)':'transparent')+';display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:14px">'+(armado?'✓':'')+'</div>'
+      +'<span style="flex:1;color:'+(armado?'var(--text3)':(fq?'#9a3412':'var(--text2)'))+';font-size:14px;'+(armado?'text-decoration:line-through':'')+'">'+(item.desc||item.name||'Producto')
+        +(fq?'<br><span style="display:inline-block;background:#ea580c;color:#fff;font-size:11px;font-weight:800;border-radius:8px;padding:1px 7px;margin-top:3px;text-decoration:none">⏳ faltan '+fq+'</span>':'')+'</span>'
+      +'<span style="color:var(--text3);white-space:nowrap;margin:0 4px;font-size:14px">x'+item.qty+'</span>'
+      +'<span style="font-weight:700;color:var(--accent);white-space:nowrap;font-size:14px">$'+(item.qty*item.price).toFixed(0)+'</span>'
+      +(fq ? btnUndo(fs.map(f=>f.fid))
+           : (puedeFalta ? '<span data-action="falta" data-invid="'+inv.id+'" data-idx="'+idx+'" style="flex-shrink:0;border:1.5px solid #ea580c;color:#ea580c;background:#fff;border-radius:14px;font-size:12px;font-weight:800;padding:5px 9px;cursor:pointer">Falta</span>' : ''))
+      +'</div>';
+  }).join('');
+  // Productos que faltaron completos (ya no están en la factura)
+  falts.filter(f=>!usados[f.fid]).forEach(f=>{
+    h += '<div style="display:flex;align-items:center;gap:8px;padding:6px 14px;margin:0 -14px;border-bottom:1px solid var(--border);background:#fff7ed">'
+      +'<div style="width:26px;height:26px;border-radius:6px;border:2px solid #fdba74;flex-shrink:0"></div>'
+      +'<span style="flex:1;font-size:14px;color:#9a3412"><span style="text-decoration:line-through">'+(f.desc||f.name||'Producto')+'</span>'
+        +'<br><span style="display:inline-block;background:#ea580c;color:#fff;font-size:11px;font-weight:800;border-radius:8px;padding:1px 7px;margin-top:3px">⏳ falta todo ('+_fNum(f.qty)+')</span></span>'
+      +'<span style="font-weight:700;color:#9a3412;white-space:nowrap;font-size:14px">$0</span>'
+      +btnUndo([f.fid])
+      +'</div>';
+  });
+  return h;
+}
+// Aviso en la tarjeta (se ve aunque esté cerrada)
+function _fAvisoHtml(inv) {
+  let h = '';
+  const falts = _fFalts(inv);
+  if(falts.length) {
+    const tot = falts.reduce((s,f)=>s+(Number(f.qty)||0)*(Number(f.price)||0), 0);
+    h += '<div data-action="armarPend" data-id="'+inv.id+'" style="margin:0 14px 10px;background:#fff7ed;border:1.5px solid #ea580c;border-radius:10px;padding:8px 10px;font-size:13px;font-weight:800;color:#9a3412;display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer">'
+      +'<span>⏳ '+falts.length+' pendiente'+(falts.length>1?'s':'')+' · $'+tot.toFixed(0)+'</span><span style="text-decoration:underline;white-space:nowrap">Armar factura ›</span></div>';
+  }
+  const pas = Array.isArray(inv.faltantesPasados) ? inv.faltantesPasados : [];
+  if(pas.length) {
+    const fechas = [];
+    pas.forEach(p=>{ if(p.aFecha && fechas.indexOf(p.aFecha) < 0) fechas.push(p.aFecha); });
+    if(fechas.length) h += '<div style="margin:0 14px 10px;background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;padding:6px 10px;font-size:12.5px;color:#1e40af">⏳ Faltantes pasados a la factura del '+fechas.map(_fFechaCorta).join(' y del ')+'</div>';
+  }
+  return h;
+}
+
+// ---------- Ventanitas ----------
+function _fOv(html, centrado) {
+  let ov = document.getElementById('falt-ov');
+  if(!ov) { ov = document.createElement('div'); ov.id = 'falt-ov'; document.body.appendChild(ov); }
+  ov.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(20,30,50,.55);display:flex;justify-content:center;align-items:'+(centrado?'center':'flex-end')+';padding:'+(centrado?'16px':'0');
+  ov.innerHTML = html;
+  ov.onclick = function(e){ if(e.target === ov) _fCerrarOv(); };
+}
+function _fCerrarOv() {
+  const ov = document.getElementById('falt-ov');
+  if(ov) { ov.style.display = 'none'; ov.innerHTML = ''; }
+  window._fSt = null;
+}
+function _fOvAbierto() {
+  const ov = document.getElementById('falt-ov');
+  return !!(ov && ov.style.display !== 'none' && ov.innerHTML);
+}
+const _F_BTN = 'display:block;width:100%;text-align:center;border-radius:12px;padding:13px;font-weight:800;font-size:15px;margin-top:8px;cursor:pointer;border:none;font-family:inherit';
+
+// Hoja "¿Cuántos faltan?"
+function abrirFalta(invId, idx) {
+  if(_fBloq()) return;
+  const inv = S.invoices.find(i=>i.id===invId); if(!inv) return;
+  const item = (inv.items||[])[idx]; if(!item) return;
+  const N = _fNum(item.qty);
+  if(N <= 0) return;
+  window._fSt = { invId, key:_keyItemArmado(item, idx), price:item.price, desc:(item.desc||item.name||'Producto'), N, n:N };
+  _fPintarHoja();
+}
+function _fPintarHoja() {
+  const st = window._fSt; if(!st) return;
+  const inv = S.invoices.find(i=>i.id===st.invId); if(!inv) { _fCerrarOv(); return; }
+  const i = _fBuscarItem(inv, st.key, st.price);
+  if(i < 0) { _fCerrarOv(); toast('Ese producto ya no está en la factura'); return; }
+  const delta = _fSimular(inv, c=>_fMutarFalta(c, i, st.n));
+  const entregan = _fNum(st.N - st.n);
+  const btnCirc = 'width:48px;height:48px;border-radius:50%;background:var(--surface2);color:var(--accent);font-size:28px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;font-family:inherit';
+  _fOv('<div style="background:#fff;width:100%;max-width:520px;border-radius:18px 18px 0 0;padding:18px 16px 22px">'
+    +'<div style="font-size:18px;font-weight:900;color:var(--text);margin-bottom:4px">¿Cuántos faltan?</div>'
+    +'<div style="font-size:13.5px;color:var(--text3)">'+escH(st.desc)+' · en la factura: <b>'+st.N+'</b> · $'+Number(st.price).toFixed(0)+' c/u</div>'
+    +'<div style="display:flex;align-items:center;justify-content:center;gap:18px;margin:16px 0 10px">'
+      +'<button onclick="_fCambiarN(-1)" style="'+btnCirc+'">−</button>'
+      +'<div style="font-size:34px;font-weight:900;min-width:60px;text-align:center;color:var(--text)">'+st.n+'</div>'
+      +'<button onclick="_fCambiarN(1)" style="'+btnCirc+'">+</button></div>'
+    +'<div style="font-size:13.5px;color:var(--text2);text-align:center">'+(entregan>0?'Se entregan <b>'+entregan+'</b> · ':'')+'pasa'+(st.n===1?'':'n')+' <b>'+st.n+'</b> a otro día con el mismo precio</div>'
+    +(delta > 0.5 ? '<div style="background:#fffbeb;border:1px solid #ca8a04;border-radius:10px;padding:9px 11px;font-size:13px;color:#92400e;margin-top:12px">💰 Esta factura ya tiene pagos: al sacar esto le quedan <b>$'+delta.toFixed(0)+' a favor</b> al cliente.</div>' : '')
+    +(st.n !== st.N ? '<button onclick="_fCambiarN(\'todos\')" style="'+_F_BTN+';background:#fff;border:1.5px solid #ea580c;color:#ea580c">Faltan todos ('+st.N+')</button>' : '')
+    +'<button onclick="confirmarFalta()" style="'+_F_BTN+';background:var(--accent);color:#fff">Confirmar</button>'
+    +'<button onclick="_fCerrarOv()" style="'+_F_BTN+';background:transparent;color:var(--text3)">Cancelar</button>'
+    +'</div>', false);
+}
+function _fCambiarN(d) {
+  const st = window._fSt; if(!st) return;
+  if(d === 'todos') st.n = st.N;
+  else if(d < 0) { if(st.n - 1 > 0) st.n = _fNum(st.n - 1); }
+  else st.n = _fNum(Math.min(st.N, st.n + 1));
+  _fPintarHoja();
+}
+function confirmarFalta() {
+  if(_fBloq()) return;
+  const st = window._fSt; if(!st) return;
+  const inv = S.invoices.find(i=>i.id===st.invId); if(!inv) { _fCerrarOv(); return; }
+  const i = _fBuscarItem(inv, st.key, st.price);
+  if(i < 0) { _fCerrarOv(); toast('Ese producto ya no está en la factura'); return; }
+  const n = st.n, desc = st.desc;
+  const quedaVacia = (inv.items.length === 1) && (n >= (Number(inv.items[0].qty)||0) - 1e-9);
+  _fCerrarOv();
+  if(quedaVacia && !confirm('Faltan todos los productos de esta factura.\n\nLa factura se va a CANCELAR y todo queda como pendiente para armar otra.\n\n¿Seguir?')) return;
+  const delta = _fAplicar(inv, c=>_fMutarFalta(c, _fBuscarItem(c, st.key, st.price), n));
+  toast('⏳ Pendiente: '+desc+' x'+n+(delta > 0.5 ? ' · $'+delta.toFixed(0)+' a favor del cliente' : ''));
+}
+function deshacerFalta(invId, fidsTxt) {
+  if(_fBloq()) return;
+  const inv = S.invoices.find(i=>i.id===invId); if(!inv) return;
+  const fids = String(fidsTxt||'').split(',').filter(Boolean);
+  if(!fids.length) return;
+  const delta = _fSimular(inv, c=>_fMutarDeshacer(c, fids));
+  if(delta < -0.5 && !confirm('Al volver a agregarlo se descuentan $'+(-delta).toFixed(0)+' del saldo a favor del cliente.\n\n¿Seguir?')) return;
+  _fAplicar(inv, c=>_fMutarDeshacer(c, fids));
+  toast('Vuelto a la factura');
+}
+
+// Ventana de pendientes (al marcar Preparado o desde el aviso de la tarjeta)
+function abrirPendientes(invId, desdePreparado) {
+  const inv = S.invoices.find(i=>i.id===invId); if(!inv) return;
+  const falts = _fFalts(inv);
+  if(!falts.length) return;
+  const hoy = localDateStr();
+  const base = (inv.date && inv.date > hoy) ? inv.date : hoy;
+  const prox = _fProxHabil(base);
+  const esManana = prox === _fSumarDias(hoy, 1);
+  const prev = { items: falts.map(_fLimpiarMeta), descRetiroPct: _fRetPct(inv), descExtraPct: inv.descExtraPct||0, descRetiro:0 };
+  _fTotales(prev);
+  window._fSt = { pendInv: invId, prox };
+  const filas = falts.map(f=>'<div style="display:flex;justify-content:space-between;gap:8px;font-size:14px;padding:6px 0;border-bottom:1px solid var(--border)"><span>'+escH(f.desc||f.name||'Producto')+' x'+_fNum(f.qty)+'</span><b style="white-space:nowrap">$'+((Number(f.qty)||0)*(Number(f.price)||0)).toFixed(0)+'</b></div>').join('');
+  const conDesc = Math.abs(prev.total - prev.subtotal) > 0.5;
+  _fOv('<div style="background:#fff;width:100%;max-width:420px;border-radius:16px;padding:18px 16px;max-height:90vh;overflow:auto">'
+    +'<div style="font-size:18px;font-weight:900;color:var(--text);margin-bottom:2px">'+(desdePreparado?'📦 Pedido preparado':'⏳ Pendientes')+'</div>'
+    +'<div style="font-size:13.5px;color:var(--text3);margin-bottom:8px">'+escH(inv.clientName||'')+' · faltaron '+falts.length+' producto'+(falts.length>1?'s':'')+':</div>'
+    +filas
+    +(conDesc ? '<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--text3);padding:6px 0 0"><span>Con el mismo descuento de la factura</span></div>' : '')
+    +'<div style="display:flex;justify-content:space-between;font-size:15px;padding:8px 0 0"><b>Total</b><b>$'+prev.total.toFixed(0)+'</b></div>'
+    +'<div style="font-size:16px;font-weight:800;color:var(--text);margin:14px 0 2px">¿Armar factura para '+(esManana?'mañana':'el '+_fFechaLarga(prox).split(' ')[0])+'?</div>'
+    +(!esManana && _fEsDomingo(_fSumarDias(base,1)) ? '<div style="font-size:12.5px;color:var(--text3)">(mañana es domingo)</div>' : '')
+    +'<button onclick="crearFacturaPendientes(\''+invId+'\', window._fSt && window._fSt.prox)" style="'+_F_BTN+';background:var(--accent);color:#fff">Sí, para '+_fFechaLarga(prox)+'</button>'
+    +'<div id="falt-otra" style="display:none;margin-top:10px"><input type="date" id="falt-fecha" value="'+prox+'" min="'+hoy+'" style="width:100%;padding:11px;border:1.5px solid var(--border);border-radius:10px;font-size:15px;font-family:inherit">'
+      +'<button onclick="crearFacturaPendientes(\''+invId+'\', (document.getElementById(\'falt-fecha\')||{}).value)" style="'+_F_BTN+';background:var(--accent);color:#fff">Armar para esa fecha</button></div>'
+    +'<button id="falt-otra-btn" onclick="document.getElementById(\'falt-otra\').style.display=\'\';this.style.display=\'none\'" style="'+_F_BTN+';background:var(--surface2);color:var(--accent)">Elegir otra fecha</button>'
+    +'<button onclick="_fCerrarOv()" style="'+_F_BTN+';background:transparent;color:var(--text3)">Más tarde</button>'
+    +'</div>', true);
+}
+function crearFacturaPendientes(invId, fecha) {
+  if(_fBloq()) return;
+  const inv = S.invoices.find(i=>i.id===invId); if(!inv) { _fCerrarOv(); return; }
+  const falts = _fFalts(inv);
+  if(!falts.length) { _fCerrarOv(); toast('No hay pendientes'); return; }
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(String(fecha||''))) { toast('Elegí una fecha'); return; }
+  if(_fEsDomingo(fecha) && !confirm('La fecha elegida es domingo. ¿Armarla igual?')) return;
+  _fCerrarOv();
+  const cli = S.clients.find(c=>c.id===inv.clientId);
+  const items = falts.map(f=>{ const it = _fLimpiarMeta(f); it.dePendiente = true; return it; });
+  const nueva = {
+    id: 'FAC-'+String(S.nInv++).padStart(4,'0')+'-'+Date.now().toString(36).slice(-4).toUpperCase(),
+    type: inv.type === 'presupuesto' ? 'factura' : (inv.type || 'factura'),
+    clientId: inv.clientId, clientName: cli ? cli.name : (inv.clientName||'---'),
+    date: fecha, ts: Date.now(),
+    status: 'pendiente', notes: '',
+    notaInterna: '⏳ Pendientes de la factura del '+_fFechaCorta(inv.date),
+    preparado: false, urgente: false, itemsArmados: {},
+    items, subtotal: 0,
+    descRetiro: 0, descRetiroPct: _fRetPct(inv), descExtraPct: inv.descExtraPct||0, descExtra: 0, total: 0,
+    pagos: [], saldo: 0, aFavor: 0,
+    dePendientesDe: inv.id
+  };
+  _fTotales(nueva);
+  if(!(nueva.descRetiro > 0)) nueva.descRetiroPct = 0;
+  // Saldo a favor del cliente: misma pregunta que al hacer una factura nueva
+  if(cli && (cli.credito||0) > 0.5) {
+    if(confirm('Este cliente tiene $'+(cli.credito).toFixed(0)+' a favor.\n\n¿Querés aplicarlo a esta factura?')) {
+      const aAplicar = Math.min(cli.credito, nueva.total);
+      if(aAplicar > 0) {
+        nueva.pagos.push({monto:aAplicar, method:'a favor', date:fecha});
+        cli.credito = cli.credito - aAplicar;
+      }
+    }
+  }
+  nueva.saldo = Math.max(0, nueva.total - _fPagado(nueva));
+  nueva.status = nueva.saldo <= 0 ? 'pagada' : 'pendiente';
+  inv.faltantesPasados = (Array.isArray(inv.faltantesPasados) ? inv.faltantesPasados : [])
+    .concat(falts.map(f=>{ const x = JSON.parse(JSON.stringify(f)); x.aFactura = nueva.id; x.aFecha = fecha; return x; }));
+  inv.faltantes = [];
+  S.invoices.unshift(nueva);
+  try{ recalcAllStocks(); recalcClientCredits(); }catch(e){}
+  try{ _markDirty('invoices', inv.id); _markDirty('invoices', nueva.id); if(cli) _markDirty('clients', cli.id); }catch(e){}
+  try{ save(['invoices','clients','products','nInv'], true); }catch(e){}
+  _fRefrescar(inv.id);
+  try{ updDash(); }catch(e){}
+  try{ renderProds(); }catch(e){}
+  toast('✓ Factura para el '+_fFechaLarga(fecha)+' creada ($'+nueva.total.toFixed(0)+')');
+}
+// ===== FIN FALTANTES =====
 function renderInvs() {
   try{renderInvDiaResumen();}catch(e){}
   const el=document.getElementById('inv-list');
@@ -7447,15 +7853,7 @@ function renderInvs() {
           ? '<span class="badge" style="background:#d97706;color:#fff">Cubre parcial</span>'
           : (sb[inv.status]||'');
     const btnStyle = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 4px;cursor:pointer;background:var(--surface);border:none;flex:1;border-right:1px solid var(--border)';
-    const prodLines = inv.items.map((item, idx)=> {
-      const armado = _estaArmado(inv, item, idx);
-      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">'
-      +'<div data-action="togItemArmado" data-invid="'+inv.id+'" data-idx="'+idx+'" style="width:26px;height:26px;border-radius:6px;border:2px solid '+(armado?'var(--green)':'var(--border)')+';background:'+(armado?'var(--green)':'transparent')+';display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:14px">'+(armado?'✓':'')+'</div>'
-      +'<span style="flex:1;color:'+(armado?'var(--text3)':'var(--text2)')+';font-size:14px;'+(armado?'text-decoration:line-through':'')+'">'+( item.desc||item.name||'Producto')+'</span>'
-      +'<span style="color:var(--text3);white-space:nowrap;margin:0 4px;font-size:14px">x'+item.qty+'</span>'
-      +'<span style="font-weight:700;color:var(--accent);white-space:nowrap;font-size:14px">$'+(item.qty*item.price).toFixed(0)+'</span>'
-      +'</div>';
-    }).join('');
+    const prodLines = _fFilasHtml(inv);   // 4.9.0: incluye el botón Falta
     const _bc = inv.status==='pagada'||_cubiertoPorCredito?'#16a34a':_parcialPorCredito?'#f59e0b':(inv.pagos&&inv.pagos.length&&inv.saldo>0)?'#eab308':'#dc2626';
     const _bgc = inv.status==='pagada'||_cubiertoPorCredito?'rgba(22,163,74,0.06)':_parcialPorCredito?'rgba(245,158,11,0.06)':(inv.pagos&&inv.pagos.length&&inv.saldo>0)?'rgba(234,179,8,0.06)':'rgba(220,38,38,0.06)';
     const _urgOn = _esUrgente(inv);
@@ -7484,6 +7882,7 @@ function renderInvs() {
     +'<span style="margin-left:auto;font-size:14px;color:var(--text3)" id="inv-arrow-'+inv.id+'">▼</span>'
     +'</div>'
     +(inv.notaInterna?'<div style="margin:0 14px 10px;background:#fffbeb;border:1px solid #ca8a04;border-radius:8px;padding:8px 10px;font-size:13px;color:#92400e">📝 '+inv.notaInterna+'</div>':'')
+    +_fAvisoHtml(inv)
     +'</div>'
     +'<div id="inv-detail-'+inv.id+'" style="display:none;padding:8px 14px;background:var(--bg);border-top:1px solid var(--border)">'
     +prodLines
@@ -7553,6 +7952,9 @@ document.getElementById('page-facturas').addEventListener('click', function(e){
     if(textEl) { textEl.style.color = armado ? 'var(--text3)' : 'var(--text2)'; textEl.style.textDecoration = armado ? 'line-through' : ''; }
     return;
   }
+  else if(action==='falta') { abrirFalta(btn.dataset.invid, parseInt(btn.dataset.idx)); return; }
+  else if(action==='undoFalta') { deshacerFalta(btn.dataset.invid, btn.dataset.fids); return; }
+  else if(action==='armarPend') { abrirPendientes(id, false); return; }
   else if(action==='openInv') openInv(id);
   else if(action==='verInv') verInv(id);
   else if(action==='delInv') delInv(id);
@@ -7562,6 +7964,8 @@ document.getElementById('page-facturas').addEventListener('click', function(e){
     _markDirty('invoices',id); save(['invoices']);
     renderInvs();
     toast(inv.preparado?'✓ Marcado como preparado':'Desmarcado');
+    // 4.9.0: si faltaron productos, ofrecer armar la factura del próximo día
+    if(inv.preparado && _fFalts(inv).length) setTimeout(function(){ abrirPendientes(inv.id, true); }, 250);
   }
   else if(action==='togUrgente') {
     const inv=S.invoices.find(i=>i.id===id); if(!inv) return;
@@ -13547,6 +13951,8 @@ window.addEventListener('DOMContentLoaded', function(){
     window.addEventListener('popstate', function(e) {
       // Detalle de compra: "atras" lo cierra y se queda en Compras
       if(window._vcIgnorarPop) { window._vcIgnorarPop = false; return; }
+      // 4.9.0: "atrás" cierra la ventanita de faltantes y se queda en la misma pantalla
+      if(typeof _fOvAbierto === 'function' && _fOvAbierto()) { _fCerrarOv(); history.pushState({page:S.page}, '', ''); return; }
       const _vcOv = document.getElementById('mvercomp-overlay');
       if(_vcOv && _vcOv.style.display !== 'none') { cerrarVerComp(true); return; }
       window._historyNav = true;
