@@ -2646,6 +2646,12 @@ function _lcMezclar(L, R) {
   const tsR = (R.ts && typeof R.ts === 'object') ? R.ts : {};
   const tsOut = {};
   const limite = Date.now() - _LC_TOMBA_DIAS*86400000;
+  // 4.11.2: _srv = hora de la lista del servidor que este celular vio por última vez.
+  // Si el servidor cambió después (o no sabemos), lo que este celular NO tocó (sin hora propia)
+  // se toma del servidor: así una copia vieja ya no pisa las notas nuevas ni revive las borradas.
+  const _tt = function(v){ return typeof v === 'number' ? v : (Date.parse(v || '') || 0); };   // updatedAt puede ser número (ms) o texto ISO
+  const _bs = _tt(L._srv), _ru = _tt(R.updatedAt);
+  const rNuevo = !_bs || (_ru > _bs);
   _LC_SECC.forEach(function(par){
     const sec = par[0], k = par[1];
     const mL = L[sec] || {}, mR = R[sec] || {};
@@ -2655,7 +2661,7 @@ function _lcMezclar(L, R) {
     claves.forEach(function(key){
       const a = Number(tL[key])||0, b = Number(tR[key])||0;
       let usa;
-      if(a === 0 && b === 0) usa = Object.prototype.hasOwnProperty.call(mL, key) ? 'L' : 'R';
+      if(a === 0 && b === 0) usa = rNuevo ? 'R' : (Object.prototype.hasOwnProperty.call(mL, key) ? 'L' : 'R');
       else usa = a >= b ? 'L' : 'R';
       const m = usa === 'L' ? mL : mR;
       const existe = Object.prototype.hasOwnProperty.call(m, key);
@@ -2670,10 +2676,14 @@ function _lcMezclar(L, R) {
   if(ob > oa) {
     if(JSON.stringify(L.ocultos||[]) !== JSON.stringify(R.ocultos||[])) trajo = true;
     L.ocultos = (R.ocultos||[]).slice();
+  } else if(oa === 0 && ob === 0 && rNuevo) {
+    if(JSON.stringify(L.ocultos||[]) !== JSON.stringify(R.ocultos||[])) trajo = true;
+    L.ocultos = (R.ocultos||[]).slice();
   }
   tsOut.oc = Math.max(oa, ob);
   L.ts = tsOut;
   if(trajo && R.updatedAt && (!L.updatedAt || R.updatedAt > L.updatedAt)) L.updatedAt = R.updatedAt;
+  if(R.updatedAt) L._srv = R.updatedAt;   // ya incorporamos lo del servidor hasta esta hora
   return trajo;
 }
 // Después de combinar al subir: actualizar la pantalla sin cortar a quien escribe
@@ -2729,6 +2739,10 @@ function _aplicarDatosFirebase(d) {
       if(i >= 0) S[col][i] = r; else S[col].push(r);
     });
   });
+  try {   // 4.11.2: lista sin cambios pendientes = la del servidor; guardar hora de la versión vista
+    const _plc = (pend.up && pend.up.listacompras) || [];
+    if(_plc.indexOf('main') < 0) (S.listacompras || []).forEach(function(x){ if(x && x.id === 'main' && x.updatedAt) x._srv = x.updatedAt; });
+  } catch(e) {}
   Object.keys(pend.del || {}).forEach(function(col){
     const borr = new Set(pend.del[col] || []);
     if(borr.size && Array.isArray(S[col])) S[col] = S[col].filter(function(r){ return !(r && borr.has(r.id)); });
@@ -3138,6 +3152,9 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.11.2', f:'14/10/2026', t:[
+    'Lista de compras: se arregló que un celular con la lista desactualizada pisara las notas nuevas (o trajera de vuelta notas viejas ya borradas) al tocar algo. Ahora lo que un celular no tocó se toma siempre de la versión más nueva del servidor.'
+  ]},
   {v:'4.11.1', f:'14/10/2026', t:[
     'Configuración > Avanzado: se arregló el desplegable, que en algunos celulares no mostraba las herramientas al abrirlo.'
   ]},
