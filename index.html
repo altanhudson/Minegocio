@@ -2603,16 +2603,43 @@ function _fixCounters() {
   if((S.nComp||0) < minComp) { console.warn('Corrigiendo nComp:', S.nComp, '->', minComp); S.nComp = minComp; }
   if((S.nInv||0) < minInv) { console.warn('Corrigiendo nInv:', S.nInv, '->', minInv); S.nInv = minInv; }
 }
+// ===== 4.11.5: HISTORIAL DE NOTAS =====
+// Cada vez que una nota se borra, se pisa o la cambia otro celular, el texto anterior queda
+// guardado en ESTE celular (no se sincroniza) para poder recuperarlo desde la lista de compras.
+// Solo funciones (sin const/let de nivel superior) para que se puedan llamar desde cualquier lado.
+function _lcHistLeer() {
+  try { const a = JSON.parse(localStorage.getItem('rev_notas_hist') || '[]'); return Array.isArray(a) ? a : []; } catch(e) { return []; }
+}
+function _lcHistAnotar(pvId, texto, motivo, suave) {
+  try {
+    texto = String(texto || '');
+    if(!texto.trim()) return;
+    let a = _lcHistLeer(); const ahora = Date.now();
+    if(a.some(function(x){ return x && x.pv === pvId && x.t === texto; })) return;       // ya está guardado
+    // Ediciones normales mientras se escribe: como mucho una copia cada 10 minutos por proveedor
+    if(suave && a.some(function(x){ return x && x.pv === pvId && (ahora - x.ts) < 600000; })) return;
+    a.unshift({ pv: pvId, t: texto, ts: ahora, m: motivo || '' });
+    const lim = ahora - 30 * 86400000;
+    a = a.filter(function(x){ return x && x.ts > lim; }).slice(0, 40);
+    localStorage.setItem('rev_notas_hist', JSON.stringify(a));
+  } catch(e) {}
+}
 function _reconstruirListaCompras() {
   try {
     const lcDoc = (S.listacompras||[]).find(function(d){ return d && d.id==='main'; });
     if(lcDoc) {
+      const _nPrev = (S.listaCompras && S.listaCompras.notas) ? Object.assign({}, S.listaCompras.notas) : null;
       S.listaCompras = {
         notas: lcDoc.notas||{}, estados: lcDoc.estados||{},
         cantidades: lcDoc.cantidades||{}, orden: lcDoc.orden||{},
         ocultos: lcDoc.ocultos||[], updatedAt: lcDoc.updatedAt
       };
       window._lcUltimo = _lcCopia(lcDoc);   // 4.9.1: punto de partida para saber qué cambió
+      // 4.11.5: si una nota que este celular tenía cambió o desapareció, guardar la versión anterior
+      if(_nPrev) Object.keys(_nPrev).forEach(function(pv){
+        const ant = _nPrev[pv], nue = S.listaCompras.notas[pv];
+        if(ant && String(ant).trim() && nue !== ant) _lcHistAnotar(pv, ant, nue ? 'Otro celular la cambió' : 'Otro celular la borró');
+      });
     }
   } catch(e) {}
 }
@@ -2719,6 +2746,7 @@ function _lcNotaFlush(pvId, el) {
   if(!S.listaCompras) S.listaCompras = {};
   if(!S.listaCompras.notas) S.listaCompras.notas = {};
   if((S.listaCompras.notas[pvId]||'') === el.value) return;
+  try { const _a = S.listaCompras.notas[pvId] || ''; if(_a.trim()) _lcHistAnotar(pvId, _a, el.value.trim().length < _a.trim().length * 0.5 ? 'Antes de vaciarla o acortarla' : 'Antes de editarla', el.value.trim().length >= _a.trim().length * 0.5); } catch(e) {}
   S.listaCompras.notas[pvId] = el.value;
   _listaCompraGuardar();
 }
@@ -3161,6 +3189,13 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.11.5', f:'15/10/2026', t:[
+    'Lista de compras: al confirmar una compra YA NO se borra la nota del proveedor (se perdían anotaciones de cosas que no estaban en la lista). Si querés borrarla, en el resumen de compra hay una casilla "Borrar también la nota de este proveedor".',
+    'Lista de compras: nuevo botón "Notas anteriores". Guarda en tu celular las notas que se borraron o cambiaron (por vos o por el otro celular) y las podés restaurar o copiar.'
+  ]},
+  {v:'4.11.4', f:'14/10/2026', t:[
+    'Tienda: si el cliente ya la tiene instalada en el celular, ya no le aparece el cartel "Instalá la tienda".'
+  ]},
   {v:'4.11.3', f:'14/10/2026', t:[
     'La app se llama "Revendit" desde que se abre (antes, por un instante, mostraba otro nombre arriba).',
     'Cuentas de otros negocios: el flyer en PDF se descarga como "lista-de-precios.pdf".'
@@ -10890,6 +10925,7 @@ function listaConfirmarCompra(pvId) {
   window._listaCompraItems = compItems.slice();
   window._listaCompraPvId = pvId;
   window._listaCompraPvNombre = pv.name;
+  window._listaCompraBorrarNota = false;   // 4.11.5: la nota ya no se borra sola al comprar
 
   function renderOverlay() {
     const tot = window._listaCompraItems.reduce(function(s,i){ return s+i.qty*i.cost; },0);
@@ -10929,6 +10965,14 @@ function listaConfirmarCompra(pvId) {
       + '</label>'
       + '</div>'
       + '<div id="lista-factura-preview" style="margin-bottom:10px"></div>'
+      + (function(){
+          const _n = (S.listaCompras && S.listaCompras.notas && S.listaCompras.notas[window._listaCompraPvId]) || '';
+          if(!String(_n).trim()) return '';
+          const _p = String(_n).trim().replace(/\s+/g,' '); const _pv = _p.length > 70 ? _p.slice(0,70) + '…' : _p;
+          return '<label style="display:flex;gap:10px;align-items:flex-start;background:var(--surface2);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;color:var(--text2);cursor:pointer">'
+            + '<input type="checkbox" id="lista-borrar-nota" ' + (window._listaCompraBorrarNota ? 'checked' : '') + ' onchange="window._listaCompraBorrarNota=this.checked" style="width:20px;height:20px;flex:none;margin-top:1px">'
+            + '<span><b>Borrar también la nota de este proveedor</b><br><span style="color:var(--text3)">Tu nota: «' + escH(_pv) + '». Si no tildás esto, la nota queda.</span></span></label>';
+        })()
       + '<button onclick="listaEjecutarCompra()" style="width:100%;background:#16a34a;color:#fff;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:800;cursor:pointer;margin-bottom:10px">\u2713 Confirmar compra</button>'
       + '<button onclick="document.getElementById(\'lista-compra-overlay\').style.display=\'none\'" style="width:100%;background:none;border:1px solid var(--border);border-radius:12px;padding:12px;font-size:15px;color:var(--text2);cursor:pointer">Cancelar</button>'
       + '</div>';
@@ -11052,13 +11096,14 @@ function listaEjecutarCompra() {
   try{if(typeof renderComps==='function')renderComps();}catch(e){}
   save(['compras','products','nComp']);
   try{ _subirFacturaSiHay(window._facturaFotoLista, pvId, compId, 'lista'); }catch(e){}
-  // Al confirmar la compra, la nota de ese proveedor ya cumplió su función —
-  // se borra sola para que no quede pegada indefinidamente (antes solo se
-  // borraba con un botón manual que era fácil de olvidarse de tocar).
-  if(S.listaCompras && S.listaCompras.notas && S.listaCompras.notas[pvId]) {
+  // 4.11.5: la nota del proveedor YA NO se borra sola al comprar (se perdían anotaciones de cosas
+  // que no estaban en la lista). Solo se borra si se tildó la casilla del resumen de compra.
+  if(window._listaCompraBorrarNota && S.listaCompras && S.listaCompras.notas && S.listaCompras.notas[pvId]) {
+    try { _lcHistAnotar(pvId, S.listaCompras.notas[pvId], 'Se borró al confirmar una compra'); } catch(e) {}
     delete S.listaCompras.notas[pvId];
     try{ _listaCompraGuardar(); }catch(e){}
   }
+  window._listaCompraBorrarNota = false;
   const ov = document.getElementById('lista-compra-overlay');
   if(ov) ov.style.display='none';
   toast('✓ Compra registrada en '+pvNombre);
@@ -11106,6 +11151,7 @@ function listaNotaGuardar(pvId) {
   const val = el.value;
   if(!S.listaCompras) S.listaCompras = {};
   if(!S.listaCompras.notas) S.listaCompras.notas = {};
+  try { const _a = S.listaCompras.notas[pvId] || ''; if(_a.trim() && _a !== val) _lcHistAnotar(pvId, _a, val.trim().length < _a.trim().length * 0.5 ? 'Antes de vaciarla o acortarla' : 'Antes de editarla', val.trim().length >= _a.trim().length * 0.5); } catch(e) {}
   S.listaCompras.notas[pvId] = val;
   _listaCompraGuardar();
   const btn = document.getElementById('nota-btn-'+pvId);
@@ -11119,6 +11165,7 @@ function listaNotaGuardar(pvId) {
 function listaNotaProv(pvId, val) {
   if(!S.listaCompras) return;
   if(!S.listaCompras.notas) S.listaCompras.notas = {};
+  try { const _a = S.listaCompras.notas[pvId] || ''; if(_a.trim() && _a !== val) _lcHistAnotar(pvId, _a, String(val||'').trim().length < _a.trim().length * 0.5 ? 'Antes de vaciarla o acortarla' : 'Antes de editarla', String(val||'').trim().length >= _a.trim().length * 0.5); } catch(e) {}
   S.listaCompras.notas[pvId] = val;
   _listaCompraGuardar();
 }
@@ -11131,8 +11178,66 @@ function listaNotaCopiar(pvId) {
     toast('✓ Nota copiada');
   });
 }
+function listaNotasHistAbrir() {
+  let ov = document.getElementById('lista-hist-overlay');
+  if(!ov) {
+    ov = document.createElement('div');
+    ov.id = 'lista-hist-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;padding:0';
+    document.body.appendChild(ov);
+  }
+  ov.style.display = 'flex';
+  const a = _lcHistLeer();
+  const z = function(n){ return String(n).padStart(2,'0'); };
+  const cuerpo = a.length ? a.map(function(x, i){
+    const pv = (S.proveedores || []).find(function(p){ return p.id === x.pv; });
+    const d = new Date(x.ts);
+    return '<div style="border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px">'
+      + '<div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-bottom:6px"><b>' + escH(pv ? pv.name : 'Proveedor') + '</b>'
+      + '<span style="color:var(--text3)">' + z(d.getDate()) + '/' + z(d.getMonth()+1) + ' ' + z(d.getHours()) + ':' + z(d.getMinutes()) + '</span></div>'
+      + '<div style="font-size:11.5px;color:var(--text3);margin-bottom:6px">' + escH(x.m || '') + '</div>'
+      + '<div style="white-space:pre-wrap;font-size:13px;font-weight:600;background:var(--surface2);border-radius:8px;padding:8px;max-height:150px;overflow-y:auto">' + escH(x.t) + '</div>'
+      + '<div style="display:flex;gap:8px;margin-top:8px">'
+      + '<button onclick="listaNotasHistRestaurar(' + i + ')" style="flex:1;background:var(--accent2);color:#fff;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:700;cursor:pointer">Restaurar</button>'
+      + '<button onclick="listaNotasHistCopiar(' + i + ')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text2);cursor:pointer">\ud83d\udccb Copiar</button>'
+      + '<button onclick="listaNotasHistQuitar(' + i + ')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text3);cursor:pointer">\u2715</button>'
+      + '</div></div>';
+  }).join('') : '<div style="text-align:center;color:var(--text3);padding:20px 0">No hay notas anteriores guardadas.</div>';
+  ov.innerHTML = '<div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:85vh;overflow-y:auto;padding:20px 16px 24px">'
+    + '<div style="font-size:17px;font-weight:800;margin-bottom:4px">\ud83d\udd58 Notas anteriores</div>'
+    + '<div style="font-size:12.5px;color:var(--text3);line-height:1.4;margin-bottom:14px">Las versiones que se borraron o cambiaron en los últimos 30 días. Se guardan solo en este celular.</div>'
+    + cuerpo
+    + '<button onclick="document.getElementById(\'lista-hist-overlay\').style.display=\'none\'" style="width:100%;background:none;border:1px solid var(--border);border-radius:12px;padding:12px;font-size:15px;color:var(--text2);cursor:pointer">Cerrar</button></div>';
+}
+function listaNotasHistCopiar(i) {
+  const x = _lcHistLeer()[i]; if(!x) return;
+  const ok = function(){ toast('✓ Nota copiada'); };
+  try { navigator.clipboard.writeText(x.t).then(ok).catch(function(){ toast('No se pudo copiar'); }); } catch(e) { toast('No se pudo copiar'); }
+}
+function listaNotasHistQuitar(i) {
+  try { const a = _lcHistLeer(); a.splice(i, 1); localStorage.setItem('rev_notas_hist', JSON.stringify(a)); } catch(e) {}
+  listaNotasHistAbrir();
+  try { renderListaCompras(); } catch(e) {}
+}
+function listaNotasHistRestaurar(i) {
+  const x = _lcHistLeer()[i]; if(!x) return;
+  if(!S.listaCompras) S.listaCompras = {};
+  if(!S.listaCompras.notas) S.listaCompras.notas = {};
+  const actual = S.listaCompras.notas[x.pv] || '';
+  if(actual.trim()) {
+    if(!confirm('Ya hay una nota para este proveedor. ¿Agregar este texto debajo de la actual?')) return;
+    S.listaCompras.notas[x.pv] = actual + '\n\n' + x.t;
+  } else {
+    S.listaCompras.notas[x.pv] = x.t;
+  }
+  _listaCompraGuardar();
+  document.getElementById('lista-hist-overlay').style.display = 'none';
+  renderListaCompras();
+  toast('✓ Nota restaurada');
+}
 function listaNotaBorrar(pvId) {
   if(!S.listaCompras || !S.listaCompras.notas) return;
+  try { _lcHistAnotar(pvId, S.listaCompras.notas[pvId], 'La borraste con el botón Borrar'); } catch(e) {}
   delete S.listaCompras.notas[pvId];
   _listaCompraGuardar();
   renderListaCompras();
@@ -11356,6 +11461,11 @@ function renderListaCompras() {
   };
 
   let html = '';
+
+  try {
+    const _nh = _lcHistLeer().length;
+    if(_nh > 0) html += '<div style="text-align:right;margin-bottom:8px"><button onclick="listaNotasHistAbrir()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;color:var(--text2);cursor:pointer">\ud83d\udd58 Notas anteriores (' + _nh + ')</button></div>';
+  } catch(e) {}
 
   if(ocultos.length > 0) {
     html += '<div style="text-align:center;margin-bottom:10px">'
@@ -12513,7 +12623,14 @@ function _tnInstalarInit() {
   const el = document.getElementById('tn-instalar');
   if(!el) return;
   let oculto = 0; try { oculto = parseInt(localStorage.getItem('tn_inst_oculto') || '0') || 0; } catch(e) {}
-  const mostrar = _ES_TIENDA_URL && !_esOtroNegocio() && !_tnEsStandalone() && !(oculto && (Date.now() - oculto) < 3 * 86400000);
+  // 4.11.4: si la tienda ya está instalada en este celular, no ofrecer instalarla de nuevo.
+  // Cada vez que se abre la tienda instalada (pantalla completa) se anota la fecha; si se abre
+  // después en el navegador, el cartel no aparece. Vale 90 días desde la última vez que se usó
+  // instalada (si la desinstalan, vuelve a aparecer).
+  try { if(_tnEsStandalone()) localStorage.setItem('tn_inst_hecha', String(Date.now())); } catch(e) {}
+  let hecha = 0; try { hecha = parseInt(localStorage.getItem('tn_inst_hecha') || '0') || 0; } catch(e) {}
+  const yaInstalada = !!(hecha && (Date.now() - hecha) < 90 * 86400000);
+  const mostrar = _ES_TIENDA_URL && !_esOtroNegocio() && !_tnEsStandalone() && !yaInstalada && !(oculto && (Date.now() - oculto) < 3 * 86400000);
   el.style.display = mostrar ? 'flex' : 'none';
 }
 function tnOcultarInstalar() {
@@ -12549,7 +12666,7 @@ window.addEventListener('beforeinstallprompt', function(e){
   window._tnPrompt = e;
   setTimeout(function(){ const b = document.getElementById('pwa-install-banner'); if(b) b.style.display = 'none'; }, 0);
 });
-window.addEventListener('appinstalled', function(){ const el = document.getElementById('tn-instalar'); if(el) el.style.display = 'none'; });
+window.addEventListener('appinstalled', function(){ try { localStorage.setItem('tn_inst_hecha', String(Date.now())); } catch(e) {} const el = document.getElementById('tn-instalar'); if(el) el.style.display = 'none'; });
 // ===================== FIN TIENDA 4.6.0 =====================
 
 function tiendaInit() {
