@@ -3258,6 +3258,10 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.15.0', f:'16/10/2026', t:[
+    'Facturas pendientes: aviso en rojo cuando falta stock para armar el pedido. La app reparte lo que tenés de cada producto entre los pedidos sin preparar (el más viejo primero) y marca "hay 2 · faltan 3". El botón rojo "Falta 3" abre la hoja ya con esa cantidad.',
+    'La hoja "¿Cuántos faltan?" ya no muestra el botón "Faltan todos": los botones − y + no se corren al tocarlos.'
+  ]},
   {v:'4.14.1', f:'16/10/2026', t:[
     'Ayuda "?": el flyer se explica mejor (qué es y cómo se arma), la categoría especial usa el nombre que le puso cada negocio, Stock > Movimientos explica cómo rastrear en qué factura salió y a qué proveedor se compró un producto, y Estadísticas explica los Niveles (solo Surtimar).'
   ]},
@@ -7888,27 +7892,119 @@ function _fEsDomingo(s) {
   return new Date(p[0], p[1]-1, p[2]).getDay() === 0;
 }
 
+// ===== 4.15.0: AVISO DE STOCK EN LAS FACTURAS PENDIENTES =====
+// Reparte lo que hay de cada producto entre los pedidos todavía sin preparar, por orden
+// de llegada (el más viejo primero), y marca lo que le faltaría a cada uno. Solo cuenta los pedidos
+// de hoy en adelante y todavía sin "Preparado". Lo ya tildado
+// (armado) se considera cubierto. El stock de la app ya tiene descontados estos pedidos,
+// así que primero se les "devuelve" lo que cuenta en ese stock.
+//   devuelve { idFactura: { items:{ idx:{hay, falta} }, prods:n, units:u } }
+function _stkReparto() {
+  const out = {};
+  try {
+    // Solo pedidos de hoy en adelante: muchas facturas de días anteriores ya se entregaron
+    // aunque nunca se tocó "Preparado", y contarlas daría avisos falsos.
+    const hoy = localDateStr();
+    const pend = (S.invoices||[]).filter(function(inv){
+      return inv && inv.type !== 'presupuesto' && inv.status !== 'cancelada' && !inv.preparado
+        && String(inv.date||'') >= hoy
+        && !/^FAC-EJ/.test(String(inv.id||'')) && Array.isArray(inv.items) && inv.items.length;
+    });
+    if(!pend.length) return out;
+    const prods = {}; (S.products||[]).forEach(function(p){ if(p && p.id) prods[p.id] = p; });
+    // Última corrección de stock (conteo) de cada producto: igual criterio que recalcAllStocks
+    const ajBy = {};
+    (S.ajustes||[]).forEach(function(a){
+      (a.items||[]).forEach(function(it){
+        (ajBy[it.prodId] = ajBy[it.prodId] || []).push({ ts:a.ts||0, date:a.date||'', variante:it.variante||'' });
+      });
+    });
+    const ord = function(a,b){ return a.ts !== b.ts ? a.ts - b.ts : a.date.localeCompare(b.date); };
+    const baseDe = function(p, variante) {
+      let l = (ajBy[p.id]||[]).slice();
+      if(variante !== null) l = l.filter(function(a){ return a.variante === variante; });
+      if(!l.length) return null;
+      l.sort(ord); return l[l.length-1];
+    };
+    const grupos = {};
+    pend.forEach(function(inv){
+      inv.items.forEach(function(item, idx){
+        if(!item || !item.prodId) return;
+        const p = prods[item.prodId]; if(!p || p.ejemplo || /^PROD-EJ/.test(String(p.id))) return;
+        const qty = _fNum(item.qty); if(qty <= 0) return;
+        let key, stock, variante = null;
+        if(p.variantes && p.variantes.length) {
+          if(!item.variante || p.variantes.indexOf(item.variante) < 0) return;   // la app no lleva ese stock
+          variante = item.variante; key = p.id+'|'+variante; stock = Number((p.stockVariantes||{})[variante])||0;
+        } else { key = p.id; stock = Number(p.stock)||0; }
+        const b = baseDe(p, variante);
+        const cuenta = b ? ((inv.date||'') > b.date || ((inv.date||'') === b.date && (inv.ts||0) > b.ts)) : true;
+        const g = grupos[key] || (grupos[key] = { stock:stock, lineas:[] });
+        g.lineas.push({ inv:inv, idx:idx, qty:qty, cuenta:cuenta, armado:_estaArmado(inv, item, idx) });
+      });
+    });
+    Object.keys(grupos).forEach(function(k){
+      const g = grupos[k];
+      let pool = g.stock;
+      g.lineas.forEach(function(l){ if(l.cuenta) pool += l.qty; });
+      let disp = Math.max(0, pool);
+      g.lineas.sort(function(a,b){
+        if(a.armado !== b.armado) return a.armado ? -1 : 1;
+        const ta = a.inv.ts||0, tb = b.inv.ts||0; if(ta !== tb) return ta - tb;
+        const da = String(a.inv.date||''), db = String(b.inv.date||''); if(da !== db) return da < db ? -1 : 1;
+        return String(a.inv.id) < String(b.inv.id) ? -1 : 1;
+      });
+      g.lineas.forEach(function(l){
+        const da = _fNum(Math.min(l.qty, disp)); disp = _fNum(disp - da);
+        const falta = l.armado ? 0 : _fNum(l.qty - da);
+        if(falta > 0.0005) {
+          const r = out[l.inv.id] || (out[l.inv.id] = { items:{}, prods:0, units:0 });
+          r.items[l.idx] = { hay:da, falta:falta }; r.prods++; r.units = _fNum(r.units + falta);
+        }
+      });
+    });
+  } catch(e) { console.warn('stock reparto', e); return {}; }
+  return out;
+}
+function _stkDe(inv) { return ((window._stkR || {})[inv && inv.id]) || null; }
+function _stkTxtProds(n) { return n + ' producto' + (n === 1 ? '' : 's'); }
+// Pastilla roja de la tarjeta (se ve aunque esté cerrada)
+function _stkPildora(inv) {
+  const r = _stkDe(inv); if(!r) return '';
+  return '<div style="padding:0 14px 8px"><span style="display:inline-block;background:#fee2e2;color:#b91c1c;border:1.5px solid #dc2626;border-radius:12px;font-size:12px;font-weight:800;padding:2px 8px;white-space:nowrap">⚠ '+_stkTxtProds(r.prods)+' sin stock</span></div>';
+}
+// Franja arriba del desplegable
+function _stkFranja(inv) {
+  const r = _stkDe(inv); if(!r) return '';
+  return '<div style="background:#fee2e2;border:1.5px solid #dc2626;border-radius:10px;padding:7px 10px;margin:2px 0 6px;font-size:13px;font-weight:800;color:#b91c1c;line-height:1.3">⚠ Sin stock: '+_stkTxtProds(r.prods)+' <span style="font-weight:600">· '+(r.units === 1 ? 'falta 1 u.' : 'faltan '+r.units+' u.')+'</span></div>';
+}
+// ===== FIN 4.15.0 (aviso de stock) =====
+
 // ---------- Filas del desplegable ----------
 function _fFilasHtml(inv) {
   const falts = _fFalts(inv);
   const usados = {};
   const editable = inv.type !== 'presupuesto' && inv.status !== 'cancelada';
   const btnUndo = (fids)=>'<span data-action="undoFalta" data-invid="'+inv.id+'" data-fids="'+fids.join(',')+'" style="flex-shrink:0;color:#ea580c;font-size:12.5px;font-weight:800;text-decoration:underline;cursor:pointer;padding:6px 2px">Deshacer</span>';
-  let h = (inv.items||[]).map((item, idx)=>{
+  let h = (editable ? _stkFranja(inv) : '') + (inv.items||[]).map((item, idx)=>{
     const armado = _estaArmado(inv, item, idx);
     const key = _keyItemArmado(item, idx);
     const fs = falts.filter(f=>!usados[f.fid] && f.key===key && Number(f.price)===Number(item.price));
     fs.forEach(f=>{ usados[f.fid] = 1; });
     const fq = _fNum(fs.reduce((s,f)=>s+(Number(f.qty)||0), 0));
     const puedeFalta = editable && !armado && !fq && !_fClaveIndice(key);
-    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)'+(fq?';background:#fff7ed;margin:0 -14px;padding:6px 14px':'')+'">'
+    const sk = (editable && !armado && _stkDe(inv)) ? (_stkDe(inv).items[idx] || null) : null;   // 4.15.0: sin stock suficiente
+    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)'+(fq?';background:#fff7ed;margin:0 -14px;padding:6px 14px':(sk?';background:#fff5f5;margin:0 -14px;padding:6px 14px':''))+'">'
       +'<div data-action="togItemArmado" data-invid="'+inv.id+'" data-idx="'+idx+'" style="width:26px;height:26px;border-radius:6px;border:2px solid '+(armado?'var(--green)':'var(--border)')+';background:'+(armado?'var(--green)':'transparent')+';display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:14px">'+(armado?'✓':'')+'</div>'
       +'<span style="flex:1;color:'+(armado?'var(--text3)':(fq?'#9a3412':'var(--text2)'))+';font-size:14px;'+(armado?'text-decoration:line-through':'')+'">'+(item.desc||item.name||'Producto')
-        +(fq?'<br><span style="display:inline-block;background:#ea580c;color:#fff;font-size:11px;font-weight:800;border-radius:8px;padding:1px 7px;margin-top:3px;text-decoration:none">⏳ faltan '+fq+'</span>':'')+'</span>'
+        +(fq?'<br><span style="display:inline-block;background:#ea580c;color:#fff;font-size:11px;font-weight:800;border-radius:8px;padding:1px 7px;margin-top:3px;text-decoration:none">⏳ faltan '+fq+'</span>':'')
+        +(sk?'<br><span style="display:inline-block;color:#b91c1c;font-size:12px;font-weight:800;margin-top:2px;text-decoration:none">⚠ hay '+sk.hay+' · '+(sk.falta === 1 ? 'falta 1' : 'faltan '+sk.falta)+'</span>':'')+'</span>'
       +'<span style="color:var(--text3);white-space:nowrap;margin:0 4px;font-size:14px">x'+item.qty+'</span>'
       +'<span style="font-weight:700;color:var(--accent);white-space:nowrap;font-size:14px">$'+(item.qty*item.price).toFixed(0)+'</span>'
       +(fq ? btnUndo(fs.map(f=>f.fid))
-           : (puedeFalta ? '<span data-action="falta" data-invid="'+inv.id+'" data-idx="'+idx+'" style="flex-shrink:0;border:1.5px solid #ea580c;color:#ea580c;background:#fff;border-radius:14px;font-size:12px;font-weight:800;padding:5px 9px;cursor:pointer">Falta</span>' : ''))
+           : (puedeFalta ? (sk
+               ? '<span data-action="falta" data-invid="'+inv.id+'" data-idx="'+idx+'" data-sug="'+sk.falta+'" style="flex-shrink:0;border:1.5px solid #dc2626;color:#fff;background:#dc2626;border-radius:14px;font-size:12px;font-weight:800;padding:5px 9px;cursor:pointer;white-space:nowrap">Falta '+sk.falta+'</span>'
+               : '<span data-action="falta" data-invid="'+inv.id+'" data-idx="'+idx+'" style="flex-shrink:0;border:1.5px solid #ea580c;color:#ea580c;background:#fff;border-radius:14px;font-size:12px;font-weight:800;padding:5px 9px;cursor:pointer">Falta</span>') : ''))
       +'</div>';
   }).join('');
   // Productos que faltaron completos (ya no están en la factura)
@@ -7961,13 +8057,14 @@ function _fOvAbierto() {
 const _F_BTN = 'display:block;width:100%;text-align:center;border-radius:12px;padding:13px;font-weight:800;font-size:15px;margin-top:8px;cursor:pointer;border:none;font-family:inherit';
 
 // Hoja "¿Cuántos faltan?"
-function abrirFalta(invId, idx) {
+function abrirFalta(invId, idx, sug) {
   if(_fBloq()) return;
   const inv = S.invoices.find(i=>i.id===invId); if(!inv) return;
   const item = (inv.items||[])[idx]; if(!item) return;
   const N = _fNum(item.qty);
   if(N <= 0) return;
-  window._fSt = { invId, key:_keyItemArmado(item, idx), price:item.price, desc:(item.desc||item.name||'Producto'), N, n:N };
+  const n0 = (Number(sug) > 0 && Number(sug) < N) ? _fNum(sug) : N;   // 4.15.0: viene la cantidad que falta según el stock
+  window._fSt = { invId, key:_keyItemArmado(item, idx), price:item.price, desc:(item.desc||item.name||'Producto'), N, n:n0 };
   _fPintarHoja();
 }
 function _fPintarHoja() {
@@ -7987,7 +8084,6 @@ function _fPintarHoja() {
       +'<button onclick="_fCambiarN(1)" style="'+btnCirc+'">+</button></div>'
     +'<div style="font-size:13.5px;color:var(--text2);text-align:center">'+(entregan>0?'Se entregan <b>'+entregan+'</b> · ':'')+'pasa'+(st.n===1?'':'n')+' <b>'+st.n+'</b> a otro día con el mismo precio</div>'
     +(delta > 0.5 ? '<div style="background:#fffbeb;border:1px solid #ca8a04;border-radius:10px;padding:9px 11px;font-size:13px;color:#92400e;margin-top:12px">💰 Esta factura ya tiene pagos: al sacar esto le quedan <b>$'+delta.toFixed(0)+' a favor</b> al cliente.</div>' : '')
-    +(st.n !== st.N ? '<button onclick="_fCambiarN(\'todos\')" style="'+_F_BTN+';background:#fff;border:1.5px solid #ea580c;color:#ea580c">Faltan todos ('+st.N+')</button>' : '')
     +'<button onclick="confirmarFalta()" style="'+_F_BTN+';background:var(--accent);color:#fff">Confirmar</button>'
     +'<button onclick="_fCerrarOv()" style="'+_F_BTN+';background:transparent;color:var(--text3)">Cancelar</button>'
     +'</div>', false);
@@ -8104,6 +8200,7 @@ function crearFacturaPendientes(invId, fecha) {
 // ===== FIN FALTANTES =====
 function renderInvs() {
   try{renderInvDiaResumen();}catch(e){}
+  window._stkR = _stkReparto();   // 4.15.0: reparto de stock entre pedidos sin preparar
   const el=document.getElementById('inv-list');
   let list=[...S.invoices].sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id));
   if(S.invFilter!=='all') list=list.filter(i=>S.invFilter==='presupuesto'?i.type==='presupuesto':S.invFilter==='cigarrillos'?i.type==='cigarrillos':S.invFilter==='tienda'?(i.notes&&i.notes.includes('tienda online')):i.status===S.invFilter);
@@ -8200,6 +8297,7 @@ function renderInvs() {
     +'<span style="font-size:13px;color:var(--text2);font-weight:600">'+inv.date.split('-').reverse().join('/')+' · '+inv.items.length+' prod.</span>'
     +'<span style="margin-left:auto;font-size:14px;color:var(--text3)" id="inv-arrow-'+inv.id+'">▼</span>'
     +'</div>'
+    +(inv.type!=='presupuesto'&&inv.status!=='cancelada'?_stkPildora(inv):'')
     +(inv.notaInterna?'<div style="margin:0 14px 10px;background:#fffbeb;border:1px solid #ca8a04;border-radius:8px;padding:8px 10px;font-size:13px;color:#92400e">📝 '+inv.notaInterna+'</div>':'')
     +_fAvisoHtml(inv)
     +'</div>'
@@ -8271,7 +8369,7 @@ document.getElementById('page-facturas').addEventListener('click', function(e){
     if(textEl) { textEl.style.color = armado ? 'var(--text3)' : 'var(--text2)'; textEl.style.textDecoration = armado ? 'line-through' : ''; }
     return;
   }
-  else if(action==='falta') { abrirFalta(btn.dataset.invid, parseInt(btn.dataset.idx)); return; }
+  else if(action==='falta') { abrirFalta(btn.dataset.invid, parseInt(btn.dataset.idx), parseFloat(btn.dataset.sug)||0); return; }
   else if(action==='undoFalta') { deshacerFalta(btn.dataset.invid, btn.dataset.fids); return; }
   else if(action==='armarPend') { abrirPendientes(id, false); return; }
   else if(action==='openInv') openInv(id);
@@ -15610,6 +15708,7 @@ function cfgSecAbrir(k) {
       ['Desplegable (tocá la tarjeta)', [
         'Se abre la lista de productos. Cada uno tiene un <b>cuadradito para tildar</b> mientras armás el pedido. Los tildes se ven también en el otro celular.',
         '<b>Falta</b>: si un producto (sin tildar) no lo tenés, tocá "Falta", elegí cuántos faltan y confirmá. La factura se corrige sola: total, saldo y stock. Lo que falta queda <b>⏳ pendiente</b> con el mismo precio.',
+        '<b>⚠ Sin stock (en rojo)</b>: la app reparte lo que tenés de cada producto entre los pedidos todavía sin preparar, el más viejo primero, y marca lo que le faltaría a cada uno ("hay 2 · faltan 3"). Tocá el botón rojo <b>Falta 3</b>: se abre con esa cantidad, la corregís con − y + si hace falta y confirmás. Para que el aviso sea confiable, mantené el stock al día (cargá las compras).',
         'Si la factura ya estaba paga, lo que se saca queda <b>a favor del cliente</b>. Si faltan todos los productos, la factura se cancela.',
         '<b>Deshacer</b>: vuelve el producto a la factura.',
         '<b>⏳ N pendientes · Armar factura</b> (cartel naranja): arma una factura nueva con lo que faltó, para el día que elijas.'
