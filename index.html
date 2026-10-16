@@ -1444,7 +1444,7 @@ select option{background:var(--surface2)}
       <button onclick="cancelarFlyerRapido()" style="padding:6px 10px;background:#fff;border:1px solid #ccc;border-radius:8px;font-size:13px;cursor:pointer">✕ Cancelar</button>
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-      <div id="prod-cat-chips" style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex:1;padding:2px 0">
+      <div id="prod-cat-chips" style="display:flex;flex-wrap:wrap;gap:6px;flex:1;padding:2px 0">
         <div class="chip" id="chip-noprice" onclick="setPF('notienda',this)">🚫 Fuera de tienda</div>
         <div class="chip" id="chip-sinstock" onclick="setPF('sinstock',this)">📦 Sin stock</div>
         <div class="chip" id="chip-flyer" onclick="setPF('flyer',this)">📢 Flyer</div>
@@ -2017,6 +2017,7 @@ select option{background:var(--surface2)}
         <div style="font-size:13px;color:var(--text3);margin-top:4px">Tocá para seleccionar/deseleccionar</div>
       </div>
       <div class="form-group"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="p-vis" checked style="width:20px;height:20px"><span style="font-size:14px">Visible en tienda online</span></label></div>
+      <div class="form-group"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="p-mostrarstock" style="width:20px;height:20px"><span style="font-size:14px">🔢 Mostrar stock en la tienda <span style="color:var(--text3);font-size:12px">(menos de 10: "¡Últimas N!"; no aplica a productos con variantes)</span></span></label></div>
       <div class="form-group"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="p-oferta" style="width:20px;height:20px"><span style="font-size:14px">🔥 En oferta</span></label></div>
       <div class="form-group"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="p-soloflyer" style="width:20px;height:20px"><span style="font-size:14px">📢 Solo flyer (no aparece al facturar)</span></label></div>
     </div>
@@ -3111,6 +3112,8 @@ function _armarCatalogo() {
     if(o.image && String(o.image).indexOf('data:') === 0) delete o.image; // las viejas en base64 se pasan a la nube aparte
     if(p.priceHistory && p.priceHistory.length) o.priceHistory = [p.priceHistory[p.priceHistory.length - 1]];
     o.visible = true;
+    // 4.16.0: stock visible en la tienda solo en los productos que se eligieron (sin variantes)
+    if(p.mostrarStock && !(p.variantes && p.variantes.length)) o.stockVis = Math.max(0, Math.floor(Number(p.stock) || 0));
     return o;
   });
   let cig = [];
@@ -3258,6 +3261,13 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.16.0', f:'16/10/2026', t:[
+    'Tienda: podés mostrar el stock de los productos que elijas. Al editar un producto, tildá "Mostrar stock en la tienda": el cliente ve "Stock: 25" y, con menos de 10, "¡Últimas 7!". Los productos con 🔢 en tu lista son los que lo muestran.'
+  ]},
+  {v:'4.15.1', f:'16/10/2026', t:[
+    'Unificar pedidos: si un producto que estaba pendiente vuelve a venir en el pedido nuevo, ya no se duplica. Queda un solo renglón con la cantidad mayor y el precio pactado en el pendiente, y te avisa.',
+    'Productos: los filtros (Fuera de tienda, Sin stock, Flyer, Tienda, Oferta) ahora se ven todos en dos renglones, sin tener que deslizar.'
+  ]},
   {v:'4.15.0', f:'16/10/2026', t:[
     'Facturas pendientes: aviso en rojo cuando falta stock para armar el pedido. La app reparte lo que tenés de cada producto entre los pedidos sin preparar (el más viejo primero) y marca "hay 2 · faltan 3". El botón rojo "Falta 3" abre la hoja ya con esa cantidad.',
     'La hoja "¿Cuántos faltan?" ya no muestra el botón "Faltan todos": los botones − y + no se corren al tocarlos.'
@@ -5035,6 +5045,7 @@ function openProd(id) {
     document.getElementById('p-barcode').value = p.barcode||'';
     document.getElementById('p-desc').value = p.desc||'';
     document.getElementById('p-vis').checked = p.visible!==false;
+    document.getElementById('p-mostrarstock').checked = !!p.mostrarStock;
     document.getElementById('p-oferta').checked = !!p.oferta;
     document.getElementById('p-soloflyer').checked = !!p.soloFlyer;
     document.getElementById('p-frac').value = p.fracMin||1;
@@ -5049,6 +5060,7 @@ function openProd(id) {
     document.getElementById('p-minst').value = 0;
     document.getElementById('p-barcode').value = '';
     document.getElementById('p-vis').checked = true;
+    document.getElementById('p-mostrarstock').checked = false;
   document.getElementById('p-oferta').checked = false;
   document.getElementById('p-soloflyer').checked = false;
     document.getElementById('p-frac').value = 1;
@@ -5095,6 +5107,7 @@ function saveProd() {
     minStock: parseInt(document.getElementById('p-minst').value)||0,
     desc: document.getElementById('p-desc').value,
     visible: document.getElementById('p-vis').checked,
+    mostrarStock: document.getElementById('p-mostrarstock').checked,
     visibleSince: (()=>{
       const isVisible = document.getElementById('p-vis').checked;
       if(!isVisible) return null;
@@ -5422,7 +5435,7 @@ function renderProds(q) {
     // MODO LISTA CON IMAGEN
     if(prodView === 'imglist') {
       const stColor = p.stock===0?'var(--accent3)':low?'var(--orange,#fb923c)':'var(--green)';
-      const stTxt = p.stock===0?'Sin stock':(p.stock+' uds');
+      const stTxt = (p.stock===0?'Sin stock':(p.stock+' uds')) + (p.mostrarStock?' 🔢':'');
       return '<div class="list-item" style="padding:8px 10px;gap:8px;align-items:flex-start" id="pc-'+pid+'">'
         + '<div style="flex-shrink:0;width:70px;height:70px;border-radius:10px;overflow:hidden;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:32px">'
         + (p.image?'<img src="'+p.image+'" loading="lazy" decoding="async" style="width:70px;height:70px;object-fit:cover">':'<span>'+(p.emoji||'📦')+'</span>')
@@ -5460,7 +5473,7 @@ function renderProds(q) {
     // MODO LISTA
     if(prodView === 'list') {
       const stColor = p.stock===0?'var(--accent3)':low?'var(--orange,#fb923c)':'var(--green)';
-      const stTxt = p.stock===0?'Sin stock':(p.stock+' uds');
+      const stTxt = (p.stock===0?'Sin stock':(p.stock+' uds')) + (p.mostrarStock?' 🔢':'');
       return '<div class="list-item" style="padding:10px 14px;gap:10px" id="pc-'+pid+'">'
         + '<div style="flex:1;min-width:0">'
         + '<div style="font-weight:600;font-size:15px;margin-bottom:2px">'+p.name+(p.soloFlyer?' <span style="background:#3483fa;color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;vertical-align:middle">FLYER</span>':'')+'</div>'
@@ -5486,7 +5499,7 @@ function renderProds(q) {
     const sc = p.stock<0?'badge-red':low?'badge-orange':p.stock===0?'badge-gray':'badge-green';
     const st = tieneVariantes
       ? (p.stock===0?'Sin stock':(p.stock+' uds'))
-      : (p.stock<0?'Faltan '+Math.abs(p.stock):p.stock===0?'Sin stock':(p.stock+' uds'));
+      : (p.stock<0?'Faltan '+Math.abs(p.stock):p.stock===0?'Sin stock':(p.stock+' uds')) + (p.mostrarStock?' 🔢':'');
     // Para variantes: líneas de stock por variante bajo el nombre del producto
     const stockVariantesHtml = tieneVariantes
       ? '<div style="margin:4px 10px 6px;display:flex;flex-direction:column;gap:2px">'
@@ -7653,7 +7666,24 @@ function unificarFacturasTienda(clientId, fecha) {
       itemMap[key] = {...item}; // la más nueva pisa a la anterior
     }
   }
-  const itemsUnificados = Object.values(itemMap);
+  let itemsUnificados = Object.values(itemMap);
+  // 4.15.1: si un producto que estaba pendiente vuelve a venir en el pedido nuevo (casi siempre
+  // el cliente no sabía que ya estaba anotado), queda UN solo renglón: la cantidad mayor y el
+  // precio pactado en el pendiente. No se suma.
+  const _avisosPend = [];
+  (function(){
+    const kp = function(it){ return (it.prodId||it.desc||'')+'|'+(it.variante||''); };
+    itemsUnificados.filter(function(it){ return it.dePendiente; }).forEach(function(pen){
+      const k = kp(pen);
+      const j = itemsUnificados.findIndex(function(x){ return x !== pen && !x.dePendiente && kp(x) === k; });
+      if(j < 0) return;
+      const otro = itemsUnificados[j];
+      const q = Math.max(Number(pen.qty)||0, Number(otro.qty)||0);
+      pen.qty = q;
+      itemsUnificados.splice(j, 1);
+      _avisosPend.push((pen.desc||pen.name||'Producto')+': estaba pendiente y también en el pedido, quedó '+q+' (no se sumó)');
+    });
+  })();
   const totalUnificado = itemsUnificados.reduce((s,i)=>s+(i.qty||0)*(i.price||0),0);
 
   // Tomar la factura más reciente como base, borrar las demás
@@ -7691,6 +7721,10 @@ function unificarFacturasTienda(clientId, fecha) {
   try{save(['invoices','products']);}catch(e){}
   renderInvs();
   toast('✓ '+facts.length+' pedidos unificados en uno');
+  if(_avisosPend.length) {   // 4.15.1: aviso más largo para poder leerlo
+    toast('✓ Unificados. ⚠ '+_avisosPend.join(' · '));
+    try{ const t = document.getElementById('toast'); clearTimeout(t._t); t._t = setTimeout(function(){ t.classList.remove('show'); }, 9000); }catch(e){}
+  }
 }
 // Clave del checklist "armado" de cada item de la factura.
 // Se usa el producto (id + variante) en vez de la posición en la lista: si se
@@ -12262,6 +12296,8 @@ body.tn-body{display:block!important;background:linear-gradient(180deg,#dfeaff 0
 .tn-pi{min-width:0;flex:1}
 .tn-pn{font-size:15px;font-weight:800;line-height:1.25}
 .tn-pb{font-size:12px;color:var(--tn-gris);margin-top:2px;font-weight:600}
+.tn-sk{font-size:12.5px;color:var(--tn-verde);font-weight:800;margin-top:2px}
+.tn-sk.ult{color:#dc2626}
 .tn-pp{font-size:22px;font-weight:900;color:var(--tn-azul2);margin-top:4px}
 .tn-pp small{font-size:12px;color:var(--tn-gris);font-weight:700}
 .tn-pm{font-size:12.5px;color:var(--tn-verde);font-weight:800;margin-top:1px}
@@ -13601,6 +13637,15 @@ function tiendaProdCardNueva(p) {
   const img = p.image
     ? '<img src="' + _tnEsc(p.image) + '" loading="lazy" decoding="async" alt="" onerror="this.onerror=null;this.style.opacity=0"' + det + '>'
     : '<div class="tn-ph"' + det + '>' + (p.emoji || '📦') + '</div>';
+  // 4.16.0: stock visible (solo si el dueño lo eligió). 10 o más: "Stock: N"; menos de 10: "¡Últimas N!"
+  let stk = '';
+  // (en la vista previa del dueño no hay catálogo: se usa su stock directo)
+  const sv = (typeof p.stockVis === 'number') ? p.stockVis : (p.mostrarStock ? Math.max(0, Number(p.stock) || 0) : null);
+  if(!sinStock && !hasVar && sv !== null) {
+    const nsv = Math.floor(sv);
+    if(nsv >= 10) stk = '<div class="tn-sk">Stock: ' + nsv + '</div>';
+    else if(nsv >= 1) stk = '<div class="tn-sk ult">¡Últimas ' + nsv + '!</div>';
+  }
   const sub = hasVar ? (p.variantes.length + ' variantes para elegir')
     : (bq > 1 ? 'Bulto x' + bq + ' unidades' : (step > 1 ? 'Se vende de a ' + step : 'Por unidad'));
   const pc = getPriceChangeHtml(p, '22px', '#1f5fc4', 'margin-top:4px');
@@ -13642,7 +13687,7 @@ function tiendaProdCardNueva(p) {
   return '<div class="tn-pc' + (qty > 0 ? ' sel' : '') + '" data-prod-id="' + p.id + '">'
     + (sinStock ? '<div class="tn-rib">SIN STOCK</div>' : '')
     + '<div class="tn-pt">' + img + '<div class="tn-pi"><div class="tn-pn">' + _tnEsc(p.name) + (p.oferta ? '<span class="tn-ofb">OFERTA</span>' : '') + '</div>'
-    + '<div class="tn-pb">' + sub + '</div>' + precio + mayor + descHtml + '</div></div>' + comboHtml + ctrl + '</div>';
+    + '<div class="tn-pb">' + sub + '</div>' + stk + precio + mayor + descHtml + '</div></div>' + comboHtml + ctrl + '</div>';
 }
 function tiendaDecBulto(id) {
   const p = S.products.find(function(x){ return x.id === id; });
@@ -15796,7 +15841,8 @@ function cfgSecAbrir(k) {
         '<b>📦 Sin stock</b>: los que marcaste "SIN STOCK en tienda".',
         '<b>📢 Flyer</b>: los que van en tu flyer de precios.',
         '<b>👁️ Tienda</b>: los que se ven en la tienda.',
-        '<b>🔥 Oferta</b>: los que salen en "Ofertas de la semana" de la tienda.'
+        '<b>🔥 Oferta</b>: los que salen en "Ofertas de la semana" de la tienda.',
+        '<b>🔢 Mostrar stock en la tienda</b>: al editar un producto podés tildarlo para que tus clientes vean cuánto hay ("Stock: 25"; con menos de 10, "¡Últimas 7!"). Lo ves marcado con 🔢 en la lista. No aplica a productos con variantes. Es tan confiable como tu stock: mantené las compras cargadas.'
       ]],
       ['La tarjeta', [
         '<b>Stock</b> (arriba a la derecha): 🟢 normal · 🟠 llegó al stock mínimo · 🔴 "Faltan N" (vendiste más de lo que tenías).',
