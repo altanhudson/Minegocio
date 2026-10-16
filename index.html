@@ -3258,6 +3258,9 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.14.1', f:'16/10/2026', t:[
+    'Ayuda "?": el flyer se explica mejor (qué es y cómo se arma), la categoría especial usa el nombre que le puso cada negocio, Stock > Movimientos explica cómo rastrear en qué factura salió y a qué proveedor se compró un producto, y Estadísticas explica los Niveles (solo Surtimar).'
+  ]},
   {v:'4.14.0', f:'16/10/2026', t:[
     'Nuevo botón "?" arriba (al lado del engranaje): explica todo lo que hay en la pantalla donde estás. En Facturas: colores, desplegable, Falta, Preparado, Urgente y más. En Compras: cómo se arma la lista de compras (y por qué un producto no aparece en un proveedor).',
     'Cuentas nuevas: en "Primeros pasos" se pueden cargar datos de ejemplo (productos, clientes, un proveedor, una compra y dos facturas) para probar. No aparecen en la tienda y se borran con "Borrar ejemplos".',
@@ -15540,8 +15543,22 @@ function cfgSecAbrir(k) {
   // ---------- textos ----------
   function esp(){ try { return cfgEspecial().activa; } catch(e) { return false; } }
   function espNom(){ try { return especialEtiqueta(); } catch(e) { return 'Especial'; } }
+  function espTxt(){ try { return especialNombre(); } catch(e) { return 'Especial'; } }   // solo el nombre, sin ícono
   function otro(){ try { return _esOtroNegocio(); } catch(e) { return true; } }
   function retiroOn(){ try { return cfgDescRetiro().activo; } catch(e) { return false; } }
+
+  function money(n){ try { return '$' + Number(n).toLocaleString('es-AR'); } catch(e) { return '$' + n; } }
+  function nivelesTxt() {
+    var filas = [];
+    try { FIDE_NIVELES.slice().reverse().forEach(function(n){ filas.push(n.emoji + ' <b>' + n.nombre + '</b>: desde ' + money(n.umbral) + ' en el mes · premio: ' + n.premio); }); } catch(e) {}
+    return [
+      'Es el <b>programa de premios por compras en la tienda online</b>: mientras más compra un cliente en el mes, mejor premio.',
+      'Cuenta <b>solo lo que el cliente pide por la tienda</b> (no las facturas que cargás vos), del 1 al último día del mes. No cuentan cigarrillos, presupuestos ni facturas canceladas.'
+    ].concat(filas.length ? [filas.join('<br>')] : []).concat([
+      'El premio se entrega con el <b>primer pedido del mes siguiente</b>.',
+      'La pestaña muestra cuántos clientes hay en cada nivel, el <b>costo estimado de los premios</b> del mes y, por cada cliente, cuánto compró y <b>cuánto le falta para el próximo nivel</b>. Con "Mes específico" mirás meses anteriores.'
+    ]);
+  }
 
   // Cada pantalla: t = título, i = qué es, s = [ [subtítulo, [renglones...], clave?], ... ]
   // Un renglón null se saltea (para lo que depende de la configuración).
@@ -15563,7 +15580,13 @@ function cfgSecAbrir(k) {
       ['Más abajo', [
         '<b>Estadísticas</b>: ventas, compras, clientes y productos por período.',
         '<b>Gestionar entregas del día</b>: elegís qué facturas repartir, las ordenás como ruta y vas marcando entregas y cobros.',
-        '<b>Tienda online</b>: <b>Abierta</b> o <b>Cerrada</b> (cerrada, tus clientes ven los precios pero no pueden pedir). <b>Compartir link</b> manda la dirección de tu tienda. <b>Generar flyer</b> arma tu flyer de precios con los productos marcados con 📢 (podés elegir categorías). <b>Ver tienda como admin</b> te la muestra como la ve un cliente.'
+        '<b>Tienda online</b>: <b>Abierta</b> o <b>Cerrada</b> (cerrada, tus clientes ven los precios pero no pueden pedir). <b>Compartir link</b> manda la dirección de tu tienda. <b>Ver tienda como admin</b> te la muestra como la ve un cliente.'
+      ]],
+      ['📢 Flyer', [
+        'Un <b>flyer</b> es una lista de precios con fotos, ya diseñada y lista para mandarle a tus clientes por WhatsApp o redes, sin armarla a mano: ven de un vistazo qué tenés y a cuánto.',
+        '<b>Cómo se arma</b>: en <b>Productos</b> marcá con 📢 los que querés que salgan. Después tocá <b>Generar flyer</b> (acá en Inicio) y elegí si va con todos o solo con algunas categorías. La app lo diseña sola y te lo ofrece para compartir en PDF.',
+        'Los productos sin precio no salen. Si querés mostrar un producto solo en el flyer y que no aparezca al facturar, tildá <b>"Solo flyer"</b> al editarlo.',
+        'En Productos, <b>📤 Flyer rápido</b> arma uno al paso: tocás los productos que querés, sin tener que marcarlos antes.'
       ]],
       ['Arriba', [
         '<b>🔄</b>: sincroniza con el otro celular. Si se pone amarillo con un punto, hay cambios para subir o bajar: tocalo.',
@@ -15575,7 +15598,8 @@ function cfgSecAbrir(k) {
       ['Arriba', [
         '<b>Facturado hoy / Cobrado / Pendiente</b>: solo de las facturas con fecha de hoy.',
         '<b>Buscar</b>: por nombre del cliente, número o fecha (ej. 16/10). Busca en todas, aunque no se vean.',
-        '<b>Pestañas</b>: <b>Todas</b>, <b>Pendientes</b> (sin cobrar del todo), <b>Pagadas</b>, <b>Presup.</b> (presupuestos: no descuentan stock ni suman en estadísticas)' + (esp() ? ', <b>' + espNom() + '</b> (las facturas de tu categoría especial)' : '') + ' y <b>🛒 Tienda</b> (pedidos que hicieron tus clientes desde la tienda online).'
+        '<b>Pestañas</b>: <b>Todas</b>, <b>Pendientes</b> (sin cobrar del todo), <b>Pagadas</b>, <b>Presup.</b> (presupuestos: no descuentan stock ni suman en estadísticas) y <b>🛒 Tienda</b> (pedidos que hicieron tus clientes desde la tienda online).',
+        esp() ? '<b>' + espNom() + '</b>: una pestaña más, para las facturas que cargás como "' + espTxt() + '" (en el resumen de la factura elegís ese tipo). Se facturan aparte: no suman en el resumen de arriba (Facturado hoy / Cobrado / Pendiente) ni en el aviso de deuda, y sus productos no llevan descuento por retiro.' : null
       ]],
       ['La tarjeta', [
         '<b>Color del borde</b>: 🔴 rojo = sin cobrar · 🟡 amarillo = cobrada en parte · 🟢 verde = pagada (o cubierta con saldo a favor) · 🟠 "Cubre parcial" = el saldo a favor cubre una parte.',
@@ -15612,7 +15636,7 @@ function cfgSecAbrir(k) {
       ]],
       ['Paso 2: resumen', [
         '<b>✏️ nombre del cliente</b> (arriba): cambiás el cliente.',
-        'Podés cambiar cantidades y precios, <b>➕ Agregar producto</b>, la fecha, el tipo (<b>Factura</b>' + (esp() ? ', <b>' + espNom() + '</b>' : '') + ' o <b>Presupuesto</b>, que no descuenta stock) y el estado.',
+        'Podés cambiar cantidades y precios, <b>➕ Agregar producto</b>, la fecha, el tipo (<b>Factura</b>' + (esp() ? ', <b>' + espTxt() + '</b>' : '') + ' o <b>Presupuesto</b>, que no descuenta stock) y el estado.',
         retiroOn() ? '<b>Desc. retiro depósito</b>: descuento si el cliente lo pasa a buscar.' : null,
         '<b>Desc. extra</b>: un porcentaje de descuento sobre el total.',
         '<b>Registrar pago</b>: monto y forma. Si paga todo queda Pagada; si paga de más, la diferencia queda a favor del cliente.',
@@ -15725,15 +15749,21 @@ function cfgSecAbrir(k) {
         '<b>📸 Fijar stock actual como punto de partida</b>: toma el stock de hoy como base. Las compras y ventas anteriores dejan de influir. Usalo solo si el stock te quedó desordenado.'
       ], 'ajuste'],
       ['📦 Movimientos', [
-        'El stock de cada producto. Tocá uno para ver sus entradas (compras), salidas (ventas) y ajustes.'
+        'Todos tus productos con su stock. Podés buscar por nombre. Tocá uno para ver su <b>historial completo</b>: así rastreás de dónde vino y a dónde se fue cada unidad.',
+        '<b>⬇️ Ventas</b>: en qué <b>factura</b> salió (con su número), a qué <b>cliente</b> y en qué <b>fecha</b>.',
+        '<b>⬆️ Compras</b>: en qué <b>compra</b> entró, a qué <b>proveedor</b> se la compraste y en qué <b>fecha</b>.',
+        '<b>Ajustes</b>: las correcciones manuales de stock que hiciste.',
+        'A la derecha de cada movimiento ves la cantidad y cuánto stock quedó después de ese movimiento. Arriba están los totales de <b>Entradas</b>, <b>Salidas</b> y <b>Balance</b>, y las pestañas <b>Todos / Compras / Ventas</b> filtran la lista.',
+        'Si el producto tiene variantes (por ejemplo gustos), primero elegís cuál querés ver.'
       ], 'movimientos']
     ]},
     estadisticas: { t:'📊 Estadísticas', i:'Cómo viene el negocio.', s:[
       ['Cómo se usa', [
         'Arriba elegís el <b>período</b>: hoy, esta semana, este mes, trimestre, año, todo o un mes específico.',
-        'Pestañas: <b>💰 Ventas</b>, <b>🛒 Compras</b>, <b>👥 Clientes</b>, <b>📦 Productos</b>' + (otro() ? '' : ' y <b>🏆 Niveles</b> (premios por compras en la tienda)') + '.',
+        'Pestañas: <b>💰 Ventas</b>, <b>🛒 Compras</b>, <b>👥 Clientes</b>, <b>📦 Productos</b>' + (otro() ? '' : ' y <b>🏆 Niveles</b>') + '.',
         'Los presupuestos y las compras en borrador no cuentan.'
-      ]]
+      ]],
+      otro() ? ['Niveles', [null]] : ['🏆 Niveles', nivelesTxt()]
     ]},
     reparto: { t:'🚚 Reparto del día', i:'Para organizar las entregas.', s:[
       ['Cómo se usa', [
@@ -15747,7 +15777,7 @@ function cfgSecAbrir(k) {
       ['Secciones', [
         '<b>🏪 Negocio y tienda</b>: nombre, WhatsApp para pedidos, envío, <b>horario de corte</b> (los pedidos de la tienda que llegan después se facturan para el día siguiente) y banners de la tienda.',
         '<b>📦 Productos</b>: importar productos desde una planilla.',
-        '<b>🧾 Facturas</b>: descuento por retiro, categoría especial y si las facturas se comparten como imagen o texto.',
+        '<b>🧾 Facturas</b>: descuento por retiro, <b>categoría especial</b> (opcional: una categoría de productos que querés facturar por separado' + (esp() ? ', como tu <b>' + espTxt() + '</b>' : ', por ejemplo cigarrillos') + ') y si las facturas se comparten como imagen o texto.',
         '<b>💾 Datos y copias de seguridad</b>: descargar un backup, las fotos de facturas de proveedor y herramientas avanzadas.',
         '<b>⭐ Mi cuenta y suscripción</b>: suscripción, exportar tus datos y cerrar sesión.',
         '<b>✨ Novedades</b>: qué cambió en cada versión.'
