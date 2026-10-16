@@ -1018,6 +1018,16 @@ select option{background:var(--surface2)}
 .key-amber{--kt:#fff2d8;--km:#ffdfa3;--kb:#eeaa45;--ks:rgba(240,150,20,.55)}
 .key-rosa{--kt:#ffe8ea;--km:#ffcbd2;--kb:#e98595;--ks:rgba(235,80,110,.45)}
 .key-green{--kt:#e0f9ea;--km:#b6edce;--kb:#5fc58a;--ks:rgba(30,170,90,.5)}
+.cfg-fila{display:flex;align-items:center;gap:14px;width:100%;text-align:left;cursor:pointer;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px;margin-bottom:10px;box-shadow:0 2px 0 rgba(0,0,0,.04);font-family:inherit;color:var(--text)}
+.cfg-fila:active{transform:scale(.985);background:var(--surface2)}
+.cfg-ico{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:28px;flex:none}
+.cfg-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.cfg-t1{font-size:16px;font-weight:800;font-family:Inter,sans-serif}
+.cfg-t2{font-size:12.5px;color:var(--text3);line-height:1.35}
+.cfg-flecha{font-size:24px;color:var(--text3)}
+.cfg-sec-cab{display:flex;align-items:center;gap:10px;margin:0 0 14px}
+.cfg-volver{width:44px;height:44px;border-radius:12px;background:var(--surface2);border:1px solid var(--border);font-size:22px;font-weight:800;color:var(--text);cursor:pointer;flex:none}
+.cfg-sec-tit{font-family:Inter,sans-serif;font-size:20px;font-weight:900;color:var(--accent)}
 </style>
 </head>
 <body>
@@ -1647,17 +1657,19 @@ select option{background:var(--surface2)}
     </div>
   </div>
   <div class="page" id="page-config">
+    <div id="cfg-menu-wrap">
     <div style="font-family:Inter,sans-serif;font-size:20px;font-weight:800;margin-bottom:20px">&#9881;&#65039; Configuración</div>
-    <div class="card" style="margin-bottom:12px">
-      <div class="card-header"><span class="card-title">&#11088; Suscripción y datos</span></div>
-      <div style="padding:14px 16px">
-        <div id="cfg-sub-resumen" style="font-size:14px;color:var(--text3);margin-bottom:12px;line-height:1.4"></div>
-        <button class="btn btn-primary btn-full" onclick="showPage('suscripcion')">&#11088; Mi suscripción</button>
-        <button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="showPage('exportar')">&#128228; Exportar mis datos</button>
-      </div>
-    </div>
         <div id="cfg-pp" style="display:none"></div>
-        <div style="margin:18px 4px 8px;font-size:13px;font-weight:800;letter-spacing:.5px;color:var(--text3);text-transform:uppercase">🏪 Negocio y tienda</div>
+    <div id="cfg-menu">
+      <button type="button" class="cfg-fila" onclick="cfgSecAbrir('negocio')"><span class="cfg-ico" style="background:#dbe7ff">🏪</span><span class="cfg-txt"><span class="cfg-t1">Negocio y tienda</span><span class="cfg-t2">Nombre, WhatsApp, envío, horario de corte y banners</span></span><span class="cfg-flecha">&rsaquo;</span></button>
+      <button type="button" class="cfg-fila" onclick="cfgSecAbrir('facturas')"><span class="cfg-ico" style="background:#ece4ff">🧾</span><span class="cfg-txt"><span class="cfg-t1">Facturas</span><span class="cfg-t2">Descuento por retiro, categoría especial y formato al compartir</span></span><span class="cfg-flecha">&rsaquo;</span></button>
+      <button type="button" class="cfg-fila" onclick="cfgSecAbrir('datos')"><span class="cfg-ico" style="background:#d8f5e2">💾</span><span class="cfg-txt"><span class="cfg-t1">Datos y copias de seguridad</span><span class="cfg-t2">Backup, restaurar, fotos de facturas de proveedor, limpieza</span></span><span class="cfg-flecha">&rsaquo;</span></button>
+      <button type="button" class="cfg-fila" onclick="cfgSecAbrir('cuenta')"><span class="cfg-ico" style="background:#ffeccc">⭐</span><span class="cfg-txt"><span class="cfg-t1">Mi cuenta y suscripción</span><span class="cfg-t2">Suscripción, exportar mis datos, cerrar sesión</span></span><span class="cfg-flecha">&rsaquo;</span></button>
+      <button type="button" class="cfg-fila" onclick="cfgSecAbrir('novedades')"><span class="cfg-ico" style="background:#ffe1e5">✨</span><span class="cfg-txt"><span class="cfg-t1">Novedades y versión</span><span class="cfg-t2">Qué cambió en cada actualización</span></span><span class="cfg-flecha">&rsaquo;</span></button>
+    </div>
+    </div>
+    <div class="cfg-sec" id="cfg-sec-negocio" data-sec="negocio" style="display:none">
+      <div class="cfg-sec-cab"><button type="button" class="cfg-volver" onclick="cfgSecAbrir('')" aria-label="Volver a Configuración">&larr;</button><span class="cfg-sec-tit">🏪 Negocio y tienda</span></div>
     <div class="card" style="margin-bottom:12px">
       <div class="card-header"><span class="card-title">🏪 Mi negocio</span></div>
       <div style="padding:14px 16px">
@@ -1683,6 +1695,35 @@ select option{background:var(--surface2)}
         <button onclick="saveCfgNegocio()" class="btn btn-primary btn-full" style="margin-top:4px">💾 Guardar</button>
       </div>
     </div>
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-header"><span class="card-title">🛒 Tienda online</span></div>
+      <div style="padding:14px 16px">
+        <div style="font-size:14px;color:var(--text3);margin-bottom:12px">Pedidos recibidos después de este horario se facturan para el día siguiente.</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <label style="font-size:14px;font-weight:600;flex:1">Horario de corte</label>
+          <input type="time" id="cfg-horario-corte" value="18:00" onchange="saveCfgHorarioCorte(this.value)" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface);font-size:15px;font-weight:700;color:var(--text);outline:none">
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-header"><span class="card-title">🖼️ Banners de la tienda</span></div>
+      <div style="padding:14px 16px">
+        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:12px">
+          <div style="flex:none;width:92px;border:2px solid var(--border);border-radius:10px;padding:5px;background:var(--surface2)" aria-hidden="true">
+            <div style="height:6px;width:50%;border-radius:3px;background:var(--border);margin-bottom:4px"></div>
+            <div style="aspect-ratio:16/9;border-radius:4px;background:linear-gradient(135deg,#3483fa,#0d9488);color:#fff;font-size:8px;font-weight:900;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.1">TU<br>BANNER</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:4px"><div style="height:15px;background:var(--border);border-radius:3px"></div><div style="height:15px;background:var(--border);border-radius:3px"></div><div style="height:15px;background:var(--border);border-radius:3px"></div><div style="height:15px;background:var(--border);border-radius:3px"></div></div>
+          </div>
+          <div style="font-size:14px;color:var(--text3);line-height:1.4">Es el cartel grande que se ve <b>arriba de tu tienda</b>, antes de los productos. Sirve para destacar una promo o una oferta.</div>
+        </div>
+        <div style="font-size:13.5px;color:var(--text3);line-height:1.45;margin-bottom:12px">📐 La imagen tiene que ser <b>horizontal, formato 16:9</b> (como una foto de TV). Medida ideal: 1280 × 720. Si es de otra forma, se recorta al centro.<br>👆 Si le vinculás un producto, al tocarlo el cliente va a ese producto y se muestra su precio.</div>
+        <div id="banners-list" style="margin-bottom:12px"></div>
+        <button onclick="openBannerModal()" class="btn btn-primary btn-full">+ Agregar banner</button>
+      </div>
+    </div>
+    </div>
+    <div class="cfg-sec" id="cfg-sec-facturas" data-sec="facturas" style="display:none">
+      <div class="cfg-sec-cab"><button type="button" class="cfg-volver" onclick="cfgSecAbrir('')" aria-label="Volver a Configuración">&larr;</button><span class="cfg-sec-tit">🧾 Facturas</span></div>
     <div class="card" style="margin-bottom:12px">
       <div class="card-header"><span class="card-title">🧮 Facturación</span></div>
       <div style="padding:14px 16px">
@@ -1719,33 +1760,9 @@ select option{background:var(--surface2)}
         </div>
       </div>
     </div>
-    <div class="card" style="margin-bottom:12px">
-      <div class="card-header"><span class="card-title">🛒 Tienda online</span></div>
-      <div style="padding:14px 16px">
-        <div style="font-size:14px;color:var(--text3);margin-bottom:12px">Pedidos recibidos después de este horario se facturan para el día siguiente.</div>
-        <div style="display:flex;align-items:center;gap:12px">
-          <label style="font-size:14px;font-weight:600;flex:1">Horario de corte</label>
-          <input type="time" id="cfg-horario-corte" value="18:00" onchange="saveCfgHorarioCorte(this.value)" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface);font-size:15px;font-weight:700;color:var(--text);outline:none">
-        </div>
-      </div>
     </div>
-    <div class="card" style="margin-bottom:12px">
-      <div class="card-header"><span class="card-title">🖼️ Banners de la tienda</span></div>
-      <div style="padding:14px 16px">
-        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:12px">
-          <div style="flex:none;width:92px;border:2px solid var(--border);border-radius:10px;padding:5px;background:var(--surface2)" aria-hidden="true">
-            <div style="height:6px;width:50%;border-radius:3px;background:var(--border);margin-bottom:4px"></div>
-            <div style="aspect-ratio:16/9;border-radius:4px;background:linear-gradient(135deg,#3483fa,#0d9488);color:#fff;font-size:8px;font-weight:900;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.1">TU<br>BANNER</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:4px"><div style="height:15px;background:var(--border);border-radius:3px"></div><div style="height:15px;background:var(--border);border-radius:3px"></div><div style="height:15px;background:var(--border);border-radius:3px"></div><div style="height:15px;background:var(--border);border-radius:3px"></div></div>
-          </div>
-          <div style="font-size:14px;color:var(--text3);line-height:1.4">Es el cartel grande que se ve <b>arriba de tu tienda</b>, antes de los productos. Sirve para destacar una promo o una oferta.</div>
-        </div>
-        <div style="font-size:13.5px;color:var(--text3);line-height:1.45;margin-bottom:12px">📐 La imagen tiene que ser <b>horizontal, formato 16:9</b> (como una foto de TV). Medida ideal: 1280 × 720. Si es de otra forma, se recorta al centro.<br>👆 Si le vinculás un producto, al tocarlo el cliente va a ese producto y se muestra su precio.</div>
-        <div id="banners-list" style="margin-bottom:12px"></div>
-        <button onclick="openBannerModal()" class="btn btn-primary btn-full">+ Agregar banner</button>
-      </div>
-    </div>
-    <div style="margin:18px 4px 8px;font-size:13px;font-weight:800;letter-spacing:.5px;color:var(--text3);text-transform:uppercase">🔧 Datos y mantenimiento</div>
+    <div class="cfg-sec" id="cfg-sec-datos" data-sec="datos" style="display:none">
+      <div class="cfg-sec-cab"><button type="button" class="cfg-volver" onclick="cfgSecAbrir('')" aria-label="Volver a Configuración">&larr;</button><span class="cfg-sec-tit">💾 Datos y copias de seguridad</span></div>
     <div class="card" style="margin-bottom:12px">
       <div class="card-header"><span class="card-title">&#128190; Backup de datos</span></div>
       <div style="padding:14px 16px">
@@ -1806,9 +1823,16 @@ select option{background:var(--surface2)}
     </div>
       </div>
     </div>
+    </div>
+    <div class="cfg-sec" id="cfg-sec-cuenta" data-sec="cuenta" style="display:none">
+      <div class="cfg-sec-cab"><button type="button" class="cfg-volver" onclick="cfgSecAbrir('')" aria-label="Volver a Configuración">&larr;</button><span class="cfg-sec-tit">⭐ Mi cuenta y suscripción</span></div>
     <div class="card" style="margin-bottom:12px">
-      <div class="card-header"><span class="card-title">✨ Novedades</span></div>
-      <div style="padding:14px 16px" id="cfg-novedades"></div>
+      <div class="card-header"><span class="card-title">&#11088; Suscripción y datos</span></div>
+      <div style="padding:14px 16px">
+        <div id="cfg-sub-resumen" style="font-size:14px;color:var(--text3);margin-bottom:12px;line-height:1.4"></div>
+        <button class="btn btn-primary btn-full" onclick="showPage('suscripcion')">&#11088; Mi suscripción</button>
+        <button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="showPage('exportar')">&#128228; Exportar mis datos</button>
+      </div>
     </div>
     <div class="card">
       <div class="card-header"><span class="card-title">&#8505;&#65039; Información</span></div>
@@ -1820,6 +1844,14 @@ select option{background:var(--surface2)}
         <button onclick="bloquearPanel()" style="margin-top:12px;width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🔒 Cerrar sesión en este dispositivo</button>
         <button id="btn-eliminar-cuenta" onclick="eliminarCuenta()" style="display:none;margin-top:10px;width:100%;padding:10px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">🗑️ Eliminar mi cuenta y datos</button>
       </div>
+    </div>
+    </div>
+    <div class="cfg-sec" id="cfg-sec-novedades" data-sec="novedades" style="display:none">
+      <div class="cfg-sec-cab"><button type="button" class="cfg-volver" onclick="cfgSecAbrir('')" aria-label="Volver a Configuración">&larr;</button><span class="cfg-sec-tit">✨ Novedades y versión</span></div>
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-header"><span class="card-title">✨ Novedades</span></div>
+      <div style="padding:14px 16px" id="cfg-novedades"></div>
+    </div>
     </div>
   </div>
 
@@ -3211,6 +3243,9 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.12.1', f:'16/10/2026', t:[
+    'Configuración ordenada por secciones: Negocio y tienda, Facturas, Datos y copias de seguridad, Mi cuenta y suscripción, Novedades y versión. Tocás una y entrás solo a esas opciones; el botón "atrás" vuelve al menú.'
+  ]},
   {v:'4.12.0', f:'16/10/2026', t:[
     'Nuevo diseño: íconos en 3D en toda la app y botones del Inicio con relieve (se hunden al tocarlos).'
   ]},
@@ -3402,6 +3437,7 @@ function showPage(p) {
   if(p==='dashboard') updDash();
   if(p==='suscripcion') { try{ window.renderSuscripcion(); window.subActualizar(false); }catch(e){} }
   if(p==='exportar') { try{ window.renderExportar(); }catch(e){} }
+  if(p==='config') { try{ cfgSecAbrir(''); }catch(e){} }
   if(p==='config') { try{ window.subRefrescarUI(); }catch(e){} }
   if(p==='estadisticas') { estTab='ventas'; try{ aplicarCfgFacturacion(); }catch(e){} renderEstadisticas(); }
   if(p==='facturas') { try{ aplicarCfgFacturacion(); }catch(e){} }
@@ -8804,7 +8840,7 @@ function _ppGuardar() {
 }
 function _ppIr(k) {
   if(k === 'neg') {
-    showPage('config');
+    showPage('config'); cfgSecAbrir('negocio');
     setTimeout(function(){ const el = document.getElementById('cfg-neg-nombre'); if(el) { el.scrollIntoView({behavior:'smooth', block:'center'}); setTimeout(function(){ try{ el.focus(); }catch(e){} }, 400); } }, 150);
   }
   else if(k === 'prod') { showPage('productos'); openProd(); }
@@ -14405,6 +14441,8 @@ window.addEventListener('DOMContentLoaded', function(){
     window.addEventListener('popstate', function(e) {
       // Detalle de compra: "atras" lo cierra y se queda en Compras
       if(window._vcIgnorarPop) { window._vcIgnorarPop = false; return; }
+      // 4.12.1: dentro de una seccion de Configuracion, "atras" vuelve al menu de Configuracion
+      if(S.page === 'config' && window._cfgSec) { window._cfgSec = ''; cfgSecAbrir(''); return; }
       // 4.9.0: "atrás" cierra la ventanita de faltantes y se queda en la misma pantalla
       if(typeof _fOvAbierto === 'function' && _fOvAbierto()) { _fCerrarOv(); history.pushState({page:S.page}, '', ''); return; }
       const _vcOv = document.getElementById('mvercomp-overlay');
@@ -14995,6 +15033,22 @@ window.expPDFResumen = function(){
   if(document.body) iniciar(); else document.addEventListener('DOMContentLoaded',iniciar);
   }catch(e){ try{ console.warn('iconos 3D:',e); }catch(_){} }
 })();
+</script>
+<script id="js-4121">
+/* 4.12.1 — Configuración por secciones */
+function cfgSecAbrir(k) {
+  try {
+    var pg = document.getElementById('page-config'); if(!pg) return;
+    var wrap = document.getElementById('cfg-menu-wrap');
+    var abrir = !!k && !!document.getElementById('cfg-sec-' + k);
+    var secs = pg.querySelectorAll('.cfg-sec');
+    for(var i = 0; i < secs.length; i++) secs[i].style.display = (abrir && secs[i].getAttribute('data-sec') === k) ? 'block' : 'none';
+    if(wrap) wrap.style.display = abrir ? 'none' : '';
+    window._cfgSec = abrir ? k : '';
+    if(abrir) { try { history.pushState({page:'config', sec:k}, '', ''); } catch(e) {} }
+    pg.scrollTop = 0; try { window.scrollTo(0, 0); } catch(e) {}
+  } catch(e) { try { console.warn('cfgSecAbrir', e); } catch(_) {} }
+}
 </script>
 </body>
 </html>
