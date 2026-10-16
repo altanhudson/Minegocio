@@ -868,6 +868,7 @@ html,body{height:100%;overflow:hidden}
 body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;height:100vh;height:100dvh}
 .topbar{height:var(--top-h);min-height:var(--top-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 16px;gap:10px;position:relative;z-index:10}
 .topbar-title{font-family:'Inter',sans-serif;font-size:21px;font-weight:800;color:var(--accent)}
+@media (max-width:400px){.topbar{padding:0 10px;gap:6px}.topbar-title{font-size:18px}#btn-add{padding:6px 9px !important;font-size:13.5px !important}#btn-sync,#btn-ayuda,.topbar button[onclick*="config"]{padding:6px 8px !important}}
 .pages{flex:1;overflow:hidden;position:relative}
 .page{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;padding:16px 16px calc(var(--nav-h) + 16px);display:none;-webkit-overflow-scrolling:touch}
 .page.active{display:block}
@@ -1074,6 +1075,7 @@ select option{background:var(--surface2)}
         <span id="sync-badge" style="display:none;position:absolute;top:-5px;right:-5px;background:#dc2626;color:#fff;border-radius:50%;width:19px;height:19px;font-size:12px;font-weight:800;align-items:center;justify-content:center;line-height:1;border:2px solid var(--surface)">!</span>
       </button>
     </div>
+    <button id="btn-ayuda" type="button" onclick="ayudaAbrir()" aria-label="Ayuda de esta pantalla" title="Ayuda" style="background:var(--surface2);border:1px solid var(--border);color:var(--accent2);font-size:18px;font-weight:900;padding:6px 11px;border-radius:8px;cursor:pointer;font-family:inherit;line-height:1.15">?</button>
     <div style="position:relative">
       <button class="btn btn-sm" onclick="showPage('config')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:18px;padding:6px 12px">&#9881;&#65039;</button>
     </div>
@@ -3103,7 +3105,7 @@ function _clientesTel6() {
 }
 const _CAT_CAMPOS = ['id','name','price','image','category','oferta','ofertaDesde','wholesalePrice','wholesaleQty','grupoMay','bultoQty','variantes','fracMin','desc','emoji','sinStockManual','createdAt','visibleSince'];
 function _armarCatalogo() {
-  const prods = (S.products || []).filter(function(p){ return p && p.visible !== false && p.price > 0 && p.name && p.name.trim(); }).map(function(p){
+  const prods = (S.products || []).filter(function(p){ return p && p.visible !== false && p.price > 0 && p.name && p.name.trim() && !(window.ejEsId && window.ejEsId('products', p.id)); }).map(function(p){
     const o = {};
     _CAT_CAMPOS.forEach(function(k){ const v = p[k]; if(v !== undefined && v !== null && v !== '') o[k] = v; });
     if(o.image && String(o.image).indexOf('data:') === 0) delete o.image; // las viejas en base64 se pasan a la nube aparte
@@ -3256,6 +3258,11 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.14.0', f:'16/10/2026', t:[
+    'Nuevo botón "?" arriba (al lado del engranaje): explica todo lo que hay en la pantalla donde estás. En Facturas: colores, desplegable, Falta, Preparado, Urgente y más. En Compras: cómo se arma la lista de compras (y por qué un producto no aparece en un proveedor).',
+    'Cuentas nuevas: en "Primeros pasos" se pueden cargar datos de ejemplo (productos, clientes, un proveedor, una compra y dos facturas) para probar. No aparecen en la tienda y se borran con "Borrar ejemplos".',
+    'Arreglo: al borrar un proveedor, ahora se borra también en el otro celular (antes podía volver a aparecer).'
+  ]},
   {v:'4.13.0', f:'16/10/2026', t:[
     'Importar productos desde una planilla de Excel o CSV: elegís el archivo, ves una vista previa, y se cargan todos juntos. Si ya existen, podés actualizar sus precios. Después se puede deshacer. Lo encontrás en Productos (botón ⋯), en Configuración → Productos y en Primeros pasos.',
     'Productos: botones más ordenados (orden y vista arriba, filtros abajo) y nuevo botón ⋯ para opciones menos usadas.'
@@ -8849,9 +8856,9 @@ function _ppPasos() {
   const neg = (S.config && S.config.negocio) || {};
   return [
     { k:'neg', t:'Poné el nombre de tu negocio', s:'Aparece en tus facturas y en la tienda', ok: !!String(neg.nombre||'').trim(), ir:"_ppIr('neg')" },
-    { k:'prod', t:'Cargá tus productos', s:'Con nombre y precio alcanza', ok: (S.products||[]).length > 0, ir:"_ppIr('prod')" },
-    { k:'cli', t:'Agregá un cliente', s:'Con nombre y teléfono alcanza', ok: (S.clients||[]).length > 0, ir:"_ppIr('cli')" },
-    { k:'fac', t:'Hacé tu primera factura', s:'Elegís cliente y productos', ok: (S.invoices||[]).some(function(i){ return i && i.type !== 'presupuesto'; }), ir:"_ppIr('fac')" },
+    { k:'prod', t:'Cargá tus productos', s:'Con nombre y precio alcanza', ok: (S.products||[]).some(function(p){ return p && !(window.ejEsId && ejEsId('products', p.id)); }), ir:"_ppIr('prod')" },
+    { k:'cli', t:'Agregá un cliente', s:'Con nombre y teléfono alcanza', ok: (S.clients||[]).some(function(c){ return c && !(window.ejEsId && ejEsId('clients', c.id)); }), ir:"_ppIr('cli')" },
+    { k:'fac', t:'Hacé tu primera factura', s:'Elegís cliente y productos', ok: (S.invoices||[]).some(function(i){ return i && i.type !== 'presupuesto' && !(window.ejEsId && ejEsId('invoices', i.id)); }), ir:"_ppIr('fac')" },
     { k:'tie', t:'Compartí tu tienda online', s:'Tus clientes piden desde el celular', ok: !!cfg.compartio, ir:"_ppIr('tie')" }
   ];
 }
@@ -8922,6 +8929,10 @@ function renderPrimerosPasos() {
       + (p.ok ? '' : '<button onclick="'+p.ir+'" style="flex:none;border-radius:12px;padding:8px 13px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;'+(esSig?'background:var(--accent);color:#fff;border:none':'background:var(--surface);color:var(--accent2);border:1.5px solid var(--accent2)')+'">Ir ›</button>')
       + '</div>';
   });
+  try {
+    if(window.ejHay && ejHay()) h += '<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid var(--border);background:#fff8e1"><span style="font-size:22px">🧪</span><span style="flex:1;font-size:13.5px;font-weight:800;color:#92400e;line-height:1.25">Tenés datos de ejemplo cargados</span><button onclick="ejBorrar()" style="flex:none;border-radius:12px;padding:8px 12px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;background:#fff;color:#b45309;border:1.5px solid #f59e0b">Borrar</button></div>';
+    else if((!pasos[1].ok || !pasos[3].ok) && !(window.ejUsados && ejUsados())) h += '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--border);background:#fff8e1"><span style="font-size:24px">🧪</span><div style="flex:1;line-height:1.25"><div style="font-size:14.5px;font-weight:800;color:#92400e">Probar con datos de ejemplo</div><div style="font-size:12.5px;color:#a16207">Productos, clientes y facturas de mentira para ver cómo funciona. Se borran con un toque.</div></div><button onclick="ejCargar()" style="flex:none;border-radius:12px;padding:8px 13px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;background:#f59e0b;color:#fff;border:none">Cargar</button></div>';
+  } catch(e) {}
   if(!pasos[1].ok) h += '<div style="padding:9px 14px;border-top:1px solid var(--border)"><span onclick="impAbrir()" style="font-size:13.5px;font-weight:800;color:var(--accent2);cursor:pointer">📥 ¿Tenés una planilla? Importá tus productos</span></div>';
   h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-top:1px solid var(--border);font-size:13px;font-weight:700;color:var(--text3)">'
     + '<span>'+(hechos ? 'Te falta'+(pasos.length-hechos>1?'n ':' ')+(pasos.length-hechos) : 'Se tildan solos al hacerlos')+'</span>'
@@ -8954,6 +8965,7 @@ function cfgAvanzadoToggle() {
 }
 function updDash() {
   try{ renderPrimerosPasos(); }catch(e){}
+  try{ window.ejBanner && ejBanner(); }catch(e){}
   const now = new Date();
   const todayStr = localDateStr();
   const pend = S.invoices.filter(i=>i.status==='pendiente'&&i.type!=='presupuesto').length;
@@ -8975,7 +8987,7 @@ function updDash() {
   const invEl = document.getElementById('dash-inv-valor');
   const valorInv = calcValorInventario();
   if(invEl) invEl.textContent = '$'+Math.round(valorInv).toLocaleString('es-AR');
-  if(window._datosFirebaseOk) registrarValorInventarioSemanal(valorInv);
+  if(window._datosFirebaseOk && !(window.ejHay && ejHay())) registrarValorInventarioSemanal(valorInv);
   // Resumen día en facturas
   const dm = document.getElementById('dash-metricas');
   if(dm) dm.innerHTML = '';
@@ -9020,6 +9032,7 @@ function renderProvs(){
 function deleteProv(id){
   if(!confirm('¿Eliminar este proveedor?')) return;
   S.proveedores = S.proveedores.filter(p => p.id !== id);
+  try{ if(window._fbDeleteDoc) _fbDeleteDoc('proveedores', id); }catch(e){}
   renderProvs(); save(['proveedores']); toast('Proveedor eliminado');
 }
 document.getElementById('page-proveedores').addEventListener('click', function(e){
@@ -14463,6 +14476,8 @@ window.addEventListener('DOMContentLoaded', function(){
     window.addEventListener('popstate', function(e) {
       // Detalle de compra: "atras" lo cierra y se queda en Compras
       if(window._vcIgnorarPop) { window._vcIgnorarPop = false; return; }
+      // 4.14.0: con la ayuda abierta, "atrás" la cierra y se queda en la pantalla
+      if(typeof ayudaAbierta === 'function' && ayudaAbierta()) { ayudaCerrar(); history.pushState({page:S.page}, '', ''); return; }
       // 4.12.1: dentro de una seccion de Configuracion, "atras" vuelve al menu de Configuracion
       if(S.page === 'config' && window._cfgSec && !(typeof impAbierto === 'function' && impAbierto())) { window._cfgSec = ''; cfgSecAbrir(''); return; }
       // 4.13.0: con la pantalla de importar abierta, "atras" retrocede un paso (o la cierra) sin salir de la pantalla
@@ -15516,6 +15531,431 @@ function cfgSecAbrir(k) {
     try { if(window._e3dProcesar) window._e3dProcesar(o); } catch(e) {}
   };
   window._impTest = {estado: function(){ return E; }, num: num, parseCSV: parseCSV, adivinar: adivinar, decodificar: decodificar};
+})();
+
+</script>
+<script id="js-4140">
+// ===== 4.14.0: AYUDA "?" POR PANTALLA + DATOS DE EJEMPLO =====
+(function(){
+  // ---------- textos ----------
+  function esp(){ try { return cfgEspecial().activa; } catch(e) { return false; } }
+  function espNom(){ try { return especialEtiqueta(); } catch(e) { return 'Especial'; } }
+  function otro(){ try { return _esOtroNegocio(); } catch(e) { return true; } }
+  function retiroOn(){ try { return cfgDescRetiro().activo; } catch(e) { return false; } }
+
+  // Cada pantalla: t = título, i = qué es, s = [ [subtítulo, [renglones...], clave?], ... ]
+  // Un renglón null se saltea (para lo que depende de la configuración).
+  function AY() { return {
+    inicio: { t:'🏠 Inicio', i:'Tu resumen del día y los accesos a todo.', s:[
+      ['Botones grandes', [
+        '<b>Nueva Factura</b>: cargás una venta.',
+        '<b>Nueva Compra</b>: cargás lo que le compraste a un proveedor. Suma al stock y actualiza el costo.',
+        '<b>Facturas</b>: abajo dice cuántas tenés pendientes de cobro.',
+        '<b>Productos</b>: abajo dice cuántos no tienen precio. Los productos sin precio <b>no aparecen en la tienda</b>.',
+        '<b>Clientes</b>: tu lista de clientes y lo que debe cada uno.',
+        '<b>Cobrar</b>: registrás un pago de un cliente. Se aplica a sus facturas pendientes, empezando por la más vieja.'
+      ]],
+      ['Números', [
+        '<b>Facturado hoy</b>: suma de las facturas con fecha de hoy (los presupuestos no cuentan).',
+        '<b>Comprado hoy</b>: suma de las compras con fecha de hoy (los borradores no cuentan).',
+        '<b>Valor del inventario</b>: stock × <b>costo</b> de cada producto. Los productos sin costo cargado no suman y el stock negativo cuenta como cero.'
+      ]],
+      ['Más abajo', [
+        '<b>Estadísticas</b>: ventas, compras, clientes y productos por período.',
+        '<b>Gestionar entregas del día</b>: elegís qué facturas repartir, las ordenás como ruta y vas marcando entregas y cobros.',
+        '<b>Tienda online</b>: <b>Abierta</b> o <b>Cerrada</b> (cerrada, tus clientes ven los precios pero no pueden pedir). <b>Compartir link</b> manda la dirección de tu tienda. <b>Generar flyer</b> arma tu flyer de precios con los productos marcados con 📢 (podés elegir categorías). <b>Ver tienda como admin</b> te la muestra como la ve un cliente.'
+      ]],
+      ['Arriba', [
+        '<b>🔄</b>: sincroniza con el otro celular. Si se pone amarillo con un punto, hay cambios para subir o bajar: tocalo.',
+        '<b>⚙️</b>: Configuración (datos del negocio, tienda, copias de seguridad y más).',
+        otro() ? '<b>Primeros pasos</b>: la tarjeta de arriba te guía con lo básico. Cada paso se tilda solo cuando lo hacés.' : null
+      ]]
+    ]},
+    facturas: { t:'🧾 Facturas', i:'Todas tus ventas. Cada tarjeta es una factura.', s:[
+      ['Arriba', [
+        '<b>Facturado hoy / Cobrado / Pendiente</b>: solo de las facturas con fecha de hoy.',
+        '<b>Buscar</b>: por nombre del cliente, número o fecha (ej. 16/10). Busca en todas, aunque no se vean.',
+        '<b>Pestañas</b>: <b>Todas</b>, <b>Pendientes</b> (sin cobrar del todo), <b>Pagadas</b>, <b>Presup.</b> (presupuestos: no descuentan stock ni suman en estadísticas)' + (esp() ? ', <b>' + espNom() + '</b> (las facturas de tu categoría especial)' : '') + ' y <b>🛒 Tienda</b> (pedidos que hicieron tus clientes desde la tienda online).'
+      ]],
+      ['La tarjeta', [
+        '<b>Color del borde</b>: 🔴 rojo = sin cobrar · 🟡 amarillo = cobrada en parte · 🟢 verde = pagada (o cubierta con saldo a favor) · 🟠 "Cubre parcial" = el saldo a favor cubre una parte.',
+        '<b>Monto grande</b>: lo que falta cobrar de esa factura. <b>Ant:</b> deuda de facturas anteriores del mismo cliente. <b>Total:</b> todo lo que debe. <b>A favor:</b> plata que el cliente tiene a su favor.',
+        '<b>📝 Recuadro amarillo</b>: la nota interna. Solo la ves vos, no sale en la factura.',
+        '<b>Fechas</b>: las facturas se agrupan por día. Las de fecha futura llevan 📅.'
+      ]],
+      ['Desplegable (tocá la tarjeta)', [
+        'Se abre la lista de productos. Cada uno tiene un <b>cuadradito para tildar</b> mientras armás el pedido. Los tildes se ven también en el otro celular.',
+        '<b>Falta</b>: si un producto (sin tildar) no lo tenés, tocá "Falta", elegí cuántos faltan y confirmá. La factura se corrige sola: total, saldo y stock. Lo que falta queda <b>⏳ pendiente</b> con el mismo precio.',
+        'Si la factura ya estaba paga, lo que se saca queda <b>a favor del cliente</b>. Si faltan todos los productos, la factura se cancela.',
+        '<b>Deshacer</b>: vuelve el producto a la factura.',
+        '<b>⏳ N pendientes · Armar factura</b> (cartel naranja): arma una factura nueva con lo que faltó, para el día que elijas.'
+      ], 'desp'],
+      ['Botones de abajo', [
+        '<b>📤 Enviar</b>: comparte la factura (imagen o texto, según Configuración → Facturas).',
+        '<b>💰 Cobrar</b>: registrás un pago de esa factura.',
+        '<b>📦 Preparado</b>: marcás que el pedido ya está armado (queda ✅). Si faltaron productos, te ofrece armar la factura con lo que faltó para el día siguiente (nunca domingo) u otra fecha. Con "Más tarde" queda el aviso en la tarjeta.',
+        '<b>🚨 Urgente</b>: la sube arriba de todo, en "URGENTES", sin importar la fecha. Sale sola cuando se cobra o se cancela. "Quitar" la saca a mano.',
+        '<b>🗑️ Borrar</b>: elimina la factura y devuelve el stock.',
+        '<b>✏️ Ver/Editar</b>: abre la factura para cambiar productos, cantidades, precios, pagos o notas.'
+      ]],
+      ['Otros', [
+        '<b>⚠️ Unificar facturas de…</b>: aparece si un cliente tiene 2 o más facturas el mismo día (por ej. una tuya y un pedido de la tienda). Las junta en una sola. No se puede si hay pagadas y pendientes mezcladas.',
+        'Se muestran las 60 más recientes. <b>Ver más facturas</b>, al final, muestra el resto.'
+      ]]
+    ]},
+    nuevafac: { t:'🧾 Nueva factura', i:'Cargás una venta en dos pasos: productos y resumen.', s:[
+      ['Paso 1: productos', [
+        'Arriba elegí el <b>cliente</b> (si debe plata, te avisa) y la <b>fecha</b>. Podés poner una fecha futura para un pedido de otro día.',
+        'Buscá los productos y poné la cantidad. Si tiene <b>precio mayorista</b>, se aplica solo al llegar a la cantidad (⭐ Precio mayorista).',
+        '<b>Poner a todos los visibles</b>: con una búsqueda escrita, pone la misma cantidad a todos los productos que se ven.',
+        'Abajo ves el total. Tocá <b>Ver resumen →</b>.'
+      ]],
+      ['Paso 2: resumen', [
+        '<b>✏️ nombre del cliente</b> (arriba): cambiás el cliente.',
+        'Podés cambiar cantidades y precios, <b>➕ Agregar producto</b>, la fecha, el tipo (<b>Factura</b>' + (esp() ? ', <b>' + espNom() + '</b>' : '') + ' o <b>Presupuesto</b>, que no descuenta stock) y el estado.',
+        retiroOn() ? '<b>Desc. retiro depósito</b>: descuento si el cliente lo pasa a buscar.' : null,
+        '<b>Desc. extra</b>: un porcentaje de descuento sobre el total.',
+        '<b>Registrar pago</b>: monto y forma. Si paga todo queda Pagada; si paga de más, la diferencia queda a favor del cliente.',
+        '<b>Nota para el cliente</b>: sale en la factura. <b>Nota interna 🔒</b>: solo la ves vos.',
+        'Tocá <b>Guardar</b>. El stock se descuenta solo.'
+      ]]
+    ]},
+    compras: { t:'🛍️ Compras', i:'Lo que le comprás a tus proveedores. Cada compra suma al stock.', s:[
+      ['Historial', [
+        'Tus compras, de la más nueva a la más vieja. Buscá por proveedor.',
+        'Tocá una para ver el detalle. Desde ahí la podés <b>editar</b> o <b>compartir</b>.',
+        'Para cargar una nueva: <b>+ Compra</b> arriba o el botón <b>+</b>.'
+      ], 'hist'],
+      ['Comparador', [
+        'Para cada producto, cuánto te cobró cada proveedor la última vez. 🥇 marca el más barato.'
+      ], 'comp'],
+      ['Lista de compras', [
+        'Se arma <b>sola</b> con lo que te falta: productos con stock negativo (vendiste más de lo que tenías) o por debajo de su <b>Stock mínimo</b>. Si un producto no tiene stock mínimo, aparece recién cuando queda en negativo.',
+        '<b>⚠️ Se agrupa por proveedor</b> según lo que cargaste en cada producto, en <b>"Proveedores donde se compra"</b>. Si un producto no aparece en el proveedor donde lo buscás, es porque <b>no tiene ese proveedor cargado</b>: entrá al producto (✏️) y agregalo.',
+        'Los productos sin ningún proveedor van al final, en <b>"Sin proveedor asignado"</b>. Desde ahí no se pueden comprar con el botón ni tienen notas.',
+        '<b>🔴 obligatorio</b>: lo que ya vendiste sin tener. <b>🟡 para el mínimo</b>: opcional, para completar el stock mínimo.',
+        'En cada renglón: la <b>cantidad</b> (la podés cambiar), <b>✓</b> lo compré, <b>✕</b> no había, y el <b>costo</b> (lo podés cambiar).',
+        '<b>✓ Comprar</b> (en la barra del proveedor): crea la compra con los productos tildados ✓, con esas cantidades y costos. Suma el stock y actualiza el costo.',
+        '<b>#</b> (cuadradito a la izquierda del proveedor): un número para ordenar los proveedores, por ejemplo según tu recorrido.',
+        '<b>N prod.</b> (a la derecha): oculta ese proveedor por ahora. Arriba aparece "Mostrar ocultos".',
+        '<b>Notas</b>: cada proveedor tiene su nota para anotar cosas que no están en la lista. Se guarda sola y se ve en el otro celular. Al comprar la nota no se borra, salvo que tildes "Borrar también la nota".',
+        '<b>🕘 Notas anteriores</b>: recupera notas borradas o cambiadas (quedan guardadas en este celular).',
+        '<b>🔮 Sugerir pedido</b>: calcula qué comprarle a un proveedor según lo que vendés por día y los días que querés cubrir.',
+        '<b>📍 Compartir lista</b>: manda la lista en texto (por ej. por WhatsApp).',
+        '<b>Total estimado</b>: cantidad × costo de todo lo que está en la lista.'
+      ], 'lista']
+    ]},
+    nuevacomp: { t:'🛍️ Nueva compra', i:'Cargás lo que le compraste a un proveedor.', s:[
+      ['Paso 1: productos', [
+        'Elegí el <b>proveedor</b> y la <b>fecha</b>.',
+        'Buscá los productos (o <b>📷</b> para escanear el código de barras) y poné cantidad y costo.',
+        '<b>+ Ítem</b>: agrega algo que no es un producto tuyo (por ej. un flete). Suma a la compra pero no al stock.',
+        'Tocá <b>Ver resumen →</b>.'
+      ]],
+      ['Paso 2: resumen', [
+        '<b>Borrador</b>: si lo tildás, la compra queda guardada pero <b>no suma al stock</b> ni cuenta en los totales. Sirve para calcular antes de confirmar.',
+        '<b>Foto de la factura</b>: sacale una foto a la factura del proveedor. Las juntás todas en Configuración → Datos.',
+        'Al <b>Guardar</b>, el stock sube y el costo de cada producto se actualiza con el de esta compra.'
+      ]]
+    ]},
+    productos: { t:'📦 Productos', i:'Lo que vendés: nombre, precio, costo y stock. Con eso ya podés facturar y armar tu tienda.', s:[
+      ['Arriba', [
+        '<b>Buscar</b> y <b>Categoría</b>: filtran la lista. Al elegir una categoría aparecen botones para marcar todos sus productos juntos (tienda, flyer, oferta).',
+        '<b>Orden</b>: más vendidos, A-Z, categoría o margen.',
+        '<b>📤 Flyer rápido</b>: tocá los productos que querés y después "Generar flyer" para armar un flyer solo con esos.',
+        '<b>⊞</b>: cambia la vista (tarjetas, lista o lista con foto).',
+        '<b>⋯</b>: más opciones, como <b>importar productos</b> desde una planilla de Excel o CSV.',
+        '<b>+ Producto</b> o <b>+</b>: cargás uno nuevo.'
+      ]],
+      ['Filtros', [
+        'Tocá uno para ver solo esos. Tocalo de nuevo para volver a ver todos.',
+        '<b>🚫 Fuera de tienda</b>: los que ocultaste de la tienda online.',
+        '<b>📦 Sin stock</b>: los que marcaste "SIN STOCK en tienda".',
+        '<b>📢 Flyer</b>: los que van en tu flyer de precios.',
+        '<b>👁️ Tienda</b>: los que se ven en la tienda.',
+        '<b>🔥 Oferta</b>: los que salen en "Ofertas de la semana" de la tienda.'
+      ]],
+      ['La tarjeta', [
+        '<b>Stock</b> (arriba a la derecha): 🟢 normal · 🟠 llegó al stock mínimo · 🔴 "Faltan N" (vendiste más de lo que tenías).',
+        '<b>SIN PRECIO</b>: no aparece en la tienda hasta que le pongas precio.',
+        '<b>Marcar SIN STOCK en tienda</b>: el producto se sigue viendo en la tienda pero no se puede pedir ("No disponible"). No cambia tu stock. Tocalo de nuevo para habilitarlo.',
+        '<b>Margen</b>: (precio − costo) ÷ precio. En rojo si es menos del 10%. <b>Mayor</b>: el precio mayorista y desde cuántas unidades.',
+        '<b>✏️</b>: editar todo (precios, costo, stock mínimo, proveedores, categoría, foto…). <b>🗑️</b>: borrar.'
+      ]],
+      ['En las vistas de lista', [
+        '<b>👁️</b> visible en la tienda · <b>🔥</b> oferta · <b>📢</b> flyer (en color = activado).',
+        '<b>📋</b>: historial del producto (compras, ventas y ajustes). <b>💲</b>: cambio rápido de precio, mayorista y costo.'
+      ]],
+      ['Al editar un producto', [
+        '<b>Stock mínimo</b>: cuando el stock baja de ese número, el producto entra en la lista de compras y en las alertas.',
+        '<b>Proveedores donde se compra</b>: define en qué proveedor aparece en la lista de compras.'
+      ]]
+    ]},
+    clientes: { t:'🤝 Clientes', i:'Tu lista de clientes y cómo está la cuenta de cada uno.', s:[
+      ['Clientes', [
+        'A la derecha: <b>Debe $</b> (en rojo), <b>A favor $</b> (en verde) o <b>Al día</b>, y cuántas facturas tiene.',
+        'Tocá uno para ver su ficha: saldo, facturas, pagos, lo que más compra y su promedio mensual. Desde ahí: <b>✏️ Editar</b>, <b>💰 Saldo</b> (corregir a mano su saldo a favor) y <b>🗑️</b> borrar.',
+        '<b>"Visitante +549…"</b>: los crea la tienda cuando pide alguien que no tenías cargado. Editalo para ponerle el nombre.',
+        '<b>+ Cliente</b> o <b>+</b>: cargás uno nuevo.'
+      ]],
+      ['📋 Sugeridor', [
+        'Calcula qué mercadería dejarle a un cliente según lo que te compró antes (por ej. si no vas a poder visitarlo por unos días). No toca stock ni facturas.'
+      ]],
+      ['🏆 Ranking', [
+        'Tus clientes del mes, ordenados por unidades o por monto.'
+      ]]
+    ]},
+    proveedores: { t:'🏭 Proveedores', i:'A quién le comprás.', s:[
+      ['Lista', [
+        'Cada uno muestra teléfono, días de visita, total comprado y cantidad de compras. <b>🗑️</b> lo borra.',
+        'Tocá uno para ver sus compras y qué productos le compraste. <b>✏️ Editar</b>: nombre, teléfono, días de visita y notas.',
+        '<b>+ Proveedor</b> o <b>+</b>: cargás uno nuevo.'
+      ]],
+      ['Importante', [
+        'Para que un producto aparezca en la <b>lista de compras</b> de un proveedor, entrá al producto (✏️) y cargale ese proveedor en <b>"Proveedores donde se compra"</b>.'
+      ]]
+    ]},
+    stock: { t:'📈 Stock', i:'Cuánto tenés de cada producto. Se calcula solo: las compras suman, las facturas restan y los ajustes corrigen. Los presupuestos y las compras en borrador no cuentan.', s:[
+      ['🔔 Alertas', [
+        'Productos en <b>negativo</b> (vendiste más de lo que tenías cargado) y los que llegaron a su <b>stock mínimo</b>.',
+        'El número rojo en la pestaña <b>Stock</b> de abajo te avisa cuántos hay.'
+      ], 'alertas'],
+      ['✏️ Ajuste', [
+        'Para corregir cuando contás la mercadería: escribí el <b>stock real</b> de cada producto y dejá en blanco los que no cambian. Tocá <b>💾 Guardar ajuste</b>.',
+        '<b>📸 Fijar stock actual como punto de partida</b>: toma el stock de hoy como base. Las compras y ventas anteriores dejan de influir. Usalo solo si el stock te quedó desordenado.'
+      ], 'ajuste'],
+      ['📦 Movimientos', [
+        'El stock de cada producto. Tocá uno para ver sus entradas (compras), salidas (ventas) y ajustes.'
+      ], 'movimientos']
+    ]},
+    estadisticas: { t:'📊 Estadísticas', i:'Cómo viene el negocio.', s:[
+      ['Cómo se usa', [
+        'Arriba elegís el <b>período</b>: hoy, esta semana, este mes, trimestre, año, todo o un mes específico.',
+        'Pestañas: <b>💰 Ventas</b>, <b>🛒 Compras</b>, <b>👥 Clientes</b>, <b>📦 Productos</b>' + (otro() ? '' : ' y <b>🏆 Niveles</b> (premios por compras en la tienda)') + '.',
+        'Los presupuestos y las compras en borrador no cuentan.'
+      ]]
+    ]},
+    reparto: { t:'🚚 Reparto del día', i:'Para organizar las entregas.', s:[
+      ['Cómo se usa', [
+        '<b>Seleccionar</b>: tildá las facturas pendientes que vas a repartir.',
+        '<b>Ruta</b>: arrastrá para ordenarlas como las vas a recorrer.',
+        '<b>Salir a repartir</b>: pasa a la ruta en ese orden. En cada parada, <b>Cobrar</b> registra el pago.',
+        '<b>✓ Guardar orden y cerrar</b>: guarda el orden para la próxima vez.'
+      ]]
+    ]},
+    config: { t:'⚙️ Configuración', i:'Todo lo que se configura una vez. Tocá una sección para entrar; "atrás" vuelve al menú.', s:[
+      ['Secciones', [
+        '<b>🏪 Negocio y tienda</b>: nombre, WhatsApp para pedidos, envío, <b>horario de corte</b> (los pedidos de la tienda que llegan después se facturan para el día siguiente) y banners de la tienda.',
+        '<b>📦 Productos</b>: importar productos desde una planilla.',
+        '<b>🧾 Facturas</b>: descuento por retiro, categoría especial y si las facturas se comparten como imagen o texto.',
+        '<b>💾 Datos y copias de seguridad</b>: descargar un backup, las fotos de facturas de proveedor y herramientas avanzadas.',
+        '<b>⭐ Mi cuenta y suscripción</b>: suscripción, exportar tus datos y cerrar sesión.',
+        '<b>✨ Novedades</b>: qué cambió en cada versión.'
+      ]]
+    ]}
+  }; }
+
+  var MAPA = { dashboard:'inicio', facturas:'facturas', 'nueva-factura':'nuevafac', 'resumen-factura':'nuevafac',
+    compras:'compras', 'nueva-compra':'nuevacomp', 'resumen-compra':'nuevacomp', productos:'productos', 'prod-historial':'productos',
+    grupos:'productos', clientes:'clientes', 'cli-detalle':'clientes', proveedores:'proveedores', 'prov-detalle':'proveedores',
+    stock:'stock', estadisticas:'estadisticas', reparto:'reparto', 'cobrar-reparto':'reparto', config:'config', suscripcion:'config', exportar:'config' };
+
+  // Sección a mostrar primero según la pestaña abierta
+  function foco(k) {
+    try {
+      if(k === 'compras') {
+        if(document.getElementById('comp-lista').style.display !== 'none') return 'lista';
+        if(document.getElementById('comp-comp').style.display !== 'none') return 'comp';
+      }
+      if(k === 'stock') {
+        if(document.getElementById('stock-tab-ajuste').style.display !== 'none') return 'ajuste';
+        if(document.getElementById('stock-tab-movimientos').style.display !== 'none') return 'movimientos';
+      }
+      if(k === 'facturas' && document.querySelector('#inv-list [id^="inv-detail-"]:not([style*="display:none"]):not([style*="display: none"])')) return 'desp';
+    } catch(e) {}
+    return '';
+  }
+
+  window.ayudaAbierta = function(){ return !!document.getElementById('ayuda-ov'); };
+  window.ayudaCerrar = function(){ var o = document.getElementById('ayuda-ov'); if(o) o.remove(); };
+  window.ayudaAbrir = function(clave) {
+    ayudaCerrar();
+    var k = clave || MAPA[S.page] || 'inicio';
+    var A = AY()[k]; if(!A) return;
+    var f = clave ? '' : foco(k);
+    var h = '<div id="ayuda-hoja" style="background:var(--surface);width:100%;max-width:560px;border-radius:22px 22px 0 0;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 -6px 30px rgba(0,0,0,.25)">'
+      + '<div style="padding:12px 18px 8px;flex-shrink:0;border-bottom:1px solid var(--border)">'
+      + '<div style="width:40px;height:4px;background:#cbd5e1;border-radius:4px;margin:0 auto 10px"></div>'
+      + '<div style="display:flex;align-items:center;gap:8px"><div style="flex:1;font-size:19px;font-weight:900;color:var(--accent)">' + A.t + '</div>'
+      + '<button type="button" onclick="ayudaCerrar()" aria-label="Cerrar" style="background:var(--surface2);border:none;border-radius:50%;width:34px;height:34px;font-size:17px;cursor:pointer;color:var(--text2);font-family:inherit">✕</button></div>'
+      + '<div style="font-size:14px;color:var(--text2);margin-top:4px;line-height:1.35">' + A.i + '</div></div>'
+      + '<div id="ayuda-cuerpo" style="overflow-y:auto;padding:6px 18px 4px;-webkit-overflow-scrolling:touch">';
+    A.s.forEach(function(sec){
+      var filas = sec[1].filter(function(x){ return !!x; });
+      if(!filas.length) return;
+      var dest = sec[2] && sec[2] === f;
+      h += '<div' + (sec[2] ? ' id="ayuda-sec-' + sec[2] + '"' : '') + ' style="margin:12px 0 4px' + (dest ? ';background:#eff6ff;border-radius:12px;padding:8px 10px;margin-left:-10px;margin-right:-10px' : '') + '">'
+        + '<div style="font-size:15.5px;font-weight:900;color:var(--text);margin-bottom:6px">' + sec[0] + '</div>'
+        + filas.map(function(x){ return '<div style="font-size:14.5px;line-height:1.42;color:var(--text2);margin:0 0 8px;padding-left:12px;position:relative"><span style="position:absolute;left:0;color:var(--accent2)">•</span>' + x + '</div>'; }).join('')
+        + '</div>';
+    });
+    h += '</div><div style="padding:10px 18px 16px;flex-shrink:0;border-top:1px solid var(--border)">'
+      + '<button type="button" onclick="ayudaCerrar()" style="width:100%;padding:13px;border-radius:14px;background:var(--accent);color:#fff;border:none;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit">Entendido</button></div></div>';
+    var o = document.createElement('div'); o.id = 'ayuda-ov';
+    o.style.cssText = 'position:fixed;inset:0;z-index:10060;background:rgba(15,23,42,.5);display:flex;align-items:flex-end;justify-content:center';
+    o.innerHTML = h;
+    o.onclick = function(e){ if(e.target === o) ayudaCerrar(); };
+    document.body.appendChild(o);
+    try { window._e3dProcesar && window._e3dProcesar(o); } catch(e) {}
+    if(f) { try { var el = document.getElementById('ayuda-sec-' + f), c = document.getElementById('ayuda-cuerpo'); if(el && c) c.scrollTop = el.offsetTop - c.offsetTop - 6; } catch(e) {} }
+  };
+  window._ayudaTextos = AY;   // para pruebas
+
+  // ---------- datos de ejemplo ----------
+  // Los ejemplos tienen siempre los mismos ids (con "EJ", que la numeración normal nunca usa):
+  // así se reconocen aunque el usuario los edite (al editar, la app arma el registro de nuevo)
+  // y en cualquier celular, sin depender de nada guardado aparte.
+  var COLS_EJ = ['products','clients','invoices','compras','proveedores'];
+  var IDS_EJ = { products:['PROD-EJ1','PROD-EJ2','PROD-EJ3','PROD-EJ4','PROD-EJ5','PROD-EJ6'], clients:['CLI-EJ1','CLI-EJ2','CLI-EJ3'],
+    invoices:['FAC-EJ1','FAC-EJ2'], compras:['COMP-EJ1'], proveedores:['PROV-EJ1'] };
+  // Los que se dejaron al borrar (porque se usaron en algo real) pasan a ser "de verdad"
+  function liberados() { var l = S.config && S.config.ejLiberados; return Array.isArray(l) ? l : []; }
+  function ejReg() {
+    var lib = liberados(), r = {};
+    COLS_EJ.forEach(function(c){ r[c] = IDS_EJ[c].filter(function(id){ return lib.indexOf(id) < 0; }); });
+    return r;
+  }
+  function existe(r) { return COLS_EJ.some(function(c){ var ids = r[c] || []; return ids.length && (S[c] || []).some(function(x){ return x && ids.indexOf(x.id) >= 0; }); }); }
+  window.ejHay = function() { return existe(ejReg()); };
+  // Hay algún registro con id de ejemplo (aunque se haya dejado): no se puede volver a cargar
+  window.ejUsados = function() { return existe(IDS_EJ); };
+  window.ejEsId = function(col, id) { var r = ejReg(); return !!(r[col] || []).length && r[col].indexOf(id) >= 0; };
+  function dia(n) { var d = new Date(); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+
+  window.ejCargar = function() {
+    if(window.subBloqueado && window.subBloqueado()) { try { window.subAvisoBloqueo(); } catch(e) {} return; }
+    if(ejHay()) { toast('Los datos de ejemplo ya están cargados'); return; }
+    if(ejUsados()) { toast('Los datos de ejemplo ya se usaron en este negocio'); return; }
+    if(!confirm('¿Cargar datos de ejemplo?\n\nSe agregan 6 productos, 3 clientes, 1 proveedor, 1 compra y 2 facturas para que veas cómo funciona todo.\n\nNo aparecen en tu tienda online y se borran con un toque ("Borrar ejemplos"). No tocan nada de lo tuyo.')) return;
+    var t = Date.now();
+    var pv = { id:'PROV-EJ1', name:'Distribuidora (ejemplo)', phone:'', days:'Lun, Jue', email:'', tax:'', notes:'Proveedor de ejemplo', color:'#47c8ff' };
+    var P = [
+      ['PROD-EJ1','Yerba mate 1 kg','Almacén',2400,3200,10,[pv.id],3000,6,false],
+      ['PROD-EJ2','Azúcar 1 kg','Almacén',1100,1450,10,[pv.id],0,0,false],
+      ['PROD-EJ3','Fideos spaghetti 500 g','Almacén',880,1180,12,[pv.id],0,0,false],
+      ['PROD-EJ4','Aceite de girasol 900 ml','Almacén',2300,2890,6,[pv.id],0,0,false],
+      ['PROD-EJ5','Galletitas surtidas','Golosinas',700,950,0,[],0,0,false],
+      ['PROD-EJ6','Gaseosa cola 2,25 L','Bebidas',2100,2750,6,[pv.id],0,0,true]
+    ].map(function(a){
+      return { id:a[0], name:a[1], category:a[2], cost:a[3], price:a[4], minStock:a[5], suppliers:a[6], wholesalePrice:a[7], wholesaleQty:a[8],
+        oferta:a[9], ofertaDesde:a[9] ? t : undefined, stock:0, visible:true, enFlyer:false, sinStockManual:false, image:'', emoji:'', barcode:'', priceHistory:[], createdAt:t };
+    });
+    P.forEach(function(p){ if(p.ofertaDesde === undefined) delete p.ofertaDesde; });
+    var C = [
+      { id:'CLI-EJ1', name:'Almacén La Esquina (ejemplo)', type:'mayorista', phone:'', email:'', addr:'', tax:'', notes:'', invmsg:'', color:'#47c8ff', credito:0 },
+      { id:'CLI-EJ2', name:'Kiosco Central (ejemplo)', type:'minorista', phone:'', email:'', addr:'', tax:'', notes:'', invmsg:'', color:'#ff6b6b', credito:0 },
+      { id:'CLI-EJ3', name:'María Gómez (ejemplo)', type:'minorista', phone:'', email:'', addr:'', tax:'', notes:'', invmsg:'', color:'#4ade80', credito:0 }
+    ];
+    var pr = function(id){ return P.filter(function(p){ return p.id === id; })[0]; };
+    var it = function(id, q, precio){ var p = pr(id); var px = precio || p.price;
+      return { desc:p.name, qty:q, price:px, prodId:p.id, retailPrice:p.price, wholesalePrice:p.wholesalePrice || 0, wholesaleQty:p.wholesaleQty || 0 }; };
+    var compItems = [['PROD-EJ1',12],['PROD-EJ2',10],['PROD-EJ3',24],['PROD-EJ4',6],['PROD-EJ6',12]].map(function(a){ var p = pr(a[0]); return { prodId:p.id, name:p.name, qty:a[1], cost:p.cost }; });
+    var comp = { id:'COMP-EJ1', provId:pv.id, provName:pv.name, date:dia(-3), ts:t - 3, notes:'Compra de ejemplo', draft:false, items:compItems,
+      total: compItems.reduce(function(s, i){ return s + i.qty * i.cost; }, 0), facturaUrl:null };
+    var mkInv = function(id, cli, fecha, items, pagada, ts, nota) {
+      var sub = items.reduce(function(s, i){ return s + i.qty * i.price; }, 0);
+      return { id:id, type:'factura', clientId:cli.id, clientName:cli.name, date:fecha, ts:ts, status: pagada ? 'pagada' : 'pendiente',
+        notes:'', notaInterna: nota || '', preparado: !!pagada, urgente:false, itemsArmados:{}, items:items, subtotal:sub,
+        descRetiro:0, descRetiroPct:0, descExtraPct:0, descExtra:0, total:sub,
+        pagos: pagada ? [{ monto:sub, method:'efectivo', date:fecha }] : [], saldo: pagada ? 0 : sub, aFavor:0 };
+    };
+    var I = [
+      mkInv('FAC-EJ1', C[0], dia(-1), [it('PROD-EJ1', 6, 3000), it('PROD-EJ2', 4), it('PROD-EJ3', 6)], true, t - 2, ''),
+      mkInv('FAC-EJ2', C[1], dia(0), [it('PROD-EJ1', 2), it('PROD-EJ4', 3), it('PROD-EJ5', 3), it('PROD-EJ6', 4)], false, t - 1, 'Ejemplo de nota interna: entregar a la tarde')
+    ];
+    S.proveedores = (S.proveedores || []).concat([pv]);
+    S.products = (S.products || []).concat(P);
+    S.clients = (S.clients || []).concat(C);
+    S.compras = (S.compras || []).concat([comp]);
+    S.invoices = (S.invoices || []).concat(I);
+    try {
+      P.forEach(function(x){ _markDirty('products', x.id); }); C.forEach(function(x){ _markDirty('clients', x.id); });
+      I.forEach(function(x){ _markDirty('invoices', x.id); }); _markDirty('compras', comp.id); _markDirty('proveedores', pv.id);
+    } catch(e) {}
+    try { recalcAllStocks(); } catch(e) {}
+    try { save(['products','clients','invoices','compras','proveedores']); } catch(e) { console.error(e); }
+    ejRefrescar();
+    toast('🧪 Datos de ejemplo cargados');
+  };
+
+  window.ejBorrar = function() {
+    if(window.subBloqueado && window.subBloqueado()) { try { window.subAvisoBloqueo(); } catch(e) {} return; }
+    var r = ejReg(); if(!ejHay()) return;
+    // Lo que el usuario usó en algo suyo (una factura o compra real) se deja, para no romperla
+    var usadoP = {}, usadoC = {}, usadoPv = {};
+    (S.invoices || []).forEach(function(inv){ if(!inv || (r.invoices || []).indexOf(inv.id) >= 0) return; usadoC[inv.clientId] = 1; (inv.items || []).forEach(function(i){ usadoP[i.prodId] = 1; }); });
+    (S.compras || []).forEach(function(c){ if(!c || (r.compras || []).indexOf(c.id) >= 0) return; usadoPv[c.provId] = 1; (c.items || []).forEach(function(i){ usadoP[i.prodId] = 1; }); });
+    var quedan = 0, dejar = [];
+    var borrar = {
+      invoices: r.invoices || [], compras: r.compras || [],
+      products: (r.products || []).filter(function(id){ if(usadoP[id]) { quedan++; dejar.push(id); return false; } return true; }),
+      clients: (r.clients || []).filter(function(id){ if(usadoC[id]) { quedan++; dejar.push(id); return false; } return true; }),
+      proveedores: (r.proveedores || []).filter(function(id){ if(usadoPv[id]) { quedan++; dejar.push(id); return false; } return true; })
+    };
+    if(!confirm('¿Borrar los datos de ejemplo?\n\nSe borran los productos, clientes, proveedor, compra y facturas de ejemplo. Lo tuyo no se toca.' + (quedan ? '\n\n' + quedan + ' se van a quedar porque los usaste en una factura o compra tuya.' : ''))) return;
+    COLS_EJ.forEach(function(col){
+      var ids = borrar[col]; if(!ids.length) return;
+      S[col] = (S[col] || []).filter(function(x){ return !(x && ids.indexOf(x.id) >= 0); });
+      ids.forEach(function(id){ try { if(window._fbDeleteDoc) _fbDeleteDoc(col, id); } catch(e) {} });
+    });
+    // Los productos que quedan dejan de ser "ejemplo" y siguen en el proveedor que se borró: se lo sacamos
+    var pvBorr = borrar.proveedores;
+    (S.products || []).forEach(function(p){
+      if(p && Array.isArray(p.suppliers) && p.suppliers.some(function(s){ return pvBorr.indexOf(s) >= 0; })) {
+        p.suppliers = p.suppliers.filter(function(s){ return pvBorr.indexOf(s) < 0; });
+        try { _markDirty('products', p.id); } catch(e) {}
+      }
+    });
+    // Notas/tildes de la lista de compras del proveedor de ejemplo
+    try { if(S.listaCompras && S.listaCompras.notas) pvBorr.forEach(function(id){ delete S.listaCompras.notas[id]; }); } catch(e) {}
+    if(dejar.length) {
+      S.config = S.config || {};
+      S.config.ejLiberados = liberados().concat(dejar.filter(function(id){ return liberados().indexOf(id) < 0; }));
+      try { _markDirty('config'); } catch(e) {}
+    }
+    try { recalcAllStocks(); } catch(e) {}
+    try { save(dejar.length ? ['products','config'] : ['products']); } catch(e) {}
+    ejRefrescar();
+    toast('Datos de ejemplo borrados');
+  };
+
+  function ejRefrescar() {
+    try { renderProds(); } catch(e) {} try { renderInvs(); } catch(e) {} try { renderClis(); } catch(e) {}
+    try { renderProvs(); } catch(e) {} try { renderComps(); } catch(e) {} try { updDash(); } catch(e) {}
+    try { renderPrimerosPasos(); } catch(e) {}
+    try { if(document.getElementById('comp-lista').style.display !== 'none') renderListaCompras(); } catch(e) {}
+    try { if(typeof renderStockAlertas === 'function') renderStockAlertas(); } catch(e) {}
+    try { window._catalogoProgramar && window._catalogoProgramar(); } catch(e) {}
+    ejBanner();
+  }
+  window.ejRefrescar = ejRefrescar;
+
+  // Cartel amarillo arriba de las pantallas principales mientras haya ejemplos
+  var PAGS_BANNER = ['dashboard','facturas','productos','clientes','compras','proveedores','stock'];
+  window.ejBanner = function() {
+    var hay = false; try { hay = ejHay(); } catch(e) {}
+    PAGS_BANNER.forEach(function(pg){
+      var page = document.getElementById('page-' + pg); if(!page) return;
+      var b = page.querySelector(':scope > .ej-banner');
+      if(!hay) { if(b) b.remove(); return; }
+      if(b) return;
+      b = document.createElement('div'); b.className = 'ej-banner'; b.setAttribute('data-no3d', '');
+      b.style.cssText = 'display:flex;align-items:center;gap:10px;background:#fff8e1;border:1.5px solid #fcd34d;border-radius:12px;padding:8px 10px 8px 12px;margin:0 0 10px';
+      b.innerHTML = '<span style="font-size:20px">🧪</span><span style="flex:1;font-size:13px;line-height:1.25;color:#92400e;font-weight:700">Estás viendo datos de ejemplo</span>'
+        + '<button type="button" onclick="ejBorrar()" style="border-radius:10px;padding:7px 10px;font-size:13px;font-weight:800;background:#fff;color:#b45309;border:1.5px solid #f59e0b;cursor:pointer;font-family:inherit;white-space:nowrap">Borrar ejemplos</button>';
+      page.insertBefore(b, page.firstChild);
+    });
+  };
 })();
 
 </script>
