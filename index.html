@@ -250,6 +250,30 @@
   // Registros que ya estan viajando a Firebase con esa misma version: no mandarlos dos veces
   const _vuelo = {}; COLS.forEach(function(c){ _vuelo[c] = new Map(); });
   function _enVuelo(col, id) { return _vuelo[col].has(id) && _vuelo[col].get(id) === _seq[col].get(id); }
+  window._facEsSucio = function(id) { return _dirty.invoices.has(id); };
+  // 4.17.0: antes de subir una factura, mirar si el servidor tiene una version distinta de la que
+  // este celular conocia. Si es asi, se combina (o gana el servidor) en vez de pisar lo del otro celular.
+  async function _facPreGuarda(data) {
+    try {
+      if(_esTienda || typeof window._facMezclar !== 'function') return;
+      const sucias = _dirty.invoices;
+      if(!sucias || sucias.size === 0 || sucias.size > 15) return;   // lotes grandes (importar/restaurar): como siempre
+      const recs = (data.invoices || []).filter(function(r){ return r && r.id && sucias.has(r.id) && !_enVuelo('invoices', r.id); });
+      const infos = [];
+      for(const rec of recs) {
+        try {
+          const sn = await Promise.race([getDoc(v2doc('invoices', rec.id)), new Promise(function(r){ setTimeout(function(){ r(null); }, 4000); })]);
+          if(!sn || !sn.exists() || (sn.metadata && sn.metadata.fromCache)) continue;   // sin señal o sin dato real: se guarda como siempre
+          const srv = sinMod(sn);
+          const r = window._facMezclar(rec, srv);
+          if(!r) continue;
+          if(r.escribir === false) sucias.delete(rec.id);   // lo local no aporta nada nuevo: no se sube
+          infos.push(r);
+        } catch(e) {}
+      }
+      if(infos.length && typeof window._facTrasMezcla === 'function') window._facTrasMezcla(infos);
+    } catch(e) { console.warn('guarda de facturas:', e); }
+  }
   // 4.9.1: antes de subir la lista de compras, combinarla con la que está en el servidor
   // (así un celular con la lista vieja no borra las notas/tildes que cargó el otro).
   async function _lcPreMezcla(data) {
@@ -291,7 +315,12 @@
     _dirty.config = false;
   }
   // Quita las marcas de lo que Firebase confirmo, salvo lo que se volvio a tocar en el medio
-  function _confirmarEnviados(enviados, cfgEnviado) {
+  function _confirmarEnviados(enviados, cfgEnviado, snaps) {
+    try {
+      (snaps || []).forEach(function(s){
+        if(typeof window._facSnapSet === 'function') window._facSnapSet(s[0], s[1]);
+      });
+    } catch(e) {}
     enviados.forEach(function(e){ if(_seq[e[0]].get(e[1]) === e[2]) _dirty[e[0]].delete(e[1]); });
     if(cfgEnviado !== null && cfgEnviado === _seqCfg) _dirty.config = false;
     try { window._copiaProgramar && window._copiaProgramar(true); } catch(e) {}
@@ -410,8 +439,10 @@
 
       // Escritura selectiva — solo dirty records de los fields solicitados
       if(fields.includes('listacompras')) await _lcPreMezcla(data);
+      if(fields.includes('invoices')) await _facPreGuarda(data);
       const batches = [];
       const enviados = [];
+      const snaps = [];
       let cfgEnviado = null;
       const cfgUpdates = {};
       let hasCfg = false;
@@ -431,6 +462,7 @@
             aEnviar.slice(i, i+400).forEach(rec => {
               batch.set(v2doc(f, rec.id), conMod(rec));
               enviados.push([f, rec.id, _seq[f].get(rec.id)]);
+              if(f === 'invoices') snaps.push([rec.id, cleanUndefined(rec), _seq[f].get(rec.id)]);
               _vuelo[f].set(rec.id, _seq[f].get(rec.id));
             });
             batches.push(batch.commit());
@@ -498,7 +530,7 @@
         try { batches.push(_latidoWrite()); } catch(e) {}
         try { await Promise.all(batches); } finally { _finVuelo(enviados); }
       }
-      _confirmarEnviados(enviados, cfgEnviado);
+      _confirmarEnviados(enviados, cfgEnviado, snaps);
 
     } catch(e) { console.error('Firebase save error:', e); throw e; }
   };
@@ -509,8 +541,10 @@
     if(window.subBloqueado && window.subBloqueado()) throw new Error('Suscripcion vencida: solo lectura');
     try {
       await _lcPreMezcla(data);
+      await _facPreGuarda(data);
       const batches = [];
       const enviados = [];
+      const snaps = [];
       for(const col of COLS) {
         const dirtyIds = _dirty[col];
         if(!dirtyIds || dirtyIds.size === 0) continue;
@@ -524,6 +558,7 @@
           aEnviar.slice(i, i+400).forEach(rec => {
             batch.set(v2doc(col, rec.id), conMod(rec));
             enviados.push([col, rec.id, _seq[col].get(rec.id)]); // limpiar SOLO tras confirmar
+            if(col === 'invoices') snaps.push([rec.id, cleanUndefined(rec), _seq[col].get(rec.id)]);
             _vuelo[col].set(rec.id, _seq[col].get(rec.id));
           });
           batches.push(batch.commit());
@@ -589,7 +624,7 @@
       }
       if(batches.length > 0) { try { await Promise.all(batches); } finally { _finVuelo(enviados); } }
       // Confirmado por el servidor → recién ahora marcar como sincronizado
-      _confirmarEnviados(enviados, cfgEnviado);
+      _confirmarEnviados(enviados, cfgEnviado, snaps);
     } catch(e) { console.error('Firebase saveDirty error:', e); throw e; }
   };
 
@@ -2570,11 +2605,21 @@ if(typeof window._fbDeleteDoc !== 'function') {
   };
 }
 function _pendExportar() {
-  try { if(typeof window._dirtyExport === 'function') return window._dirtyExport(); } catch(e) {}
+  try {
+    if(typeof window._dirtyExport === 'function') {
+      const o = window._dirtyExport();
+      try {   // 4.17.0: copia de referencia de las facturas con cambios sin subir (para no perderla al reiniciar)
+        const ids = (o.up && o.up.invoices) || [];
+        if(ids.length) { const fb = {}; ids.forEach(function(id){ const b = _facBase.get(id); if(b) fb[id] = b; }); o.facBase = fb; }
+      } catch(e) {}
+      return o;
+    }
+  } catch(e) {}
   return JSON.parse(JSON.stringify(window._pendLocal || { up:{}, del:{}, cfg:false }));
 }
 function _pendImportar(p) {
   if(!p) return;
+  try { if(p.facBase) Object.keys(p.facBase).forEach(function(k){ if(!_facBase.has(k)) _facBase.set(k, p.facBase[k]); }); } catch(e) {}   // 4.17.0
   if(typeof window._dirtyImport === 'function') { window._dirtyImport(p); return; }
   const P = window._pendLocal;
   Object.keys(p.up || {}).forEach(function(c){ P.up[c] = Array.from(new Set((P.up[c] || []).concat(p.up[c] || []))); });
@@ -2822,6 +2867,97 @@ function _lcNotaFlush(pvId, el) {
 }
 // ===== FIN 4.9.1 =====
 
+// ===== 4.17.0: una factura vieja no pisa a una más nueva =====
+// Cada celular guarda una copia de cada factura reciente tal como la vio en el servidor (_facBase).
+// Al subir una factura, el módulo compara con el servidor: si el otro celular la cambió en el medio,
+// se combina (tildes, Preparado, Urgente) o gana el servidor, en vez de pisarla con la copia vieja.
+const _facBase = new Map();
+window._facSnapSet = function(id, obj) { try { _facBase.set(id, JSON.parse(JSON.stringify(obj))); } catch(e) {} };
+function _fcanon(v) {
+  if(v === undefined || v === null) return 'null';
+  if(Array.isArray(v)) return '[' + v.map(_fcanon).join(',') + ']';
+  if(typeof v === 'object') return '{' + Object.keys(v).filter(function(k){ return v[k] !== undefined && v[k] !== null; }).sort().map(function(k){ return JSON.stringify(k) + ':' + _fcanon(v[k]); }).join(',') + '}';
+  return JSON.stringify(v);
+}
+function _fsinT(o) { const c = {}; Object.keys(o || {}).forEach(function(k){ if(k !== 'updatedAt' && k !== '_mod') c[k] = o[k]; }); return c; }
+// L = factura de este celular (se modifica adentro), S = la del servidor. B = la versión del servidor que
+// este celular conocía. Sin B no se hace nada (se guarda como siempre). Devuelve null o {tipo, escribir, ...}.
+function _facMezclar(L, S) {
+  if(!L || !S || !L.id) return null;
+  const B = _facBase.get(L.id);
+  const nombre = L.clientName || S.clientName || L.id;
+  if(!B) return null;
+  if(_fcanon(_fsinT(B)) === _fcanon(_fsinT(S))) return null;   // el servidor no cambió desde que este celular lo vio
+  const adoptar = function(M, upd) {
+    const copia = JSON.parse(JSON.stringify(M));
+    Object.keys(L).forEach(function(k){ delete L[k]; });
+    Object.assign(L, copia);
+    if(upd === null) delete L.updatedAt; else if(upd !== undefined) L.updatedAt = upd;
+  };
+  _facBase.set(L.id, JSON.parse(JSON.stringify(S)));   // desde ahora conocemos la versión del servidor
+  const cS = _fcanon(_fsinT(S)), cL = _fcanon(_fsinT(L));
+  if(cL === cS) { if(S.updatedAt !== undefined) L.updatedAt = S.updatedAt; return { tipo:'igual', id:L.id, cliente:nombre, escribir:false }; }
+  const bO = _fsinT(B), lO = _fsinT(L), sO = _fsinT(S);
+  const M = {}, conf = [];
+  new Set(Object.keys(bO).concat(Object.keys(lO), Object.keys(sO))).forEach(function(k){
+    const b = _fcanon(bO[k]), l = _fcanon(lO[k]), s = _fcanon(sO[k]);
+    let v;
+    if(l === b) v = sO[k];                                   // este celular no lo tocó: lo del servidor
+    else if(s === b || l === s) v = lO[k];                   // el servidor no lo tocó (o quedó igual): lo de este celular
+    else if(k === 'itemsArmados') {                          // tildes: se suman las de los dos celulares
+      const ib = bO[k] || {}, il = lO[k] || {}, is = sO[k] || {}; const o = {};
+      new Set(Object.keys(ib).concat(Object.keys(il), Object.keys(is))).forEach(function(p){
+        const x = (_fcanon(il[p]) !== _fcanon(ib[p])) ? il[p] : is[p];
+        if(x !== undefined && x !== null) o[p] = x;
+      });
+      v = o;
+    }
+    else if(k === 'preparado' || k === 'urgente') v = lO[k];
+    else { conf.push(k); return; }                           // los dos cambiaron lo mismo (importes, renglones...): no se puede combinar
+    if(v !== undefined && v !== null) M[k] = v;
+  });
+  if(conf.length) { adoptar(S); return { tipo:'descartada', id:L.id, cliente:nombre, campos:conf, escribir:false }; }
+  const cM = _fcanon(M);
+  if(cM === cS) { adoptar(S); return { tipo:'actualizada', id:L.id, cliente:nombre, escribir:false }; }
+  if(cM === cL) return { tipo:'propio', id:L.id, cliente:nombre, escribir:true };
+  M.updatedAt = Date.now();
+  adoptar(M);
+  return { tipo:'mezcla', id:L.id, cliente:nombre, escribir:true };
+}
+window._facMezclar = _facMezclar;
+// Después de combinar: refrescar pantalla y avisar (solo si algo cambió para quien está trabajando)
+function _facTrasMezcla(infos) {
+  try {
+    const rel = (infos || []).filter(function(i){ return i && (i.tipo === 'actualizada' || i.tipo === 'mezcla' || i.tipo === 'descartada'); });
+    if(!rel.length) return;
+    try { recalcAllStocks(); } catch(e) {}
+    try { if(S.page === 'facturas' && typeof renderInvs === 'function') renderInvs(); } catch(e) {}
+    const perd = rel.filter(function(i){ return i.tipo === 'descartada'; });
+    const nom = function(i){ return '«' + String(i.cliente).slice(0, 28) + '»'; };
+    let msg;
+    if(perd.length) msg = '⚠ ' + nom(perd[0]) + (perd.length > 1 ? ' y ' + (perd.length - 1) + ' más' : '') + ': el otro celular la había modificado. Se actualizó con esa versión; si recién tocaste algo, revisalo.';
+    else msg = '🔄 ' + nom(rel[0]) + (rel.length > 1 ? ' y ' + (rel.length - 1) + ' más' : '') + ': se actualizó con lo que hizo el otro celular.';
+    toast(msg);
+    try { const t = document.getElementById('toast'); clearTimeout(t._t); t._t = setTimeout(function(){ t.classList.remove('show'); }, perd.length ? 9000 : 5000); } catch(e) {}
+  } catch(e) {}
+}
+window._facTrasMezcla = _facTrasMezcla;
+// Guarda la versión que este celular conoce de cada factura reciente (si no está sucia).
+function _facSnapRefrescar(forzar) {
+  try {
+    const hoy = new Date(); hoy.setDate(hoy.getDate() - 14);
+    const desde = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
+    (S.invoices || []).forEach(function(inv){
+      if(!inv || !inv.id) return;
+      if(!forzar && _facBase.has(inv.id)) return;
+      if(!(inv.status === 'pendiente' || String(inv.date || '') >= desde)) return;
+      if(window._facEsSucio && window._facEsSucio(inv.id)) return;
+      _facBase.set(inv.id, JSON.parse(JSON.stringify(inv)));
+    });
+  } catch(e) {}
+}
+// ===== FIN 4.17.0 =====
+
 // Pone los datos de Firebase y les vuelve a aplicar encima lo que este celular
 // cargo y todavia no se confirmo (en vez de pisarlo, como pasaba antes).
 const _CAMPOS_CFG_LOCAL = ['config','banners','bannersTs','gruposMay','tiendaModo'];
@@ -2857,6 +2993,7 @@ function _aplicarDatosFirebase(d) {
   if(pend.cfg) _CAMPOS_CFG_LOCAL.forEach(function(k){ if(cfgLocal[k] !== undefined) S[k] = cfgLocal[k]; });
   _CONTADORES.forEach(function(k){ if((S[k] || 0) < cont[k]) S[k] = cont[k]; });
   _fixCounters();
+  _facSnapRefrescar(true);   // 4.17.0
   _reconstruirListaCompras();
   const _mc = _metaCarga.get(d);
   if(_mc) { window._lastSrv = _mc.srv; if(_mc.full || !window._fullAt) window._fullAt = Date.now(); }
@@ -3261,6 +3398,9 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.17.0', f:'16/10/2026', t:[
+    'Dos celulares a la vez: ya no se pisan las facturas. Antes de guardar, la app mira si el otro celular cambió esa factura; si es así, suma lo de los dos (tildes, Preparado, Urgente) o se queda con la versión más nueva y te avisa con un cartel.'
+  ]},
   {v:'4.16.0', f:'16/10/2026', t:[
     'Tienda: podés mostrar el stock de los productos que elijas. Al editar un producto, tildá "Mostrar stock en la tienda": el cliente ve "Stock: 25" y, con menos de 10, "¡Últimas 7!". Los productos con 🔢 en tu lista son los que lo muestran.'
   ]},
@@ -8233,6 +8373,7 @@ function crearFacturaPendientes(invId, fecha) {
 }
 // ===== FIN FALTANTES =====
 function renderInvs() {
+  _facSnapRefrescar(false);   // 4.17.0
   try{renderInvDiaResumen();}catch(e){}
   window._stkR = _stkReparto();   // 4.15.0: reparto de stock entre pedidos sin preparar
   const el=document.getElementById('inv-list');
