@@ -276,18 +276,25 @@
   }
   // 4.9.1: antes de subir la lista de compras, combinarla con la que está en el servidor
   // (así un celular con la lista vieja no borra las notas/tildes que cargó el otro).
+  // 4.18.0: devuelve false si no se pudo leer la lista del servidor. En ese caso la lista NO se sube
+  // (antes se subía entera sin combinar y una copia vieja podía pisar las notas). Queda pendiente.
   async function _lcPreMezcla(data) {
+    let leida = true;
     try {
-      if(_esTienda) return;
-      if(!_dirty.listacompras || !_dirty.listacompras.has('main')) return;
-      if(_enVuelo('listacompras', 'main')) return;
+      if(_esTienda) return true;
+      if(!_dirty.listacompras || !_dirty.listacompras.has('main')) return true;
+      if(_enVuelo('listacompras', 'main')) return true;
       const rec = (data.listacompras || []).find(function(r){ return r && r.id === 'main'; });
-      if(!rec || typeof window._lcMezclar !== 'function') return;
+      if(!rec || typeof window._lcMezclar !== 'function') return true;
+      leida = false;
       const sn = await getDoc(v2doc('listacompras', 'main'));
-      if(!sn.exists()) return;
+      if(sn.metadata && sn.metadata.fromCache) return false;
+      leida = true;
+      if(!sn.exists()) return true;
       const trajo = window._lcMezclar(rec, sinMod(sn));
       if(typeof window._lcTrasMezcla === 'function') window._lcTrasMezcla(trajo);
     } catch(e) { console.warn('lista compras: no se pudo combinar', e); }
+    return leida;
   }
   function _finVuelo(enviados) { enviados.forEach(function(e){ if(_vuelo[e[0]].get(e[1]) === e[2]) _vuelo[e[0]].delete(e[1]); }); }
   function _copiaAvisar() { try { if(typeof window._copiaProgramar === 'function') window._copiaProgramar(); } catch(e) {} }
@@ -438,7 +445,7 @@
       }
 
       // Escritura selectiva — solo dirty records de los fields solicitados
-      if(fields.includes('listacompras')) await _lcPreMezcla(data);
+      const _lcOk = fields.includes('listacompras') ? await _lcPreMezcla(data) : true;
       if(fields.includes('invoices')) await _facPreGuarda(data);
       const batches = [];
       const enviados = [];
@@ -455,7 +462,7 @@
           // Marcas de registros que ya no existen (se borraron): no hay nada que subir
           const existentes = new Set(records.map(r => r.id));
           Array.from(dirtyIds).forEach(id => { if(!existentes.has(id)) dirtyIds.delete(id); });
-          const aEnviar = records.filter(r => !_enVuelo(f, r.id));
+          const aEnviar = records.filter(r => !_enVuelo(f, r.id) && !(f === 'listacompras' && !_lcOk));
           if(aEnviar.length === 0) return;
           for(let i = 0; i < aEnviar.length; i += 400) {
             const batch = writeBatch(db);
@@ -540,7 +547,7 @@
   window._fbSaveDirty = async function(data) {
     if(window.subBloqueado && window.subBloqueado()) throw new Error('Suscripcion vencida: solo lectura');
     try {
-      await _lcPreMezcla(data);
+      const _lcOk = await _lcPreMezcla(data);
       await _facPreGuarda(data);
       const batches = [];
       const enviados = [];
@@ -551,7 +558,7 @@
         const records = (data[col] || []).filter(r => r && r.id && dirtyIds.has(r.id));
         const existentes = new Set(records.map(r => r.id));
         Array.from(dirtyIds).forEach(id => { if(!existentes.has(id)) dirtyIds.delete(id); });
-        const aEnviar = records.filter(r => !_enVuelo(col, r.id));
+        const aEnviar = records.filter(r => !_enVuelo(col, r.id) && !(col === 'listacompras' && !_lcOk));
         if(aEnviar.length === 0) continue;
         for(let i = 0; i < aEnviar.length; i += 400) {
           const batch = writeBatch(db);
@@ -2789,6 +2796,20 @@ function _lcSellar(doc) {
   }
   window._lcUltimo = _lcCopia(doc);
 }
+// 4.18.0: registro de lo que pasa con las notas en ESTE celular (sale en el backup como lcLog).
+// Sirve para saber cuándo y desde qué camino una nota vieja vuelve a aparecer.
+function _lcLogLeer() {
+  try { const a = JSON.parse(localStorage.getItem('rev_lc_log') || '[]'); return Array.isArray(a) ? a : []; } catch(e) { return []; }
+}
+function _lcLog(o) {
+  try {
+    o.t = Date.now(); o.v = (typeof NOVEDADES !== 'undefined' && NOVEDADES[0]) ? NOVEDADES[0].v : '';
+    let a = _lcLogLeer(); a.unshift(o);
+    const lim = Date.now() - 30 * 86400000;
+    a = a.filter(function(x){ return x && x.t > lim; }).slice(0, 80);
+    localStorage.setItem('rev_lc_log', JSON.stringify(a));
+  } catch(e) {}
+}
 // Combina L (este celular) con R (servidor) dentro de L. Devuelve true si algo de R ganó.
 function _lcMezclar(L, R) {
   if(!L || !R) return false;
@@ -2803,6 +2824,7 @@ function _lcMezclar(L, R) {
   const _tt = function(v){ return typeof v === 'number' ? v : (Date.parse(v || '') || 0); };   // updatedAt puede ser número (ms) o texto ISO
   const _bs = _tt(L._srv), _ru = _tt(R.updatedAt);
   const rNuevo = !_bs || (_ru > _bs);
+  const _logSube = [], _logBaja = [];
   _LC_SECC.forEach(function(par){
     const sec = par[0], k = par[1];
     const mL = L[sec] || {}, mR = R[sec] || {};
@@ -2820,6 +2842,7 @@ function _lcMezclar(L, R) {
       const t = Math.max(a, b);
       if(t > 0 && (existe || t > limite)) tOut[key] = t;
       if(usa === 'R' && JSON.stringify(mL[key]) !== JSON.stringify(mR[key])) trajo = true;
+      if(sec === 'notas' && JSON.stringify(mL[key]) !== JSON.stringify(mR[key])) (usa === 'L' ? _logSube : _logBaja).push([key, a, b]);
     });
     L[sec] = out; tsOut[k] = tOut;
   });
@@ -2835,6 +2858,7 @@ function _lcMezclar(L, R) {
   L.ts = tsOut;
   if(trajo && R.updatedAt && (!L.updatedAt || R.updatedAt > L.updatedAt)) L.updatedAt = R.updatedAt;
   if(R.updatedAt) L._srv = R.updatedAt;   // ya incorporamos lo del servidor hasta esta hora
+  if(_logSube.length || _logBaja.length) _lcLog({ e:'mezcla', s:_logSube.slice(0, 12), b:_logBaja.slice(0, 12), srv:_bs, ru:_ru });
   return trajo;
 }
 // Después de combinar al subir: actualizar la pantalla sin cortar a quien escribe
@@ -2863,7 +2887,7 @@ function _lcNotaFlush(pvId, el) {
   if((S.listaCompras.notas[pvId]||'') === el.value) return;
   try { const _a = S.listaCompras.notas[pvId] || ''; if(_a.trim()) _lcHistAnotar(pvId, _a, el.value.trim().length < _a.trim().length * 0.5 ? 'Antes de vaciarla o acortarla' : 'Antes de editarla', el.value.trim().length >= _a.trim().length * 0.5); } catch(e) {}
   S.listaCompras.notas[pvId] = el.value;
-  _listaCompraGuardar();
+  _listaCompraGuardar([['notas', pvId]], 'nota-escrita');
 }
 // ===== FIN 4.9.1 =====
 
@@ -3398,6 +3422,9 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.18.0', f:'16/10/2026', t:[
+    'Lista de compras: las notas viejas ya no vuelven a aparecer. Ahora solo se guarda lo que tocás (una nota, un tilde, una cantidad); lo que no tocaste queda como está, aunque tu pantalla tuviera una versión vieja. Si no hay señal, la lista espera y se sube cuando vuelve, sin pisar lo del otro celular.'
+  ]},
   {v:'4.17.0', f:'16/10/2026', t:[
     'Dos celulares a la vez: ya no se pisan las facturas. Antes de guardar, la app mira si el otro celular cambió esa factura; si es así, suma lo de los dos (tildes, Preparado, Urgente) o se queda con la versión más nueva y te avisa con un cartel.'
   ]},
@@ -4810,7 +4837,8 @@ function backupData() {
     compras: S.compras, proveedores: S.proveedores, cobranzas: S.cobranzas||[],
     banners: S.banners||[], ajustes: S.ajustes||[],
     config: S.config||{}, listacompras: S.listacompras||[], tiendaModo: S.tiendaModo||'abierta',
-    nInv: S.nInv, nCli: S.nCli, nProd: S.nProd, nComp: S.nComp, nProv: S.nProv
+    nInv: S.nInv, nCli: S.nCli, nProd: S.nProd, nComp: S.nComp, nProv: S.nProv,
+    lcLog: (function(){ try { return _lcLogLeer(); } catch(e) { return []; } })(), lcDisp: (navigator.userAgent || '').slice(0, 160)
   };
   const blob = new Blob([JSON.stringify(backup, null, 2)], {type: 'application/json'});
   const url = URL.createObjectURL(blob);
@@ -7185,7 +7213,7 @@ async function ncSaveComp() {
   try{ _subirFacturaSiHay(window._facturaFotoNC, provId, compId, 'nc'); }catch(e){}
   if(S.listaCompras && S.listaCompras.notas && S.listaCompras.notas[provId]) {
     delete S.listaCompras.notas[provId];
-    try{ _listaCompraGuardar(); }catch(e){}
+    try{ _listaCompraGuardar([['notas', provId]], 'compra-borra-nota'); }catch(e){}
   }
 }
 
@@ -11454,13 +11482,14 @@ function listaEjecutarCompra() {
   // Limpiar cantidades guardadas de los productos comprados y persistir el borrado
   if(S.listaCompras && S.listaCompras.cantidades) {
     let huboBorrado = false;
+    const _cBorr = [];
     compItems.forEach(function(item) {
       if(!item.prodId) return;
       Object.keys(S.listaCompras.cantidades).forEach(function(k){
-        if(k.split('|')[0] === item.prodId) { delete S.listaCompras.cantidades[k]; huboBorrado = true; }
+        if(k.split('|')[0] === item.prodId) { delete S.listaCompras.cantidades[k]; huboBorrado = true; _cBorr.push(['cantidades', k]); }
       });
     });
-    if(huboBorrado) { try{ _listaCompraGuardar(); }catch(e){} }
+    if(huboBorrado) { try{ _listaCompraGuardar(_cBorr, 'compra-cantidades'); }catch(e){} }
   }
   try{recalcAllStocks();recalcClientCredits();}catch(e){}
   try{renderProds();}catch(e){}
@@ -11473,7 +11502,7 @@ function listaEjecutarCompra() {
   if(window._listaCompraBorrarNota && S.listaCompras && S.listaCompras.notas && S.listaCompras.notas[pvId]) {
     try { _lcHistAnotar(pvId, S.listaCompras.notas[pvId], 'Se borró al confirmar una compra'); } catch(e) {}
     delete S.listaCompras.notas[pvId];
-    try{ _listaCompraGuardar(); }catch(e){}
+    try{ _listaCompraGuardar([['notas', pvId]], 'compra-lista-borra-nota'); }catch(e){}
   }
   window._listaCompraBorrarNota = false;
   const ov = document.getElementById('lista-compra-overlay');
@@ -11482,19 +11511,71 @@ function listaEjecutarCompra() {
   renderListaCompras();
 }
 // Función central: sincroniza S.listaCompras → colección S.listacompras y marca dirty
-function _listaCompraGuardar() {
+// 4.18.0: la hora de cada cambio se marca SOLO en lo que el usuario tocó.
+// Antes se comparaba la pantalla contra una "foto" de la lista: si la pantalla tenía la lista
+// vieja, marcaba las notas viejas como recién escritas y pisaban las buenas en los dos celulares
+// (16/10 09:27). Ahora: tocados = [[seccion, clave], ...]; ['oc'] = ocultos; clave '*' = toda la sección.
+// Lo que no se tocó queda como está guardado, y la pantalla vuelve a mirar lo guardado.
+window._LC_OC = [['oc']];               // globales: los usan botones armados como texto (onclick)
+window._LC_EST_TODO = [['estados','*']];
+function _listaCompraGuardar(tocados, origen) {
   if(!S.listaCompras) S.listaCompras = {};
-  S.listaCompras.updatedAt = new Date().toISOString();
+  const ui = S.listaCompras;
+  ui.updatedAt = new Date().toISOString();
   if(!Array.isArray(S.listacompras)) S.listacompras = [];
   let doc = S.listacompras.find(function(d){ return d && d.id==='main'; });
-  if(!doc) { doc = {id:'main'}; S.listacompras.push(doc); }
-  doc.notas = S.listaCompras.notas||{};
-  doc.estados = S.listaCompras.estados||{};
-  doc.cantidades = S.listaCompras.cantidades||{};
-  doc.orden = S.listaCompras.orden||{};
-  doc.ocultos = S.listaCompras.ocultos||[];
-  doc.updatedAt = S.listaCompras.updatedAt;
-  try{ _lcSellar(doc); }catch(e){}   // 4.9.1: hora de cada cambio
+  if(!doc) {   // primera vez: se arma con lo que hay (sin hora, como antes)
+    doc = { id:'main', notas:Object.assign({}, ui.notas||{}), estados:Object.assign({}, ui.estados||{}),
+      cantidades:Object.assign({}, ui.cantidades||{}), orden:Object.assign({}, ui.orden||{}), ocultos:(ui.ocultos||[]).slice() };
+    S.listacompras.push(doc);
+  }
+  if(Array.isArray(tocados)) {
+    const ahora = Date.now();
+    if(!doc.ts || typeof doc.ts !== 'object') doc.ts = {};
+    // Diagnóstico: la pantalla tenía notas distintas de las guardadas que nadie tocó (pantalla vieja)
+    try {
+      const tocN = {}; tocados.forEach(function(t){ if(t && t[0] === 'notas') tocN[t[1]] = 1; });
+      const un = ui.notas || {}, dn = doc.notas || {};
+      if(un !== dn) {
+        const viejas = Object.keys(Object.assign({}, un, dn)).filter(function(k){ return !tocN[k] && !tocN['*'] && (un[k] || '') !== (dn[k] || ''); });
+        if(viejas.length) _lcLog({ e:'pantalla-vieja', o:origen || '', k:viejas.slice(0, 15), p:String((new Error()).stack || '').slice(0, 400) });
+      }
+    } catch(e) {}
+    const marc = [];
+    tocados.forEach(function(t){
+      if(!t) return;
+      if(t[0] === 'oc') { doc.ocultos = (ui.ocultos || []).slice(); doc.ts.oc = ahora; marc.push('oc'); return; }
+      const par = _LC_SECC.find(function(p){ return p[0] === t[0]; });
+      if(!par) return;
+      const sec = par[0], k = par[1];
+      if(!doc[sec] || typeof doc[sec] !== 'object') doc[sec] = {};
+      if(!doc.ts[k] || typeof doc.ts[k] !== 'object') doc.ts[k] = {};
+      const u = ui[sec] || {};
+      const claves = t[1] === '*' ? Object.keys(Object.assign({}, doc[sec], u)) : [t[1]];
+      claves.forEach(function(c){
+        if(c === undefined || c === null || c === '') return;
+        if(Object.prototype.hasOwnProperty.call(u, c)) doc[sec][c] = JSON.parse(JSON.stringify(u[c]));
+        else delete doc[sec][c];
+        doc.ts[k][c] = ahora; marc.push(sec + ':' + c);
+      });
+    });
+    // La pantalla vuelve a mirar lo guardado (si estaba vieja, se corrige acá)
+    ['notas','estados','cantidades','orden'].forEach(function(s){ if(!doc[s] || typeof doc[s] !== 'object') doc[s] = {}; ui[s] = doc[s]; });
+    if(!Array.isArray(doc.ocultos)) doc.ocultos = [];
+    ui.ocultos = doc.ocultos;
+    if(marc.some(function(m){ return m.indexOf('notas:') === 0 || m === 'oc'; }) || marc.length > 5) _lcLog({ e:'guardar', o:origen || '', k:marc.slice(0, 15), n:marc.length });
+  } else {
+    // Camino anterior (ya no lo usa ningún botón): se deja por compatibilidad y queda anotado
+    try { _lcLog({ e:'sin-detalle', o:origen || '', p:String((new Error()).stack || '').slice(0, 400) }); } catch(e) {}
+    doc.notas = ui.notas||{};
+    doc.estados = ui.estados||{};
+    doc.cantidades = ui.cantidades||{};
+    doc.orden = ui.orden||{};
+    doc.ocultos = ui.ocultos||[];
+    try{ _lcSellar(doc); }catch(e){}
+  }
+  doc.updatedAt = ui.updatedAt;
+  window._lcUltimo = _lcCopia(doc);
   try{ _markDirty('listacompras','main'); }catch(e){}
   try{ save(['listacompras']); }catch(e){}
   // Subir inmediatamente a Firebase para que el otro celular lo vea al sincronizar
@@ -11504,7 +11585,7 @@ function listaOcultarProv(pvId) {
   if(!S.listaCompras) S.listaCompras = {};
   if(!S.listaCompras.ocultos) S.listaCompras.ocultos = [];
   if(!S.listaCompras.ocultos.includes(pvId)) S.listaCompras.ocultos.push(pvId);
-  _listaCompraGuardar();
+  _listaCompraGuardar(_LC_OC, 'ocultar');
   renderListaCompras();
   toast('Proveedor ocultado para esta sesión');
 }
@@ -11514,7 +11595,7 @@ function listaOrdenProv(pvId, num) {
   const n = parseInt(num);
   if(isNaN(n) || n <= 0) delete S.listaCompras.orden[pvId];
   else S.listaCompras.orden[pvId] = n;
-  _listaCompraGuardar();
+  _listaCompraGuardar([['orden', pvId]], 'orden');
   renderListaCompras();
 }
 function listaNotaGuardar(pvId) {
@@ -11525,7 +11606,7 @@ function listaNotaGuardar(pvId) {
   if(!S.listaCompras.notas) S.listaCompras.notas = {};
   try { const _a = S.listaCompras.notas[pvId] || ''; if(_a.trim() && _a !== val) _lcHistAnotar(pvId, _a, val.trim().length < _a.trim().length * 0.5 ? 'Antes de vaciarla o acortarla' : 'Antes de editarla', val.trim().length >= _a.trim().length * 0.5); } catch(e) {}
   S.listaCompras.notas[pvId] = val;
-  _listaCompraGuardar();
+  _listaCompraGuardar([['notas', pvId]], 'nota-anotar');
   const btn = document.getElementById('nota-btn-'+pvId);
   if(btn) {
     const orig = btn.textContent;
@@ -11539,7 +11620,7 @@ function listaNotaProv(pvId, val) {
   if(!S.listaCompras.notas) S.listaCompras.notas = {};
   try { const _a = S.listaCompras.notas[pvId] || ''; if(_a.trim() && _a !== val) _lcHistAnotar(pvId, _a, String(val||'').trim().length < _a.trim().length * 0.5 ? 'Antes de vaciarla o acortarla' : 'Antes de editarla', String(val||'').trim().length >= _a.trim().length * 0.5); } catch(e) {}
   S.listaCompras.notas[pvId] = val;
-  _listaCompraGuardar();
+  _listaCompraGuardar([['notas', pvId]], 'nota');
 }
 function listaNotaCopiar(pvId) {
   const el = document.getElementById('nota-prov-'+pvId);
@@ -11602,7 +11683,7 @@ function listaNotasHistRestaurar(i) {
   } else {
     S.listaCompras.notas[x.pv] = x.t;
   }
-  _listaCompraGuardar();
+  _listaCompraGuardar([['notas', x.pv]], 'nota-restaurada');
   document.getElementById('lista-hist-overlay').style.display = 'none';
   renderListaCompras();
   toast('✓ Nota restaurada');
@@ -11611,7 +11692,7 @@ function listaNotaBorrar(pvId) {
   if(!S.listaCompras || !S.listaCompras.notas) return;
   try { _lcHistAnotar(pvId, S.listaCompras.notas[pvId], 'La borraste con el botón Borrar'); } catch(e) {}
   delete S.listaCompras.notas[pvId];
-  _listaCompraGuardar();
+  _listaCompraGuardar([['notas', pvId]], 'nota-borrar');
   renderListaCompras();
 }
 function listaDelProv(pvId) {
@@ -11625,7 +11706,7 @@ function listaDelProv(pvId) {
     }
   });
   if(S.listaCompras.notas) delete S.listaCompras.notas[pvId];
-  _listaCompraGuardar();
+  _listaCompraGuardar([['notas', pvId], ['estados', '*']], 'proveedor-quitar');
   renderListaCompras();
   toast('Proveedor eliminado de la lista');
 }
@@ -11639,7 +11720,7 @@ function listaGuardarCantidad(estadoKey, val, base) {
   // cantidad editada quedaba fija para siempre y tapaba el faltante verdadero).
   if(isNaN(n) || n <= 0 || n === b) delete S.listaCompras.cantidades[estadoKey];
   else S.listaCompras.cantidades[estadoKey] = { v: n, base: isNaN(b) ? null : b };
-  _listaCompraGuardar();
+  _listaCompraGuardar([['cantidades', estadoKey]], 'cantidad');
 }
 function listaToggleEstado(prodId, estado) {
   if(!S.listaCompras) return;
@@ -11649,7 +11730,7 @@ function listaToggleEstado(prodId, estado) {
   } else {
     S.listaCompras.estados[prodId] = estado;
   }
-  _listaCompraGuardar();
+  _listaCompraGuardar([['estados', prodId]], 'tilde');
   // Actualizar visualmente sin re-renderizar (para no pisar cantidades editadas)
   const esOk = S.listaCompras.estados[prodId] === 'ok';
   const esFalta = S.listaCompras.estados[prodId] === 'falta';
@@ -11841,7 +11922,7 @@ function renderListaCompras() {
 
   if(ocultos.length > 0) {
     html += '<div style="text-align:center;margin-bottom:10px">'
-      + '<button onclick="if(S.listaCompras)S.listaCompras.ocultos=[];_listaCompraGuardar();renderListaCompras();" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 14px;font-size:13px;color:var(--text2);cursor:pointer">\ud83d\udc41\ufe0f Mostrar '+ocultos.length+' proveedor'+(ocultos.length>1?'es':'')+' oculto'+(ocultos.length>1?'s':'')+'</button>'
+      + '<button onclick="if(S.listaCompras)S.listaCompras.ocultos=[];_listaCompraGuardar(_LC_OC);renderListaCompras();" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 14px;font-size:13px;color:var(--text2);cursor:pointer">\ud83d\udc41\ufe0f Mostrar '+ocultos.length+' proveedor'+(ocultos.length>1?'es':'')+' oculto'+(ocultos.length>1?'s':'')+'</button>'
       + '</div>';
   }
 
@@ -11903,7 +11984,7 @@ function renderListaCompras() {
     + (comprados>0?'<span style="color:#16a34a">\u2713 '+comprados+' comprados</span>':'')
     + (noDisponibles>0?'<span style="color:#dc2626">\u2715 '+noDisponibles+' no disponibles</span>':'')
     + '</div>'
-    + ((comprados+noDisponibles)>0?'<button onclick="if(S.listaCompras){S.listaCompras.estados={};_listaCompraGuardar();}renderListaCompras();" style="width:100%;background:none;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;color:var(--text3);cursor:pointer;margin-bottom:10px">\ud83e\uddf9 Limpiar tildes</button>':'')
+    + ((comprados+noDisponibles)>0?'<button onclick="if(S.listaCompras){S.listaCompras.estados={};_listaCompraGuardar(_LC_EST_TODO);}renderListaCompras();" style="width:100%;background:none;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;color:var(--text3);cursor:pointer;margin-bottom:10px">\ud83e\uddf9 Limpiar tildes</button>':'')
     + '<div style="padding:8px;background:var(--surface2);border-radius:8px;text-align:center;font-size:12px;color:var(--text3)">'
     + '\ud83d\udd11 Verificaci\u00f3n: <strong style="color:var(--text);font-size:14px">$'+totalGeneral.toLocaleString('es-AR')+' \u00b7 '+totalItems+' prod.</strong>'
     + '</div>'
