@@ -510,7 +510,7 @@
                 cfgMerge.horarioCorteTs = tsEx;
               }
               // Igual para los datos del negocio: gana el cambio mas nuevo.
-              ['negocio','catEspecial','descRetiro'].forEach(function(k){
+              ['negocio','catEspecial','descRetiro','stockTienda'].forEach(function(k){
                 const tE = (ex[k] && ex[k].ts) || 0, tN = (nv[k] && nv[k].ts) || 0;
                 if(tE > tN) cfgMerge[k] = ex[k];
               });
@@ -604,7 +604,7 @@
                 cfgMerge.horarioCorteTs = tsEx;
               }
               // Igual para los datos del negocio: gana el cambio mas nuevo.
-              ['negocio','catEspecial','descRetiro'].forEach(function(k){
+              ['negocio','catEspecial','descRetiro','stockTienda'].forEach(function(k){
                 const tE = (ex[k] && ex[k].ts) || 0, tN = (nv[k] && nv[k].ts) || 0;
                 if(tE > tN) cfgMerge[k] = ex[k];
               });
@@ -1757,6 +1757,10 @@ select option{background:var(--surface2)}
       <div class="card-header"><span class="card-title">🛒 Tienda online</span></div>
       <div style="padding:14px 16px">
         <div style="font-size:14px;color:var(--text3);margin-bottom:12px">Pedidos recibidos después de este horario se facturan para el día siguiente.</div>
+        <div style="display:flex;align-items:center;gap:12px;padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid var(--border)">
+          <label for="cfg-stock-todos" style="font-size:14px;font-weight:600;flex:1;line-height:1.35">🔢 Mostrar el stock de todos los productos<br><span style="font-weight:400;font-size:12.5px;color:var(--text3)">Tus clientes ven "Stock: N" (con menos de 10, "¡Últimas N!"). En cada producto podés ocultarlo. No aplica a productos con variantes.</span></label>
+          <input type="checkbox" id="cfg-stock-todos" onchange="saveCfgStockTienda(this.checked)" style="width:26px;height:26px;flex:none">
+        </div>
         <div style="display:flex;align-items:center;gap:12px">
           <label style="font-size:14px;font-weight:600;flex:1">Horario de corte</label>
           <input type="time" id="cfg-horario-corte" value="18:00" onchange="saveCfgHorarioCorte(this.value)" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface);font-size:15px;font-weight:700;color:var(--text);outline:none">
@@ -2071,7 +2075,7 @@ select option{background:var(--surface2)}
         <div style="font-size:13px;color:var(--text3);margin-top:4px">Tocá para seleccionar/deseleccionar</div>
       </div>
       <div class="form-group"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="p-vis" checked style="width:20px;height:20px"><span style="font-size:14px">Visible en tienda online</span></label></div>
-      <div class="form-group"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="p-mostrarstock" style="width:20px;height:20px"><span style="font-size:14px">🔢 Mostrar stock en la tienda <span style="color:var(--text3);font-size:12px">(menos de 10: "¡Últimas N!"; no aplica a productos con variantes)</span></span></label></div>
+      <div class="form-group"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="p-mostrarstock" style="width:20px;height:20px"><span style="font-size:14px">🔢 Mostrar stock en la tienda <span id="p-mostrarstock-ayuda" style="color:var(--text3);font-size:12px">(menos de 10: "¡Últimas N!"; no aplica a productos con variantes)</span></span></label></div>
       <div class="form-group"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="p-oferta" style="width:20px;height:20px"><span style="font-size:14px">🔥 En oferta</span></label></div>
       <div class="form-group"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="p-soloflyer" style="width:20px;height:20px"><span style="font-size:14px">📢 Solo flyer (no aparece al facturar)</span></label></div>
     </div>
@@ -3277,6 +3281,13 @@ function _clientesTel6() {
   if(cambio) { try { save(['clients']); } catch(e) {} }
   return cambio;
 }
+// 4.20.0: ¿se muestra el stock de este producto en la tienda? (sin variantes). Interruptor general (S.config.stockTienda.todos)
+// + casilla propia del producto; "ocultarStock" gana siempre.
+function _tnMuestraStock(p) {
+  if(!p || (p.variantes && p.variantes.length)) return false;
+  if(p.ocultarStock) return false;
+  return !!(p.mostrarStock || (S.config && S.config.stockTienda && S.config.stockTienda.todos));
+}
 const _CAT_CAMPOS = ['id','name','price','image','category','oferta','ofertaDesde','wholesalePrice','wholesaleQty','grupoMay','bultoQty','variantes','fracMin','desc','emoji','sinStockManual','createdAt','visibleSince'];
 function _armarCatalogo() {
   const prods = (S.products || []).filter(function(p){ return p && p.visible !== false && p.price > 0 && p.name && p.name.trim() && !(window.ejEsId && window.ejEsId('products', p.id)); }).map(function(p){
@@ -3286,7 +3297,7 @@ function _armarCatalogo() {
     if(p.priceHistory && p.priceHistory.length) o.priceHistory = [p.priceHistory[p.priceHistory.length - 1]];
     o.visible = true;
     // 4.16.0: stock visible en la tienda solo en los productos que se eligieron (sin variantes)
-    if(p.mostrarStock && !(p.variantes && p.variantes.length)) o.stockVis = Math.max(0, Math.floor(Number(p.stock) || 0));
+    if(_tnMuestraStock(p)) o.stockVis = Math.max(0, Math.floor(Number(p.stock) || 0));
     return o;
   });
   let cig = [];
@@ -3434,6 +3445,10 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.20.0', f:'18/10/2026', t:[
+    'Tienda: el botón "Ver todos los productos" ahora existe de verdad: es grande, está arriba de las categorías y abre la lista completa (ofertas primero, después por orden alfabético). Antes era solo un texto que no hacía nada.',
+    'Tienda: nuevo interruptor en Configuración → Negocio y tienda → Tienda online: "Mostrar el stock de todos los productos". Activado, tus clientes ven el stock en todos (sin variantes); en cada producto podés destildar "Mostrar stock en la tienda" para ocultarlo solo ahí.'
+  ]},
   {v:'4.19.1', f:'17/10/2026', t:[
     'Stock → Ajuste: cada producto (y cada variante) tiene ahora un botón ➖ y un ➕ al lado del casillero. Tocás uno, elegís el motivo (consumo propio, rotura, vencido, algo que encontraste, devolución) y se saca o suma 1 unidad al instante; el número se actualiza solo y podés deshacer. Suma y resta como una compra o una factura. Se quitó la pestaña "Ajuste rápido" y el buscador (con el teclado quedaba tapado). Las pestañas de Stock vuelven a ser 3, con colores.'
   ]},
@@ -3672,6 +3687,7 @@ function showPage(p) {
     try{ renderNovedades(); }catch(e){}
     try{ renderBannersList(); }catch(e){}
     try{ cfgNegocioCargar(); }catch(e){}
+    try{ cfgStockTiendaCargar(); }catch(e){}
     try{ cfgFactCargar(); }catch(e){}
     try{
       const inp = document.getElementById('cfg-horario-corte');
@@ -4596,6 +4612,26 @@ function saveCfgFacturacion() {
   try{ aplicarCfgFacturacion(); }catch(e){}
   toast('✓ Facturación guardada');
 }
+// ===== 4.20.0: interruptor general "Mostrar el stock de todos los productos" (Configuracion > Negocio y tienda) =====
+function _stockGeneral() { return !!(S.config && S.config.stockTienda && S.config.stockTienda.todos); }
+function _prodStockAyuda() {
+  const el = document.getElementById('p-mostrarstock-ayuda'); if(!el) return;
+  el.textContent = _stockGeneral()
+    ? '(el interruptor general está activado: se muestra en todos; destildalo para ocultarlo solo en este producto)'
+    : '(menos de 10: "¡Últimas N!"; no aplica a productos con variantes)';
+}
+function cfgStockTiendaCargar() {
+  const el = document.getElementById('cfg-stock-todos'); if(el) el.checked = _stockGeneral();
+}
+function saveCfgStockTienda(on) {
+  S.config = S.config || {};
+  S.config.stockTienda = { todos: !!on, ts: Date.now() };
+  try{ _markDirty('config'); }catch(e){}
+  try{ save(['config']); }catch(e){}
+  try{ if(typeof window._fbSaveDirty === 'function') window._fbSaveDirty(S).catch(function(){}); }catch(e){}
+  try{ renderProds(); }catch(e){}
+  toast(on ? '🔢 Stock visible en todos los productos de la tienda' : 'Stock visible solo en los productos que elegiste');
+}
 function saveCfgHorarioCorte(val) {
   S.config = S.config||{};
   S.config.horarioCorte = val;
@@ -5231,7 +5267,8 @@ function openProd(id) {
     document.getElementById('p-barcode').value = p.barcode||'';
     document.getElementById('p-desc').value = p.desc||'';
     document.getElementById('p-vis').checked = p.visible!==false;
-    document.getElementById('p-mostrarstock').checked = !!p.mostrarStock;
+    document.getElementById('p-mostrarstock').checked = _stockGeneral() ? !p.ocultarStock : !!p.mostrarStock;
+    _prodStockAyuda();
     document.getElementById('p-oferta').checked = !!p.oferta;
     document.getElementById('p-soloflyer').checked = !!p.soloFlyer;
     document.getElementById('p-frac').value = p.fracMin||1;
@@ -5246,7 +5283,8 @@ function openProd(id) {
     document.getElementById('p-minst').value = 0;
     document.getElementById('p-barcode').value = '';
     document.getElementById('p-vis').checked = true;
-    document.getElementById('p-mostrarstock').checked = false;
+    document.getElementById('p-mostrarstock').checked = _stockGeneral();
+    _prodStockAyuda();
   document.getElementById('p-oferta').checked = false;
   document.getElementById('p-soloflyer').checked = false;
     document.getElementById('p-frac').value = 1;
@@ -5293,7 +5331,9 @@ function saveProd() {
     minStock: parseInt(document.getElementById('p-minst').value)||0,
     desc: document.getElementById('p-desc').value,
     visible: document.getElementById('p-vis').checked,
-    mostrarStock: document.getElementById('p-mostrarstock').checked,
+    // 4.20.0: con el interruptor general activado, la casilla se lee al revés: destildada = ocultar solo este producto
+    mostrarStock: _stockGeneral() ? !!(S.editId && (S.products.find(p=>p.id===S.editId)||{}).mostrarStock) : document.getElementById('p-mostrarstock').checked,
+    ocultarStock: _stockGeneral() ? !document.getElementById('p-mostrarstock').checked : (document.getElementById('p-mostrarstock').checked ? false : !!(S.editId && (S.products.find(p=>p.id===S.editId)||{}).ocultarStock)),
     visibleSince: (()=>{
       const isVisible = document.getElementById('p-vis').checked;
       if(!isVisible) return null;
@@ -5621,7 +5661,7 @@ function renderProds(q) {
     // MODO LISTA CON IMAGEN
     if(prodView === 'imglist') {
       const stColor = p.stock===0?'var(--accent3)':low?'var(--orange,#fb923c)':'var(--green)';
-      const stTxt = (p.stock===0?'Sin stock':(p.stock+' uds')) + (p.mostrarStock?' 🔢':'');
+      const stTxt = (p.stock===0?'Sin stock':(p.stock+' uds')) + (_tnMuestraStock(p)?' 🔢':'');
       return '<div class="list-item" style="padding:8px 10px;gap:8px;align-items:flex-start" id="pc-'+pid+'">'
         + '<div style="flex-shrink:0;width:70px;height:70px;border-radius:10px;overflow:hidden;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:32px">'
         + (p.image?'<img src="'+p.image+'" loading="lazy" decoding="async" style="width:70px;height:70px;object-fit:cover">':'<span>'+(p.emoji||'📦')+'</span>')
@@ -5659,7 +5699,7 @@ function renderProds(q) {
     // MODO LISTA
     if(prodView === 'list') {
       const stColor = p.stock===0?'var(--accent3)':low?'var(--orange,#fb923c)':'var(--green)';
-      const stTxt = (p.stock===0?'Sin stock':(p.stock+' uds')) + (p.mostrarStock?' 🔢':'');
+      const stTxt = (p.stock===0?'Sin stock':(p.stock+' uds')) + (_tnMuestraStock(p)?' 🔢':'');
       return '<div class="list-item" style="padding:10px 14px;gap:10px" id="pc-'+pid+'">'
         + '<div style="flex:1;min-width:0">'
         + '<div style="font-weight:600;font-size:15px;margin-bottom:2px">'+p.name+(p.soloFlyer?' <span style="background:#3483fa;color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;vertical-align:middle">FLYER</span>':'')+'</div>'
@@ -5685,7 +5725,7 @@ function renderProds(q) {
     const sc = p.stock<0?'badge-red':low?'badge-orange':p.stock===0?'badge-gray':'badge-green';
     const st = tieneVariantes
       ? (p.stock===0?'Sin stock':(p.stock+' uds'))
-      : (p.stock<0?'Faltan '+Math.abs(p.stock):p.stock===0?'Sin stock':(p.stock+' uds')) + (p.mostrarStock?' 🔢':'');
+      : (p.stock<0?'Faltan '+Math.abs(p.stock):p.stock===0?'Sin stock':(p.stock+' uds')) + (_tnMuestraStock(p)?' 🔢':'');
     // Para variantes: líneas de stock por variante bajo el nombre del producto
     const stockVariantesHtml = tieneVariantes
       ? '<div style="margin:4px 10px 6px;display:flex;flex-direction:column;gap:2px">'
@@ -12648,6 +12688,8 @@ body.tn-body{display:block!important;background:linear-gradient(180deg,#dfeaff 0
 .tn-cat .tn-cico + .tn-cpie{margin-top:0}
 .tn-sech-cat h2{font-size:21px;letter-spacing:-.3px}
 .tn-sech-cat small{font-size:13px;font-weight:700;color:#1a3a6b}
+.tn-vertodo{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;box-sizing:border-box;min-height:52px;margin:0 0 14px;padding:12px 16px;border:none;border-radius:14px;background:var(--tn-azul2);color:#fff;font-family:inherit;font-size:17px;font-weight:800;letter-spacing:-.2px;box-shadow:0 3px 10px rgba(31,95,196,.35);cursor:pointer}
+.tn-vertodo:active{transform:scale(.98)}
 .tn-cat .cc{font-size:12px;color:rgba(255,255,255,.92);margin:1px 0 0;font-weight:700}
 .tn-cg{border-bottom-width:4px!important}
 .tn-stick{position:sticky;top:0;z-index:20;background:rgba(239,245,255,.97);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);padding:8px 10px;border-bottom:1px solid var(--tn-borde);display:none}
@@ -13819,6 +13861,7 @@ function tiendaRender() {
   let prods;
   if(q) prods = todos.filter(p => p.name.toLowerCase().includes(q) || (p.category || '').toLowerCase().includes(q));
   else if(cat === 'ofertas') prods = todos.filter(p => p.oferta);
+  else if(cat === 'todos') prods = todos.slice();   // 4.20.0: Ver todos los productos
   else if(String(cat).indexOf('grupo:') === 0) { const g = String(cat).slice(6); prods = todos.filter(p => (p.grupoMay || '').toLowerCase().trim() === g); }
   else prods = todos.filter(p => _tnCatDe(p).toLowerCase() === String(cat).toLowerCase());
   prods = prods.slice().sort((a, b) => ((b.oferta ? 1 : 0) - (a.oferta ? 1 : 0)) || a.name.localeCompare(b.name, 'es'));
@@ -13828,8 +13871,8 @@ function tiendaRender() {
   } else {
     const esGrupo = String(cat).indexOf('grupo:') === 0;
     const gNom = (esGrupo && prods.length) ? ((_tnGrupoInfo(prods[0]) || {}).nombre || '') : '';
-    const nom = cat === 'ofertas' ? '🔥 Ofertas' : (esGrupo ? ('🔀 ' + (gNom ? _tnEsc(gNom) : 'Se combinan entre sí')) : (_tnEmojiCat(cat) + ' ' + _tnCatNombre(cat)));
-    html += '<div class="tn-cattit"><h2 style="color:' + (esGrupo ? '#7c3aed' : _tnColorCat(cat)) + '">' + nom + '</h2><small>' + (esGrupo && gNom ? 'se combinan entre sí · ' : '') + prods.length + ' producto' + (prods.length !== 1 ? 's' : '') + '</small></div>';
+    const nom = cat === 'todos' ? '🛍️ Todos los productos' : cat === 'ofertas' ? '🔥 Ofertas' : (esGrupo ? ('🔀 ' + (gNom ? _tnEsc(gNom) : 'Se combinan entre sí')) : (_tnEmojiCat(cat) + ' ' + _tnCatNombre(cat)));
+    html += '<div class="tn-cattit"><h2 style="color:' + (esGrupo ? '#7c3aed' : (cat === 'todos' ? '#123a7a' : _tnColorCat(cat))) + '">' + nom + '</h2><small>' + (esGrupo && gNom ? 'se combinan entre sí · ' : '') + prods.length + ' producto' + (prods.length !== 1 ? 's' : '') + '</small></div>';
     if(esGrupo && prods.length) {
       const gi = _tnGrupoInfo(prods[0]);
       if(gi) html += '<div class="tn-combo" style="margin-top:6px">Mezclá los productos ' + _tnEsc(gi.nombre) + ' como quieras: llevando <b>' + gi.min + ' o más</b> en total entre todos, pagás el precio mayorista en cada uno.</div>';
@@ -13970,7 +14013,7 @@ function _tnInicioHtml(todos) {
   }
   // Categorias (4.8.0): icono 3D por categoria (cat-<nombre>.webp en la raiz); si la categoria no tiene icono o falta el archivo, mosaico de fotos
   const cats = _tnCategorias();
-  h += '<div class="tn-sec"><div class="tn-sech tn-sech-cat"><h2>Elegí una categoría</h2><small>Tocá para ver todo ›</small></div><div class="tn-cats">';
+  h += '<div class="tn-sec"><div class="tn-sech tn-sech-cat"><h2>Elegí una categoría</h2></div><button type="button" class="tn-vertodo" onclick="tiendaAbrirCat(\'todos\')">🛍️ Ver todos los productos ›</button><div class="tn-cats">';
   cats.forEach(function(c){
     const col = _tnColorCat(c.key);
     h += '<button class="tn-cat" style="border-color:' + col + ';background:' + col + '14" data-cat="' + _tnEsc(c.key) + '" onclick="tiendaAbrirCat(this.dataset.cat)">' + _tnCatVisual(c, col)
@@ -14015,7 +14058,7 @@ function tiendaProdCardNueva(p) {
   // 4.16.0: stock visible (solo si el dueño lo eligió). 10 o más: "Stock: N"; menos de 10: "¡Últimas N!"
   let stk = '';
   // (en la vista previa del dueño no hay catálogo: se usa su stock directo)
-  const sv = (typeof p.stockVis === 'number') ? p.stockVis : (p.mostrarStock ? Math.max(0, Number(p.stock) || 0) : null);
+  const sv = (typeof p.stockVis === 'number') ? p.stockVis : ((typeof p.stock === 'number' && _tnMuestraStock(p)) ? Math.max(0, p.stock) : null);
   if(!sinStock && !hasVar && sv !== null) {
     const nsv = Math.floor(sv);
     if(nsv >= 10) stk = '<div class="tn-sk">Stock: ' + nsv + '</div>';
@@ -16217,7 +16260,7 @@ function cfgSecAbrir(k) {
         '<b>📢 Flyer</b>: los que van en tu flyer de precios.',
         '<b>👁️ Tienda</b>: los que se ven en la tienda.',
         '<b>🔥 Oferta</b>: los que salen en "Ofertas de la semana" de la tienda.',
-        '<b>🔢 Mostrar stock en la tienda</b>: al editar un producto podés tildarlo para que tus clientes vean cuánto hay ("Stock: 25"; con menos de 10, "¡Últimas 7!"). Lo ves marcado con 🔢 en la lista. No aplica a productos con variantes. Es tan confiable como tu stock: mantené las compras cargadas.'
+        '<b>🔢 Mostrar stock en la tienda</b>: al editar un producto podés tildarlo para que tus clientes vean cuánto hay ("Stock: 25"; con menos de 10, "¡Últimas 7!"). Lo ves marcado con 🔢 en la lista. No aplica a productos con variantes. Es tan confiable como tu stock: mantené las compras cargadas. Para mostrarlo en TODOS: Configuración → Negocio y tienda → Tienda online → "Mostrar el stock de todos los productos"; en cada producto lo destildás para ocultarlo.'
       ]],
       ['La tarjeta', [
         '<b>Stock</b> (arriba a la derecha): 🟢 normal · 🟠 llegó al stock mínimo · 🔴 "Faltan N" (vendiste más de lo que tenías).',
