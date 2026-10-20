@@ -1032,6 +1032,25 @@ input[type=number].ctl-box:focus{border-color:var(--accent)}
 .ctl-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .ctl-chip{font-size:13.5px;font-weight:700;padding:9px 13px;border-radius:18px;border:1.5px solid var(--border);background:var(--surface);color:var(--text2);font-family:inherit;cursor:pointer}
 .ctl-chip.sel{background:var(--orange);border-color:var(--orange);color:#fff}
+.sr-cnt{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:10px;font-size:12.5px;font-weight:800;color:#fff;line-height:1.5}
+.sr-cnt.neg{background:#dc2626}.sr-cnt.pos{background:#16a34a}
+.srp-row{background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:12px;margin-bottom:10px}
+.srp-row.ok{border-color:#16a34a}
+.ctl-chip.srp-chip.sel.neg{background:#dc2626;border-color:#dc2626;color:#fff}
+.ctl-chip.srp-chip.sel.pos{background:#16a34a;border-color:#16a34a;color:#fff}
+.srp-pie{position:sticky;bottom:-22px;background:var(--bg);padding:10px 0 4px;margin-top:4px}
+#nf-mini{display:none;align-items:center;gap:8px;padding:6px 12px;background:var(--surface);border-bottom:1px solid var(--border);font-size:13.5px;font-weight:700;flex-shrink:0;white-space:nowrap;overflow:hidden;cursor:pointer}
+#nf-mini .nfm-c{overflow:hidden;text-overflow:ellipsis;min-width:0}
+#nf-mini .nfm-d{flex-shrink:0;font-size:12px;color:#c2410c;background:#fff5e0;border:1px solid #ea580c;border-radius:8px;padding:2px 7px}
+#nf-mini .nfm-f{margin-left:auto;flex-shrink:0;color:var(--text3);font-weight:600}
+#page-nueva-factura.nf-kb #nf-mini{display:flex}
+#page-nueva-factura.nf-kb #nf-top{display:none !important}
+#page-nueva-factura.nf-kb #nf-foot{padding:6px 14px !important}
+#page-nueva-factura.nf-kb #nf-foot > div:first-child{display:flex;align-items:baseline;gap:8px}
+#page-nueva-factura.nf-kb #nf-footer-items{font-size:11px !important}
+#page-nueva-factura.nf-kb #nf-footer-total{font-size:18px !important}
+#page-nueva-factura.nf-kb #nf-foot button{padding:8px 14px !important;font-size:14px !important}
+#page-nueva-factura.nf-kb #cart-apply-all{margin-top:6px !important;padding:3px 8px !important}
 .empty{text-align:center;padding:48px 20px}
 .empty .ei{font-size:48px;margin-bottom:12px;opacity:.4}
 .empty h3{font-family:'Inter',sans-serif;font-size:17px;margin-bottom:6px}
@@ -1286,7 +1305,8 @@ input[type=number].ctl-box:focus{border-color:var(--accent)}
 
   <!-- PÁGINA NUEVA FACTURA (carrito) -->
   <div class="page" id="page-nueva-factura" style="padding:0;flex-direction:column;height:100%">
-    <div style="padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0">
+    <div id="nf-mini" onclick="try{document.activeElement.blur()}catch(e){}"></div>
+    <div id="nf-top" style="padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0">
       <button onclick="cerrarNuevaFac()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 12px;font-size:16px;cursor:pointer">←</button>
       <div style="flex:1;position:relative">
         <input type="text" id="i-cli-search" placeholder="Buscar cliente..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="cliSearchInput(this.value)" onfocus="cliSearchInput(this.value)" onblur="setTimeout(function(){var l=document.getElementById('i-cli-aclist');if(l)l.style.display='none'},400)" style="width:100%;font-size:15px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-family:Inter,sans-serif;outline:none">
@@ -1310,7 +1330,7 @@ input[type=number].ctl-box:focus{border-color:var(--accent)}
       </div>
     </div>
     <div style="flex:1;overflow-y:auto" id="nf-prod-list"></div>
-    <div style="background:var(--accent);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+    <div id="nf-foot" style="background:var(--accent);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
       <div>
         <div style="font-size:13px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.5px" id="nf-footer-items">0 productos</div>
         <div style="font-family:Inter,sans-serif;font-size:22px;font-weight:800;color:#fff" id="nf-footer-total">$0</div>
@@ -1675,10 +1695,12 @@ input[type=number].ctl-box:focus{border-color:var(--accent)}
           <option value="critico">Crítico ↓</option>
         </select>
       </div>
-      <div id="stock-ajuste-list" style="padding-bottom:70px"></div>
-      <div style="position:sticky;bottom:0;left:0;right:0;background:var(--bg);padding:10px 0 4px;margin-top:4px">
+      <div id="stock-ajuste-list" style="padding-bottom:12px"></div>
+      <div id="aj-foot" style="position:sticky;bottom:calc(-1 * (var(--nav-h) + 16px));left:0;right:0;background:var(--bg);padding:10px 0 6px;margin-top:4px;z-index:5">
         <button class="btn btn-primary btn-full" onclick="saveStockAjuste()">💾 Guardar ajuste</button>
-        <button id="btn-fijar-stock" class="btn btn-full" onclick="fijarStockActual()" style="background:rgba(234,179,8,.15);border:1px solid #ca8a04;color:#854d0e;margin-top:8px">📸 Fijar stock actual como punto de partida</button>
+      </div>
+      <div id="aj-fijar" style="margin-top:18px;padding-top:14px;border-top:1px dashed var(--border)">
+        <button id="btn-fijar-stock" class="btn btn-full" onclick="fijarStockActual()" style="background:rgba(234,179,8,.15);border:1px solid #ca8a04;color:#854d0e;margin-top:0">📸 Fijar stock actual como punto de partida</button>
         <div style="margin-top:6px;font-size:12.5px;color:var(--text3);line-height:1.4">Toma el stock que ves hoy como base: las compras y ventas anteriores dejan de influir y, desde ahora, las nuevas suman y restan. Usalo solo si el stock te quedó desordenado.</div>
       </div>
     </div>
@@ -3468,6 +3490,11 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.21.1', f:'20/10/2026', t:[
+    'Stock → Ajuste: los botones ➖ y ➕ ahora suben o bajan la cantidad que quieras; al lado de "Actual" aparece el contador (rojo si sacás, verde si sumás). No se guarda nada hasta que tocás 💾 Guardar ajuste: ahí te pregunta el motivo de cada producto (rotura, consumo propio, etc.). Si escribís el stock real en el casillero, se borra el ➖/➕ de ese producto.',
+    'Stock → Ajuste: el botón 💾 Guardar ajuste ya no queda tapado por el teclado. El botón amarillo "Fijar stock actual" pasó al final de la lista.',
+    'Facturar: con el teclado abierto, cliente, deuda y fecha quedan en una sola línea y la barra del total se achica, así se ven más productos. Al cerrar el teclado todo vuelve como antes (tocando esa línea también se cierra el teclado).'
+  ]},
   {v:'4.21.0', f:'19/10/2026', t:[
     'Stock → nuevo botón verde "📋 Control del día": para contar al cerrar. Te arma una lista de 10 productos (los más vendidos del día y algunos con poco stock). Escribís lo que hay en el estante; si coincide queda en verde y si no elegís el motivo (rotura, error de armado, etc.). La diferencia se guarda como corrección de + o − (como los botones ➖/➕), se puede deshacer y queda en el historial del producto. Los que dan bien descansan unos días y los que dan diferencia vuelven a aparecer, así van rotando. Tocando "ver pedidos" ves en qué pedidos salió hoy ese producto.'
   ]},
@@ -3680,6 +3707,7 @@ function avisoNuevaVersion() {
   } catch(e) {}
 }
 function showPage(p) {
+  try { if(S.page === 'stock' && p !== 'stock' && typeof _srPendCant === 'function' && _srPendCant() > 0) { if(!confirm('Tenés cambios de ➖/➕ sin guardar. ¿Salir sin guardar?')) return; _srPendLimpiar(); } } catch(e) {}
   document.querySelectorAll('.page').forEach(x => { x.classList.remove('active'); x.style.display=''; });
   document.querySelectorAll('.nav-tab').forEach(x => x.classList.remove('active'));
   const pageEl = document.getElementById('page-'+p);
@@ -10931,17 +10959,17 @@ function renderStockAjuste(q) {
         + p.variantes.map(function(v){
           const actual = (p.stockVariantes||{})[v]||0;
           return '<div style="display:flex;align-items:center;gap:10px;padding:4px 0 4px 12px">'
-            + '<div style="flex:1;min-width:0;font-size:14px;color:var(--text2)">' + v + '<br><span data-actual style="font-size:12px;color:var(--text3)">Actual: ' + actual + '</span></div>'
+            + '<div style="flex:1;min-width:0;font-size:14px;color:var(--text2)">' + v + '<br><span data-actual style="font-size:12px;color:var(--text3)">Actual: ' + actual + '</span>' + _srCntHtml(p.id, v) + '</div>'
             + _srBtns(p.id, v)
-            + '<input type="number" inputmode="decimal" placeholder="' + actual + '" data-prodid="' + p.id + '" data-variante="' + v + '" style="width:70px;text-align:center;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-size:14px;font-weight:600">'
+            + '<input type="number" inputmode="decimal" oninput="_srInpCambio(this)" placeholder="' + actual + '" data-prodid="' + p.id + '" data-variante="' + v + '" style="width:70px;text-align:center;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-size:14px;font-weight:600">'
             + '</div>';
         }).join('')
         + '</div>';
     }
     return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">'
-      + '<div style="flex:1;min-width:0;font-size:15px;font-weight:500;line-height:1.3">' + p.name + '<br><span data-actual style="font-size:13px;color:var(--text3)">Actual: ' + (p.stock||0) + '</span></div>'
+      + '<div style="flex:1;min-width:0;font-size:15px;font-weight:500;line-height:1.3">' + p.name + '<br><span data-actual style="font-size:13px;color:var(--text3)">Actual: ' + (p.stock||0) + '</span>' + _srCntHtml(p.id, '') + '</div>'
       + _srBtns(p.id, '')
-      + '<input type="number" inputmode="decimal" placeholder="' + (p.stock||0) + '" data-prodid="' + p.id + '" style="width:70px;text-align:center;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-size:14px;font-weight:600">'
+      + '<input type="number" inputmode="decimal" oninput="_srInpCambio(this)" placeholder="' + (p.stock||0) + '" data-prodid="' + p.id + '" style="width:70px;text-align:center;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-size:14px;font-weight:600">'
       + '</div>';
   }).join('');
 }
@@ -10958,7 +10986,7 @@ function fijarStockActual() {
   toast('✅ Stock actual fijado como punto de partida (' + items.length + ' productos)');
 }
 
-function saveStockAjuste() {
+function _saveStockAjusteAbs(silencio) {
   const inputs = document.querySelectorAll('#stock-ajuste-list input[data-prodid]');
   let changed = 0;
   const ajusteItems = [];
@@ -10988,7 +11016,7 @@ function saveStockAjuste() {
       }
     }
   });
-  if (changed === 0) { toast('No hay cambios para guardar'); return; }
+  if (changed === 0) { if(!silencio) toast('No hay cambios para guardar'); return 0; }
   if(!S.ajustes) S.ajustes = [];
   const _ajuObj = { id:'AJU-'+Date.now(), date: localDateStr(), ts: Date.now(), items: ajusteItems, tipo:'ajuste' };
   S.ajustes.push(_ajuObj);
@@ -10998,8 +11026,9 @@ function saveStockAjuste() {
   try{updDash();}catch(e){}
   try{save(['products','ajustes'], true);}catch(e){}
   renderStockAlertas();
-  toast(changed + ' ajuste' + (changed>1?'s':'') + ' guardados');
+  if(!silencio) toast(changed + ' ajuste' + (changed>1?'s':'') + ' guardados');
   document.querySelectorAll('#stock-ajuste-list input').forEach(i => i.value = '');
+  return changed;
 }
 
 // ===== 4.19.1: AJUSTE RAPIDO (botones - / + en cada producto de Stock > Ajuste) =====
@@ -11037,7 +11066,7 @@ function _srFila(pid, v) {
     });
   } catch(e) {}
 }
-function stockRapidoAbrir(signo, pid, variante) {
+function _stockRapidoAbrirViejo(signo, pid, variante) {
   const p = (S.products || []).find(function(x){ return x.id === pid; });
   if(!p) return;
   const tv = p.variantes && p.variantes.length > 0;
@@ -11096,7 +11125,6 @@ function stockRapidoAviso(txt, id) {
 function stockRapidoQuitar(id) {
   const rec = (S.ajustes || []).find(function(a){ return a && a.id === id && a.tipo === 'rapido'; });
   if(!rec) return;
-  const m = (rec.movs || [])[0] || {};
   S.ajustes = S.ajustes.filter(function(a){ return a.id !== id; });
   try { if(window._fbDeleteDoc) _fbDeleteDoc('ajustes', id); } catch(e) {}
   try { recalcAllStocks(); recalcClientCredits(); } catch(e) {}
@@ -11104,9 +11132,9 @@ function stockRapidoQuitar(id) {
   try { renderProds(); } catch(e) {}
   try { updDash(); } catch(e) {}
   try { renderStockAlertas(); } catch(e) {}
-  _srFila(m.prodId, m.variante || '');
+  (rec.movs || []).forEach(function(mm){ _srFila(mm.prodId, mm.variante || ''); });
   const u = document.getElementById('sr-undo'); if(u) u.style.display = 'none';
-  toast('Ajuste rápido deshecho');
+  toast('Ajuste deshecho');
 }
 // ===== FIN 4.19.1 =====
 
@@ -11496,6 +11524,186 @@ function _ctlBtnRefrescar() {
   el.textContent = n > 0 ? (n + (n === 1 ? ' contado hoy' : ' contados hoy')) : 'al cerrar el día';
 }
 // ===== FIN 4.21.0 =====
+
+// ===== 4.21.1: AJUSTE CON ➖/➕ PENDIENTES (motivo de cada producto al guardar) + TECLADO =====
+// Los botones ➖/➕ de Stock > Ajuste ya no guardan al toque: suben/bajan un contador por producto (_srPend).
+// Al tocar Guardar ajuste se pide el motivo de cada producto y se guarda UN registro tipo 'rapido' con movs:[{prodId,name,variante,qty:±N,motivo}]
+// (mismo formato que 4.19.1, asi las versiones anteriores lo leen igual). El casillero de stock real y el ➖/➕ son excluyentes por producto.
+let _srPend = {}, _srMotSel = {}, _srGuardando = false;
+function _srK(pid, v) { return String(pid) + '|' + (v || ''); }
+function _srPendCant() { return Object.keys(_srPend).length; }
+function _srTxtN(n) { return (n < 0 ? '−' : '+') + _srNum(Math.abs(n)); }
+function _srCntHtml(pid, v) {
+  const k = _srK(pid, v), it = _srPend[k];
+  return '<span class="sr-cnt' + (it ? (it.n < 0 ? ' neg' : ' pos') : '') + '" data-sk="' + _srEsc(k) + '"' + (it ? '' : ' style="display:none"') + '>' + (it ? _srTxtN(it.n) : '') + '</span>';
+}
+function _srCntPintar(k) {
+  document.querySelectorAll('#stock-ajuste-list .sr-cnt').forEach(function(el) {
+    if(el.dataset.sk !== k) return;
+    const it = _srPend[k];
+    if(!it) { el.style.display = 'none'; el.textContent = ''; el.className = 'sr-cnt'; return; }
+    el.className = 'sr-cnt ' + (it.n < 0 ? 'neg' : 'pos'); el.textContent = _srTxtN(it.n); el.style.display = 'inline-block';
+  });
+}
+function _srPendLimpiar() {
+  _srPend = {}; _srMotSel = {};
+  document.querySelectorAll('#stock-ajuste-list .sr-cnt').forEach(function(el) { el.style.display = 'none'; el.textContent = ''; el.className = 'sr-cnt'; });
+}
+function stockRapidoAbrir(signo, pid, variante) {
+  const p = (S.products || []).find(function(x){ return x.id === pid; });
+  if(!p) return;
+  const tv = p.variantes && p.variantes.length > 0;
+  if(tv && p.variantes.indexOf(variante) < 0) return;
+  const v = tv ? variante : '';
+  const k = _srK(pid, v);
+  const it = _srPend[k] || { pid: pid, v: v, n: 0 };
+  it.n = Math.round((it.n + (signo > 0 ? 1 : -1)) * 1000) / 1000;
+  if(it.n === 0) delete _srPend[k]; else _srPend[k] = it;
+  delete _srMotSel[k];
+  document.querySelectorAll('#stock-ajuste-list input[data-prodid]').forEach(function(inp) {
+    if(inp.dataset.prodid === pid && (inp.dataset.variante || '') === v) inp.value = '';
+  });
+  _srCntPintar(k);
+}
+function _srInpCambio(inp) {
+  if(!inp || String(inp.value).trim() === '') return;
+  const k = _srK(inp.dataset.prodid, inp.dataset.variante || '');
+  if(_srPend[k]) { delete _srPend[k]; delete _srMotSel[k]; _srCntPintar(k); }
+}
+function _srPendLista() {
+  return Object.keys(_srPend).map(function(k) {
+    const it = _srPend[k];
+    return { k: k, it: it, p: (S.products || []).find(function(x){ return x.id === it.pid; }) };
+  }).filter(function(o) { return o.p && o.it.n !== 0; })
+    .sort(function(a, b) { return String(a.p.name).localeCompare(String(b.p.name)) || String(a.it.v).localeCompare(String(b.it.v)); });
+}
+function saveStockAjuste() {
+  if(_srPendCant() === 0) { _saveStockAjusteAbs(false); return; }
+  _srMotAbrir();
+}
+function _srMotAbrir() {
+  try { if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch(e) {}
+  const lista = _srPendLista();
+  if(!lista.length) { _srPendLimpiar(); _saveStockAjusteAbs(false); return; }
+  const ov = _srOv();
+  ov.innerHTML = '<div class="sr-sheet" id="srp-sheet">'
+    + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:2px"><div style="flex:1;font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text2)">Motivo de cada cambio</div>'
+    + '<button type="button" onclick="stockRapidoCerrar()" style="background:none;border:none;font-size:24px;color:var(--text3);padding:4px 10px;cursor:pointer">✕</button></div>'
+    + '<div style="font-size:13px;color:var(--text3);margin-bottom:12px">Elegí por qué sacaste o sumaste en cada producto.</div>'
+    + lista.map(function(o) {
+        const sg = o.it.n < 0 ? -1 : 1, cls = sg < 0 ? 'neg' : 'pos', sel = _srMotSel[o.k];
+        return '<div class="srp-row' + (sel ? ' ok' : '') + '" data-k="' + _srEsc(o.k) + '">'
+          + '<div style="font-size:16px;font-weight:800;line-height:1.3">' + _srEsc(o.p.name) + (o.it.v ? ' · ' + _srEsc(o.it.v) : '') + ' <span class="sr-cnt ' + cls + '">' + _srTxtN(o.it.n) + '</span></div>'
+          + '<div class="ctl-chips">' + _SR_MOTIVOS[String(sg)].map(function(m, j) {
+              return '<button type="button" class="ctl-chip srp-chip ' + cls + (sel === m ? ' sel' : '') + '" data-k="' + _srEsc(o.k) + '" data-j="' + j + '" onclick="_srMotElegir(this)">' + _srEsc(m) + '</button>';
+            }).join('') + '</div></div>';
+      }).join('')
+    + '<div class="srp-pie"><button type="button" id="srp-ok" class="btn btn-primary btn-full" onclick="_srMotGuardar()">💾 Guardar</button>'
+    + '<div id="srp-hint" style="font-size:12.5px;color:var(--orange);text-align:center;margin-top:6px;min-height:16px"></div></div>'
+    + '</div>';
+  _srMotPie();
+}
+function _srMotElegir(btn) {
+  const k = btn.dataset.k, it = _srPend[k]; if(!it) return;
+  const sg = it.n < 0 ? -1 : 1;
+  const m = _SR_MOTIVOS[String(sg)][parseInt(btn.dataset.j)]; if(!m) return;
+  _srMotSel[k] = m;
+  const row = btn.closest('.srp-row');
+  if(row) { row.classList.add('ok'); row.querySelectorAll('.srp-chip').forEach(function(c) { c.classList.toggle('sel', c === btn); }); }
+  _srMotPie();
+}
+function _srMotPie() {
+  const lista = _srPendLista();
+  const faltan = lista.filter(function(o) { return !_srMotSel[o.k]; });
+  const b = document.getElementById('srp-ok'), h = document.getElementById('srp-hint');
+  if(!b) return;
+  if(faltan.length) {
+    b.disabled = true; b.style.opacity = '.55'; b.textContent = 'Elegí el motivo' + (lista.length > 1 ? ' (faltan ' + faltan.length + ')' : '');
+    if(h) h.textContent = '';
+  } else {
+    b.disabled = false; b.style.opacity = ''; b.textContent = '💾 Guardar' + (lista.length > 1 ? ' (' + lista.length + ' productos)' : '');
+    if(h) h.textContent = '';
+  }
+}
+function _srMotGuardar() {
+  if(_srGuardando) return;
+  const lista = _srPendLista();
+  if(!lista.length) { stockRapidoCerrar(); return; }
+  if(lista.some(function(o) { return !_srMotSel[o.k]; })) { _srMotPie(); return; }
+  _srGuardando = true;
+  try {
+    let abs = 0;
+    try { abs = _saveStockAjusteAbs(true) || 0; } catch(e) {}
+    const ahora = Date.now();
+    const rec = { id: 'AJR-' + ahora + '-' + Math.random().toString(36).slice(2, 6), date: localDateStr(), ts: ahora, tipo: 'rapido', items: [],
+      movs: lista.map(function(o) { return { prodId: o.p.id, name: o.p.name, variante: o.it.v || '', qty: o.it.n, motivo: _srMotSel[o.k] }; }) };
+    if(!S.ajustes) S.ajustes = [];
+    S.ajustes.push(rec);
+    try { recalcAllStocks(); recalcClientCredits(); } catch(e) {}
+    try { _markDirty('ajustes', rec.id); } catch(e) {}
+    try { renderProds(); } catch(e) {}
+    try { updDash(); } catch(e) {}
+    try { save(['products', 'ajustes'], true); } catch(e) {}
+    try { renderStockAlertas(); } catch(e) {}
+    _srPend = {}; _srMotSel = {};
+    stockRapidoCerrar();
+    try { const q = document.getElementById('stock-ajuste-search'); renderStockAjuste(q ? q.value : ''); } catch(e) {}
+    const txt = lista.length === 1
+      ? (lista[0].it.n < 0 ? '➖ ' : '➕ ') + _srNum(Math.abs(lista[0].it.n)) + ' · ' + lista[0].p.name + (lista[0].it.v ? ' (' + lista[0].it.v + ')' : '') + ' → ' + _srNum(lista[0].it.v ? ((lista[0].p.stockVariantes || {})[lista[0].it.v] || 0) : (lista[0].p.stock || 0))
+      : '➖/➕ guardados en ' + lista.length + ' productos';
+    stockRapidoAviso(txt + (abs ? ' · y ' + abs + ' con stock real' : ''), rec.id);
+  } finally { _srGuardando = false; }
+}
+
+// --- Teclado: Guardar ajuste por encima del teclado y Facturar compacto ---
+function _nfMiniPintar() {
+  const el = document.getElementById('nf-mini'); if(!el) return;
+  const ci = document.getElementById('i-cli-search');
+  const cli = ci ? String(ci.value || '').trim() : '';
+  const av = document.getElementById('cli-deuda-aviso');
+  let deuda = '';
+  if(av && av.style.display !== 'none' && av.textContent.trim()) {
+    const m = av.textContent.match(/Debe\s*\$\s*[\d.,]+/);
+    deuda = m ? m[0] : av.textContent.trim();
+  }
+  const di = document.getElementById('i-date');
+  const d = di ? String(di.value || '') : '';
+  const dd = /^\d{4}-\d{2}-\d{2}$/.test(d) ? d.slice(8, 10) + '/' + d.slice(5, 7) : '';
+  el.innerHTML = '<span class="nfm-c">👤 ' + _srEsc(cli || 'Sin cliente') + '</span>'
+    + (deuda ? '<span class="nfm-d">⚠️ ' + _srEsc(deuda) + '</span>' : '')
+    + (dd ? '<span class="nfm-f">' + dd + '</span>' : '');
+}
+function _kbAjustar() {
+  const vv = window.visualViewport; if(!vv) return;
+  const visBottom = (vv.offsetTop || 0) + vv.height;
+  const kbAbierto = (window.innerHeight - vv.height) > 120;
+  try {
+    const pg = document.getElementById('page-stock'), f = document.getElementById('aj-foot'), l = document.getElementById('stock-ajuste-list');
+    if(pg && f) {
+      let lift = 0;
+      if(kbAbierto && S.page === 'stock') { const r = pg.getBoundingClientRect(); lift = Math.max(0, Math.round(r.bottom - visBottom)); }
+      const pad = parseFloat(getComputedStyle(pg).paddingBottom) || 0;   // el "pegado" respeta el margen de abajo de la pagina: se compensa
+      f.style.bottom = (lift - pad) + 'px';
+      if(l) l.style.paddingBottom = (12 + lift) + 'px';
+    }
+  } catch(e) {}
+  try {
+    const nf = document.getElementById('page-nueva-factura');
+    if(nf) {
+      const ae = document.activeElement;
+      const on = !!(kbAbierto && S.page === 'nueva-factura' && ae && ae !== document.body && nf.contains(ae) && ae.id !== 'i-cli-search' && ae.id !== 'i-date');
+      if(on && !nf.classList.contains('nf-kb')) _nfMiniPintar();
+      nf.classList.toggle('nf-kb', on);
+    }
+  } catch(e) {}
+}
+if(window.visualViewport) {
+  window.visualViewport.addEventListener('resize', _kbAjustar);
+  window.visualViewport.addEventListener('scroll', _kbAjustar);
+}
+document.addEventListener('focusin', function() { setTimeout(_kbAjustar, 30); });
+document.addEventListener('focusout', function() { setTimeout(_kbAjustar, 60); });
+// ===== FIN 4.21.1 =====
 
 // -- LISTA DE COMPRAS --
 function abrirSugeridor() {
@@ -15456,6 +15664,9 @@ window.addEventListener('DOMContentLoaded', function(){
       if(window._vcIgnorarPop) { window._vcIgnorarPop = false; return; }
       // 4.21.0: con el Control del dia abierto, "atras" cierra la hojita de pedidos o sale del control (pide confirmar si hay conteos sin guardar)
       if(typeof ctlAbierto === 'function' && ctlAbierto()) { ctlAtras(); history.pushState({page:S.page}, '', ''); return; }
+      // 4.21.1: hoja de motivos (o de ajuste rapido) abierta: "atras" la cierra; con +/- sin guardar en Stock pregunta antes de salir
+      { const _so = document.getElementById('sr-ov'); if(_so && _so.style.display !== 'none' && _so.innerHTML) { stockRapidoCerrar(); history.pushState({page:S.page}, '', ''); return; } }
+      if(S.page === 'stock' && typeof _srPendCant === 'function' && _srPendCant() > 0) { if(!confirm('Tenés cambios de ➖/➕ sin guardar. ¿Salir sin guardar?')) { history.pushState({page:S.page}, '', ''); return; } _srPendLimpiar(); }
       // 4.14.0: con la ayuda abierta, "atrás" la cierra y se queda en la pantalla
       if(typeof ayudaAbierta === 'function' && ayudaAbierta()) { ayudaCerrar(); history.pushState({page:S.page}, '', ''); return; }
       // 4.12.1: dentro de una seccion de Configuracion, "atras" vuelve al menu de Configuracion
@@ -16730,8 +16941,8 @@ function cfgSecAbrir(k) {
       ], 'alertas'],
       ['✏️ Ajuste', [
         'Para corregir cuando contás la mercadería: escribí el <b>stock real</b> de cada producto y dejá en blanco los que no cambian. Tocá <b>💾 Guardar ajuste</b>.',
-        '<b>➖ / ➕</b> al lado de cada producto: sacás o sumás <b>1 unidad</b> por toque (consumo propio, rotura, vencido, algo que encontraste o una devolución). Elegís el motivo y el número se actualiza solo. Suma y resta igual que una compra o una factura; no es un conteo.',
-        'Si te equivocaste, tocá <b>Deshacer</b> en el aviso, o hacé lo contrario con el otro botón. El historial de cada producto (📦 Movimientos) muestra estos movimientos con su motivo.',
+        '<b>➖ / ➕</b> al lado de cada producto: tocalos las veces que quieras para sacar o sumar unidades (consumo propio, rotura, vencido, algo que encontraste o una devolución). Al lado de "Actual" ves el contador (rojo si sacás, verde si sumás). Recién al tocar <b>💾 Guardar ajuste</b> te pregunta el <b>motivo de cada producto</b> y se guarda. Suma y resta igual que una compra o una factura; no es un conteo.',
+        'Si escribís el stock real en el casillero, se borra el ➖/➕ de ese producto (son dos cosas distintas). Si salís de Stock con ➖/➕ sin guardar, te pregunta antes. Si te equivocaste después de guardar, tocá <b>Deshacer</b> en el aviso. El historial de cada producto (📦 Movimientos) muestra estos movimientos con su motivo.',
         '<b>📸 Fijar stock actual como punto de partida</b>: toma el stock de hoy como base. Las compras y ventas anteriores dejan de influir. Usalo solo si el stock te quedó desordenado.'
       ], 'ajuste'],
       ['📦 Movimientos', [
