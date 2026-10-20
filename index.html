@@ -1010,6 +1010,28 @@ select option{background:var(--surface2)}
 .sr-sheet{background:var(--bg);width:100%;max-width:560px;max-height:90vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px 16px 22px;box-sizing:border-box}
 .sr-mot{display:block;width:100%;padding:15px 14px;margin-bottom:8px;border-radius:14px;border:2px solid;font-size:17px;font-weight:700;text-align:left;cursor:pointer;box-sizing:border-box}
 .sr-b{flex-shrink:0;width:38px;height:38px;border-radius:50%;border:2px solid;font-size:22px;font-weight:800;line-height:1;padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center}
+/* 4.21.0: Control del dia */
+.ctl-ov{position:fixed;inset:0;z-index:9990;background:var(--bg);display:flex;flex-direction:column}
+.ctl-top{flex:none;height:60px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:4px;padding:0 10px}
+.ctl-back{background:none;border:none;font-size:32px;line-height:1;color:var(--accent);padding:4px 12px 8px 6px;cursor:pointer;font-weight:700;font-family:inherit}
+.ctl-t{font-size:20px;font-weight:800;color:var(--accent)}
+.ctl-body{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 14px 24px;-webkit-overflow-scrolling:touch}
+.ctl-foot{flex:none;background:var(--surface);border-top:1px solid var(--border);padding:10px 14px calc(12px + env(safe-area-inset-bottom,0px))}
+.ctl-btn{width:100%;height:52px;border:none;border-radius:14px;background:var(--green);color:#fff;font-size:16px;font-weight:800;font-family:inherit;cursor:pointer}
+.ctl-btn:disabled{background:#b6c2d6;cursor:default}
+.ctl-row{background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:10px 12px;margin-bottom:8px}
+.ctl-row.ok{border-color:#5fc2b6;background:rgba(13,148,136,.08)}
+.ctl-row.dif{border-color:#fb923c;background:rgba(234,88,12,.08)}
+.ctl-row.fin{opacity:.85}
+.ctl-box{width:72px;min-width:72px;max-width:72px;height:46px;border:2px solid var(--accent2);border-radius:10px;text-align:center;font-size:19px;font-weight:800;background:var(--surface);color:var(--text);font-family:inherit;padding:0;flex:0 0 72px;box-sizing:border-box}
+input[type=number].ctl-box{width:72px;min-width:72px;max-width:72px;height:46px;padding:0;background:var(--surface);border:2px solid var(--accent2);border-radius:10px;font-size:19px;font-weight:800;text-align:center}
+input[type=number].ctl-box:focus{border-color:var(--accent)}
+.ctl-row.ok .ctl-box,.ctl-row.ok input[type=number].ctl-box{border-color:var(--green)}
+.ctl-row.dif .ctl-box,.ctl-row.dif input[type=number].ctl-box{border-color:var(--orange)}
+.ctl-row .ctl-fix{display:flex;align-items:center;justify-content:center;background:transparent;border-color:transparent}
+.ctl-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.ctl-chip{font-size:13.5px;font-weight:700;padding:9px 13px;border-radius:18px;border:1.5px solid var(--border);background:var(--surface);color:var(--text2);font-family:inherit;cursor:pointer}
+.ctl-chip.sel{background:var(--orange);border-color:var(--orange);color:#fff}
 .empty{text-align:center;padding:48px 20px}
 .empty .ei{font-size:48px;margin-bottom:12px;opacity:.4}
 .empty h3{font-family:'Inter',sans-serif;font-size:17px;margin-bottom:6px}
@@ -1627,6 +1649,7 @@ select option{background:var(--surface2)}
 
   <!-- PÁGINA STOCK -->
   <div class="page" id="page-stock">
+    <button type="button" id="ctl-btn" onclick="controlAbrir()" style="display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;padding:13px 16px;margin-bottom:12px;border-radius:14px;border:none;background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(13,148,136,.35)"><span>📋 Control del día</span><span id="ctl-btn-sub" style="font-size:12.5px;font-weight:700;opacity:.95">al cerrar el día</span></button>
     <div class="tabs tabs-3c" style="margin-bottom:14px">
       <div class="tab t-al active" id="stab-alertas" onclick="showStockTab('alertas')">🔔 Alertas</div>
       <div class="tab t-aj" id="stab-ajuste" onclick="showStockTab('ajuste')">✏️ Ajuste</div>
@@ -3445,6 +3468,9 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.21.0', f:'19/10/2026', t:[
+    'Stock → nuevo botón verde "📋 Control del día": para contar al cerrar. Te arma una lista de 10 productos (los más vendidos del día y algunos con poco stock). Escribís lo que hay en el estante; si coincide queda en verde y si no elegís el motivo (rotura, error de armado, etc.). La diferencia se guarda como corrección de + o − (como los botones ➖/➕), se puede deshacer y queda en el historial del producto. Los que dan bien descansan unos días y los que dan diferencia vuelven a aparecer, así van rotando. Tocando "ver pedidos" ves en qué pedidos salió hoy ese producto.'
+  ]},
   {v:'4.20.0', f:'18/10/2026', t:[
     'Tienda: el botón "Ver todos los productos" ahora existe de verdad: es grande, está arriba de las categorías y abre la lista completa (ofertas primero, después por orden alfabético). Antes era solo un texto que no hacía nada.',
     'Tienda: nuevo interruptor en Configuración → Negocio y tienda → Tienda online: "Mostrar el stock de todos los productos". Activado, tus clientes ven el stock en todos (sin variantes); en cada producto podés destildar "Mostrar stock en la tienda" para ocultarlo solo ahí.'
@@ -3676,6 +3702,7 @@ function showPage(p) {
   const nav = document.querySelector('.bottom-nav');
   if(nav) nav.style.display = ['nueva-factura','resumen-factura','nueva-compra','resumen-compra','reparto','cobrar-reparto'].includes(p) ? 'none' : '';
   if(p==='dashboard') updDash();
+  if(p==='stock') { try{ _ctlBtnRefrescar(); }catch(e){} }
   if(p==='suscripcion') { try{ window.renderSuscripcion(); window.subActualizar(false); }catch(e){} }
   if(p==='exportar') { try{ window.renderExportar(); }catch(e){} }
   if(p==='config') { try{ cfgSecAbrir(''); }catch(e){} }
@@ -6403,7 +6430,7 @@ function renderProdMovimientos(id) {
     (aj.movs||[]).forEach(m=>{
       if(m && m.prodId===id) {
         if(filtroVar && (m.variante||'') !== filtroVar) return;
-        ajustes.push({tipo:'rapido', date:aj.date, ts: aj.ts||0, ref:'', desc:(m.motivo||'Ajuste rápido')+(m.variante?' · '+m.variante:''), qty:Number(m.qty)||0, price:0});
+        ajustes.push({tipo:'rapido', ctl:(aj.tipo==='control'), date:aj.date, ts: aj.ts||0, ref:'', desc:(m.motivo||'Ajuste rápido')+(m.variante?' · '+m.variante:''), qty:Number(m.qty)||0, price:0});
       }
     });
   });
@@ -6499,7 +6526,7 @@ function renderProdMovimientos(id) {
       return '<div style="display:flex;align-items:center;gap:10px;padding:11px 14px;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
         +'<div style="width:10px;height:10px;border-radius:50%;background:'+color+';flex-shrink:0"></div>'
         +'<div style="flex:1;min-width:0">'
-        +'<div style="font-weight:700;font-size:14px;color:var(--text)">'+(esRapido?'Ajuste rápido':esAjuste?'Ajuste manual':esVenta?'Venta':'Compra')+(m.ref?' — '+m.ref:'')+'</div>'
+        +'<div style="font-weight:700;font-size:14px;color:var(--text)">'+(esRapido?(m.ctl?'Control del día':'Ajuste rápido'):esAjuste?'Ajuste manual':esVenta?'Venta':'Compra')+(m.ref?' — '+m.ref:'')+'</div>'
         +'<div style="font-size:12px;color:var(--text3)">'+fmtDate(m.date)+' · '+m.desc+'</div>'
         +'</div>'
         +'<div style="text-align:right;flex-shrink:0">'
@@ -11083,6 +11110,393 @@ function stockRapidoQuitar(id) {
 }
 // ===== FIN 4.19.1 =====
 
+// ===== 4.21.0: CONTROL DEL DIA (Stock) =====
+// Lista de unos 10 productos para contar al cerrar el dia: los mas vendidos de hoy + algunos con poco stock.
+// Van rotando: lo que dio bien descansa 3 dias; lo que dio diferencia vuelve a los 2 dias.
+// Lo contado se guarda como UN registro en S.ajustes con tipo 'control': items vacio (no mueve la base),
+// movs con las diferencias (+/-N con motivo: suman/restan como un ajuste rapido) y ctl con todo lo contado.
+const _CTL_N = 10, _CTL_DESCANSO = 3, _CTL_REVISAR = 2, _CTL_GRANDE = 10;
+const _CTL_MOT = { falta: ['Rotura', 'Error de armado', 'Consumo propio', 'Otro'], sobra: ['Error de armado', 'Devolución', 'Lo encontré', 'Otro'] };
+let _ctlSt = null, _ctlUndoT = null;
+function _ctlRound(n) { return Math.round((Number(n) || 0) * 1000) / 1000; }
+function _ctlParse(v) {
+  const t = String(v == null ? '' : v).trim().replace(',', '.');
+  if(t === '') return null;
+  const n = Number(t);
+  return (isFinite(n) && n >= 0) ? _ctlRound(n) : null;
+}
+// dias entre dos fechas 'AAAA-MM-DD' (b - a)
+function _ctlDias(a, b) {
+  const pa = String(a || '').split('-').map(Number), pb = String(b || '').split('-').map(Number);
+  if(pa.length < 3 || pb.length < 3 || pa.some(isNaN) || pb.some(isNaN)) return 9999;
+  return Math.round((Date.UTC(pb[0], pb[1] - 1, pb[2]) - Date.UTC(pa[0], pa[1] - 1, pa[2])) / 86400000);
+}
+// ultimo control de cada producto
+function _ctlHist() {
+  const out = {};
+  (S.ajustes || []).forEach(function(a) {
+    if(!a || a.tipo !== 'control' || !Array.isArray(a.ctl)) return;
+    a.ctl.forEach(function(c) {
+      if(!c || !c.prodId) return;
+      const o = out[c.prodId];
+      if(!o || (a.ts || 0) >= o.ts) out[c.prodId] = { date: a.date || '', ts: a.ts || 0, id: a.id, esperado: Number(c.esperado) || 0, contado: Number(c.contado) || 0, diff: Number(c.diff) || 0, motivo: c.motivo || '' };
+    });
+  });
+  return out;
+}
+// ventas: hoy (con pedidos), ultimos 7 dias y ultimos 30 dias, por producto
+function _ctlVentas(hoy) {
+  const h = {}, sem = {}, mes = {};
+  (S.invoices || []).forEach(function(inv) {
+    if(!inv || inv.type === 'presupuesto' || inv.status === 'cancelada') return;
+    const dd = _ctlDias(inv.date, hoy);
+    if(dd < 0 || dd > 29) return;
+    (inv.items || []).forEach(function(it, idx) {
+      if(!it || !it.prodId) return;
+      const q = Number(it.qty) || 0; if(q <= 0) return;
+      mes[it.prodId] = (mes[it.prodId] || 0) + q;
+      if(dd <= 6) sem[it.prodId] = (sem[it.prodId] || 0) + q;
+      if(dd === 0) {
+        const o = h[it.prodId] || (h[it.prodId] = { qty: 0, peds: [] });
+        o.qty += q;
+        let arm = false; try { arm = !!_estaArmado(inv, it, idx); } catch(e) {}
+        o.peds.push({ id: inv.id, cli: inv.clientName || '---', qty: q, armado: arm });
+      }
+    });
+  });
+  return { hoy: h, sem: sem, mes: mes };
+}
+function _ctlElegible(p) {
+  return !!(p && p.id && p.name && String(p.name).trim() && !(p.variantes && p.variantes.length) && !p.soloFlyer && !p.ejemplo && !/^PROD-EJ/.test(String(p.id)));
+}
+// Arma la lista del dia: [{pid, tag}] con tag: revisar | hoy | sem | poco | mes | '' (ya contado hoy)
+function _ctlArmarLista() {
+  const hoy = localDateStr();
+  const hist = _ctlHist();
+  const vt = _ctlVentas(hoy);
+  const prods = (S.products || []).filter(_ctlElegible);
+  const hechos = prods.filter(function(p) { return hist[p.id] && hist[p.id].date === hoy; })
+    .sort(function(a, b) { return hist[a.id].ts - hist[b.id].ts; });
+  const cand = [];
+  prods.forEach(function(p) {
+    const h = hist[p.id];
+    if(h && h.date === hoy) return;
+    let tag = '', dias = 14;
+    if(h) {
+      const d = _ctlDias(h.date, hoy);
+      dias = Math.min(Math.max(d, 0), 14);
+      if(h.diff === 0 && d < _CTL_DESCANSO) return;
+      if(h.diff !== 0) { if(d < _CTL_REVISAR) return; tag = 'revisar'; }
+    }
+    cand.push({ p: p, tag: tag, dias: dias, hoy: (vt.hoy[p.id] || {}).qty || 0, sem: vt.sem[p.id] || 0, mes: vt.mes[p.id] || 0 });
+  });
+  const slots = Math.max(0, _CTL_N - hechos.length);
+  const items = [], usados = {};
+  const pick = function(c, tag) { if(items.length >= slots || usados[c.p.id]) return; usados[c.p.id] = 1; items.push({ pid: c.p.id, tag: tag }); };
+  const score = function(q, c) { return q * (1 + c.dias / 4); };
+  // 1) los que dieron diferencia hace 2 dias o mas: se revisan de nuevo (maximo 3)
+  cand.filter(function(c) { return c.tag === 'revisar'; }).sort(function(a, b) { return b.dias - a.dias; }).slice(0, 3).forEach(function(c) { pick(c, 'revisar'); });
+  // 2) los mas vendidos hoy (con peso por el tiempo sin contarse); si hoy hubo pocos, los de la semana
+  const ventasSlots = Math.round(slots * 0.7);
+  const hoyL = cand.filter(function(c) { return c.hoy > 0; }).sort(function(a, b) { return score(b.hoy, b) - score(a.hoy, a); });
+  const semL = cand.filter(function(c) { return c.hoy === 0 && c.sem > 0; }).sort(function(a, b) { return score(b.sem, b) - score(a.sem, a); });
+  hoyL.forEach(function(c) { if(items.length < ventasSlots) pick(c, 'hoy'); });
+  semL.forEach(function(c) { if(items.length < ventasSlots) pick(c, 'sem'); });
+  // 3) poco stock (se vendieron en el mes)
+  cand.filter(function(c) { const s = Number(c.p.stock) || 0; return s >= 1 && (s <= 9 || (Number(c.p.minStock) > 0 && s <= Number(c.p.minStock))) && c.mes > 0; })
+    .sort(function(a, b) { return b.mes - a.mes; }).forEach(function(c) { pick(c, 'poco'); });
+  // 4) si faltan, se completa con mas vendidos
+  hoyL.forEach(function(c) { pick(c, 'hoy'); });
+  semL.forEach(function(c) { pick(c, 'sem'); });
+  cand.filter(function(c) { return c.mes > 0; }).sort(function(a, b) { return score(b.mes, b) - score(a.mes, a); }).forEach(function(c) { pick(c, 'mes'); });
+  return { hoy: hoy, items: items.concat(hechos.map(function(p) { return { pid: p.id, tag: '' }; })) };
+}
+function _ctlProd(pid) { return (S.products || []).find(function(x) { return x.id === pid; }); }
+function _ctlDbg() { return _ctlSt; }   // para pruebas
+function _ctlHora(ts) { try { const d = new Date(ts); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); } catch(e) { return ''; } }
+function _ctlEsHecho(it) { const h = _ctlSt.hist[it.pid]; return !!(h && h.date === _ctlSt.hoy); }
+function _ctlDifDe(i) {
+  const st = _ctlSt, it = st.orden[i]; if(!it) return null;
+  const v = st.vals[it.pid]; if(v === undefined || v === '') return null;
+  const n = _ctlParse(v); if(n === null) return { err: true };
+  const p = _ctlProd(it.pid); if(!p) return null;
+  const esp = Number(p.stock) || 0;
+  return { n: n, esp: esp, d: _ctlRound(n - esp) };
+}
+function _ctlEstadoHtml(i) {
+  const st = _ctlSt, it = st.orden[i];
+  if(_ctlEsHecho(it)) {
+    const h = st.hist[it.pid];
+    if(h.diff === 0) return '<div style="font-size:13px;font-weight:800;color:var(--green);margin-top:6px">✓ Coincidía · contado a las ' + _ctlHora(h.ts) + '</div>';
+    return '<div style="font-size:13px;font-weight:800;color:var(--orange);margin-top:6px">' + (h.diff < 0 ? 'Faltaban ' : 'Sobraban ') + _srNum(Math.abs(h.diff)) + (h.motivo ? ' · ' + _srEsc(h.motivo) : '') + ' · a las ' + _ctlHora(h.ts) + '</div>';
+  }
+  const r = _ctlDifDe(i); if(!r) return '';
+  if(r.err) return '<div style="font-size:13px;font-weight:800;color:#dc2626;margin-top:6px">Escribí un número</div>';
+  if(r.d === 0) return '<div style="font-size:13px;font-weight:800;color:var(--green);margin-top:6px">✓ Coincide</div>';
+  const set = r.d < 0 ? _CTL_MOT.falta : _CTL_MOT.sobra;
+  const mot = st.mot[it.pid] || '';
+  return '<div style="font-size:14px;font-weight:800;color:var(--orange);margin-top:6px">' + (r.d < 0 ? 'Falta ' : 'Sobra ') + _srNum(Math.abs(r.d)) + '</div>'
+    + '<div class="ctl-chips">' + set.map(function(m, k) {
+      return '<button type="button" class="ctl-chip' + (m === mot ? ' sel' : '') + '" onclick="ctlMotivo(' + i + ',' + k + ')">' + _srEsc(m) + '</button>';
+    }).join('') + '</div>';
+}
+function _ctlClaseFila(i) {
+  const st = _ctlSt, it = st.orden[i];
+  if(_ctlEsHecho(it)) { const h = st.hist[it.pid]; return 'ctl-row fin ' + (h.diff === 0 ? 'ok' : 'dif'); }
+  const r = _ctlDifDe(i);
+  if(!r || r.err) return 'ctl-row';
+  return 'ctl-row ' + (r.d === 0 ? 'ok' : 'dif');
+}
+function _ctlIconoHtml(i) {
+  const st = _ctlSt, it = st.orden[i];
+  if(_ctlEsHecho(it)) { return st.hist[it.pid].diff === 0 ? '<span style="color:var(--green)">✓</span>' : '<span style="color:var(--orange)">⚠</span>'; }
+  const r = _ctlDifDe(i);
+  if(!r || r.err) return '';
+  return r.d === 0 ? '<span style="color:var(--green)">✓</span>' : '<span style="color:var(--orange)">⚠</span>';
+}
+function _ctlFila(i) {
+  const st = _ctlSt, it = st.orden[i];
+  const p = _ctlProd(it.pid); if(!p) return '';
+  const hecho = _ctlEsHecho(it);
+  const esp = Number(p.stock) || 0;
+  const vh = st.vt.hoy[p.id], vs = st.vt.sem[p.id] || 0;
+  let sal;
+  if(vh) sal = 'Salieron hoy ' + _srNum(vh.qty);
+  else if(vs > 0) sal = 'En la semana salieron ' + _srNum(vs);
+  else sal = 'Sin ventas esta semana';
+  const tg = it.tag === 'revisar' ? '<span style="color:#ea580c;font-weight:800">↻ revisar de nuevo</span> · ' : (it.tag === 'poco' ? '<span style="color:#b45309;font-weight:800">📉 poco stock</span> · ' : '');
+  const h = st.hist[it.pid];
+  const sub = hecho ? ('Contado: ' + _srNum(h.contado)) : (sal + ' · debería haber <b>' + _srNum(esp) + '</b>');
+  const caja = hecho
+    ? '<div class="ctl-box ctl-fix">' + _srNum(h.contado) + '</div>'
+    : '<input type="number" inputmode="decimal" enterkeyhint="next" class="ctl-box" id="ctl-in-' + i + '" placeholder="contar" value="' + _srEsc(st.vals[it.pid] || '') + '" oninput="ctlInput(' + i + ',this.value)" onkeydown="ctlTecla(event,' + i + ')">';
+  return '<div class="' + _ctlClaseFila(i) + '" id="ctl-r-' + i + '">'
+    + '<div style="display:flex;align-items:center;gap:10px">'
+    + '<div style="flex:1;min-width:0" onclick="ctlDetalle(' + i + ')">'
+    + '<div style="font-size:15.5px;font-weight:800;line-height:1.25;word-break:break-word">' + _srEsc(p.name) + '</div>'
+    + '<div style="font-size:12.5px;color:var(--text3);font-weight:600;margin-top:2px;line-height:1.35">' + tg + sub + ' · <span style="color:var(--accent2);font-weight:700">ver pedidos ›</span></div>'
+    + '</div>'
+    + caja
+    + '<div id="ctl-i-' + i + '" style="width:24px;text-align:center;font-size:20px;font-weight:800">' + _ctlIconoHtml(i) + '</div>'
+    + '</div>'
+    + '<div id="ctl-s-' + i + '">' + _ctlEstadoHtml(i) + '</div>'
+    + '</div>';
+}
+function _ctlRefrescarFila(i) {
+  const row = document.getElementById('ctl-r-' + i); if(!row) return;
+  row.className = _ctlClaseFila(i);
+  const s = document.getElementById('ctl-s-' + i); if(s) s.innerHTML = _ctlEstadoHtml(i);
+  const ic = document.getElementById('ctl-i-' + i); if(ic) ic.innerHTML = _ctlIconoHtml(i);
+}
+// resumen de lo escrito sin guardar
+function _ctlResumen() {
+  const st = _ctlSt;
+  const r = { cont: 0, dif: 0, sinMotivo: [], invalidos: 0 };
+  st.orden.forEach(function(it, i) {
+    if(_ctlEsHecho(it)) return;
+    const x = _ctlDifDe(i); if(!x) return;
+    if(x.err) { r.invalidos++; return; }
+    r.cont++;
+    if(x.d !== 0) { r.dif++; if(!st.mot[it.pid]) { const p = _ctlProd(it.pid); r.sinMotivo.push(p ? p.name : ''); } }
+  });
+  return r;
+}
+function _ctlPie() {
+  const btn = document.getElementById('ctl-guardar'), hint = document.getElementById('ctl-hint');
+  if(!btn || !_ctlSt) return;
+  const r = _ctlResumen();
+  if(r.cont === 0) { btn.disabled = true; btn.textContent = 'Contá algún producto'; }
+  else if(r.invalidos > 0) { btn.disabled = true; btn.textContent = 'Revisá los números'; }
+  else if(r.sinMotivo.length > 0) { btn.disabled = true; btn.textContent = 'Elegí el motivo'; }
+  else { btn.disabled = false; btn.textContent = 'Guardar control (' + r.cont + (r.cont === 1 ? ' contado' : ' contados') + (r.dif ? ' · ' + r.dif + (r.dif === 1 ? ' diferencia' : ' diferencias') : '') + ')'; }
+  if(hint) {
+    if(r.sinMotivo.length > 0) { hint.style.color = 'var(--orange)'; hint.textContent = 'Falta el motivo de: ' + r.sinMotivo.slice(0, 2).join(', ') + (r.sinMotivo.length > 2 ? ' y ' + (r.sinMotivo.length - 2) + ' más' : ''); }
+    else { hint.style.color = 'var(--text3)'; hint.textContent = 'Solo se ajustan los que tienen diferencia'; }
+  }
+}
+function _ctlRender() {
+  const ov = document.getElementById('ctl-ov'); if(!ov || !_ctlSt) return;
+  const st = _ctlSt;
+  st.hist = _ctlHist();
+  st.vt = _ctlVentas(st.hoy);
+  const pend = st.items.filter(function(it) { const h = st.hist[it.pid]; return !(h && h.date === st.hoy); });
+  const fin = st.items.filter(function(it) { const h = st.hist[it.pid]; return !!(h && h.date === st.hoy); });
+  st.orden = pend.concat(fin);
+  const total = st.orden.length, hechos = fin.length;
+  const pct = total ? Math.round(hechos * 100 / total) : 0;
+  let lista = '';
+  if(!total) lista = '<div style="text-align:center;padding:34px 12px;color:var(--text3);font-size:14.5px;line-height:1.5">Todavía no hay productos para controlar.<br>Aparecen los que vendés y los que tienen poco stock.</div>';
+  else lista = st.orden.map(function(it, i) { return _ctlFila(i); }).join('');
+  let fechaTxt = st.hoy; try { fechaTxt = _fFechaLarga(st.hoy); } catch(e) {}
+  ov.innerHTML = '<div class="ctl-top"><button type="button" class="ctl-back" onclick="ctlCerrar()" aria-label="Volver">‹</button><div class="ctl-t">Control del día</div></div>'
+    + '<div class="ctl-body" id="ctl-body">'
+    + '<div style="font-size:13.5px;color:var(--text2);font-weight:600">Hoy ' + _srEsc(fechaTxt) + ' · ' + total + (total === 1 ? ' producto' : ' productos') + ' · <b>' + hechos + (hechos === 1 ? ' contado' : ' contados') + '</b></div>'
+    + '<div style="height:8px;background:var(--surface2);border-radius:6px;margin:8px 0 6px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:var(--green);border-radius:6px"></div></div>'
+    + '<div style="font-size:12.5px;color:var(--text3);margin-bottom:10px;line-height:1.4">Contá lo que hay en el estante y escribilo en cada casillero.</div>'
+    + lista
+    + '</div>'
+    + '<div class="ctl-foot"><button type="button" class="ctl-btn" id="ctl-guardar" onclick="ctlGuardar()" disabled>Contá algún producto</button>'
+    + '<div id="ctl-hint" style="font-size:12px;color:var(--text3);text-align:center;margin-top:6px;font-weight:600;line-height:1.3">Solo se ajustan los que tienen diferencia</div></div>';
+  _ctlPie();
+}
+function controlAbrir() {
+  try { if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch(e) {}
+  const L = _ctlArmarLista();
+  _ctlSt = { hoy: L.hoy, items: L.items, vals: {}, mot: {}, orden: [], hist: {}, vt: { hoy: {}, sem: {}, mes: {} } };
+  let ov = document.getElementById('ctl-ov');
+  if(!ov) { ov = document.createElement('div'); ov.id = 'ctl-ov'; ov.className = 'ctl-ov'; document.body.appendChild(ov); }
+  ov.style.display = 'flex';
+  _ctlRender();
+}
+function ctlAbierto() { const ov = document.getElementById('ctl-ov'); return !!(ov && ov.style.display !== 'none' && _ctlSt); }
+function _ctlHayPendiente() {
+  if(!_ctlSt) return false;
+  return _ctlSt.orden.some(function(it) { if(_ctlEsHecho(it)) return false; const v = _ctlSt.vals[it.pid]; return v !== undefined && v !== ''; });
+}
+function ctlCerrar(forzar) {
+  if(!forzar && _ctlHayPendiente() && !confirm('Tenés conteos sin guardar. ¿Salir sin guardar?')) return;
+  const ov = document.getElementById('ctl-ov'); if(ov) { ov.style.display = 'none'; ov.innerHTML = ''; }
+  const u = document.getElementById('ctl-undo'); if(u) u.style.display = 'none';
+  _ctlSt = null;
+  try { _ctlBtnRefrescar(); } catch(e) {}
+}
+// boton "atras" de Android
+function ctlAtras() {
+  const so = document.getElementById('sr-ov');
+  if(so && so.style.display !== 'none' && so.innerHTML) { stockRapidoCerrar(); return; }
+  ctlCerrar();
+}
+function ctlInput(i, v) {
+  const st = _ctlSt; if(!st) return;
+  const it = st.orden[i]; if(!it) return;
+  st.vals[it.pid] = v;
+  const r = _ctlDifDe(i);
+  if(r && !r.err && r.d !== 0) {   // si cambio de falta a sobra, el motivo elegido puede no aplicar
+    const set = r.d < 0 ? _CTL_MOT.falta : _CTL_MOT.sobra;
+    if(st.mot[it.pid] && set.indexOf(st.mot[it.pid]) < 0) delete st.mot[it.pid];
+  } else { delete st.mot[it.pid]; }
+  _ctlRefrescarFila(i);
+  _ctlPie();
+}
+function ctlTecla(e, i) {
+  if(!e || e.key !== 'Enter') return;
+  e.preventDefault();
+  for(let j = i + 1; j < _ctlSt.orden.length; j++) {
+    const nx = document.getElementById('ctl-in-' + j);
+    if(nx) { nx.focus(); try { nx.scrollIntoView({ block: 'center' }); } catch(x) {} return; }
+  }
+  try { e.target.blur(); } catch(x) {}
+}
+function ctlMotivo(i, k) {
+  const st = _ctlSt; if(!st) return;
+  const it = st.orden[i]; const r = _ctlDifDe(i);
+  if(!it || !r || r.err || r.d === 0) return;
+  const set = r.d < 0 ? _CTL_MOT.falta : _CTL_MOT.sobra;
+  const m = set[k]; if(!m) return;
+  st.mot[it.pid] = m;
+  _ctlRefrescarFila(i);
+  _ctlPie();
+}
+// Hoja con los pedidos de hoy y el ultimo control del producto
+function ctlDetalle(i) {
+  const st = _ctlSt; if(!st) return;
+  const it = st.orden[i]; if(!it) return;
+  const p = _ctlProd(it.pid); if(!p) return;
+  try { if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch(e) {}
+  const vh = st.vt.hoy[p.id], vs = st.vt.sem[p.id] || 0;
+  let ped = '';
+  if(vh) {
+    ped = '<div style="font-size:13px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:6px 0 4px">Hoy salió en ' + vh.peds.length + (vh.peds.length === 1 ? ' pedido' : ' pedidos') + '</div>'
+      + vh.peds.map(function(x) {
+        return '<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:15px"><span style="min-width:0;word-break:break-word">' + _srEsc(x.cli) + (x.armado ? ' <span style="color:var(--green);font-size:12px;font-weight:800">✓ armado</span>' : '') + '</span><b>' + _srNum(x.qty) + '</b></div>';
+      }).join('');
+  } else {
+    ped = '<div style="font-size:14.5px;color:var(--text2);margin:6px 0">Hoy no salió en ningún pedido.' + (vs > 0 ? ' En los últimos 7 días salieron ' + _srNum(vs) + '.' : '') + '</div>';
+  }
+  const h = st.hist[p.id];
+  let ult;
+  if(h) {
+    let f = h.date; try { f = _fFechaCorta(h.date); } catch(e) {}
+    ult = 'Último control: ' + _srEsc(f) + ' · contaste ' + _srNum(h.contado) + ' (el sistema decía ' + _srNum(h.esperado) + ')' + (h.diff !== 0 ? ' · ' + _srEsc(h.motivo || 'con diferencia') : ' · coincidía');
+  } else ult = 'Todavía no lo contaste con este control.';
+  const ov = _srOv();
+  ov.innerHTML = '<div class="sr-sheet">'
+    + '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:6px"><div style="flex:1;font-size:19px;font-weight:800;line-height:1.3">' + _srEsc(p.name) + '</div>'
+    + '<button type="button" onclick="stockRapidoCerrar()" style="background:none;border:none;font-size:24px;color:var(--text3);padding:0 8px;cursor:pointer">✕</button></div>'
+    + '<div style="font-size:14.5px;color:var(--text2);margin-bottom:6px">Según el sistema debería haber <b>' + _srNum(Number(p.stock) || 0) + '</b></div>'
+    + ped
+    + '<div style="font-size:13px;color:var(--text3);margin-top:12px;line-height:1.4">' + ult + '</div>'
+    + '</div>';
+}
+function ctlGuardar() {
+  const st = _ctlSt; if(!st) return;
+  const filas = [];
+  let pendienteMotivo = false, invalido = false;
+  st.orden.forEach(function(it, i) {
+    if(_ctlEsHecho(it)) return;
+    const r = _ctlDifDe(i); if(!r) return;
+    if(r.err) { invalido = true; return; }
+    const p = _ctlProd(it.pid); if(!p) return;
+    const mot = r.d !== 0 ? (st.mot[it.pid] || '') : '';
+    if(r.d !== 0 && !mot) pendienteMotivo = true;
+    filas.push({ p: p, esp: r.esp, n: r.n, d: r.d, mot: mot });
+  });
+  if(!filas.length || invalido || pendienteMotivo) { _ctlPie(); return; }
+  const grandes = filas.filter(function(f) { return Math.abs(f.d) >= _CTL_GRANDE; });
+  if(grandes.length && !confirm('Diferencia grande en: ' + grandes.map(function(f) { return f.p.name + ' (' + (f.d > 0 ? '+' : '−') + _srNum(Math.abs(f.d)) + ')'; }).join(', ') + '.\n\nPuede ser una compra sin cargar o un pedido con fecha de otro día. ¿Guardar igual?')) return;
+  const ahora = Date.now();
+  const rec = { id: 'CTL-' + ahora + '-' + Math.random().toString(36).slice(2, 6), date: localDateStr(), ts: ahora, tipo: 'control', items: [],
+    movs: filas.filter(function(f) { return f.d !== 0; }).map(function(f) { return { prodId: f.p.id, name: f.p.name, variante: '', qty: f.d, motivo: f.mot }; }),
+    ctl: filas.map(function(f) { return { prodId: f.p.id, name: f.p.name, esperado: f.esp, contado: f.n, diff: f.d, motivo: f.mot }; }) };
+  if(!S.ajustes) S.ajustes = [];
+  S.ajustes.push(rec);
+  try { recalcAllStocks(); recalcClientCredits(); } catch(e) {}
+  try { _markDirty('ajustes', rec.id); } catch(e) {}
+  try { save(['products', 'ajustes'], true); } catch(e) {}
+  try { renderProds(); } catch(e) {}
+  try { updDash(); } catch(e) {}
+  try { renderStockAlertas(); } catch(e) {}
+  st.hoy = rec.date; st.vals = {}; st.mot = {};
+  _ctlRender();
+  try { const b = document.getElementById('ctl-body'); if(b) b.scrollTop = 0; } catch(e) {}
+  try { _ctlBtnRefrescar(); } catch(e) {}
+  const nd = rec.movs.length;
+  ctlAviso('✓ Control guardado · ' + filas.length + (filas.length === 1 ? ' producto' : ' productos') + (nd ? ' · ' + nd + (nd === 1 ? ' diferencia' : ' diferencias') : ' · todo coincide'), rec.id);
+}
+function ctlAviso(txt, id) {
+  let el = document.getElementById('ctl-undo');
+  if(!el) {
+    el = document.createElement('div'); el.id = 'ctl-undo';
+    el.style.cssText = 'position:fixed;left:12px;right:12px;bottom:110px;z-index:10001;background:#1f2937;color:#fff;border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:12px;box-shadow:0 6px 20px rgba(0,0,0,.35);font-size:14px;max-width:560px;margin:0 auto';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = '<div style="flex:1;min-width:0;line-height:1.3">' + _srEsc(txt) + '</div><button type="button" data-id="' + _srEsc(id) + '" onclick="ctlQuitar(this.dataset.id)" style="background:#fbbf24;color:#111;border:none;border-radius:10px;padding:9px 14px;font-weight:800;font-size:14px;cursor:pointer">Deshacer</button>';
+  el.style.display = 'flex';
+  clearTimeout(_ctlUndoT);
+  _ctlUndoT = setTimeout(function() { el.style.display = 'none'; }, 9000);
+}
+function ctlQuitar(id) {
+  const rec = (S.ajustes || []).find(function(a) { return a && a.id === id && a.tipo === 'control'; });
+  if(!rec) return;
+  S.ajustes = S.ajustes.filter(function(a) { return a.id !== id; });
+  try { if(window._fbDeleteDoc) _fbDeleteDoc('ajustes', id); } catch(e) {}
+  try { recalcAllStocks(); recalcClientCredits(); } catch(e) {}
+  try { save(['products', 'ajustes'], true); } catch(e) {}
+  try { renderProds(); } catch(e) {}
+  try { updDash(); } catch(e) {}
+  try { renderStockAlertas(); } catch(e) {}
+  const u = document.getElementById('ctl-undo'); if(u) u.style.display = 'none';
+  if(ctlAbierto()) { _ctlSt.vals = {}; _ctlSt.mot = {}; _ctlRender(); }
+  try { _ctlBtnRefrescar(); } catch(e) {}
+}
+function _ctlBtnRefrescar() {
+  const el = document.getElementById('ctl-btn-sub'); if(!el) return;
+  const hoy = localDateStr(), h = _ctlHist();
+  let n = 0; Object.keys(h).forEach(function(k) { if(h[k].date === hoy) n++; });
+  el.textContent = n > 0 ? (n + (n === 1 ? ' contado hoy' : ' contados hoy')) : 'al cerrar el día';
+}
+// ===== FIN 4.21.0 =====
+
 // -- LISTA DE COMPRAS --
 function abrirSugeridor() {
   let ov = document.getElementById('sugeridor-overlay');
@@ -15040,6 +15454,8 @@ window.addEventListener('DOMContentLoaded', function(){
     window.addEventListener('popstate', function(e) {
       // Detalle de compra: "atras" lo cierra y se queda en Compras
       if(window._vcIgnorarPop) { window._vcIgnorarPop = false; return; }
+      // 4.21.0: con el Control del dia abierto, "atras" cierra la hojita de pedidos o sale del control (pide confirmar si hay conteos sin guardar)
+      if(typeof ctlAbierto === 'function' && ctlAbierto()) { ctlAtras(); history.pushState({page:S.page}, '', ''); return; }
       // 4.14.0: con la ayuda abierta, "atrás" la cierra y se queda en la pantalla
       if(typeof ayudaAbierta === 'function' && ayudaAbierta()) { ayudaCerrar(); history.pushState({page:S.page}, '', ''); return; }
       // 4.12.1: dentro de una seccion de Configuracion, "atras" vuelve al menu de Configuracion
@@ -16303,6 +16719,11 @@ function cfgSecAbrir(k) {
       ]]
     ]},
     stock: { t:'📈 Stock', i:'Cuánto tenés de cada producto. Se calcula solo: las compras suman, las facturas restan y los ajustes corrigen. Los presupuestos y las compras en borrador no cuentan.', s:[
+      ['📋 Control del día', [
+        'El botón verde de arriba te arma una lista de <b>10 productos</b> para contar al cerrar el día: los más vendidos de hoy y algunos con poco stock. Los que dieron bien descansan unos 3 días y los que dieron diferencia vuelven a los 2 días, así van rotando.',
+        'Escribí lo que hay en el estante en cada casillero. Si coincide queda en verde; si no, elegí el <b>motivo</b> (rotura, error de armado, etc.) y la diferencia se guarda como corrección de + o − (igual que ➖/➕). Tocá <b>ver pedidos ›</b> para acordarte en qué pedidos salió hoy.',
+        'Después de guardar podés tocar <b>Deshacer</b>. Las diferencias quedan en el historial del producto (📦 Movimientos) como "Control del día".'
+      ]],
       ['🔔 Alertas', [
         'Productos en <b>negativo</b> (vendiste más de lo que tenías cargado) y los que llegaron a su <b>stock mínimo</b>.',
         'El número rojo en la pestaña <b>Stock</b> de abajo te avisa cuántos hay.'
