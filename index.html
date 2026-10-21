@@ -1051,6 +1051,72 @@ input[type=number].ctl-box:focus{border-color:var(--accent)}
 #page-nueva-factura.nf-kb #nf-footer-total{font-size:18px !important}
 #page-nueva-factura.nf-kb #nf-foot button{padding:8px 14px !important;font-size:14px !important}
 #page-nueva-factura.nf-kb #cart-apply-all{margin-top:6px !important;padding:3px 8px !important}
+/* 4.22.0: diseño para PC (solo con body.pc: pantalla >= 900px y panel, nunca la tienda). Sin la clase, nada cambia. */
+#pc-side,#pc-inicio-side,#pc-chart,#nf-cart-pc{display:none}
+body.pc{display:grid;grid-template-columns:232px minmax(0,1fr);grid-template-rows:var(--top-h) minmax(0,1fr);--nav-h:0px}
+body.pc .bottom-nav,body.pc .fab,body.pc #nf-mini{display:none !important}
+body.pc #pc-side{display:flex;flex-direction:column;grid-column:1;grid-row:1 / span 2;background:var(--accent);color:#fff;padding:16px 12px;overflow-y:auto;z-index:11}
+body.pc .topbar{grid-column:2;grid-row:1;padding:0 28px}
+body.pc .pages{grid-column:2;grid-row:2}
+body.pc .page{padding:20px max(28px,calc((100% - 1240px)/2)) 28px}
+.pcs-logo{font-size:24px;font-weight:800;padding:4px 10px 16px;letter-spacing:.3px}
+.pcs-it{display:flex;align-items:center;gap:10px;width:100%;padding:11px 12px;border-radius:11px;margin-bottom:3px;font-weight:600;font-size:15px;color:#c9d6f0;background:none;border:none;cursor:pointer;font-family:inherit;text-align:left}
+.pcs-it:hover{background:rgba(255,255,255,.09)}
+.pcs-it.on{background:#fff;color:var(--accent);font-weight:800}
+.pcs-b{margin-left:auto;font-size:11px;background:var(--accent3);color:#fff;border-radius:9px;padding:1px 7px;font-weight:800}
+.pcs-sp{flex:1}
+.pcs-ver{font-size:12px;opacity:.65;padding:8px 12px 0}
+body.pc .modal{max-width:780px}
+body.pc .prod-grid{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
+body.pc #page-dashboard .pc-est .card-header{flex-wrap:wrap;gap:2px 8px}
+body.pc .ctl-ov{left:232px}
+body.pc .ctl-top,body.pc .ctl-body,body.pc .ctl-foot{padding-left:max(14px,calc((100% - 760px)/2));padding-right:max(14px,calc((100% - 760px)/2))}
+/* Inicio en PC */
+body.pc #page-dashboard.active{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) 380px;grid-auto-rows:max-content;column-gap:14px;row-gap:12px;align-content:start}
+body.pc #page-dashboard #sub-banner,body.pc #page-dashboard #pp-card{grid-column:1 / 4}
+body.pc #page-dashboard .pc-keys1,body.pc #page-dashboard .stats-grid,body.pc #page-dashboard .pc-kpis{display:contents !important}
+body.pc #page-dashboard .pc-keys1>.key,body.pc #page-dashboard .stats-grid>.key{order:1;margin:0}
+body.pc #page-dashboard .pc-kpis>.card,body.pc #page-dashboard .pc-inv{order:2;margin:0 !important}
+body.pc #pc-chart{display:block;order:3;grid-column:1 / 4;margin:0}
+body.pc #page-dashboard .pc-est,body.pc #page-dashboard .pc-ent,body.pc #page-dashboard .pc-tie{order:4;margin:0 !important;align-self:start}
+body.pc #pc-inicio-side{display:block;grid-column:4;grid-row:1 / span 12;order:0;align-self:start}
+.pcp-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:12px}
+.pcp-h{font-size:15px;font-weight:800;margin-bottom:6px}
+.pcp-row{display:flex;align-items:center;gap:10px;padding:9px 2px;border-top:1px solid var(--border);cursor:pointer}
+.pcp-row:first-of-type{border-top:none}
+.pcp-n{flex:1;min-width:0;font-weight:700;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pcp-n small{display:block;font-weight:500;font-size:12px;color:var(--text3)}
+.pcp-tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:8px;white-space:nowrap}
+.pcp-tag.u{background:var(--orange);color:#fff}
+.pcp-tag.a{background:#fff5e0;color:#c2410c;border:1px solid var(--orange)}
+.pcp-tag.r{background:#fee2e2;color:#b91c1c;border:1px solid #dc2626}
+.pcp-vacio{font-size:13.5px;color:var(--text3);padding:6px 2px}
+.pcp-btn{background:var(--green);color:#fff;border:none;border-radius:10px;padding:10px 16px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;white-space:nowrap}
+#pc-chart{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px}
+.pcg{display:flex;align-items:flex-end;gap:12px;height:150px;padding:6px 6px 0}
+.pcg>div{flex:1;text-align:center;display:flex;flex-direction:column;justify-content:flex-end;height:100%}
+.pcg i{display:block;border-radius:7px 7px 0 0;background:#9fc0ff;min-height:3px}
+.pcg i.hoy{background:var(--accent)}
+.pcg b{font-size:11.5px;color:var(--text2);margin-bottom:3px}
+.pcg span{font-size:12px;color:var(--text3);margin-top:5px}
+/* Nueva factura en PC */
+body.pc #page-nueva-factura.active{display:grid !important;grid-template-columns:minmax(0,1fr) 400px;grid-template-rows:auto minmax(0,1fr) auto;padding:0}
+body.pc #nf-sbox{grid-column:1;grid-row:1;padding:14px 20px 10px !important}
+body.pc #nf-prod-list{grid-column:1;grid-row:2 / span 2;background:var(--surface);border-top:1px solid var(--border)}
+body.pc #nf-top{grid-column:2;grid-row:1;flex-wrap:wrap;border-left:1px solid var(--border);padding:14px 16px !important}
+body.pc #nf-top>div{flex:1 1 0;min-width:0}
+body.pc #nf-top>input[type=date]{order:3;flex:1 1 100%;width:100% !important}
+body.pc #nf-cart-pc{display:block;grid-column:2;grid-row:2;overflow-y:auto;background:var(--surface);border-left:1px solid var(--border);padding:12px 16px}
+body.pc #nf-foot{grid-column:2;grid-row:3}
+.pcc-h{font-size:15px;font-weight:800;margin-bottom:6px}
+.pcc-row{display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--border)}
+.pcc-row:first-of-type{border-top:none}
+.pcc-n{flex:1;min-width:0;font-weight:700;font-size:14px}
+.pcc-n small{display:block;font-weight:500;font-size:12px;color:var(--text3)}
+.pcc-x{background:none;border:none;color:var(--text3);font-size:17px;cursor:pointer;padding:4px 8px;font-family:inherit}
+.pcc-x:hover{color:var(--accent3)}
+.pcc-v{font-size:13.5px;color:var(--text3);padding:8px 0}
+
 .empty{text-align:center;padding:48px 20px}
 .empty .ei{font-size:48px;margin-bottom:12px;opacity:.4}
 .empty h3{font-family:'Inter',sans-serif;font-size:17px;margin-bottom:6px}
@@ -1160,6 +1226,21 @@ input[type=number].ctl-box:focus{border-color:var(--accent)}
   })();
 </script>
 <div id="sync-indicator" style="display:none;position:fixed;bottom:calc(var(--nav-h,56px) + 10px);right:12px;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:700;box-shadow:0 2px 10px rgba(0,0,0,.15);transition:opacity .3s;pointer-events:none"></div>
+<aside id="pc-side">
+  <div class="pcs-logo">Revendit</div>
+  <button class="pcs-it" data-pg="dashboard" onclick="showPage('dashboard')"><span>&#127968;</span>Inicio</button>
+  <button class="pcs-it" data-pg="facturas" onclick="showPage('facturas')"><span>&#129534;</span>Facturas<span class="pcs-b" id="pcs-b-facturas" style="display:none">0</span></button>
+  <button class="pcs-it" data-pg="compras" onclick="showPage('compras')"><span>&#128717;</span>Compras</button>
+  <button class="pcs-it" data-pg="productos" onclick="showPage('productos')"><span>&#128230;</span>Productos</button>
+  <button class="pcs-it" data-pg="clientes" onclick="showPage('clientes')"><span>&#129309;</span>Clientes</button>
+  <button class="pcs-it" data-pg="stock" onclick="showPage('stock')"><span>&#128200;</span>Stock<span class="pcs-b" id="pcs-b-stock" style="display:none">0</span></button>
+  <button class="pcs-it" data-pg="proveedores" onclick="showPage('proveedores')"><span>&#127981;</span>Proveedores</button>
+  <button class="pcs-it" data-pg="estadisticas" onclick="showPage('estadisticas')"><span>&#128202;</span>Estadísticas</button>
+  <button class="pcs-it" data-pg="reparto" onclick="abrirReparto()"><span>&#128666;</span>Reparto</button>
+  <div class="pcs-sp"></div>
+  <button class="pcs-it" data-pg="config" onclick="showPage('config')"><span>&#9881;&#65039;</span>Configuración</button>
+  <div class="pcs-ver" id="pcs-ver"></div>
+</aside>
 <header class="topbar">
   <div class="topbar-title">Revendit</div>
   <div style="display:flex;align-items:center;gap:6px">
@@ -1195,7 +1276,7 @@ input[type=number].ctl-box:focus{border-color:var(--accent)}
   <div class="page active" id="page-dashboard">
     <div id="sub-banner" style="display:none"></div>
     <div id="pp-card" style="display:none"></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+    <div class="pc-keys1" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
       <button class="key" onclick="openInv()" style="padding:16px 10px;font-family:Inter,sans-serif;font-size:15px;font-weight:800;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px">
         <span style="font-size:40px;line-height:1">&#129534;</span>
         Nueva Factura
@@ -1227,7 +1308,7 @@ input[type=number].ctl-box:focus{border-color:var(--accent)}
         <div style="font-size:13px;color:var(--text3)">registrar pago</div>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+    <div class="pc-kpis" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
       <div class="card" style="padding:14px;text-align:center">
         <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Facturado hoy</div>
         <div style="font-size:18px;font-weight:900;color:var(--accent);font-family:Inter,sans-serif" id="dash-fact-hoy">$0</div>
@@ -1237,15 +1318,15 @@ input[type=number].ctl-box:focus{border-color:var(--accent)}
         <div style="font-size:18px;font-weight:900;color:var(--accent2);font-family:Inter,sans-serif" id="dash-comp-hoy">$0</div>
       </div>
     </div>
-    <div class="card" style="padding:14px;text-align:center;margin-bottom:14px">
+    <div class="card pc-inv" style="padding:14px;text-align:center;margin-bottom:14px">
       <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">💰 Valor del inventario</div>
       <div style="font-size:22px;font-weight:900;color:var(--accent);font-family:Inter,sans-serif" id="dash-inv-valor">$0</div>
     </div>
-    <div class="card" style="cursor:pointer" onclick="showPage('estadisticas')">
+    <div class="card pc-est" style="cursor:pointer" onclick="showPage('estadisticas')">
       <div class="card-header"><span class="card-title">📊 Estadísticas</span><span style="font-size:12px;color:var(--text3)">Ver métricas detalladas →</span></div>
     </div>
-    <div class="card" style="cursor:pointer" onclick="abrirReparto()"><div class="card-header"><span class="card-title">🚚 Gestionar entregas del día</span></div></div>
-    <div class="card" style="cursor:pointer">
+    <div class="card pc-ent" style="cursor:pointer" onclick="abrirReparto()"><div class="card-header"><span class="card-title">🚚 Gestionar entregas del día</span></div></div>
+    <div class="card pc-tie" style="cursor:pointer">
       <div class="card-header"><span class="card-title">🛒 Tienda online</span><span id="tienda-modo-badge" style="font-size:12px;background:#dcfce7;color:#166534;padding:2px 8px;border-radius:20px;font-weight:600">ACTIVA</span></div>
       <div style="padding:10px 14px;display:flex;flex-direction:column;gap:10px">
         <div style="display:flex;gap:6px">
@@ -1259,6 +1340,8 @@ input[type=number].ctl-box:focus{border-color:var(--accent)}
         </div>
       </div>
     </div>
+    <div id="pc-chart"></div>
+    <div id="pc-inicio-side"></div>
   </div>
 
   <div class="page" id="page-estadisticas">
@@ -1316,7 +1399,7 @@ input[type=number].ctl-box:focus{border-color:var(--accent)}
       </div>
       <input type="date" id="i-date" style="font-size:14px;padding:7px 6px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);width:118px">
     </div>
-    <div style="padding:8px 12px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0">
+    <div id="nf-sbox" style="padding:8px 12px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0">
       <div style="position:relative">
       <input type="text" id="cart-search" placeholder="🔍 Buscar producto..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
         oninput="cartRenderList(this.value);document.getElementById('cart-apply-all').style.display=this.value.trim()?'flex':'none';document.getElementById('cart-search-x').style.display=this.value?'flex':'none'"
@@ -1330,6 +1413,7 @@ input[type=number].ctl-box:focus{border-color:var(--accent)}
       </div>
     </div>
     <div style="flex:1;overflow-y:auto" id="nf-prod-list"></div>
+    <div id="nf-cart-pc"></div>
     <div id="nf-foot" style="background:var(--accent);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
       <div>
         <div style="font-size:13px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.5px" id="nf-footer-items">0 productos</div>
@@ -3490,6 +3574,11 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.0', f:'21/10/2026', t:[
+    'Diseño para PC (automático): cuando abrís Revendit en una pantalla ancha (computadora o tablet grande, más de 900 px) aparece un menú lateral a la izquierda con todas las secciones y el número de facturas pendientes y alertas de stock. El celular se ve exactamente igual que antes. Si achicás la ventana en la PC, vuelve solo al diseño de celular.',
+    'PC → Inicio: botones en filas, números del día, gráfico de lo facturado en los últimos 7 días y, a la derecha, las facturas urgentes, el stock en alerta y el Control del día.',
+    'PC → Nueva factura: los productos a la izquierda y, a la derecha, el cliente, la fecha, el pedido que vas armando (con ✕ para sacar un producto) y el total siempre a la vista.'
+  ]},
   {v:'4.21.1', f:'20/10/2026', t:[
     'Stock → Ajuste: los botones ➖ y ➕ ahora suben o bajan la cantidad que quieras; al lado de "Actual" aparece el contador (rojo si sacás, verde si sumás). No se guarda nada hasta que tocás 💾 Guardar ajuste: ahí te pregunta el motivo de cada producto (rotura, consumo propio, etc.). Si escribís el stock real en el casillero, se borra el ➖/➕ de ese producto.',
     'Stock → Ajuste: el botón 💾 Guardar ajuste ya no queda tapado por el teclado. El botón amarillo "Fijar stock actual" pasó al final de la lista.',
@@ -3716,6 +3805,7 @@ function showPage(p) {
   const navEl = document.getElementById('nav-'+p);
   if(navEl) navEl.classList.add('active');
   S.page = p;
+  try { _pcSideActualizar(p); } catch(e) {}
   // History API for Android back button
   if(window.history && !window._historyNav) history.pushState({page:p}, '', '');
   const L = {dashboard:'+ Nuevo',facturas:'+ Factura',productos:'+ Producto',clientes:'+ Cliente',compras:'+ Compra',proveedores:'+ Proveedor',stock:'','cli-detalle':'','prov-detalle':'','prod-historial':'','nueva-factura':'','resumen-factura':'','nueva-compra':'','resumen-compra':'','reparto':'','cobrar-reparto':'','grupos':'','config':''};
@@ -7451,6 +7541,7 @@ function nfUpdateFooter() {
   const ft = document.getElementById('nf-footer-total');
   if(fi) fi.textContent = uds+' producto'+(uds!==1?'s':'');
   if(ft) ft.textContent = '$'+total.toFixed(0);
+  try { pcCartRender(); } catch(e) {}
 }
 
 function nfVerResumen() {
@@ -8650,6 +8741,7 @@ function renderInvs() {
   const pend=S.invoices.filter(i=>i.status==='pendiente').length;
   const b=document.getElementById('nbadge');
   if(b){b.textContent=pend; b.style.display=pend?'':'none';}
+  try { _pcBadges(); } catch(e) {}
 }
 // Event delegation for cart qty inputs
 document.addEventListener('input', function(e) {
@@ -9414,6 +9506,7 @@ function updDash() {
   const invEl = document.getElementById('dash-inv-valor');
   const valorInv = calcValorInventario();
   if(invEl) invEl.textContent = '$'+Math.round(valorInv).toLocaleString('es-AR');
+  try { _pcInicioRender(); } catch(e) {}
   if(window._datosFirebaseOk && !(window.ejHay && ejHay())) registrarValorInventarioSemanal(valorInv);
   // Resumen día en facturas
   const dm = document.getElementById('dash-metricas');
@@ -11705,6 +11798,126 @@ document.addEventListener('focusin', function() { setTimeout(_kbAjustar, 30); })
 document.addEventListener('focusout', function() { setTimeout(_kbAjustar, 60); });
 // ===== FIN 4.21.1 =====
 
+// ===== 4.22.0: DISEÑO PARA PC =====
+// Se activa solo (body.pc) cuando la ventana mide >= 900px de ancho y no es la tienda. Todo el CSS de PC cuelga de body.pc:
+// sin esa clase (celular) la pantalla es la de siempre. Al achicar la ventana la clase se saca sola.
+const _PC_MIN = 900;
+const _PC_LABEL = {dashboard:'Inicio',facturas:'Facturas',compras:'Compras',productos:'Productos',clientes:'Clientes',stock:'Stock',proveedores:'Proveedores',estadisticas:'Estadísticas',reparto:'Reparto',config:'Configuración','nueva-factura':'Nueva factura','resumen-factura':'Resumen de la factura','nueva-compra':'Nueva compra','resumen-compra':'Resumen de la compra','cobrar-reparto':'Cobrar','cli-detalle':'Cliente','prov-detalle':'Proveedor','prod-historial':'Historial del producto',grupos:'Grupos',suscripcion:'Suscripción',exportar:'Exportar'};
+const _PC_ACTIVO = {dashboard:'dashboard',facturas:'facturas','nueva-factura':'facturas','resumen-factura':'facturas',compras:'compras','nueva-compra':'compras','resumen-compra':'compras',productos:'productos','prod-historial':'productos',grupos:'productos',clientes:'clientes','cli-detalle':'clientes',stock:'stock',proveedores:'proveedores','prov-detalle':'proveedores',estadisticas:'estadisticas',reparto:'reparto','cobrar-reparto':'reparto',config:'config',suscripcion:'config',exportar:'config'};
+function _pcOn() {
+  try { return !!(window.matchMedia && window.matchMedia('(min-width:' + _PC_MIN + 'px)').matches && !esTiendaURL()); } catch(e) { return false; }
+}
+function _pcAplicar() {
+  const on = _pcOn(), b = document.body;
+  if(!b) return;
+  const cambio = b.classList.contains('pc') !== on;
+  if(cambio) {
+    b.classList.toggle('pc', on);
+    if(!on) { const t = document.querySelector('.topbar-title'); if(t) t.textContent = 'Revendit'; }
+  }
+  if(on) {
+    try { _pcSideActualizar(S.page || 'dashboard'); } catch(e) {}
+    if(cambio) { try { _pcInicioRender(); } catch(e) {} try { pcCartRender(); } catch(e) {} }
+  }
+}
+function _pcSideActualizar(p) {
+  if(!document.body.classList.contains('pc')) return;
+  const act = _PC_ACTIVO[p] || '';
+  document.querySelectorAll('#pc-side .pcs-it').forEach(function(b) { b.classList.toggle('on', b.dataset.pg === act); });
+  const t = document.querySelector('.topbar-title'); if(t) t.textContent = _PC_LABEL[p] || 'Revendit';
+  const v = document.getElementById('pcs-ver');
+  if(v && !v.textContent) { try { v.textContent = 'Versión ' + NOVEDADES[0].v; } catch(e) {} }
+  _pcBadges();
+}
+function _pcBadges() {
+  try {
+    const pend = (S.invoices || []).filter(function(i) { return i.status === 'pendiente' && i.type !== 'presupuesto'; }).length;
+    const bf = document.getElementById('pcs-b-facturas');
+    if(bf) { bf.textContent = pend; bf.style.display = pend > 0 ? '' : 'none'; }
+    const sb = document.getElementById('stock-badge'), bs = document.getElementById('pcs-b-stock');
+    if(bs) { const n = sb ? (parseInt(sb.textContent) || 0) : 0; bs.textContent = n; bs.style.display = (sb && sb.style.display !== 'none' && n > 0) ? '' : 'none'; }
+  } catch(e) {}
+}
+function _pcFecha(d) { return (/^\d{4}-\d{2}-\d{2}$/.test(d || '')) ? d.slice(8, 10) + '/' + d.slice(5, 7) : (d || ''); }
+function _pcPesos(n) { return '$' + Math.round(Number(n) || 0).toLocaleString('es-AR'); }
+function _pcInicioRender() {
+  if(!document.body.classList.contains('pc')) return;
+  const side = document.getElementById('pc-inicio-side'), ch = document.getElementById('pc-chart');
+  if(!side || !ch) return;
+  // 1) Urgentes
+  const urg = (S.invoices || []).filter(_esUrgente);
+  let h = '<div class="pcp-card"><div class="pcp-h">🚨 Urgentes (' + urg.length + ')</div>';
+  if(!urg.length) h += '<div class="pcp-vacio">No hay facturas urgentes.</div>';
+  urg.slice(0, 6).forEach(function(i) {
+    const m = (Number(i.saldo) > 0) ? i.saldo : i.total;
+    h += '<div class="pcp-row" onclick="showPage(\'facturas\')"><div class="pcp-n">' + _srEsc(i.clientName || 'Cliente') + '<small>' + _pcFecha(i.date) + ' · ' + ((i.items || []).length) + ' productos</small></div><b>' + _pcPesos(m) + '</b><span class="pcp-tag u">URGENTE</span></div>';
+  });
+  if(urg.length > 6) h += '<div class="pcp-vacio">y ' + (urg.length - 6) + ' más en Facturas</div>';
+  h += '</div>';
+  // 2) Stock en alerta
+  const low = (S.products || []).filter(function(p) { return p.name && (p.stock < 0 || (p.stock > 0 && p.minStock > 0 && p.stock <= p.minStock)); });
+  const sbd = document.getElementById('stock-badge'), nAl = sbd ? (parseInt(sbd.textContent) || low.length) : low.length;
+  h += '<div class="pcp-card"><div class="pcp-h">⚠️ Stock en alerta' + (nAl ? ' (' + nAl + ')' : '') + '</div>';
+  if(!low.length) h += '<div class="pcp-vacio">Sin alertas.</div>';
+  low.slice(0, 5).forEach(function(p) {
+    const neg = p.stock < 0;
+    h += '<div class="pcp-row" onclick="showPage(\'stock\')"><div class="pcp-n">' + _srEsc(p.name) + '<small>' + (neg ? 'Faltan ' + _srNum(-p.stock) + ' uds' : 'Quedan ' + _srNum(p.stock) + ' · mínimo ' + _srNum(p.minStock)) + '</small></div><span class="pcp-tag ' + (neg ? 'r' : 'a') + '">' + (neg ? 'negativo' : 'bajo') + '</span></div>';
+  });
+  if(low.length > 5) h += '<div class="pcp-vacio">y más en Stock → Alertas</div>';
+  h += '</div>';
+  // 3) Control del dia
+  const cs = document.getElementById('ctl-btn-sub');
+  h += '<div class="pcp-card"><div class="pcp-h">📋 Control del día</div><div class="pcp-row" style="border-top:none"><div class="pcp-n">Contá productos del estante<small>' + _srEsc(cs && cs.textContent ? cs.textContent : 'al cerrar el día') + '</small></div><button class="pcp-btn" onclick="controlAbrir()">Empezar</button></div></div>';
+  side.innerHTML = h;
+  // Grafico: facturado por dia (misma cuenta que "Facturado hoy")
+  const dias = [], hoy = new Date();
+  for(let k = 6; k >= 0; k--) {
+    const d = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - k);
+    dias.push({ f: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'), l: k === 0 ? 'Hoy' : ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'][d.getDay()], v: 0, hoy: k === 0 });
+  }
+  const mapa = {}; dias.forEach(function(x) { mapa[x.f] = x; });
+  (S.invoices || []).forEach(function(i) { if(i.type !== 'presupuesto' && mapa[i.date]) mapa[i.date].v += (Number(i.total) || 0); });
+  const max = Math.max.apply(null, dias.map(function(x) { return x.v; }).concat([1]));
+  ch.innerHTML = '<div class="pcp-h">Facturado por día · últimos 7 días</div><div class="pcg">' + dias.map(function(x) {
+    return '<div><b>' + (x.v > 0 ? (x.v >= 1000000 ? (x.v / 1000000).toFixed(1).replace('.', ',') + ' M' : Math.round(x.v / 1000) + ' mil') : '') + '</b><i class="' + (x.hoy ? 'hoy' : '') + '" style="height:' + Math.max(2, Math.round(x.v / max * 105)) + 'px"></i><span>' + x.l + '</span></div>';
+  }).join('') + '</div>';
+}
+function pcCartRender() {
+  if(!document.body.classList.contains('pc')) return;
+  const el = document.getElementById('nf-cart-pc'); if(!el) return;
+  const items = [];
+  (S.invItems || []).forEach(function(it, idx) { if(it && it.qty > 0) items.push({ it: it, idx: idx }); });
+  let h = '<div class="pcc-h">Pedido (' + items.length + ' producto' + (items.length !== 1 ? 's' : '') + ')</div>';
+  if(!items.length) h += '<div class="pcc-v">Todavía no agregaste productos. Escribí la cantidad a la izquierda.</div>';
+  items.forEach(function(o) {
+    const it = o.it, sub = (Number(it.qty) || 0) * (Number(it.price) || 0);
+    h += '<div class="pcc-row"><div class="pcc-n">' + _srEsc(it.desc || '') + ((it.variante && String(it.desc || '').indexOf(it.variante) < 0) ? ' · ' + _srEsc(it.variante) : '') + '<small>' + _srNum(it.qty) + ' × ' + _pcPesos(it.price) + '</small></div><b>' + _pcPesos(sub) + '</b><button type="button" class="pcc-x" onclick="pcCartQuitar(' + o.idx + ')" aria-label="Sacar del pedido">✕</button></div>';
+  });
+  el.innerHTML = h;
+}
+function pcCartQuitar(i) {
+  const it = (S.invItems || [])[i]; if(!it) return;
+  let inp = null;
+  document.querySelectorAll('#nf-prod-list input[data-pid]').forEach(function(x) {
+    if(inp || x.dataset.pid !== it.prodId || x.getAttribute('placeholder') === '$Precio') return;
+    if((x.dataset.variante || '') === (it.variante || '')) inp = x;
+  });
+  if(inp) { inp.value = ''; inp.dispatchEvent(new Event('input', { bubbles: true })); return; }
+  S.invItems.splice(i, 1);
+  try { calcTotals(); } catch(e) {}
+  try { nfUpdateFooter(); } catch(e) {}
+  try { const q = document.getElementById('cart-search'); cartRenderList(q ? q.value : ''); } catch(e) {}
+}
+(function() {
+  try {
+    window.addEventListener('resize', _pcAplicar);
+    if(window.matchMedia) { const mq = window.matchMedia('(min-width:' + _PC_MIN + 'px)'); if(mq.addEventListener) mq.addEventListener('change', _pcAplicar); }
+    _pcAplicar();
+    setTimeout(_pcAplicar, 600);
+  } catch(e) {}
+})();
+// ===== FIN 4.22.0 =====
+
 // -- LISTA DE COMPRAS --
 function abrirSugeridor() {
   let ov = document.getElementById('sugeridor-overlay');
@@ -12827,6 +13040,7 @@ function updateStockBadge() {
   });
   const badge = document.getElementById('stock-badge');
   if (badge) { badge.textContent = alertCount; badge.style.display = alertCount > 0 ? '' : 'none'; }
+  try { _pcBadges(); } catch(e) {}
 }
 
   // Plan B: solo si Firebase directamente no cargó (sin internet al abrir) se arranca con la copia
