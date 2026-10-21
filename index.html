@@ -1509,7 +1509,7 @@ body.pc #nf-foot{grid-column:2;grid-row:3}
   <!-- PÁGINA RESUMEN FACTURA -->
   <div class="page" id="page-resumen-factura" style="padding:0;flex-direction:column;height:100%">
     <div style="padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0">
-      <button onclick="S.editId?showPage('facturas'):showPage('nueva-factura')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 14px;font-size:16px;cursor:pointer">←</button>
+      <button onclick="S.editId?cerrarNuevaFac():showPage('nueva-factura')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 14px;font-size:16px;cursor:pointer">←</button>
       <div style="flex:1">
         <div style="font-family:Inter,sans-serif;font-size:17px;font-weight:800">Resumen</div>
         <div id="resumen-cli-nombre" style="font-size:13px;color:var(--accent);font-weight:600;cursor:pointer" onclick="resumenCambiarCliente()">✏️ <span id="resumen-cli-label">—</span></div>
@@ -3579,6 +3579,9 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.2', f:'21/10/2026', t:[
+    'Arreglo: si abrías una factura para mirarla, volvías con la flecha y después marcabas Falta, Preparado y tocabas Enviar, la factura se guardaba con la lista vieja y los productos que habían pasado a otro día reaparecían (y quedaban cobrados dos veces). Ahora Enviar manda la factura tal como está guardada, sin volver a guardarla, y al volver con la flecha se descarta la copia vieja.'
+  ]},
   {v:'4.22.1', f:'21/10/2026', t:[
     'PC → Inicio en ventanas medianas (hasta unos 1300 px, por ejemplo el celu en "sitio para computadoras"): los botones, los números y las tarjetas ya no se cortan ni se estiran. El panel de Urgentes, Stock en alerta y Control del día pasa debajo. En pantallas más grandes queda a la derecha como antes.'
   ]},
@@ -8829,8 +8832,10 @@ let _cachedInvId = null;
 function openShareInvoice(id) {
   const inv = S.invoices.find(i=>i.id===id);
   if(!inv) return;
-  // Si la factura está siendo editada, guardarla primero
-  if(S.editId === id && S.invItems && S.invItems.length > 0) {
+  // Si la factura está siendo editada (pantalla de edición abierta), guardarla primero.
+  // 4.22.2: desde la lista (Enviar) NUNCA se guarda: quedaba una copia vieja de la lista de
+  // productos en memoria y pisaba los faltantes ya pasados a otro día.
+  if(S.editId === id && S.invItems && S.invItems.length > 0 && (S.page === 'nueva-factura' || S.page === 'resumen-factura')) {
     saveInv();
   }
   S.shareInvId = id;
