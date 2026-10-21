@@ -1080,6 +1080,11 @@ body.pc #page-dashboard .pc-kpis>.card,body.pc #page-dashboard .pc-inv{order:2;m
 body.pc #pc-chart{display:block;order:3;grid-column:1 / 4;margin:0}
 body.pc #page-dashboard .pc-est,body.pc #page-dashboard .pc-ent,body.pc #page-dashboard .pc-tie{order:4;margin:0 !important;align-self:start}
 body.pc #pc-inicio-side{display:block;grid-column:4;grid-row:1 / span 12;order:0;align-self:start}
+/* 4.22.1: ventana mediana -> el panel baja y ocupa todo el ancho */
+@media (max-width:1299.98px){
+body.pc #page-dashboard.active{grid-template-columns:repeat(3,minmax(0,1fr))}
+body.pc #pc-inicio-side{grid-column:1 / 4;grid-row:auto;order:5}
+}
 .pcp-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:12px}
 .pcp-h{font-size:15px;font-weight:800;margin-bottom:6px}
 .pcp-row{display:flex;align-items:center;gap:10px;padding:9px 2px;border-top:1px solid var(--border);cursor:pointer}
@@ -3574,6 +3579,9 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.1', f:'21/10/2026', t:[
+    'PC → Inicio en ventanas medianas (hasta unos 1300 px, por ejemplo el celu en "sitio para computadoras"): los botones, los números y las tarjetas ya no se cortan ni se estiran. El panel de Urgentes, Stock en alerta y Control del día pasa debajo. En pantallas más grandes queda a la derecha como antes.'
+  ]},
   {v:'4.22.0', f:'21/10/2026', t:[
     'Diseño para PC (automático): cuando abrís Revendit en una pantalla ancha (computadora o tablet grande, más de 900 px) aparece un menú lateral a la izquierda con todas las secciones y el número de facturas pendientes y alertas de stock. El celular se ve exactamente igual que antes. Si achicás la ventana en la PC, vuelve solo al diseño de celular.',
     'PC → Inicio: botones en filas, números del día, gráfico de lo facturado en los últimos 7 días y, a la derecha, las facturas urgentes, el stock en alerta y el Control del día.',
