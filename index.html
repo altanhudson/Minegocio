@@ -3579,6 +3579,10 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.4', f:'22/10/2026', t:[
+    'Facturas: el botón rojo de cada producto ahora dice siempre "Falta" (antes decía "Falta 3" y se confundía con el aviso "hay 0 · faltan 3" de al lado). Al tocarlo se abre igual con la cantidad que falta ya cargada.',
+    'Facturas: al tildar o destildar un producto, los avisos de stock se actualizan al instante (antes el aviso rojo de un producto ya tildado quedaba hasta tocar Falta o cerrar la factura).'
+  ]},
   {v:'4.22.3', f:'21/10/2026', t:[
     'Un producto marcado SIN STOCK ya no puede estar en oferta: al marcarlo SIN STOCK se le saca la oferta y mientras siga así no se puede poner en oferta (ni con el botón 🔥, ni en Editar, ni con "Todos oferta" de una categoría). Al volver a marcar que hay stock, la oferta no vuelve sola.',
     'Tienda: las fotos de los productos se ven más grandes (de 92 a 120 px).'
@@ -3626,7 +3630,7 @@ const NOVEDADES = [
     'Productos: los filtros (Fuera de tienda, Sin stock, Flyer, Tienda, Oferta) ahora se ven todos en dos renglones, sin tener que deslizar.'
   ]},
   {v:'4.15.0', f:'16/10/2026', t:[
-    'Facturas pendientes: aviso en rojo cuando falta stock para armar el pedido. La app reparte lo que tenés de cada producto entre los pedidos sin preparar (el más viejo primero) y marca "hay 2 · faltan 3". El botón rojo "Falta 3" abre la hoja ya con esa cantidad.',
+    'Facturas pendientes: aviso en rojo cuando falta stock para armar el pedido. La app reparte lo que tenés de cada producto entre los pedidos sin preparar (el más viejo primero) y marca "hay 2 · faltan 3". El botón rojo "Falta" abre la hoja ya con esa cantidad.',
     'La hoja "¿Cuántos faltan?" ya no muestra el botón "Faltan todos": los botones − y + no se corren al tocarlos.'
   ]},
   {v:'4.14.1', f:'16/10/2026', t:[
@@ -8449,7 +8453,7 @@ function _fFilasHtml(inv) {
       +'<span style="font-weight:700;color:var(--accent);white-space:nowrap;font-size:14px">$'+(item.qty*item.price).toFixed(0)+'</span>'
       +(fq ? btnUndo(fs.map(f=>f.fid))
            : (puedeFalta ? (sk
-               ? '<span data-action="falta" data-invid="'+inv.id+'" data-idx="'+idx+'" data-sug="'+sk.falta+'" style="flex-shrink:0;border:1.5px solid #dc2626;color:#fff;background:#dc2626;border-radius:14px;font-size:12px;font-weight:800;padding:5px 9px;cursor:pointer;white-space:nowrap">Falta '+sk.falta+'</span>'
+               ? '<span data-action="falta" data-invid="'+inv.id+'" data-idx="'+idx+'" data-sug="'+sk.falta+'" style="flex-shrink:0;border:1.5px solid #dc2626;color:#fff;background:#dc2626;border-radius:14px;font-size:12px;font-weight:800;padding:5px 9px;cursor:pointer;white-space:nowrap">Falta</span>'
                : '<span data-action="falta" data-invid="'+inv.id+'" data-idx="'+idx+'" style="flex-shrink:0;border:1.5px solid #ea580c;color:#ea580c;background:#fff;border-radius:14px;font-size:12px;font-weight:800;padding:5px 9px;cursor:pointer">Falta</span>') : ''))
       +'</div>';
   }).join('');
@@ -8815,6 +8819,8 @@ document.getElementById('page-facturas').addEventListener('click', function(e){
     btn.textContent = armado ? '✓' : '';
     const textEl = btn.nextElementSibling;
     if(textEl) { textEl.style.color = armado ? 'var(--text3)' : 'var(--text2)'; textEl.style.textDecoration = armado ? 'line-through' : ''; }
+    // 4.22.4: los avisos de stock dependen de lo tildado (y de otros pedidos): se recalculan al instante
+    try{ _fRefrescar(invId); }catch(e){}
     return;
   }
   else if(action==='falta') { abrirFalta(btn.dataset.invid, parseInt(btn.dataset.idx), parseFloat(btn.dataset.sug)||0); return; }
@@ -17044,7 +17050,7 @@ function cfgSecAbrir(k) {
       ['Desplegable (tocá la tarjeta)', [
         'Se abre la lista de productos. Cada uno tiene un <b>cuadradito para tildar</b> mientras armás el pedido. Los tildes se ven también en el otro celular.',
         '<b>Falta</b>: si un producto (sin tildar) no lo tenés, tocá "Falta", elegí cuántos faltan y confirmá. La factura se corrige sola: total, saldo y stock. Lo que falta queda <b>⏳ pendiente</b> con el mismo precio.',
-        '<b>⚠ Sin stock (en rojo)</b>: la app reparte lo que tenés de cada producto entre los pedidos todavía sin preparar, el más viejo primero, y marca lo que le faltaría a cada uno ("hay 2 · faltan 3"). Tocá el botón rojo <b>Falta 3</b>: se abre con esa cantidad, la corregís con − y + si hace falta y confirmás. Para que el aviso sea confiable, mantené el stock al día (cargá las compras).',
+        '<b>⚠ Sin stock (en rojo)</b>: la app reparte lo que tenés de cada producto entre los pedidos todavía sin preparar, el más viejo primero, y marca lo que le faltaría a cada uno ("hay 2 · faltan 3"). Tocá el botón rojo <b>Falta</b>: se abre con esa cantidad, la corregís con − y + si hace falta y confirmás. Para que el aviso sea confiable, mantené el stock al día (cargá las compras).',
         'Si la factura ya estaba paga, lo que se saca queda <b>a favor del cliente</b>. Si faltan todos los productos, la factura se cancela.',
         '<b>Deshacer</b>: vuelve el producto a la factura.',
         '<b>⏳ N pendientes · Armar factura</b> (cartel naranja): arma una factura nueva con lo que faltó, para el día que elijas.'
