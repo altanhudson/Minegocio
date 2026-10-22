@@ -2210,7 +2210,7 @@ body.pc #nf-foot{grid-column:2;grid-row:3}
       </div>
       <div class="form-group"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="p-vis" checked style="width:20px;height:20px"><span style="font-size:14px">Visible en tienda online</span></label></div>
       <div class="form-group"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="p-mostrarstock" style="width:20px;height:20px"><span style="font-size:14px">🔢 Mostrar stock en la tienda <span id="p-mostrarstock-ayuda" style="color:var(--text3);font-size:12px">(menos de 10: "¡Últimas N!"; no aplica a productos con variantes)</span></span></label></div>
-      <div class="form-group"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="p-oferta" style="width:20px;height:20px"><span style="font-size:14px">🔥 En oferta</span></label></div>
+      <div class="form-group"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="p-oferta" style="width:20px;height:20px"><span style="font-size:14px">🔥 En oferta</span><span id="p-oferta-hint" style="display:none;font-size:12px;color:#dc2626;font-weight:700">· está SIN STOCK, no se puede</span></label></div>
       <div class="form-group"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="p-soloflyer" style="width:20px;height:20px"><span style="font-size:14px">📢 Solo flyer (no aparece al facturar)</span></label></div>
     </div>
     <div class="modal-footer">
@@ -3579,6 +3579,10 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.3', f:'21/10/2026', t:[
+    'Un producto marcado SIN STOCK ya no puede estar en oferta: al marcarlo SIN STOCK se le saca la oferta y mientras siga así no se puede poner en oferta (ni con el botón 🔥, ni en Editar, ni con "Todos oferta" de una categoría). Al volver a marcar que hay stock, la oferta no vuelve sola.',
+    'Tienda: las fotos de los productos se ven más grandes (de 92 a 120 px).'
+  ]},
   {v:'4.22.2', f:'21/10/2026', t:[
     'Arreglo: si abrías una factura para mirarla, volvías con la flecha y después marcabas Falta, Preparado y tocabas Enviar, la factura se guardaba con la lista vieja y los productos que habían pasado a otro día reaparecían (y quedaban cobrados dos veces). Ahora Enviar manda la factura tal como está guardada, sin volver a guardarla, y al volver con la flecha se descarta la copia vieja.'
   ]},
@@ -5425,7 +5429,8 @@ function openProd(id) {
     document.getElementById('p-vis').checked = p.visible!==false;
     document.getElementById('p-mostrarstock').checked = _stockGeneral() ? !p.ocultarStock : !!p.mostrarStock;
     _prodStockAyuda();
-    document.getElementById('p-oferta').checked = !!p.oferta;
+    document.getElementById('p-oferta').checked = !!p.oferta && !p.sinStockManual;
+    { const _cb = document.getElementById('p-oferta'); _cb.disabled = !!p.sinStockManual; const _h = document.getElementById('p-oferta-hint'); if(_h) _h.style.display = p.sinStockManual ? '' : 'none'; }   // 4.22.3
     document.getElementById('p-soloflyer').checked = !!p.soloFlyer;
     document.getElementById('p-frac').value = p.fracMin||1;
     document.getElementById('p-grupo').value = p.grupoMay||'';
@@ -5442,6 +5447,7 @@ function openProd(id) {
     document.getElementById('p-mostrarstock').checked = _stockGeneral();
     _prodStockAyuda();
   document.getElementById('p-oferta').checked = false;
+  { const _cb = document.getElementById('p-oferta'); _cb.disabled = false; const _h = document.getElementById('p-oferta-hint'); if(_h) _h.style.display = 'none'; }   // 4.22.3
   document.getElementById('p-soloflyer').checked = false;
     document.getElementById('p-frac').value = 1;
     document.getElementById('p-grupo').value = '';
@@ -5499,8 +5505,8 @@ function saveProd() {
       if(!wasVisible) return new Date().toISOString();
       return orig.visibleSince || null; // ya estaba visible → conservar aunque sea null
     })(),
-    oferta: document.getElementById('p-oferta').checked,
-    ofertaDesde: document.getElementById('p-oferta').checked
+    oferta: document.getElementById('p-oferta').checked && !(S.editId && (S.products.find(p=>p.id===S.editId)||{}).sinStockManual),
+    ofertaDesde: document.getElementById('p-oferta').checked && !(S.editId && (S.products.find(p=>p.id===S.editId)||{}).sinStockManual)
       ? ((S.editId && (S.products.find(p=>p.id===S.editId)||{}).ofertaDesde) || new Date().toISOString())
       : null,
     soloFlyer: document.getElementById('p-soloflyer').checked,
@@ -5654,11 +5660,19 @@ function prodBulkTog(field) {
   if(!pf||!pf.startsWith('cat:')) return;
   const cat = pf.slice(4);
   const prods = S.products.filter(p=>(p.category||p.marca||'').trim()===cat);
-  const allOn = prods.every(p=>field==='visible'?p.visible!==false:!!p[field]);
-  prods.forEach(p=>{ if(field==='visible') p.visible=allOn?false:true; else p[field]=!allOn; try{_markDirty('products', p.id);}catch(e){} });
+  // 4.22.3: los productos SIN STOCK no entran en "Todos oferta"
+  const elegibles = field==='oferta' ? prods.filter(p=>!p.sinStockManual) : prods;
+  const allOn = elegibles.length ? elegibles.every(p=>field==='visible'?p.visible!==false:!!p[field]) : false;
+  let omitidos = 0;
+  prods.forEach(p=>{
+    if(field==='visible') p.visible=allOn?false:true;
+    else if(field==='oferta' && !allOn && p.sinStockManual) { omitidos++; return; }
+    else p[field]=!allOn;
+    try{_markDirty('products', p.id);}catch(e){}
+  });
   save(['products']);
   renderProds(document.getElementById('prod-search').value);
-  toast((allOn?'Desactivado':'Activado')+' para '+prods.length+' productos');
+  toast((allOn?'Desactivado':'Activado')+' para '+(prods.length-omitidos)+' productos'+(omitidos?' ('+omitidos+' sin stock no se incluyeron)':''));
 }
 function renderProdCatChips() {
   // Populate dropdown with categories from products (also checks marca field)
@@ -5701,7 +5715,8 @@ function renderProds(q) {
       document.getElementById('prod-bulk-label').textContent = cat+':';
       const allVis = catProds.every(p=>p.visible!==false);
       const allFly = catProds.every(p=>!!p.enFlyer);
-      const allOfe = catProds.every(p=>!!p.oferta);
+      const _elegOfe = catProds.filter(p=>!p.sinStockManual);
+      const allOfe = _elegOfe.length ? _elegOfe.every(p=>!!p.oferta) : false;
       document.getElementById('pb-vis').textContent = (allVis?'👁️ Ocultar todos':'👁️ Mostrar todos');
       document.getElementById('pb-fly').textContent = (allFly?'📢 Quitar flyer':'📢 Todos al flyer');
       document.getElementById('pb-ofe').textContent = (allOfe?'🔥 Quitar oferta':'🔥 Todos oferta');
@@ -6098,10 +6113,13 @@ function toggleSinStockManual(id) {
   const p = S.products.find(x=>x.id===id);
   if(!p) return;
   p.sinStockManual = !p.sinStockManual;
+  // 4.22.3: un producto sin stock no puede estar en oferta
+  const _eraOferta = !!p.oferta;
+  if(p.sinStockManual && p.oferta) { p.oferta = false; delete p.ofertaDesde; }
   try{ _markDirty('products', p.id); }catch(e){}
   save(['products']);
   renderProds(document.getElementById('prod-search').value);
-  toast(p.sinStockManual ? 'Marcado como SIN STOCK en la tienda' : 'Vuelve a mostrarse en la tienda');
+  toast(p.sinStockManual ? 'Marcado como SIN STOCK en la tienda' + (_eraOferta ? ' · se sacó de oferta' : '') : 'Vuelve a mostrarse en la tienda');
 }
 function togVis(id) {
   const p = S.products.find(x=>x.id===id);
@@ -6114,6 +6132,7 @@ function togVis(id) {
 function togOferta(id) {
   const p = S.products.find(x=>x.id===id);
   if(!p) return;
+  if(!p.oferta && p.sinStockManual) { toast('Está SIN STOCK: primero sacale el SIN STOCK para ponerlo en oferta'); return; }   // 4.22.3
   p.oferta = !p.oferta;
   if(p.oferta) p.ofertaDesde = new Date().toISOString();
   else delete p.ofertaDesde;
@@ -13558,7 +13577,7 @@ body.tn-body{display:block!important;background:linear-gradient(180deg,#dfeaff 0
 .tn-pc{background:#fff;border-radius:16px;border:1.5px solid var(--tn-borde);padding:10px;box-shadow:0 2px 8px rgba(18,58,122,.05);position:relative;overflow:hidden}
 .tn-pc.sel{border-color:#3483fa;box-shadow:0 0 0 2px rgba(52,131,250,.18)}
 .tn-pt{display:flex;gap:11px}
-.tn-pt>img,.tn-pt>.tn-ph{width:92px;height:92px;flex:0 0 92px;border-radius:12px;object-fit:contain;background:#f4f6fb;border:1px solid #eef1f7;display:flex;align-items:center;justify-content:center;font-size:40px}
+.tn-pt>img,.tn-pt>.tn-ph{width:120px;height:120px;flex:0 0 120px;border-radius:12px;object-fit:contain;background:#f4f6fb;border:1px solid #eef1f7;display:flex;align-items:center;justify-content:center;font-size:40px}
 .tn-pi{min-width:0;flex:1}
 .tn-pn{font-size:15px;font-weight:800;line-height:1.25}
 .tn-pb{font-size:12px;color:var(--tn-gris);margin-top:2px;font-weight:600}
