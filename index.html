@@ -3579,6 +3579,9 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.7', f:'22/10/2026', t:[
+    'Control del día: el "debería haber" ahora suma lo que ya está facturado con fecha posterior a hoy (mañana, pasado, etc.), porque esa mercadería todavía está en el estante aunque el sistema ya la descontó. Se muestra aclarado, por ejemplo "debería haber 100 (50 ya facturados para días siguientes)", y al guardar el stock queda descontando esos pedidos. En el detalle del producto se ven esos pedidos futuros.'
+  ]},
   {v:'4.22.6', f:'22/10/2026', t:[
     'Historial de un producto con variantes: el "stock:" que figura a la derecha de cada movimiento se calculaba con el conteo de otra variante (por ejemplo, el de frutilla partía del número de frambuesa) y no coincidía con el stock real. Ahora se calcula con la variante correcta. El stock real no cambió, solo cómo se ve el historial.',
     'Historial: el Balance ya no muestra "+-6" sino "-6".'
@@ -11328,7 +11331,20 @@ function _ctlHist() {
 }
 // ventas: hoy (con pedidos), ultimos 7 dias y ultimos 30 dias, por producto
 function _ctlVentas(hoy) {
-  const h = {}, sem = {}, mes = {};
+  const h = {}, sem = {}, mes = {}, fut = {};
+  // 4.22.7: mercadería ya facturada con fecha posterior a hoy (el stock del sistema ya la descontó, pero sigue en el estante).
+  // Misma regla que recalcAllStocks: todo lo que no sea presupuesto.
+  (S.invoices || []).forEach(function(inv) {
+    if(!inv || inv.type === 'presupuesto') return;
+    if(_ctlDias(inv.date, hoy) >= 0) return;
+    (inv.items || []).forEach(function(it) {
+      if(!it || !it.prodId) return;
+      const q = Number(it.qty) || 0; if(!q) return;
+      const o = fut[it.prodId] || (fut[it.prodId] = { qty: 0, peds: [] });
+      o.qty += q;
+      o.peds.push({ id: inv.id, cli: inv.clientName || '---', date: inv.date || '', qty: q });
+    });
+  });
   (S.invoices || []).forEach(function(inv) {
     if(!inv || inv.type === 'presupuesto' || inv.status === 'cancelada') return;
     const dd = _ctlDias(inv.date, hoy);
@@ -11346,7 +11362,7 @@ function _ctlVentas(hoy) {
       }
     });
   });
-  return { hoy: h, sem: sem, mes: mes };
+  return { hoy: h, sem: sem, mes: mes, fut: fut };
 }
 function _ctlElegible(p) {
   return !!(p && p.id && p.name && String(p.name).trim() && !(p.variantes && p.variantes.length) && !p.soloFlyer && !p.ejemplo && !/^PROD-EJ/.test(String(p.id)));
@@ -11397,12 +11413,19 @@ function _ctlProd(pid) { return (S.products || []).find(function(x) { return x.i
 function _ctlDbg() { return _ctlSt; }   // para pruebas
 function _ctlHora(ts) { try { const d = new Date(ts); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); } catch(e) { return ''; } }
 function _ctlEsHecho(it) { const h = _ctlSt.hist[it.pid]; return !!(h && h.date === _ctlSt.hoy); }
+// 4.22.7: lo que debería haber físicamente = stock del sistema + lo ya facturado para días siguientes
+function _ctlEsp(p) {
+  const sis = Number(p.stock) || 0;
+  const f = (_ctlSt && _ctlSt.vt && _ctlSt.vt.fut && _ctlSt.vt.fut[p.id]) || null;
+  const fq = f ? _ctlRound(f.qty) : 0;
+  return { sis: sis, fut: fq, esp: _ctlRound(sis + fq), peds: f ? f.peds : [] };
+}
 function _ctlDifDe(i) {
   const st = _ctlSt, it = st.orden[i]; if(!it) return null;
   const v = st.vals[it.pid]; if(v === undefined || v === '') return null;
   const n = _ctlParse(v); if(n === null) return { err: true };
   const p = _ctlProd(it.pid); if(!p) return null;
-  const esp = Number(p.stock) || 0;
+  const esp = _ctlEsp(p).esp;
   return { n: n, esp: esp, d: _ctlRound(n - esp) };
 }
 function _ctlEstadoHtml(i) {
@@ -11440,7 +11463,7 @@ function _ctlFila(i) {
   const st = _ctlSt, it = st.orden[i];
   const p = _ctlProd(it.pid); if(!p) return '';
   const hecho = _ctlEsHecho(it);
-  const esp = Number(p.stock) || 0;
+  const _e = _ctlEsp(p), esp = _e.esp;
   const vh = st.vt.hoy[p.id], vs = st.vt.sem[p.id] || 0;
   let sal;
   if(vh) sal = 'Salieron hoy ' + _srNum(vh.qty);
@@ -11448,7 +11471,7 @@ function _ctlFila(i) {
   else sal = 'Sin ventas esta semana';
   const tg = it.tag === 'revisar' ? '<span style="color:#ea580c;font-weight:800">↻ revisar de nuevo</span> · ' : (it.tag === 'poco' ? '<span style="color:#b45309;font-weight:800">📉 poco stock</span> · ' : '');
   const h = st.hist[it.pid];
-  const sub = hecho ? ('Contado: ' + _srNum(h.contado)) : (sal + ' · debería haber <b>' + _srNum(esp) + '</b>');
+  const sub = hecho ? ('Contado: ' + _srNum(h.contado)) : (sal + ' · debería haber <b>' + _srNum(esp) + '</b>' + (_e.fut > 0 ? ' <span style="color:#b45309">(' + _srNum(_e.fut) + ' ya facturados para días siguientes)</span>' : ''));
   const caja = hecho
     ? '<div class="ctl-box ctl-fix">' + _srNum(h.contado) + '</div>'
     : '<input type="number" inputmode="decimal" enterkeyhint="next" class="ctl-box" id="ctl-in-' + i + '" placeholder="contar" value="' + _srEsc(st.vals[it.pid] || '') + '" oninput="ctlInput(' + i + ',this.value)" onkeydown="ctlTecla(event,' + i + ')">';
@@ -11595,6 +11618,15 @@ function ctlDetalle(i) {
   } else {
     ped = '<div style="font-size:14.5px;color:var(--text2);margin:6px 0">Hoy no salió en ningún pedido.' + (vs > 0 ? ' En los últimos 7 días salieron ' + _srNum(vs) + '.' : '') + '</div>';
   }
+  const _e = _ctlEsp(p);
+  let futHtml = '';
+  if(_e.fut > 0) {
+    futHtml = '<div style="font-size:13px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 4px">Ya facturado para días siguientes</div>'
+      + _e.peds.slice().sort(function(a, b) { return String(a.date).localeCompare(String(b.date)); }).map(function(x) {
+        let f = x.date; try { f = _fFechaCorta(x.date); } catch(e) {}
+        return '<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:15px"><span style="min-width:0;word-break:break-word">' + _srEsc(x.cli) + ' <span style="color:var(--text3);font-size:12.5px">· ' + _srEsc(f) + '</span></span><b>' + _srNum(x.qty) + '</b></div>';
+      }).join('');
+  }
   const h = st.hist[p.id];
   let ult;
   if(h) {
@@ -11605,8 +11637,9 @@ function ctlDetalle(i) {
   ov.innerHTML = '<div class="sr-sheet">'
     + '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:6px"><div style="flex:1;font-size:19px;font-weight:800;line-height:1.3">' + _srEsc(p.name) + '</div>'
     + '<button type="button" onclick="stockRapidoCerrar()" style="background:none;border:none;font-size:24px;color:var(--text3);padding:0 8px;cursor:pointer">✕</button></div>'
-    + '<div style="font-size:14.5px;color:var(--text2);margin-bottom:6px">Según el sistema debería haber <b>' + _srNum(Number(p.stock) || 0) + '</b></div>'
+    + '<div style="font-size:14.5px;color:var(--text2);margin-bottom:6px">Debería haber <b>' + _srNum(_e.esp) + '</b>' + (_e.fut > 0 ? ' <span style="color:var(--text3)">(el sistema dice ' + _srNum(_e.sis) + ' + ' + _srNum(_e.fut) + ' ya facturados para días siguientes)</span>' : '') + '</div>'
     + ped
+    + futHtml
     + '<div style="font-size:13px;color:var(--text3);margin-top:12px;line-height:1.4">' + ult + '</div>'
     + '</div>';
 }
