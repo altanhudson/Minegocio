@@ -3579,6 +3579,10 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.6', f:'22/10/2026', t:[
+    'Historial de un producto con variantes: el "stock:" que figura a la derecha de cada movimiento se calculaba con el conteo de otra variante (por ejemplo, el de frutilla partía del número de frambuesa) y no coincidía con el stock real. Ahora se calcula con la variante correcta. El stock real no cambió, solo cómo se ve el historial.',
+    'Historial: el Balance ya no muestra "+-6" sino "-6".'
+  ]},
   {v:'4.22.5', f:'22/10/2026', t:[
     'Facturas: cada factura trae como "Saldo anterior" lo que el cliente dejó sin pagar en las facturas anteriores a ella (por fecha), aunque después se haya creado otra más nueva (por ejemplo la de pendientes para mañana). Antes solo la factura más reciente lo mostraba, y al armar una factura de pendientes la anterior lo perdía. Una factura nunca suma deudas de otras más nuevas.',
     'Facturas: el "Ant:" de la tarjeta de la lista ahora cuenta solo las facturas anteriores, igual que la factura.'
@@ -6577,7 +6581,7 @@ function renderProdMovimientos(id) {
     (aj.items||[]).forEach(item=>{
       if(item.prodId===id) {
         if(filtroVar && (item.variante||'') !== filtroVar) return;
-        ajustes.push({tipo:'ajuste', date:aj.date, ts: aj.ts||0, ref:aj.id, desc:'Ajuste manual', qty:item.diff||0, price:0});
+        ajustes.push({tipo:'ajuste', date:aj.date, ts: aj.ts||0, ref:aj.id, desc:'Ajuste manual', qty:item.diff||0, price:0, variante:(item.variante||''), stockNuevo:item.stockNuevo});
       }
     });
   });
@@ -6604,7 +6608,7 @@ function renderProdMovimientos(id) {
   const totalSalidas = ventas.reduce((s,m)=>s+Math.abs(m.qty||0),0);
   const statsEl = document.getElementById('prodh-stats');
   const statCard = (label,val,color) => '<div style="background:var(--surface);border-radius:var(--rs);border:1px solid var(--border);padding:10px;text-align:center"><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">'+label+'</div><div style="font-size:20px;font-weight:900;color:'+color+'">'+val+'</div></div>';
-  statsEl.innerHTML = statCard('Entradas','+'+totalEntradas,'#16a34a') + statCard('Salidas','-'+totalSalidas,'#dc2626') + statCard('Balance','+'+(totalEntradas-totalSalidas),'var(--accent)');
+  statsEl.innerHTML = statCard('Entradas','+'+totalEntradas,'#16a34a') + statCard('Salidas','-'+totalSalidas,'#dc2626') + statCard('Balance',((totalEntradas-totalSalidas)>0?'+':'')+(totalEntradas-totalSalidas),'var(--accent)');
   // Content
   const contEl = document.getElementById('prodh-content');
   if(!movs.length) {
@@ -6651,8 +6655,10 @@ function renderProdMovimientos(id) {
     let runningStock = 0;
     movsAsc.forEach((m, i) => {
       if(m.tipo === 'ajuste') {
-        const ajuData = (S.ajustes.find(a=>a.id===m.ref)||{items:[]}).items.find(it=>it.prodId===id);
-        runningStock = ajuData ? ajuData.stockNuevo : runningStock + m.qty;
+        // 4.22.6: el conteo (ajuste) es un punto de reset SOLO si se mira esa variante (o el producto no tiene variantes);
+        // en la vista de todas las variantes juntas se suma la diferencia de ese conteo.
+        const _sinVar = !(p.variantes && p.variantes.length);
+        runningStock = ((filtroVar || _sinVar) && m.stockNuevo !== undefined && m.stockNuevo !== null) ? m.stockNuevo : runningStock + m.qty;
       } else {
         runningStock += m.qty;
       }
