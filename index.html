@@ -3579,6 +3579,10 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.5', f:'22/10/2026', t:[
+    'Facturas: cada factura trae como "Saldo anterior" lo que el cliente dejó sin pagar en las facturas anteriores a ella (por fecha), aunque después se haya creado otra más nueva (por ejemplo la de pendientes para mañana). Antes solo la factura más reciente lo mostraba, y al armar una factura de pendientes la anterior lo perdía. Una factura nunca suma deudas de otras más nuevas.',
+    'Facturas: el "Ant:" de la tarjeta de la lista ahora cuenta solo las facturas anteriores, igual que la factura.'
+  ]},
   {v:'4.22.4', f:'22/10/2026', t:[
     'Facturas: el botón rojo de cada producto ahora dice siempre "Falta" (antes decía "Falta 3" y se confundía con el aviso "hay 0 · faltan 3" de al lado). Al tocarlo se abre igual con la cantidad que falta ya cargada.',
     'Facturas: al tildar o destildar un producto, los avisos de stock se actualizan al instante (antes el aviso rojo de un producto ya tildado quedaba hasta tocar Falta o cerrar la factura).'
@@ -8730,7 +8734,7 @@ function renderInvs() {
     +'<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:12px 14px 6px">'
     +'<div style="font-weight:900;font-size:18px;color:var(--text);flex:1;line-height:1.2">'+inv.clientName+'</div>'
     +(()=>{
-      const deudaAnterior = S.invoices.filter(i=>i.clientId===inv.clientId&&i.id!==inv.id&&i.status!=='pagada'&&i.status!=='cancelada'&&i.type!=='presupuesto'&&i.type===inv.type).reduce((s,i)=>s+(i.saldo||0),0);
+      const deudaAnterior = _deudaAnteriorFacturas(inv).reduce((s,i)=>s+(i.saldo||0),0);   // 4.22.5: solo las anteriores
       const totalDeuda = _saldoConCredito + deudaAnterior;
       const montoMostrar = _cubiertoPorCredito ? 0 : _parcialPorCredito ? _saldoConCredito : ((inv.saldo||0) < inv.total ? (inv.saldo||0) : inv.total);
       return '<div style="text-align:right;flex-shrink:0;padding-left:8px">'
@@ -8928,6 +8932,19 @@ function _creditoResidualParaFac(inv) {
   return Math.max(0, credTotal - usado);
 }
 
+// 4.22.5: facturas del mismo cliente y tipo, sin pagar, ANTERIORES a esta (por fecha; misma fecha: la creada antes).
+// Es lo que se muestra como "Saldo anterior" en la factura y como "Ant:" en la tarjeta.
+function _deudaAnteriorFacturas(inv) {
+  return (S.invoices||[]).filter(function(i) {
+    if(i.clientId !== inv.clientId || i.id === inv.id) return false;
+    if(i.status === 'pagada' || i.status === 'cancelada' || i.type === 'presupuesto' || i.type !== inv.type) return false;
+    if((i.saldo||0) <= 0) return false;
+    if((i.date||'') < (inv.date||'')) return true;
+    if((i.date||'') > (inv.date||'')) return false;
+    if(i.ts && inv.ts) return i.ts < inv.ts;
+    return (i.id||'') < (inv.id||'');
+  });
+}
 // Facturas ANTERIORES del mismo cliente que siguen con saldo pendiente.
 // Sirve para avisar que este pago no las toca (se aplica solo a esta factura).
 function _facturasAnterioresPendientes(inv) {
@@ -13412,21 +13429,13 @@ function renderInvoiceHTML(inv) {
           }, 0);
         const credito = Math.max(0, _credTotal - _creditoUsadoAntesHTML);
         const pagosAFavor = (inv.pagos||[]).filter(p=>p.method==='a favor').reduce((s,p)=>s+p.monto,0);
-        const facturasAnteriores = S.invoices.filter(i=>i.clientId===inv.clientId&&i.id!==inv.id&&i.status!=='pagada'&&i.status!=='cancelada'&&i.type!=='presupuesto'&&i.type===inv.type&&(i.saldo||0)>0);
+        const facturasAnteriores = _deudaAnteriorFacturas(inv);   // 4.22.5: las anteriores a esta, aunque haya otras más nuevas
         const deudaAnterior = facturasAnteriores.reduce((s,i)=>s+(i.saldo||0),0);
         const pagosReales = (inv.pagos||[]).filter(p=>p.method!=='a favor');
         const tienePagosPropios = pagosReales.length > 0;
         const totalPagadoReal = pagosReales.reduce((s,p)=>s+p.monto,0);
-        // El estado de cuenta (saldo a favor / saldo anterior) refleja el estado de HOY,
-        // así que solo se muestra en la factura MÁS RECIENTE del cliente, no en las históricas.
-        const esUltima = !S.invoices.some(i => {
-          if(i.clientId!==inv.clientId || i.id===inv.id || i.type!==inv.type || i.type==='presupuesto') return false;
-          if((i.date||'') > (inv.date||'')) return true;
-          if((i.date||'') !== (inv.date||'')) return false;
-          // Misma fecha: desempatar por timestamp real de creación si ambas lo tienen (más confiable que el id)
-          if(i.ts && inv.ts) return i.ts > inv.ts;
-          return (i.id||'') > (inv.id||'');
-        });
+        // 4.22.5: ya no hace falta ser "la más reciente": cada factura muestra el saldo anterior
+        // de las facturas anteriores a ella (nunca suma deudas de otras más nuevas).
         let html2 = '';
         // Antes esto era un if/else if encadenado: si esta factura tenia CUALQUIER
         // pago propio (incluso un "a favor" viejo y chico), se cortaba ahi y la deuda
@@ -13439,7 +13448,7 @@ function renderInvoiceHTML(inv) {
           // el saldo de ESTA factura sola queda redundante (ya se ve el total de
           // factura arriba, y el numero que importa es el "Total a pagar" final) —
           // se omite para no repetir el mismo importe dos veces en la pantalla.
-          const seMuestraDeudaAnterior = deudaAnterior > 0 && esUltima;
+          const seMuestraDeudaAnterior = deudaAnterior > 0;
           if(tienePagosPropios || pagosAFavor > 0) {
             const totalAbonado = totalPagadoReal + pagosAFavor;
             if(totalAbonado > 0) {
