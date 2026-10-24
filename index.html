@@ -3579,6 +3579,11 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.8', f:'24/10/2026', t:[
+    'Lista de compras: arriba queda fija una franja con la inicial de cada mayorista que tiene algo en la lista (si dos empiezan igual, usa dos letras). Tocás la letra y salta directo a ese mayorista, desplegándolo si estaba plegado.',
+    'Lista de compras: cada mayorista tiene una flecha para plegarlo o desplegarlo, y arriba hay un botón "Plegar todos / Desplegar todos".',
+    'Lista de compras: nuevo botón "Listo" en cada mayorista. Lo marca como terminado, lo pliega y atenúa su letra del índice; se puede deshacer y se reinicia solo al día siguiente. Solo se guarda en cada celular, no cambia ningún dato.'
+  ]},
   {v:'4.22.7', f:'22/10/2026', t:[
     'Control del día: el "debería haber" ahora suma lo que ya está facturado con fecha posterior a hoy (mañana, pasado, etc.), porque esa mercadería todavía está en el estante aunque el sistema ya la descontó. Se muestra aclarado, por ejemplo "debería haber 100 (50 ya facturados para días siguientes)", y al guardar el stock queda descontando esos pedidos. En el detalle del producto se ven esos pedidos futuros.'
   ]},
@@ -12921,6 +12926,83 @@ function listaCompartir() {
   const url = 'https://wa.me/?text=' + encodeURIComponent(txt);
   window.open(url, '_blank');
 }
+// ===== 4.22.8: Lista de compras — plegar, "Listo" e índice de mayoristas =====
+// Todo vive solo en este celular (localStorage) y se reinicia cada día: no toca datos ni se sincroniza.
+function _lcUILeer() {
+  const hoy = localDateStr();
+  try {
+    const o = JSON.parse(localStorage.getItem('mneg_lc_ui') || '{}');
+    if(o && o.d === hoy) return { d: hoy, pleg: o.pleg || {}, listo: o.listo || {} };
+  } catch(e) {}
+  return { d: hoy, pleg: {}, listo: {} };
+}
+function _lcUIGuardar(o) { try { localStorage.setItem('mneg_lc_ui', JSON.stringify(o)); } catch(e) {} }
+function _lcScroller() {
+  let n = document.getElementById('lista-compras-content');
+  while(n && n !== document.body) {
+    n = n.parentElement; if(!n) break;
+    const cs = getComputedStyle(n);
+    if((cs.overflowY === 'auto' || cs.overflowY === 'scroll') && n.scrollHeight > n.clientHeight + 1) return n;
+  }
+  return document.scrollingElement || document.documentElement;
+}
+// redibuja la lista dejando quieto en pantalla el elemento anchorId (para que no "salte" al plegar)
+function _lcRedibujar(anchorId) {
+  let antes = null;
+  try { const a = anchorId && document.getElementById(anchorId); if(a) antes = a.getBoundingClientRect().top; } catch(e) {}
+  renderListaCompras();
+  try {
+    if(antes !== null) {
+      const b = document.getElementById(anchorId);
+      if(b) { const d = b.getBoundingClientRect().top - antes; if(d) _lcScroller().scrollTop += d; }
+    }
+  } catch(e) {}
+}
+function listaTogglePleg(pvId) {
+  const ui = _lcUILeer();
+  if(ui.pleg[pvId]) delete ui.pleg[pvId]; else ui.pleg[pvId] = 1;
+  _lcUIGuardar(ui);
+  _lcRedibujar('lc-prov-' + pvId);
+}
+function listaListo(pvId) {
+  const ui = _lcUILeer();
+  if(ui.listo[pvId]) { delete ui.listo[pvId]; delete ui.pleg[pvId]; }
+  else { ui.listo[pvId] = 1; ui.pleg[pvId] = 1; }
+  _lcUIGuardar(ui);
+  _lcRedibujar('lc-prov-' + pvId);
+}
+function listaPlegarTodos() {
+  const ids = (window._lcVisibles || []);
+  const ui = _lcUILeer();
+  const todosPleg = ids.length > 0 && ids.every(function(id){ return ui.pleg[id]; });
+  if(todosPleg) ui.pleg = {}; else ids.forEach(function(id){ ui.pleg[id] = 1; });
+  _lcUIGuardar(ui);
+  renderListaCompras();
+}
+function listaIrA(pvId) {
+  const ui = _lcUILeer();
+  if(ui.pleg[pvId]) { delete ui.pleg[pvId]; _lcUIGuardar(ui); renderListaCompras(); }
+  setTimeout(function() {
+    try { const el = document.getElementById('lc-prov-' + pvId); if(el) el.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch(e) {}
+  }, 40);
+}
+// etiqueta corta de cada mayorista: la inicial; si se repite, 2 letras (o las que hagan falta)
+function _lcEtiquetas(nombres) {
+  const base = nombres.map(function(n){ return String(n || '').replace(/^[^A-Za-z0-9À-ÿ]+/, '') || '?'; });
+  const fmt = function(n, L) { n = n.slice(0, L).replace(/\s+$/, ''); return n.charAt(0).toUpperCase() + n.slice(1).toLowerCase(); };
+  const L = base.map(function(){ return 1; });
+  for(let vuelta = 0; vuelta < 12; vuelta++) {
+    let hayChoque = false;
+    const labs = base.map(function(n, i){ return fmt(n, L[i]).toLowerCase(); });
+    base.forEach(function(n, i) {
+      const igual = labs.some(function(x, j){ return j !== i && x === labs[i]; });
+      if(igual && L[i] < n.length) { L[i]++; hayChoque = true; }
+    });
+    if(!hayChoque) break;
+  }
+  return base.map(function(n, i){ return fmt(n, L[i]); });
+}
+
 function renderListaCompras() {
   const el = document.getElementById('lista-compras-content');
   if(!el) return;
@@ -13054,22 +13136,50 @@ function renderListaCompras() {
     return na - nb;
   });
 
+  // 4.22.8: franja fija con el índice de mayoristas + plegar todos
+  const _ui = _lcUILeer();
+  const _vis = provOrdenado.filter(function(e){ return !ocultos.includes(e[0]); });
+  window._lcVisibles = _vis.map(function(e){ return e[0]; });
+  if(_vis.length > 0) {
+    const _nombres = _vis.map(function(e){ const pv0 = S.proveedores.find(function(x){ return x.id === e[0]; }); return pv0 ? pv0.name : e[0]; });
+    const _etq = _lcEtiquetas(_nombres);
+    const _todosPleg = _vis.every(function(e){ return _ui.pleg[e[0]]; });
+    const _nListos = _vis.filter(function(e){ return _ui.listo[e[0]]; }).length;
+    html += '<div style="position:sticky;top:0;z-index:15;background:var(--bg);padding:6px 0 8px;margin-bottom:6px;display:flex;align-items:center;gap:8px">'
+      + '<button onclick="listaPlegarTodos()" style="flex:0 0 auto;height:40px;padding:0 12px;border-radius:12px;border:2px solid var(--accent2);background:var(--surface);color:var(--accent2);font-size:13px;font-weight:800;cursor:pointer">' + (_todosPleg ? 'Desplegar todos' : 'Plegar todos') + '</button>'
+      + '<div style="flex:1;min-width:0;display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none">'
+      + _vis.map(function(e, i) {
+          const listo = !!_ui.listo[e[0]];
+          return '<button onclick="listaIrA(\'' + e[0] + '\')" aria-label="Ir a ' + _etq[i] + '" style="flex:0 0 auto;min-width:40px;height:40px;padding:0 8px;border-radius:12px;border:1.5px solid ' + (listo ? 'var(--border)' : 'var(--accent2)') + ';background:' + (listo ? 'var(--surface2)' : 'var(--surface)') + ';color:' + (listo ? 'var(--text3)' : 'var(--text)') + ';font-size:14px;font-weight:800;cursor:pointer">' + _etq[i] + '</button>';
+        }).join('')
+      + '</div></div>';
+    if(_vis.length > 1) html += '<div style="font-size:12.5px;font-weight:700;color:var(--text3);margin:0 2px 8px">' + _nListos + ' de ' + _vis.length + ' mayoristas listos</div>';
+  }
+
   provOrdenado.forEach(function(entry) {
     const pvId = entry[0], items = entry[1];
     if(ocultos.includes(pvId)) return;
+    const pleg = !!_ui.pleg[pvId], listoPv = !!_ui.listo[pvId];
     const pv = S.proveedores.find(function(x){ return x.id === pvId; });
     const totalProv = items.reduce(function(s,i){ return s+(i.qty*(i.prod.cost||0)); },0);
     const notaProv = notas[pvId] || '';
     const numOrden = orden[pvId] || '';
-    html += '<div style="background:var(--surface2);border-radius:var(--r);overflow:hidden;margin-bottom:12px">'
-      + '<div style="display:flex;align-items:center;gap:8px;padding:12px 14px;background:linear-gradient(135deg,#1a3a6b,#3483fa)">'
+    const _pendPv = items.filter(function(it){ const e = estados[it.prodId + '|' + pvId]; return e !== 'ok' && e !== 'falta'; }).length;
+    html += '<div id="lc-prov-' + pvId + '" style="background:var(--surface2);border-radius:var(--r);overflow:hidden;margin-bottom:12px;scroll-margin-top:64px">'
+      + '<div style="display:flex;align-items:center;gap:8px;padding:12px 14px;background:linear-gradient(135deg,#1a3a6b,#3483fa);' + (listoPv ? 'opacity:.6' : '') + '">'
       + '<input type="number" min="1" max="99" placeholder="#" value="'+numOrden+'" onchange="listaOrdenProv(\''+pvId+'\',this.value)" style="width:38px;text-align:center;font-size:13px;font-weight:800;border:1.5px solid rgba(255,255,255,.4);border-radius:7px;padding:3px;background:rgba(255,255,255,.15);color:#fff;flex-shrink:0">'
       + '<div style="font-size:15px;font-weight:700;color:#fff;flex:1">\ud83d\udce6 '+(pv?pv.name:pvId)+'</div>'
       + (totalProv>0?'<div style="font-size:13px;font-weight:800;color:#bfdbfe">$'+totalProv.toLocaleString('es-AR')+'</div>':'')
       + '<button onclick="listaConfirmarCompra(\''+pvId+'\')" style="background:rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">\u2713 Comprar</button>'
       + '<button onclick="listaOcultarProv(\''+pvId+'\')" style="background:rgba(255,255,255,.15);border:none;color:rgba(255,255,255,.7);border-radius:8px;padding:6px 8px;font-size:11px;cursor:pointer;flex-shrink:0">'+items.length+' prod.</button>'
       + '</div>'
-      + '<div style="padding:10px 14px">'
+      + '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px">'
+      + '<button onclick="listaTogglePleg(\''+pvId+'\')" aria-label="' + (pleg ? 'Desplegar' : 'Plegar') + '" style="flex:1;min-width:0;height:44px;display:flex;align-items:center;gap:8px;background:none;border:none;padding:0;text-align:left;font-size:13.5px;font-weight:700;color:var(--text2);cursor:pointer">'
+      + '<span style="display:inline-block;font-size:16px;transition:transform .15s;transform:' + (pleg ? 'rotate(-90deg)' : 'rotate(0deg)') + '">\u25be</span>'
+      + '<span style="min-width:0">' + (listoPv ? 'Listo \u00b7 ' : '') + (pleg ? (_pendPv + ' sin comprar de ' + items.length + ' \u00b7 tocá para ver') : 'Plegar') + '</span></button>'
+      + '<button onclick="listaListo(\''+pvId+'\')" style="flex:0 0 auto;height:40px;padding:0 14px;border-radius:12px;border:2px solid #16a34a;background:' + (listoPv ? '#16a34a' : 'transparent') + ';color:' + (listoPv ? '#fff' : '#16a34a') + ';font-size:13.5px;font-weight:800;cursor:pointer">' + (listoPv ? '\u2713 Listo' : 'Listo') + '</button>'
+      + '</div>'
+      + (pleg ? '' : ('<div style="padding:10px 14px">'
       + renderItems(items, pvId)
       + '<textarea id="nota-prov-'+pvId+'" placeholder="Notas para este proveedor..." oninput="this.style.height=\'auto\';this.style.height=this.scrollHeight+\'px\';_lcNotaEscribiendo(\''+pvId+'\',this)" onblur="_lcNotaFlush(\''+pvId+'\',this)" style="width:100%;min-height:60px;resize:none;overflow:hidden;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;font-weight:700;background:var(--surface);color:var(--text);font-family:Inter,sans-serif;box-sizing:border-box;margin-top:8px">'+notaProv+'</textarea>'
       + '<div style="display:flex;justify-content:flex-end;gap:6px;margin-top:4px">'
@@ -13077,7 +13187,7 @@ function renderListaCompras() {
       + '<button onclick="listaNotaCopiar(\''+pvId+'\')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:12px;color:var(--text2);cursor:pointer">\ud83d\udccb Copiar</button>'
       + '<button onclick="listaNotaBorrar(\''+pvId+'\')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:12px;color:var(--text3);cursor:pointer">\u2715 Borrar</button>'
       + '</div>'
-      + '</div>'
+      + '</div>'))
       + '</div>';
   });
 
