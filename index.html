@@ -3579,6 +3579,9 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.9', f:'24/10/2026', t:[
+    'Lista de compras: dentro de cada mayorista (y en "Sin proveedor asignado") los productos ahora salen ordenados de la A a la Z, sin distinguir mayúsculas ni tildes. Las variantes de un mismo producto quedan juntas. Es solo el orden en pantalla: no cambia tildes, cantidades ni notas.'
+  ]},
   {v:'4.22.8', f:'24/10/2026', t:[
     'Lista de compras: arriba queda fija una franja con la inicial de cada mayorista que tiene algo en la lista (si dos empiezan igual, usa dos letras). Tocás la letra y salta directo a ese mayorista, desplegándolo si estaba plegado.',
     'Lista de compras: cada mayorista tiene una flecha para plegarlo o desplegarlo, y arriba hay un botón "Plegar todos / Desplegar todos".',
@@ -13046,6 +13049,14 @@ function renderListaCompras() {
       else suppliers.forEach(function(pvId){ if(!porProv[pvId]) porProv[pvId]=[]; porProv[pvId].push(itemObj); });
     }
   });
+
+  // 4.22.9: productos de la A a la Z dentro de cada mayorista (sin distinguir mayúsculas ni tildes)
+  try {
+    const _col = new Intl.Collator('es', { sensitivity: 'base', numeric: true });
+    const _porNombre = function(a, b) { return _col.compare(String(a.displayName || ''), String(b.displayName || '')); };
+    Object.keys(porProv).forEach(function(k) { porProv[k].sort(_porNombre); });
+    sinProv.sort(_porNombre);
+  } catch(e) {}
 
   // Limpiar estados de items que ya no están en la lista — solo en memoria, sin save
   if(S.listaCompras && S.listaCompras.estados) {
