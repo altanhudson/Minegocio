@@ -3579,6 +3579,11 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.10', f:'24/10/2026', t:[
+    'Factura como imagen o PDF: se genera mucho más rápido. Antes la herramienta copiaba toda la pantalla de la app para sacar la foto de la factura; ahora la saca en un documento aparte que tiene solo la factura. La imagen sale igual.',
+    'Factura: al abrir "Compartir" ya no se estira ni se reacomoda la factura en pantalla mientras se prepara la imagen.',
+    'Factura: si tocás compartir mientras la imagen todavía se está preparando de fondo, espera esa en vez de empezar otra. Si algo falla en el método nuevo, usa automáticamente el anterior.'
+  ]},
   {v:'4.22.9', f:'24/10/2026', t:[
     'Lista de compras: dentro de cada mayorista (y en "Sin proveedor asignado") los productos ahora salen ordenados de la A a la Z, sin distinguir mayúsculas ni tildes. Las variantes de un mismo producto quedan juntas. Es solo el orden en pantalla: no cambia tildes, cantidades ni notas.'
   ]},
@@ -8874,6 +8879,71 @@ document.getElementById('page-facturas').addEventListener('click', function(e){
 
 let _cachedInvCanvas = null;
 let _cachedInvId = null;
+// 4.22.10: foto de la factura en un documento aparte (rápida) + una sola captura a la vez por factura
+let _invCapPromesa = null, _invCapId = null, _invCapTok = 0;
+function _invCapReset() { _cachedInvCanvas = null; _cachedInvId = null; _invCapPromesa = null; _invCapId = null; _invCapTok++; }
+function _invFontHref() { try { const l = document.querySelector('link[href*="fonts.googleapis.com"]'); return l ? l.href : ''; } catch(e) { return ''; } }
+// Saca la foto (canvas, 480 px de ancho) del elemento de la factura. Método nuevo: iframe oculto con SOLO la factura
+// (html2canvas ya no copia toda la app). Si algo falla (fuente Inter sin cargar, error), usa el método anterior.
+function _invCapturar(invEl, escala) {
+  return new Promise(function(resolve, reject) {
+    let fr = null;
+    function limpiar() { try { if(fr && fr.parentNode) fr.parentNode.removeChild(fr); } catch(e) {} fr = null; }
+    function viejo() {
+      invEl.style.width = '480px'; invEl.style.minWidth = '480px';
+      html2canvas(invEl, { scale: escala, backgroundColor: '#ffffff', useCORS: true, logging: false, width: 480 })
+        .then(function(c) { invEl.style.width = ''; invEl.style.minWidth = ''; resolve(c); })
+        .catch(function(e) { invEl.style.width = ''; invEl.style.minWidth = ''; reject(e); });
+    }
+    (async function() {
+      try {
+        const href = _invFontHref();
+        if(!href || typeof html2canvas === 'undefined') throw new Error('sin-aislado');
+        fr = document.createElement('iframe');
+        fr.setAttribute('aria-hidden', 'true'); fr.tabIndex = -1;
+        fr.style.cssText = 'position:fixed;left:-10000px;top:0;width:480px;height:10px;border:0;pointer-events:none';
+        document.body.appendChild(fr);
+        const d = fr.contentDocument;
+        d.open(); d.write('<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#fff}</style></head><body></body></html>'); d.close();
+        const lk = d.createElement('link'); lk.rel = 'stylesheet'; lk.href = href; d.head.appendChild(lk);
+        await new Promise(function(res) { lk.onload = res; lk.onerror = res; setTimeout(res, 2500); });
+        const el = d.createElement('div');
+        el.style.cssText = 'width:480px;background:#fff;font-family:Inter,sans-serif';
+        el.innerHTML = invEl.innerHTML;
+        d.body.appendChild(el);
+        // misma tipografia que en pantalla: se espera a Inter; si no cargó, se usa el método anterior
+        const cargas = await Promise.race([
+          Promise.all([400, 500, 600, 700, 800].map(function(w) { return d.fonts.load(w + ' 14px Inter'); })),
+          new Promise(function(res) { setTimeout(function() { res(null); }, 2500); })
+        ]);
+        if(!cargas || cargas.some(function(a) { return !a || !a.length; })) throw new Error('sin-fuente');
+        fr.style.height = Math.max(10, el.scrollHeight) + 'px';
+        const c = await html2canvas(el, { scale: escala, backgroundColor: '#ffffff', useCORS: true, logging: false, width: 480 });
+        if(!c || c.width < 400 || c.height < 50) throw new Error('canvas-raro');
+        limpiar();
+        resolve(c);
+      } catch(e) {
+        limpiar();
+        try { viejo(); } catch(e2) { reject(e2); }
+      }
+    })();
+  });
+}
+// Una sola captura por factura: si ya se está preparando (por ejemplo de fondo al abrir Compartir), se reutiliza.
+function _invCapturarCache(invEl, id) {
+  if(_cachedInvCanvas && _cachedInvId === id) return Promise.resolve(_cachedInvCanvas);
+  if(_invCapPromesa && _invCapId === id) return _invCapPromesa;
+  const tok = _invCapTok;
+  _invCapId = id;
+  const p = _invCapturar(invEl, 2).then(function(c) {
+    if(tok === _invCapTok) { _cachedInvCanvas = c; _cachedInvId = id; }
+    return c;
+  });
+  _invCapPromesa = p;
+  const fin = function() { if(_invCapPromesa === p) { _invCapPromesa = null; } };
+  p.then(fin, fin);
+  return p;
+}
 
 function openShareInvoice(id) {
   const inv = S.invoices.find(i=>i.id===id);
@@ -8885,8 +8955,7 @@ function openShareInvoice(id) {
     saveInv();
   }
   S.shareInvId = id;
-  _cachedInvCanvas = null;
-  _cachedInvId = null;
+  _invCapReset();
   renderInvoiceHTML(inv);
   document.getElementById('mshare').classList.add('open');
   // Ajustar botones según formato configurado
@@ -8913,15 +8982,8 @@ function openShareInvoice(id) {
     const invEl = document.getElementById('invoice-render');
     if(!invEl) return;
     function doPreload() {
-      invEl.style.width = '480px';
-      invEl.style.minWidth = '480px';
-      html2canvas(invEl, {scale:2, backgroundColor:'#ffffff', useCORS:true, logging:false, width:480})
-        .then(function(canvas) {
-          invEl.style.width = '';
-          invEl.style.minWidth = '';
-          _cachedInvCanvas = canvas;
-          _cachedInvId = id;
-        }).catch(function(){ invEl.style.width=''; invEl.style.minWidth=''; });
+      if(S.shareInvId !== id) return;   // se abrió otra factura mientras tanto
+      _invCapturarCache(invEl, id).catch(function(){});
     }
     if(typeof html2canvas === 'undefined') {
       const script = document.createElement('script');
@@ -9073,7 +9135,7 @@ async function saveQPago() {
   if(typeof cliDetId !== 'undefined' && cliDetId === inv.clientId) {
     try{ verCliDetalle(cliDetId); }catch(e){}
   }
-  _cachedInvCanvas = null; _cachedInvId = null;
+  _invCapReset();
   // Re-renderizar factura en modal de compartir si está abierto
   if(document.getElementById('mshare') && document.getElementById('mshare').classList.contains('open')) {
     const invActualizada = S.invoices.find(i=>i.id===(window._qpagoInvId||S.editId));
@@ -13329,17 +13391,9 @@ function shareInvoiceImg(dest) {
   toast('Generando imagen...');
 
   function doCapture() {
-    invEl.style.width = '480px';
-    invEl.style.minWidth = '480px';
-    html2canvas(invEl, {
-      scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, width: 480
-    }).then(function(canvas) {
-      invEl.style.width = '';
-      invEl.style.minWidth = '';
+    _invCapturarCache(invEl, S.shareInvId).then(function(canvas) {
       _doShareCanvas(canvas, inv, dest);
     }).catch(function(err) {
-      invEl.style.width = '';
-      invEl.style.minWidth = '';
       toast('Error al generar imagen');
       console.error('html2canvas error:', err);
     });
@@ -13374,7 +13428,7 @@ async function shareInvoicePDF() {
     invEl.querySelectorAll('tbody tr').forEach(function(tr){ cortes.push(tr.getBoundingClientRect().bottom - top); });
     const tabla = invEl.querySelector('table');
     if(tabla && tabla.nextElementSibling) cortes.push(tabla.nextElementSibling.getBoundingClientRect().top - top);
-    canvas = await html2canvas(invEl, {scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, width: 480});
+    canvas = (_cachedInvCanvas && _cachedInvId === S.shareInvId) ? _cachedInvCanvas : await _invCapturarCache(invEl, S.shareInvId);
   } catch(e) {
     console.error('PDF factura error:', e);
     toast('Error al generar el PDF');
