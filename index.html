@@ -3579,6 +3579,11 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.11', f:'25/10/2026', t:[
+    'Ofertas: al sacar un producto de oferta, el precio vuelve solo al precio normal y ya no aparece como "subió". Sale un aviso con "Deshacer" durante 5 segundos.',
+    'La app recuerda el precio normal cuando bajás el precio junto con la oferta (y el precio mayorista, si también lo bajaste). Funciona con el botón 🔥 de la lista, desde Editar, con "Quitar oferta" de una categoría y al marcar SIN STOCK.',
+    'Ofertas que ya estaban activas: si el precio anterior se cambió en las últimas 48 hs, se recupera de ahí. Si no, el precio queda como está y lo corregís a mano como hasta ahora.'
+  ]},
   {v:'4.22.10', f:'24/10/2026', t:[
     'Factura como imagen o PDF: se genera mucho más rápido. Antes la herramienta copiaba toda la pantalla de la app para sacar la foto de la factura; ahora la saca en un documento aparte que tiene solo la factura. La imagen sale igual.',
     'Factura: al abrir "Compartir" ya no se estira ni se reacomoda la factura en pantalla mientras se prepara la imagen.',
@@ -5576,9 +5581,18 @@ function saveProd() {
   }
   // Guardar historial de precio si cambió
   const newPrice = parseFloat(document.getElementById('p-price').value)||0;
+  let _ofeSnapForm = null;   // 4.22.11
   if(S.editId) {
     const prevProd = S.products.find(p=>p.id===S.editId);
-    if(prevProd && prevProd.price > 0 && prevProd.price !== newPrice) {
+    const _or = prevProd ? _ofeAlGuardar(prod, prevProd, newPrice) : null;
+    if(_or && (_or.restaura || _or.rw)) {
+      _ofeSnapForm = { id: prevProd.id, price: prevProd.price, wp: prevProd.wholesalePrice, hist: (prevProd.priceHistory || []).slice(), desde: prevProd.ofertaDesde,
+        n: (prevProd.ofertaPrecioNormal == null ? null : prevProd.ofertaPrecioNormal), m: (prevProd.ofertaMayNormal == null ? null : prevProd.ofertaMayNormal), rp: !!_or.restaura, rw: !!_or.rw, restauro: true };
+    }
+    if(_or && _or.restaura) {
+      // saco de oferta desde Editar: el precio vuelve al normal y se borra la rebaja del historial (no figura "subio")
+      prod.priceHistory = _ofeQuitarReg(prevProd.priceHistory, _or.normal, prevProd.ofertaDesde);
+    } else if(prevProd && prevProd.price > 0 && prevProd.price !== newPrice) {
       if(!prod.priceHistory) prod.priceHistory = prevProd.priceHistory||[];
       prod.priceHistory.push({price: prevProd.price, date: new Date().toISOString()});
       if(prod.priceHistory.length > 10) prod.priceHistory = prod.priceHistory.slice(-10);
@@ -5588,7 +5602,7 @@ function saveProd() {
     // Preservar stockVariantes al editar
     if(prevProd && prevProd.stockVariantes) prod.stockVariantes = prevProd.stockVariantes;
     const i=S.products.findIndex(p=>p.id===S.editId); S.products[i]=prod;
-  } else S.products.push(prod);
+  } else { _ofeAlGuardar(prod, null, newPrice); S.products.push(prod); }
   try{ _markDirty('products', prod.id); }catch(e){}
   // Cerrar modal primero
   const mprod = document.getElementById('mprod');
@@ -5598,6 +5612,7 @@ function saveProd() {
   try { updDash(); } catch(e) {}
   try { save(['products','nProd']); } catch(e) {}
   toast('Producto guardado');
+  if(_ofeSnapForm) _ofeAviso(_ofeTxt([_ofeSnapForm]), [_ofeSnapForm]);
   if(window._returnAfterProd) {
     const pg = window._returnAfterProd;
     window._returnAfterProd = null;
@@ -5692,15 +5707,18 @@ function prodBulkTog(field) {
   const elegibles = field==='oferta' ? prods.filter(p=>!p.sinStockManual) : prods;
   const allOn = elegibles.length ? elegibles.every(p=>field==='visible'?p.visible!==false:!!p[field]) : false;
   let omitidos = 0;
+  const _snaps = [];   // 4.22.11
   prods.forEach(p=>{
     if(field==='visible') p.visible=allOn?false:true;
     else if(field==='oferta' && !allOn && p.sinStockManual) { omitidos++; return; }
+    else if(field==='oferta') { if(allOn) { if(p.oferta) { const sn = _ofeQuitar(p); if(sn.restauro) _snaps.push(sn); } } else if(!p.oferta) _ofeActivar(p); }
     else p[field]=!allOn;
     try{_markDirty('products', p.id);}catch(e){}
   });
   save(['products']);
   renderProds(document.getElementById('prod-search').value);
   toast((allOn?'Desactivado':'Activado')+' para '+(prods.length-omitidos)+' productos'+(omitidos?' ('+omitidos+' sin stock no se incluyeron)':''));
+  if(_snaps.length) _ofeAviso(_ofeTxt(_snaps), _snaps);
 }
 function renderProdCatChips() {
   // Populate dropdown with categories from products (also checks marca field)
@@ -6143,11 +6161,12 @@ function toggleSinStockManual(id) {
   p.sinStockManual = !p.sinStockManual;
   // 4.22.3: un producto sin stock no puede estar en oferta
   const _eraOferta = !!p.oferta;
-  if(p.sinStockManual && p.oferta) { p.oferta = false; delete p.ofertaDesde; }
+  let _snapSS = null;   // 4.22.11: al sacarlo de oferta tambien vuelve el precio normal
+  if(p.sinStockManual && p.oferta) { _snapSS = _ofeQuitar(p); }
   try{ _markDirty('products', p.id); }catch(e){}
   save(['products']);
   renderProds(document.getElementById('prod-search').value);
-  toast(p.sinStockManual ? 'Marcado como SIN STOCK en la tienda' + (_eraOferta ? ' · se sacó de oferta' : '') : 'Vuelve a mostrarse en la tienda');
+  toast(p.sinStockManual ? 'Marcado como SIN STOCK en la tienda' + (_eraOferta ? ' · se sacó de oferta' + (_snapSS && _snapSS.rp ? ' y volvió a ' + fmtPesos(p.price) : '') : '') : 'Vuelve a mostrarse en la tienda');
 }
 function togVis(id) {
   const p = S.products.find(x=>x.id===id);
@@ -6157,16 +6176,134 @@ function togVis(id) {
   save(['products']);
   renderProds(document.getElementById('prod-search').value);
 }
+// ===== 4.22.11: al sacar una oferta el precio vuelve solo y no figura como "subio" =====
+// Campos nuevos del producto: ofertaPrecioNormal (precio normal mientras esta en oferta) y ofertaMayNormal (idem mayorista).
+// _ofeHistPrev: precio anterior si el ultimo cambio fue una BAJA de las ultimas 48 hs (misma ventana que usa la tienda)
+function _ofeHistPrev(p) {
+  const h = p && p.priceHistory;
+  if(!h || !h.length) return 0;
+  const last = h[h.length - 1];
+  if(!last || !(+last.price > +p.price)) return 0;
+  if((Date.now() - new Date(last.date).getTime()) / 3600000 > 48) return 0;
+  return +last.price;
+}
+// Saca del historial los registros que dejo la rebaja de la oferta (asi no aparece "subio")
+function _ofeQuitarReg(hist, normal, desde) {
+  const h = (hist || []).slice();
+  let corte = desde ? new Date(desde).getTime() - 48 * 3600000 : NaN;
+  while(h.length) {
+    const e = h[h.length - 1];
+    const dentro = !isNaN(corte) ? (new Date(e.date).getTime() >= corte && +e.price <= normal) : (+e.price === normal);
+    if(!dentro) break;
+    h.pop();
+  }
+  return h;
+}
+// Pone en oferta (lista / categoria): recuerda el precio normal
+function _ofeActivar(p) {
+  p.oferta = true; p.ofertaDesde = new Date().toISOString();
+  const n = _ofeHistPrev(p) || (+p.price || 0);
+  p.ofertaPrecioNormal = n > 0 ? n : null;
+  p.ofertaMayNormal = null;
+}
+// Saca de oferta y devuelve el precio normal. Devuelve una "foto" para poder deshacer.
+function _ofeQuitar(p) {
+  const snap = { id: p.id, price: p.price, wp: p.wholesalePrice, hist: (p.priceHistory || []).slice(), desde: p.ofertaDesde,
+    n: (p.ofertaPrecioNormal == null ? null : p.ofertaPrecioNormal), m: (p.ofertaMayNormal == null ? null : p.ofertaMayNormal), rp: false, rw: false, restauro: false };
+  const n = (+p.ofertaPrecioNormal || 0) || _ofeHistPrev(p);
+  const desde = p.ofertaDesde;
+  p.oferta = false; delete p.ofertaDesde;
+  if(n > 0 && (+p.price || 0) < n) { p.priceHistory = _ofeQuitarReg(p.priceHistory, n, desde); p.price = n; snap.rp = true; }
+  const m = +p.ofertaMayNormal || 0;
+  if(m > 0 && (+p.wholesalePrice || 0) < m) { p.wholesalePrice = m; snap.rw = true; }
+  p.ofertaPrecioNormal = null; p.ofertaMayNormal = null;
+  snap.restauro = snap.rp || snap.rw;
+  return snap;
+}
+// Al guardar el formulario Editar/Nuevo producto (antes de armar el historial). prev = producto antes de editar (o null).
+function _ofeAlGuardar(prod, prev, newPrice) {
+  const r = { restaura: false, normal: 0 };
+  const wasOn = !!(prev && prev.oferta);
+  if(prod.oferta) {
+    let n = wasOn ? (+prev.ofertaPrecioNormal || 0) : 0;
+    n = Math.max(n, (prev && prev.price > newPrice) ? +prev.price : 0, prev ? _ofeHistPrev(prev) : 0);
+    if(n && newPrice > n) n = newPrice;
+    if(!n && !wasOn) n = newPrice;
+    prod.ofertaPrecioNormal = n > 0 ? n : null;
+    let m = wasOn ? (+prev.ofertaMayNormal || 0) : 0;
+    const pm = prev ? (+prev.wholesalePrice || 0) : 0, nm = +prod.wholesalePrice || 0;
+    if(nm > 0 && pm > nm) m = Math.max(m, pm);
+    if(m && nm > m) m = nm;
+    if(nm <= 0) m = 0;
+    prod.ofertaMayNormal = m > 0 ? m : null;
+  } else {
+    prod.ofertaPrecioNormal = null; prod.ofertaMayNormal = null;
+    if(wasOn) {
+      const n = (+prev.ofertaPrecioNormal || 0) || _ofeHistPrev(prev);
+      if(n > 0 && prev.price < n && (newPrice === prev.price || newPrice === n)) { r.restaura = true; r.normal = n; r.rp = true; prod.price = n; }
+      const m = +prev.ofertaMayNormal || 0, pmw = +prev.wholesalePrice || 0, nmw = +prod.wholesalePrice || 0;
+      if(m > 0 && pmw < m && nmw === pmw) { prod.wholesalePrice = m; r.rw = true; }
+    }
+  }
+  return r;
+}
+// Aviso con "Deshacer" (5 segundos)
+let _ofeUndoT = null, _ofeUndoSnaps = null;
+function _ofeAviso(txt, snaps) {
+  let el = document.getElementById('ofe-undo');
+  if(!el) {
+    el = document.createElement('div'); el.id = 'ofe-undo';
+    el.style.cssText = 'position:fixed;left:12px;right:12px;bottom:calc(var(--nav-h) + 72px);z-index:10000;background:#1f2937;color:#fff;border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:12px;box-shadow:0 6px 20px rgba(0,0,0,.35);font-size:14px;max-width:560px;margin:0 auto';
+    const d = document.createElement('div'); d.id = 'ofe-undo-txt'; d.style.cssText = 'flex:1;min-width:0;line-height:1.3';
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = 'Deshacer';
+    b.style.cssText = 'background:#fbbf24;color:#111;border:none;border-radius:10px;padding:9px 14px;font-weight:800;font-size:14px;font-family:inherit;cursor:pointer;flex-shrink:0';
+    b.onclick = function(){ _ofeDeshacer(); };
+    el.appendChild(d); el.appendChild(b); document.body.appendChild(el);
+  }
+  document.getElementById('ofe-undo-txt').textContent = txt;
+  _ofeUndoSnaps = snaps;
+  el.style.display = 'flex';
+  clearTimeout(_ofeUndoT);
+  _ofeUndoT = setTimeout(function(){ el.style.display = 'none'; _ofeUndoSnaps = null; }, 5000);
+}
+function _ofeDeshacer() {
+  const snaps = _ofeUndoSnaps || [];
+  clearTimeout(_ofeUndoT); _ofeUndoSnaps = null;
+  const el = document.getElementById('ofe-undo'); if(el) el.style.display = 'none';
+  let n = 0;
+  snaps.forEach(function(sn){
+    const p = S.products.find(function(x){ return x.id === sn.id; });
+    if(!p) return;
+    p.oferta = true; if(sn.desde) p.ofertaDesde = sn.desde;
+    p.price = sn.price; p.wholesalePrice = sn.wp; p.priceHistory = sn.hist.slice();
+    p.ofertaPrecioNormal = sn.n; p.ofertaMayNormal = sn.m;
+    try{ _markDirty('products', p.id); }catch(e){}
+    n++;
+  });
+  if(n) {
+    try{ save(['products']); }catch(e){}
+    try{ renderProds(document.getElementById('prod-search').value); }catch(e){}
+    toast('Oferta restaurada');
+  }
+}
+function _ofeTxt(snaps) {
+  if(snaps.length === 1) {
+    const sn = snaps[0], p = S.products.find(function(x){ return x.id === sn.id; });
+    return (sn.rp ? 'Volvió a ' + fmtPesos(p ? p.price : sn.price) : 'El mayorista volvió a ' + fmtPesos(p ? p.wholesalePrice : sn.wp)) + (p ? ' · ' + p.name : '');
+  }
+  return 'Volvieron al precio normal: ' + snaps.length + ' productos';
+}
 function togOferta(id) {
   const p = S.products.find(x=>x.id===id);
   if(!p) return;
   if(!p.oferta && p.sinStockManual) { toast('Está SIN STOCK: primero sacale el SIN STOCK para ponerlo en oferta'); return; }   // 4.22.3
-  p.oferta = !p.oferta;
-  if(p.oferta) p.ofertaDesde = new Date().toISOString();
-  else delete p.ofertaDesde;
+  let _snap = null;   // 4.22.11
+  if(!p.oferta) _ofeActivar(p);
+  else _snap = _ofeQuitar(p);
   try{ _markDirty('products', p.id); }catch(e){}
   save(['products']);
   renderProds(document.getElementById('prod-search').value);
+  if(_snap && _snap.restauro) _ofeAviso(_ofeTxt([_snap]), [_snap]);
 }
 function togFlyer(id) {
   const p = S.products.find(x=>x.id===id);
