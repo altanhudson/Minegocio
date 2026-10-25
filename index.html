@@ -3579,6 +3579,9 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.12', f:'25/10/2026', t:[
+    'Tienda cerrada: el cartel de arriba ahora dice "Tené en cuenta que los precios pueden no estar actualizados, volvé pronto".'
+  ]},
   {v:'4.22.11', f:'25/10/2026', t:[
     'Ofertas: al sacar un producto de oferta, el precio vuelve solo al precio normal y ya no aparece como "subió". Sale un aviso con "Deshacer" durante 5 segundos.',
     'La app recuerda el precio normal cuando bajás el precio junto con la oferta (y el precio mayorista, si también lo bajaste). Funciona con el botón 🔥 de la lista, desde Editar, con "Quitar oferta" de una categoría y al marcar SIN STOCK.',
@@ -14687,7 +14690,7 @@ function tiendaModoMensaje() {
     banner.id = 'tienda-modo-banner';
     cat.insertBefore(banner, cat.firstChild);
   }
-  banner.innerHTML = '<div style="background:#fee2e2;border:1px solid #dc2626;color:#991b1b;padding:14px 16px;text-align:center;font-size:14px;font-weight:600;line-height:1.5">' + (window._tiendaPausada() ? '⏸️ <strong>Esta tienda está en pausa</strong><br>Podés ver los precios, pero por ahora no se pueden hacer pedidos. Consultá con tu proveedor.' : '🔴 <strong>Tienda cerrada</strong><br>Podés ver los precios, pero no tomamos pedidos por ahora. Volvé pronto 😊') + '</div>';
+  banner.innerHTML = '<div style="background:#fee2e2;border:1px solid #dc2626;color:#991b1b;padding:14px 16px;text-align:center;font-size:14px;font-weight:600;line-height:1.5">' + (window._tiendaPausada() ? '⏸️ <strong>Esta tienda está en pausa</strong><br>Podés ver los precios, pero por ahora no se pueden hacer pedidos. Consultá con tu proveedor.' : '🔴 <strong>Tienda cerrada</strong><br>Tené en cuenta que los precios pueden no estar actualizados, volvé pronto 😊') + '</div>';
 }
 
 // ===== SISTEMA DE FIDELIZACION (niveles por compra en tienda) =====
