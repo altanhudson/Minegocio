@@ -3579,6 +3579,9 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.13', f:'27/10/2026', t:[
+    'Tienda: en los productos que se venden por bulto, el contador de Unidades ya no vuelve a cero al completar un bulto: sigue contando el total de unidades, y el contador de Bultos muestra cuántos bultos completos hay.'
+  ]},
   {v:'4.22.12', f:'25/10/2026', t:[
     'Tienda cerrada: el cartel de arriba ahora dice "Tené en cuenta que los precios pueden no estar actualizados, volvé pronto".'
   ]},
@@ -15328,7 +15331,7 @@ function tiendaProdCardNueva(p) {
   else if(hasVar) ctrl = '<button class="tn-var" data-tid="' + p.id + '" onclick="tiendaAdd(this.dataset.tid)">Elegir variante' + (qty ? ' · ' + qty + ' en tu pedido' : '') + '</button>';
   else {
     const bul = bq > 1 ? Math.floor(qty / bq) : 0;
-    const sue = qty - bul * (bq > 1 ? bq : 0);
+    const sue = qty; // 4.22.13: las unidades siguen contando el total (no se reinician al completar un bulto)
     const lbl = _tnEsc(_labelUnidad(p));
     ctrl = '<div class="tn-steps' + (bq > 1 ? '' : ' uno') + '">'
       + '<div class="tn-st"><button data-tid="' + p.id + '" onclick="tiendaDec(this.dataset.tid)"' + (sue > 0 ? '' : ' disabled') + ' aria-label="menos">−</button>'
