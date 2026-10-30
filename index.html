@@ -3579,6 +3579,9 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.18', f:'30/10/2026', t:[
+    'Tienda: la categoría "Liquidación" (con o sin signos de admiración, con o sin tilde) tiene imagen propia y su color rojo.'
+  ]},
   {v:'4.22.17', f:'30/10/2026', t:[
     'Tienda: en los productos por bulto, el contador de Bultos pasa a la izquierda y el de Unidades a la derecha, para que el + de Unidades quede más a mano del pulgar derecho.'
   ]},
@@ -15166,9 +15169,14 @@ const _TN_CAT_COLOR = { 'galletitas':'#c2410c','golosinas':'#db2777','despensa':
   'limpieza':'#0891b2','higiene':'#0d9488','cigarrillos':'#475569','varios':'#7c3aed','otros':'#6d28d9','ofertas':'#dc2626',
   'lacteos':'#2563eb','lácteos':'#2563eb','almacén':'#059669','almacen':'#059669','kiosco':'#9333ea','vinos':'#9f1239','gaseosas':'#0284c7' };
 const _TN_PALETA = ['#2563eb','#16a34a','#ea580c','#9333ea','#0891b2','#be123c','#ca8a04','#4f46e5'];
+// 4.22.18: nombre "limpio" de la categoria (sin tildes ni signos) para reconocer "Liquidación!!!" como "liquidacion"
+function _tnClaveCat(c) {
+  return String(c || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+}
 function _tnColorCat(c) {
   const k = String(c || '').toLowerCase().trim();
   if(_TN_CAT_COLOR[k]) return _TN_CAT_COLOR[k];
+  if(_tnClaveCat(c) === 'liquidacion') return '#dc2626';
   let h = 0; for(let i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) | 0;
   return _TN_PALETA[Math.abs(h) % _TN_PALETA.length];
 }
@@ -15195,10 +15203,12 @@ function _tnImg(p) {
     : '<div class="tn-ph">' + (p.emoji || '📦') + '</div>';
 }
 // ===== Iconos 3D de categorias (4.8.0) =====
-const _TN_ICONOS_CAT = { 'despensa':'despensa','galletitas':'galletitas','golosinas':'golosinas','cigarrillos':'cigarrillos','limpieza':'limpieza','bebidas':'bebidas','snacks':'snacks','varios':'varios','otros':'varios' };
+const _TN_ICONOS_CAT = { 'despensa':'despensa','galletitas':'galletitas','golosinas':'golosinas','cigarrillos':'cigarrillos','limpieza':'limpieza','bebidas':'bebidas','snacks':'snacks','varios':'varios','otros':'varios','liquidacion':'liquidacion' };
 function _tnIconoCat(key) {
   const k = String(key || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-  return _TN_ICONOS_CAT[k] ? 'cat-' + _TN_ICONOS_CAT[k] + '.webp' : '';
+  if(_TN_ICONOS_CAT[k]) return 'cat-' + _TN_ICONOS_CAT[k] + '.webp';
+  const k2 = _tnClaveCat(key);   // "Liquidación!!!" -> "liquidacion"
+  return _TN_ICONOS_CAT[k2] ? 'cat-' + _TN_ICONOS_CAT[k2] + '.webp' : '';
 }
 function _tnMosaicoCat(c) {
   const fotos = c.prods.slice().sort(function(a, b){ return ((b.image ? 1 : 0) - (a.image ? 1 : 0)) || ((b.oferta ? 1 : 0) - (a.oferta ? 1 : 0)) || a.name.localeCompare(b.name, 'es'); }).slice(0, 4);
