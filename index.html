@@ -3579,6 +3579,9 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.17', f:'30/10/2026', t:[
+    'Tienda: en los productos por bulto, el contador de Bultos pasa a la izquierda y el de Unidades a la derecha, para que el + de Unidades quede más a mano del pulgar derecho.'
+  ]},
   {v:'4.22.16', f:'30/10/2026', t:[
     'Tienda: en los productos por bulto, el contador de Unidades vuelve a contar solo las unidades sueltas. Al completar un bulto, el contador de Bultos se ilumina en verde y aparece "✓ 6 unidades = 1 bulto". Abajo de cada producto se ve el total: "En tu pedido: 12 unidades · $29.160".'
   ]},
@@ -15350,13 +15353,15 @@ function tiendaProdCardNueva(p) {
     const sue = qty - bul * (bq > 1 ? bq : 0);   // unidades sueltas (fuera de bultos completos)
     const fl = (bq > 1 && _TN_FLASH[p.id] && (Date.now() - _TN_FLASH[p.id]) < 3000);
     const lbl = _tnEsc(_labelUnidad(p));
-    ctrl = '<div class="tn-steps' + (bq > 1 ? '' : ' uno') + '">'
-      + '<div class="tn-st"><button data-tid="' + p.id + '" onclick="tiendaDec(this.dataset.tid)"' + (sue > 0 ? '' : ' disabled') + ' aria-label="menos">−</button>'
+    // 4.22.17: Bultos a la izquierda y Unidades a la derecha (el + de Unidades queda bajo el pulgar derecho)
+    const cUni = '<div class="tn-st"><button data-tid="' + p.id + '" onclick="tiendaDec(this.dataset.tid)"' + (sue > 0 ? '' : ' disabled') + ' aria-label="menos">−</button>'
       + '<div class="v"><b>' + sue + '</b><span>' + lbl + '</span></div>'
-      + '<button class="mas" data-tid="' + p.id + '" onclick="tiendaAdd(this.dataset.tid)" aria-label="más">+</button></div>'
-      + (bq > 1 ? '<div class="tn-st' + (bul > 0 ? ' on' : '') + (fl ? ' flash' : '') + '"><button data-tid="' + p.id + '" onclick="tiendaDecBulto(this.dataset.tid)"' + (bul > 0 ? '' : ' disabled') + ' aria-label="menos bultos">−</button>'
+      + '<button class="mas" data-tid="' + p.id + '" onclick="tiendaAdd(this.dataset.tid)" aria-label="más">+</button></div>';
+    const cBul = (bq > 1 ? '<div class="tn-st' + (bul > 0 ? ' on' : '') + (fl ? ' flash' : '') + '"><button data-tid="' + p.id + '" onclick="tiendaDecBulto(this.dataset.tid)"' + (bul > 0 ? '' : ' disabled') + ' aria-label="menos bultos">−</button>'
         + '<div class="v"><b>' + bul + '</b><span>Bultos</span></div>'
-        + '<button class="mas" data-tid="' + p.id + '" onclick="tiendaAddBulto(this.dataset.tid)" aria-label="más bultos">+</button></div>' : '')
+        + '<button class="mas" data-tid="' + p.id + '" onclick="tiendaAddBulto(this.dataset.tid)" aria-label="más bultos">+</button></div>' : '');
+    ctrl = '<div class="tn-steps' + (bq > 1 ? '' : ' uno') + '">'
+      + cBul + cUni
       + '</div>'
       + (fl ? '<div class="tn-nota">✓ ' + bq + ' ' + (lbl === 'Unidades' ? 'unidades' : lbl.toLowerCase()) + ' = 1 bulto</div>' : '')
       + ((bq > 1 && qty > 0 && lbl === 'Unidades') ? '<div class="tn-resu">En tu pedido: ' + qty + (qty === 1 ? ' unidad' : ' unidades') + ' · ' + fmtPesos(tiendaGetPrice(p, qty) * qty) + '</div>' : '');
