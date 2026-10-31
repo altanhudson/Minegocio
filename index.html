@@ -3579,6 +3579,9 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.20', f:'31/10/2026', t:[
+    'Arreglo: al editar una factura ya armada y guardarla, ya no se pierden los tildes del armado, el "Preparado" ni la hora original (pasaba si en el medio se abría y cerraba alguna ventanita).'
+  ]},
   {v:'4.22.19', f:'31/10/2026', t:[
     'Lista de compras: lo que faltó al armar un pedido (botón "Falta") ahora también se pide en la lista de compras, aunque no armes otra factura para otro día. Aparece con el aviso "⏳ N faltaron al armar pedidos". Si lo devolvés al pedido con "Deshacer" o lo pasás a otra factura, no se cuenta dos veces.'
   ]},
@@ -8081,14 +8084,16 @@ function saveInv() {
     type:document.getElementById('i-type').value,
     clientId:cid, clientName:cli?cli.name:'---',
     date:(document.getElementById('i-date-res')&&document.getElementById('i-date-res').value) ? document.getElementById('i-date-res').value : document.getElementById('i-date').value,
-    ts: S.editId ? (S.invoices.find(x=>x.id===S.editId)||{}).ts||Date.now() : Date.now(),
+    // 4.22.20: se usa el MISMO id que arriba (invEditId||editId). closeM() borra S.editId al cerrar cualquier
+    // ventanita; con solo S.editId la factura editada perdía hora, tildes y Preparado.
+    ts: (window.invEditId||S.editId) ? (S.invoices.find(x=>x.id===(window.invEditId||S.editId))||{}).ts||Date.now() : Date.now(),
     status, notes:document.getElementById('i-notes').value,
     notaInterna:document.getElementById('i-nota-interna').value,
-    preparado: S.editId ? ((S.invoices.find(x=>x.id===S.editId)||{}).preparado||false) : false,
+    preparado: (window.invEditId||S.editId) ? ((S.invoices.find(x=>x.id===(window.invEditId||S.editId))||{}).preparado||false) : false,
     urgente: (window.invEditId||S.editId) ? !!((S.invoices.find(x=>x.id===(window.invEditId||S.editId))||{}).urgente) : false,
     // El checklist de armado se perdía en cada edición porque la factura se
     // reconstruye desde cero acá y este campo no se copiaba de la versión anterior.
-    itemsArmados: S.editId ? ((S.invoices.find(x=>x.id===S.editId)||{}).itemsArmados||{}) : {},
+    itemsArmados: (window.invEditId||S.editId) ? ((S.invoices.find(x=>x.id===(window.invEditId||S.editId))||{}).itemsArmados||{}) : {},
     items:[...S.invItems], subtotal:sub,
     descRetiro:ret, descRetiroPct:(ret>0?_retPct:0), descExtraPct:extPct, descExtra:extAmt, total,
     pagos:[], // se completa abajo
