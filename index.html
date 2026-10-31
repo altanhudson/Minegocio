@@ -3579,6 +3579,9 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.19', f:'31/10/2026', t:[
+    'Lista de compras: lo que faltó al armar un pedido (botón "Falta") ahora también se pide en la lista de compras, aunque no armes otra factura para otro día. Aparece con el aviso "⏳ N faltaron al armar pedidos". Si lo devolvés al pedido con "Deshacer" o lo pasás a otra factura, no se cuenta dos veces.'
+  ]},
   {v:'4.22.18', f:'30/10/2026', t:[
     'Tienda: la categoría "Liquidación" (con o sin signos de admiración, con o sin tilde) tiene imagen propia y su color rojo.'
   ]},
@@ -13240,30 +13243,46 @@ function renderListaCompras() {
   const orden = (S.listaCompras && S.listaCompras.orden) || {};
   const keysActuales = new Set();
 
+  // 4.22.19: lo que faltó al armar un pedido (botón Falta) y todavía no se pasó a otra
+  // factura sale de la factura, pero el cliente lo pidió: se lo suma como faltante.
+  // Se cuenta por producto (y variante). Facturas canceladas y presupuestos no cuentan.
+  const _pendF = {};
+  (S.invoices || []).forEach(function(inv) {
+    if (!inv || inv.status === 'cancelada' || inv.type === 'presupuesto') return;
+    _fFalts(inv).forEach(function(f) {
+      const q = Number(f && f.qty) || 0;
+      if (!f || !f.prodId || q <= 0) return;
+      const k = f.variante ? f.prodId + '|' + f.variante : f.prodId;
+      _pendF[k] = (_pendF[k] || 0) + q;
+    });
+  });
+
   S.products.forEach(function(p) {
     const tieneVar = p.variantes && p.variantes.length > 0;
     if (tieneVar) {
       p.variantes.forEach(function(v) {
-        const sv = (p.stockVariantes||{})[v]||0;
+        const pend = _pendF[p.id+'|'+v] || 0;
+        const sv = ((p.stockVariantes||{})[v]||0) - pend;
         // Con minStock configurado, el faltante se mide contra el mínimo, no contra cero
         const faltante = p.minStock > 0 ? (p.minStock - sv) : -sv;
         if (faltante <= 0) return;
         const key = p.id+'|'+v;
         keysActuales.add(key);
         const qty = faltante;
-        const itemObj = {prod:p, qty, prodId:key, displayName:p.name+' ('+v+')', stockReal:sv};
+        const itemObj = {prod:p, qty, prodId:key, displayName:p.name+' ('+v+')', stockReal:sv, pend:pend};
         const suppliers = p.suppliers && p.suppliers.length > 0 ? p.suppliers : null;
         if (!suppliers) sinProv.push(itemObj);
         else suppliers.forEach(function(pvId){ if(!porProv[pvId]) porProv[pvId]=[]; porProv[pvId].push(itemObj); });
       });
     } else {
-      const stockActual = p.stock||0;
+      const pend = _pendF[p.id] || 0;
+      const stockActual = (p.stock||0) - pend;
       const faltante = p.minStock > 0 ? (p.minStock - stockActual) : -stockActual;
       if (faltante <= 0) return;
       const key = p.id;
       keysActuales.add(key);
       const qty = faltante;
-      const itemObj = {prod:p, qty, prodId:key, displayName:p.name, stockReal:stockActual};
+      const itemObj = {prod:p, qty, prodId:key, displayName:p.name, stockReal:stockActual, pend:pend};
       const suppliers = p.suppliers && p.suppliers.length > 0 ? p.suppliers : null;
       if (!suppliers) sinProv.push(itemObj);
       else suppliers.forEach(function(pvId){ if(!porProv[pvId]) porProv[pvId]=[]; porProv[pvId].push(itemObj); });
@@ -13338,6 +13357,8 @@ function renderListaCompras() {
       } else {
         marcaStock = '<div style="font-size:10.5px;font-weight:700;color:#b45309;margin-top:1px">🟡 Solo para completar el mínimo (tenés '+stockReal+')</div>';
       }
+      // 4.22.19: avisar cuánto de lo que se pide son unidades que faltaron al armar pedidos
+      if (item.pend > 0) marcaStock += '<div style="font-size:10.5px;font-weight:700;color:#ea580c;margin-top:1px">⏳ '+item.pend+' faltaron al armar pedidos</div>';
       return '<div style="display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid var(--border);'+rowStyle+'">'
         + '<input id="'+inputId+'" type="number" inputmode="decimal" min="0" value="'+qtyMostrar+'" data-prodid="'+prodId+'" data-pvid="'+(pvId||'sin')+'" onfocus="this.select()" onchange="listaGuardarCantidad(\''+estadoKey+'\',this.value,'+qtyBase+')" style="width:50px;text-align:center;font-size:15px;font-weight:800;border:1.5px solid '+(esOk?'#16a34a':'var(--border)')+';border-radius:8px;padding:4px;background:'+(esOk?'rgba(22,163,74,.08)':'var(--surface)')+';color:'+(esOk?'#16a34a':'var(--accent2)')+';flex-shrink:0">'
         + '<button onclick="listaToggleEstado(\''+estadoKey+'\',\'ok\')" style="width:30px;height:30px;border-radius:50%;border:2px solid '+(esOk?'#16a34a':'#d1d5db')+';background:'+(esOk?'#16a34a':'transparent')+';color:'+(esOk?'#fff':'#9ca3af')+';font-size:14px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">\u2713</button>'
