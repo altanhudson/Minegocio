@@ -716,6 +716,31 @@
     const sn = await getDocs(query(v2col('invoices'), where('clientId', '==', cliId)));
     return sn.docs.map(d => sinMod(d));
   };
+  // 4.22.21: FICHA DE LA TIENDA. Un documento por telefono (ultimos 6 digitos) con lo
+  // minimo que la tienda muestra: cliente(s) con ese telefono y sus facturas recientes o
+  // impagas. La tienda lee SOLO ese documento (por su clave exacta): asi las reglas pueden
+  // cerrar la lectura publica de clientes y facturas (nadie puede bajar la lista entera).
+  window._fbLeerFichaTienda = async function(clave) {
+    const sn = await getDoc(v2doc('tienda_cli', String(clave)));
+    return sn.exists() ? sn.data() : null;
+  };
+  window._fbFichasIds = async function() {
+    const sn = await getDocs(v2col('tienda_cli'));
+    return sn.docs.map(d => d.id);
+  };
+  window._fbFichasEscribir = async function(sets, dels) {
+    const ops = [];
+    Object.keys(sets || {}).forEach(function(k){ ops.push(['set', k, sets[k]]); });
+    (dels || []).forEach(function(k){ ops.push(['del', k]); });
+    for(let i = 0; i < ops.length; i += 400) {
+      const b = writeBatch(db);
+      ops.slice(i, i + 400).forEach(function(o){
+        if(o[0] === 'set') b.set(v2doc('tienda_cli', o[1]), Object.assign({}, o[2], { t: serverTimestamp() }));
+        else b.delete(v2doc('tienda_cli', o[1]));
+      });
+      await b.commit();
+    }
+  };
 
   // Tienda de un negocio que no es Surtimar: el visitante solo puede CREAR su
   // pedido (factura) y su ficha de cliente. No toca productos, config ni nada mas
@@ -816,7 +841,7 @@
     window._eliminando = true; // frena cualquier sincronizacion en curso
     // 1) Datos de Firestore
     avisar('Borrando datos…');
-    const cols = COLS.concat(['config','meta']);
+    const cols = COLS.concat(['config','meta','tienda_cli']);
     for(const col of cols) {
       const snap = await getDocs(collection(db, 'negocios', _bizUid, V2_PREFIX + '_' + col));
       let docs = snap.docs;
@@ -3452,6 +3477,7 @@ function _catalogoProgramar() {
   if(_ES_TIENDA_URL || !window._datosFirebaseOk) return;
   if(_catT) clearTimeout(_catT);
   _catT = setTimeout(_catalogoPublicar, 4000);
+  try { _fichasProgramar(); } catch(e) {}
 }
 window._catalogoProgramar = _catalogoProgramar;
 async function _catalogoPublicar() {
@@ -3474,6 +3500,100 @@ async function _catalogoPublicar() {
   } catch(e) { console.warn('Catalogo de la tienda no publicado:', e); }
   finally { _catPublicando = false; }
 }
+// ===================== 4.22.21: FICHAS DE LA TIENDA =====================
+// Por cada telefono (ultimos 6 digitos) se publica un documento con: los clientes que tienen
+// ese telefono (id, nombre, saldo a favor, cantidad de facturas) y sus facturas impagas o
+// desde el 1 del mes anterior (lo que usan saldo, "Mis compras" y nivel). Solo los campos
+// que la tienda muestra: nada de costos, pagos, notas internas ni telefonos completos.
+function _fichaDesde() {
+  const h = new Date();
+  const ini = new Date(h.getFullYear(), h.getMonth() - 1, 1);
+  const m31 = new Date(Date.now() - 31 * 86400000);
+  const d = m31 < ini ? m31 : ini;
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function _fichaFactura(i) {
+  const o = { id: i.id, clientId: i.clientId, date: i.date || '', ts: i.ts || 0, status: i.status || '', saldo: Number(i.saldo) || 0, total: Number(i.total) || 0, type: i.type || 'factura' };
+  if((i.notes || '').toLowerCase().indexOf('tienda online') >= 0) o.notes = 'Pedido desde tienda online';
+  o.items = (i.items || []).map(function(it){
+    const x = { desc: it.desc || it.name || '', qty: Number(it.qty) || 0, price: Number(it.price) || 0 };
+    if(it.prodId) x.prodId = it.prodId;
+    if(it.variante) x.variante = it.variante;
+    return x;
+  });
+  return o;
+}
+function _armarFichasTienda() {
+  const desde = _fichaDesde();
+  const esEj = function(col, id){ try { return !!(window.ejEsId && window.ejEsId(col, id)); } catch(e) { return false; } };
+  const porCli = {};
+  (S.invoices || []).forEach(function(i){
+    if(!i || !i.clientId || i.type === 'presupuesto' || i.status === 'cancelada') return;
+    (porCli[i.clientId] = porCli[i.clientId] || []).push(i);
+  });
+  const fichas = {};
+  (S.clients || []).forEach(function(c){
+    if(!c || !c.id || !c.phone || esEj('clients', c.id)) return;
+    const claves = _tel6De(c.phone);
+    if(!claves.length) return;
+    const todas = porCli[c.id] || [];
+    const facts = todas.filter(function(i){ return (i.date || '') >= desde || (i.status !== 'pagada' && (Number(i.saldo) || 0) > 0); })
+      .sort(function(a, b){ return String(a.date || '').localeCompare(String(b.date || '')) || ((a.ts || 0) - (b.ts || 0)) || String(a.id).localeCompare(String(b.id)); })
+      .map(_fichaFactura);
+    const cli = { id: c.id, name: c.name || '', credito: Number(c.credito) || 0, nf: todas.length };
+    claves.forEach(function(k){
+      const f = fichas[k] = fichas[k] || { v: 1, clientes: [], facturas: [] };
+      f.clientes.push(cli);
+      Array.prototype.push.apply(f.facturas, facts);
+    });
+  });
+  // Tope de seguridad del documento (1 MB en Firebase): si un telefono junta demasiado,
+  // se dejan las impagas y las de los ultimos 31 dias.
+  const d31 = new Date(Date.now() - 31 * 86400000);
+  const lim = d31.getFullYear() + '-' + String(d31.getMonth() + 1).padStart(2, '0') + '-' + String(d31.getDate()).padStart(2, '0');
+  Object.keys(fichas).forEach(function(k){
+    const f = fichas[k];
+    f.clientes.sort(function(a, b){ return String(a.id).localeCompare(String(b.id)); });
+    if(JSON.stringify(f).length > 700000) f.facturas = f.facturas.filter(function(i){ return i.date >= lim || (i.status !== 'pagada' && i.saldo > 0); });
+  });
+  return fichas;
+}
+let _fichT = null, _fichPublicando = false;
+function _fichasProgramar() {
+  if(_ES_TIENDA_URL || !window._datosFirebaseOk) return;
+  if(_fichT) clearTimeout(_fichT);
+  _fichT = setTimeout(_fichasPublicar, 5000);
+}
+window._fichasProgramar = _fichasProgramar;
+async function _fichasPublicar() {
+  _fichT = null;
+  if(_ES_TIENDA_URL || !window._datosFirebaseOk || typeof window._fbFichasEscribir !== 'function') return;
+  if(_fichPublicando) { _fichasProgramar(); return; }
+  // Con cambios de clientes o facturas todavia sin subir, esperar (la ficha tiene que mostrar lo del servidor)
+  try { const up = (window._dirtyExport && window._dirtyExport().up) || {}; if((up.clients && up.clients.length) || (up.invoices && up.invoices.length)) { setTimeout(_fichasProgramar, 30000); return; } } catch(e) {}
+  _fichPublicando = true;
+  try {
+    const fichas = _armarFichasTienda();
+    if(!(S.clients || []).length) return;
+    const kMapa = 'rev_fichas_firma_' + SK;
+    let previo = null; try { previo = JSON.parse(localStorage.getItem(kMapa) || 'null'); } catch(e) { previo = null; }
+    let existentes;
+    if(previo && typeof previo === 'object') existentes = Object.keys(previo);
+    else { previo = {}; existentes = (typeof window._fbFichasIds === 'function') ? await window._fbFichasIds() : []; }
+    const sets = {}, nuevo = {};
+    Object.keys(fichas).forEach(function(k){
+      const h = _hashTexto(JSON.stringify(fichas[k]));
+      nuevo[k] = h;
+      if(previo[k] !== h) sets[k] = fichas[k];
+    });
+    const dels = existentes.filter(function(k){ return !fichas[k]; });
+    if(!Object.keys(sets).length && !dels.length) { try { localStorage.setItem(kMapa, JSON.stringify(nuevo)); } catch(e) {} return; }
+    await window._fbFichasEscribir(sets, dels);
+    try { localStorage.setItem(kMapa, JSON.stringify(nuevo)); } catch(e) {}
+  } catch(e) { console.warn('Fichas de la tienda no publicadas:', e); }
+  finally { _fichPublicando = false; }
+}
+window._fichasPublicar = _fichasPublicar;
 // Fotos viejas guardadas adentro del producto (base64): se suben a la nube una sola vez.
 let _fotosMigradas = false;
 async function _migrarFotosViejas() {
@@ -3579,6 +3699,9 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.21', f:'01/11/2026', t:[
+    'Seguridad: la tienda online ya no lee la lista completa de clientes ni de facturas. La app publica, por cada teléfono, una ficha con lo justo para la tienda (nombre, saldo, compras recientes y nivel). Es el paso previo para cerrar esos datos en el servidor.'
+  ]},
   {v:'4.22.20', f:'31/10/2026', t:[
     'Arreglo: al editar una factura ya armada y guardarla, ya no se pierden los tildes del armado, el "Preparado" ni la hora original (pasaba si en el medio se abría y cerraba alguna ventanita).'
   ]},
@@ -14441,10 +14564,19 @@ function _tiendaIdentificar() {
   const tel = TC_PHONE;
   _tiendaIdentificando = (async function(){
     const last6 = tel.slice(-6);
-    let lista = null;
-    try { if(window._tiendaCat && window._tiendaCat.tel6 && window._fbBuscarClienteTel) lista = await window._fbBuscarClienteTel(last6); } catch(e) { lista = null; }
-    // Telefono no encontrado (cliente nuevo o indice incompleto): se revisa la lista completa, como antes
-    if(!lista || !lista.length) { try { if(window._fbTodosLosClientes) lista = await window._fbTodosLosClientes(); } catch(e) { lista = null; } }
+    let lista = null, factsFicha = null;
+    // 4.22.21: primero la ficha de la tienda (1 documento con el cliente y sus facturas)
+    try {
+      const fi = window._fbLeerFichaTienda ? await window._fbLeerFichaTienda(last6) : null;
+      // La ficha no trae telefonos: se marca cada cliente con la clave (tel6) para reconocerlo
+      if(fi && Array.isArray(fi.clientes) && fi.clientes.length) { lista = fi.clientes.map(function(c){ return Object.assign({}, c, { tel6: [last6] }); }); factsFicha = Array.isArray(fi.facturas) ? fi.facturas : []; }
+    } catch(e) { lista = null; factsFicha = null; }
+    // Sin ficha (telefono nuevo, o la app todavia no la publico): como antes
+    if(!lista) {
+      try { if(window._tiendaCat && window._tiendaCat.tel6 && window._fbBuscarClienteTel) lista = await window._fbBuscarClienteTel(last6); } catch(e) { lista = null; }
+      // Telefono no encontrado (cliente nuevo o indice incompleto): se revisa la lista completa, como antes
+      if(!lista || !lista.length) { try { if(window._fbTodosLosClientes) lista = await window._fbTodosLosClientes(); } catch(e) { lista = null; } }
+    }
     if(tel !== TC_PHONE) return;
     if(lista) {
       const ids = {}; lista.forEach(function(c){ ids[c.id] = 1; });
@@ -14454,7 +14586,12 @@ function _tiendaIdentificar() {
     }
     const c = tiendaBuscarCliente(tel);
     if(c) { TC_CLI = c; TN = c.name || 'visitante'; _tiendaSaludo(); }
-    if(TC_CLI && TC_CLI.id && window._fbFacturasDeCliente) {
+    if(TC_CLI && TC_CLI.id && factsFicha) {
+      const fids = {}; factsFicha.forEach(function(i){ fids[i.id] = 1; });
+      const recientes = (S.invoices || []).filter(function(i){ return i && !fids[i.id] && i.clientId === TC_CLI.id && (Date.now() - (i.ts || 0)) < 6 * 3600 * 1000; });
+      S.invoices = factsFicha.concat(recientes);
+      window._tiendaFactOk = true;
+    } else if(TC_CLI && TC_CLI.id && window._fbFacturasDeCliente) {
       try {
         const f = await window._fbFacturasDeCliente(TC_CLI.id);
         if(tel !== TC_PHONE) return;
@@ -14977,6 +15114,8 @@ function tiendaBuscarCliente(telefono) {
   if(ph.length < 6) return null;
   const last6 = ph.slice(-6);
   const coincidencias = (S.clients||[]).filter(c => {
+    // 4.22.21: los clientes que vienen de la ficha de la tienda no traen telefono, solo tel6
+    if(Array.isArray(c.tel6) && c.tel6.indexOf(last6) >= 0) return true;
     const lista = (c.phone||'').split(',');
     return lista.some(function(n){
       const cp = n.replace(/\D/g,'');
@@ -14989,8 +15128,8 @@ function tiendaBuscarCliente(telefono) {
   const esWeb = function(c){ return /^CLI-WEB/i.test(String(c.id||'')) || /\(web\)/i.test(c.name||'') || /^Visitante/i.test(c.name||''); };
   return coincidencias.slice().sort(function(a,b){
     if(esWeb(a) !== esWeb(b)) return esWeb(a) ? 1 : -1;
-    const factA = (S.invoices||[]).filter(i => i.clientId===a.id).length;
-    const factB = (S.invoices||[]).filter(i => i.clientId===b.id).length;
+    const factA = (a.nf != null) ? a.nf : (S.invoices||[]).filter(i => i.clientId===a.id).length;
+    const factB = (b.nf != null) ? b.nf : (S.invoices||[]).filter(i => i.clientId===b.id).length;
     return factB - factA;
   })[0];
 }
