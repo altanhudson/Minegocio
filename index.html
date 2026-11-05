@@ -3699,6 +3699,9 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.22', f:'04/11/2026', t:[
+    'Arreglo: en la pantalla de facturar ahora se pueden escribir cantidades con fracción (0,5 / 1,5 / 2,25) directamente. Antes el campo las cortaba a número entero y había que corregirlas después desde la edición.'
+  ]},
   {v:'4.22.21', f:'01/11/2026', t:[
     'Seguridad: la tienda online ya no lee la lista completa de clientes ni de facturas. La app publica, por cada teléfono, una ficha con lo justo para la tienda (nombre, saldo, compras recientes y nivel). Es el paso previo para cerrar esos datos en el servidor.'
   ]},
@@ -7288,7 +7291,7 @@ function cartPriceChangeVar(input) {
 function cartQtyChange(input) {
   const pid = input.dataset.pid;
   const price = parseFloat(input.dataset.price)||0;
-  const qty = parseInt(input.value)||0;
+  const qty = parseFloat(String(input.value).replace(',','.'))||0;   // 4.22.22: acepta fracciones (0,5 / 1,5); antes parseInt las cortaba
   const p = S.products.find(x=>x.id===pid);
   if(!p) return;
   if(qty > 0) {
@@ -7331,7 +7334,9 @@ function cartQtyChange(input) {
   } else {
     const existing = S.invItems.findIndex(i=>i.prodId===pid);
     if(existing>=0) S.invItems.splice(existing,1);
-    input.value='';
+    // 4.22.22: ya no se vacia el campo aca: al tipear "0" para llegar a "0,5" se borraba el cero.
+    // Solo se limpia cuando el valor es negativo (no tiene sentido dejarlo).
+    if(qty < 0) input.value='';
   }
   calcTotals();
   nfUpdateFooter();
