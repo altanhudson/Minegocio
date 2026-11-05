@@ -1,4 +1,4 @@
-const CACHE_NAME = 'revendit-v17';
+const CACHE_NAME = 'revendit-v18';
 const urlsToCache = [
   '/',
   '/index.html'
@@ -37,11 +37,14 @@ self.addEventListener('fetch', event => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  const esHTML = (
-    req.mode === 'navigate' ||
-    req.url.includes('index.html') ||
-    req.url.endsWith('/')
-  );
+  // Solo es "la app" la raiz (/ , con o sin ?tienda&n=...) y /index.html.
+  // Antes cualquier navegacion se tomaba como la app: abrir /terminos.html,
+  // /privacidad.html o /tienda.html mostraba Revendit y ademas guardaba esa
+  // pagina como si fuera la app. Ahora las demas paginas van directo a la red.
+  const esApp = (url.pathname === '/' || url.pathname === '/index.html');
+  if (req.mode === 'navigate' && !esApp) return;
+
+  const esHTML = esApp;
 
   if (esHTML) {
     // ESTRATEGIA: stale-while-revalidate.

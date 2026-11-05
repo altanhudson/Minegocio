@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Revendit · Términos del servicio</title>
+<meta name="description" content="Revendit: la app de gestión hecha por revendedores, para revendedores. Términos del servicio.">
+<meta name="theme-color" content="#4338ca">
+<link rel="icon" href="/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --indigo:#4338ca; --indigo-2:#3730a3; --navy:#1e1b4b; --yellow:#fbbf24; --yellow-2:#fde68a;
+  --paper:#f7f6f1; --card:#ffffff; --ink:#1e1b4b; --ink-2:#4b4a6b; --line:#e4e2d8;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 16px/1.6 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--indigo)}
+.wrap{max-width:880px;margin:0 auto;padding:0 18px}
+h1,h2,h3{font-family:'Bricolage Grotesque',Inter,sans-serif;line-height:1.1;margin:0}
+
+/* Barra */
+.top{background:var(--indigo);color:#fff}
+.top .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+.brand{display:flex;align-items:center;gap:10px;color:#fff;text-decoration:none;font:800 20px 'Bricolage Grotesque',sans-serif}
+.brand img{width:34px;height:34px;border-radius:9px}
+.top nav a{color:#fff;opacity:.85;text-decoration:none;font-size:14px;margin-left:16px}
+
+/* Hero */
+.hero{background:var(--indigo);color:#fff;padding:36px 0 64px;position:relative;overflow:hidden}
+.hero h1{font-size:clamp(34px,8.5vw,58px);font-weight:800;letter-spacing:-.02em;max-width:14ch}
+.hero h1 em{font-style:normal;color:var(--yellow)}
+.hero p{font-size:18px;max-width:34ch;opacity:.92;margin:18px 0 26px}
+.cta{display:flex;flex-wrap:wrap;gap:10px}
+.btn{display:inline-block;padding:12px 18px;border-radius:12px;font-weight:600;text-decoration:none;font-size:15px}
+.btn-y{background:var(--yellow);color:var(--navy)}
+.btn-o{border:1.5px solid rgba(255,255,255,.5);color:#fff}
+.hero-tag{position:absolute;right:-110px;bottom:-110px;width:280px;opacity:.14;transform:rotate(-18deg);pointer-events:none}
+
+/* Etiqueta (motivo del logo) */
+.tag{display:inline-flex;align-items:center;gap:8px;background:var(--yellow);color:var(--navy);
+  font:600 12px Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;
+  padding:6px 12px 6px 18px;border-radius:4px 6px 6px 4px;position:relative;
+  clip-path:polygon(10px 0,100% 0,100% 100%,10px 100%,0 50%)}
+.tag::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--paper);display:inline-block}
+
+section{padding:56px 0}
+.sec-h{margin:14px 0 10px;font-size:clamp(26px,6vw,38px);font-weight:800;letter-spacing:-.01em}
+.lead{color:var(--ink-2);max-width:60ch;margin:0}
+
+/* Historia */
+.story{background:var(--card);border-bottom:1px solid var(--line)}
+.story .grid{display:grid;gap:24px}
+.quote{border-left:4px solid var(--yellow);padding:4px 0 4px 16px;font:600 20px/1.4 'Bricolage Grotesque',sans-serif}
+
+/* Tienda */
+.shop{background:var(--navy);color:#fff}
+.shop .grid{display:grid;gap:26px;align-items:center}
+.shop .lead{color:#d9d7f5}
+.shop .tag{--paper:#1e1b4b}
+.stat{background:var(--yellow);color:var(--navy);border-radius:20px;padding:24px 22px}
+.stat .num{font:800 clamp(40px,11vw,58px)/1 'Bricolage Grotesque',sans-serif;letter-spacing:-.03em}
+.stat .cap{font:700 20px/1.2 'Bricolage Grotesque',sans-serif;margin-top:4px}
+.stat small{display:block;margin-top:10px;font-size:13.5px;opacity:.8}
+
+/* Ventajas */
+.groups{display:grid;gap:14px;margin-top:26px}
+.group{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px}
+.group h3{font-size:20px;display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.ico{width:36px;height:36px;border-radius:10px;background:#eef0ff;display:grid;place-items:center;font-size:19px;flex:none}
+.group ul{list-style:none;margin:0;padding:0}
+.group li{padding:7px 0 7px 26px;position:relative;border-top:1px dashed var(--line);font-size:15px}
+.group li:first-child{border-top:0}
+.group li::before{content:"";position:absolute;left:2px;top:14px;width:12px;height:8px;background:var(--yellow);
+  clip-path:polygon(3px 0,100% 0,100% 100%,3px 100%,0 50%)}
+
+/* Plan */
+.plan{background:var(--navy);color:#fff;border-radius:22px;padding:28px 22px;display:grid;gap:18px}
+.plan .big{font:800 clamp(30px,7vw,44px)/1 'Bricolage Grotesque',sans-serif;color:var(--yellow)}
+.plan ul{margin:0;padding:0;list-style:none;display:grid;gap:10px}
+.plan li{display:flex;gap:10px;align-items:flex-start}
+.plan li b{color:var(--yellow-2);font-weight:600}
+.plan small{opacity:.75;font-size:13px}
+
+/* Términos */
+.terms{background:var(--card);border-top:1px solid var(--line)}
+.updated{font-size:14px;color:var(--ink-2);margin-top:6px}
+.toc{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0 8px;padding:0;list-style:none}
+.toc a{display:block;font-size:13px;padding:6px 10px;border-radius:20px;background:var(--paper);border:1px solid var(--line);text-decoration:none;color:var(--ink)}
+.t{padding-top:22px;scroll-margin-top:12px}
+.t h3{font-size:20px;margin-bottom:8px;display:flex;gap:10px;align-items:baseline}
+.t h3 span{color:var(--indigo);font-size:15px;font-family:Inter,sans-serif;font-weight:600}
+.t p,.t li{color:#2e2c4f;font-size:15.5px}
+.t ul{padding-left:20px;margin:6px 0}
+.note{background:#fff8e1;border:1px solid var(--yellow-2);border-radius:12px;padding:12px 14px;font-size:14.5px}
+
+footer{background:var(--indigo);color:#fff;padding:34px 0 40px;font-size:14px}
+footer .wrap{display:grid;gap:12px}
+footer a{color:#fff}
+footer .made{opacity:.8}
+
+@media(min-width:720px){
+  .story .grid{grid-template-columns:1.2fr 1fr;align-items:center}
+  .shop .grid{grid-template-columns:1.3fr 1fr}
+  .groups{grid-template-columns:1fr 1fr}
+  .plan{grid-template-columns:1fr 1.3fr;padding:36px}
+  .hero{padding:56px 0 84px}
+  .hero-tag{width:420px;right:-40px}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#inicio"><img src="/icon-192.png" alt="">Revendit</a>
+    <nav><a href="#terminos">Términos</a><a href="/privacidad.html">Privacidad</a></nav>
+  </div>
+</header>
+
+<div class="hero" id="inicio">
+  <div class="wrap">
+    <span class="tag">App para revendedores</span>
+    <h1 style="margin-top:16px">Hecha por revendedores, <em>para revendedores.</em></h1>
+    <p>Facturá, comprá, controlá tu stock y vendé con tu propia tienda online. Todo desde el celular, sin papeles ni planillas.</p>
+    <div class="cta">
+      <a class="btn btn-y" href="#terminos">Leer los términos</a>
+      <a class="btn btn-o" href="mailto:revenditsoporte@gmail.com">Escribinos</a>
+    </div>
+  </div>
+  <svg class="hero-tag" viewBox="0 0 320 230" aria-hidden="true"><path d="M70 0h240a10 10 0 0 1 10 10v210a10 10 0 0 1-10 10H70L0 115z" fill="#fbbf24"/><circle cx="62" cy="115" r="18" fill="#4338ca"/></svg>
+</div>
+
+<section class="story">
+  <div class="wrap grid">
+    <div>
+      <span class="tag">Nuestra historia</span>
+      <h2 class="sec-h">Nació en un reparto, no en una oficina.</h2>
+      <p class="lead">Revendit la hicimos en Surtimar, una distribuidora de Mar del Plata, para resolver lo que vivíamos todos los días: pedidos por WhatsApp, precios que cambian, stock que no cierra y cobranzas en la calle. Cada función salió de un problema real del negocio y la usamos todos los días para trabajar.</p>
+    </div>
+    <p class="quote">Si te sirve a vos que vendés, es porque primero nos sirvió a nosotros.</p>
+  </div>
+</section>
+
+<section class="shop">
+  <div class="wrap grid">
+    <div>
+      <span class="tag">La tienda online</span>
+      <h2 class="sec-h">Hoy, la tienda es la nueva forma de llegar a tus clientes.</h2>
+      <p class="lead">Tus clientes ven tu catálogo con tus precios y te hacen el pedido desde el celular, cuando quieren. El pedido te llega como factura pendiente y el stock se descuenta solo.</p>
+    </div>
+    <div class="stat">
+      <div class="num">+64%</div>
+      <div class="cap">más de trabajo en 5 meses</div>
+      <small>Lo que nos pasó en Surtimar con la tienda online. Te puede pasar a vos.</small>
+    </div>
+  </div>
+</section>
+
+<section id="ventajas">
+  <div class="wrap">
+    <span class="tag">Qué incluye</span>
+    <h2 class="sec-h">Todo lo que necesita tu negocio.</h2>
+    <p class="lead">Suscripción mensual y mes gratis con todas las funciones disponibles.</p>
+    <div class="groups">
+      <div class="group">
+        <h3><span class="ico">🛒</span>Vendé más</h3>
+        <ul>
+          <li>Tienda online que factura descontando stock</li>
+          <li>Funciones especiales para poner productos de oferta fácilmente</li>
+          <li>Facturas en imagen o PDF para mandar por WhatsApp</li>
+          <li>Precio mayorista automático por agrupación de productos</li>
+          <li>Flyers automáticos para WhatsApp, por selección o categoría</li>
+          <li>Envío gratis configurable y retiro en depósito</li>
+        </ul>
+      </div>
+      <div class="group">
+        <h3><span class="ico">📦</span>Comprá mejor</h3>
+        <ul>
+          <li>Guardá la foto de la factura de cada compra</li>
+          <li>Comparador de precios entre proveedores y mayoristas</li>
+          <li>Sugeridor de pedidos a proveedores según tus ventas y los días a cubrir</li>
+          <li>Sugeridor de pedido por cliente según su promedio de pedidos</li>
+        </ul>
+      </div>
+      <div class="group">
+        <h3><span class="ico">📊</span>Controlá tu ganancia</h3>
+        <ul>
+          <li>Control de stock con seguimiento de movimientos</li>
+          <li>Calculador de margen dentro de la ficha de producto</li>
+          <li>Identificador de productos según su margen</li>
+          <li>Estadísticas, métricas y rankings</li>
+        </ul>
+      </div>
+      <div class="group">
+        <h3><span class="ico">🚚</span>Trabajá en la calle</h3>
+        <ul>
+          <li>Modo "salir a entregar" para organizar el reparto</li>
+          <li>Sincronización entre todos tus dispositivos</li>
+          <li>Pensada para usar con una mano, desde el celular</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <div class="plan">
+      <div>
+        <span class="tag" style="--paper:#1e1b4b">El plan</span>
+        <div class="big" style="margin-top:14px">30 días gratis</div>
+        <p style="margin:10px 0 0;opacity:.85">Probala con tu negocio real antes de pagar.</p>
+      </div>
+      <ul>
+        <li>✔ <span><b>Suscripción mensual</b> por Google Play. El precio vigente lo ves en Google Play antes de suscribirte.</span></li>
+        <li>✔ <span><b>Cancelás cuando quieras</b> desde Google Play, sin trámites.</span></li>
+        <li>✔ <span><b>Tus datos son tuyos.</b> Los podés exportar siempre, incluso si dejás de pagar.</span></li>
+        <li>✔ <span><b>Sin publicidad</b> y sin vender tu información.</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="terms" id="terminos">
+  <div class="wrap">
+    <span class="tag">Legal</span>
+    <h2 class="sec-h">Términos del servicio</h2>
+    <p class="updated">Última actualización: 4 de noviembre de 2026</p>
+
+    <ul class="toc">
+      <li><a href="#t1">Quiénes somos</a></li><li><a href="#t2">El servicio</a></li><li><a href="#t3">Tu cuenta</a></li>
+      <li><a href="#t4">Suscripción y pagos</a></li><li><a href="#t5">Tus datos</a></li><li><a href="#t6">Tienda online</a></li>
+      <li><a href="#t7">Uso aceptable</a></li><li><a href="#t8">Responsabilidad</a></li><li><a href="#t9">Contacto</a></li>
+    </ul>
+
+    <div class="t" id="t1">
+      <h3><span>1</span>Quiénes somos</h3>
+      <p>Revendit es un servicio de Alejandro H. Hudson, con domicilio en Mar del Plata, Provincia de Buenos Aires, Argentina ("nosotros"). Al crear una cuenta o usar Revendit aceptás estos términos. Si no estás de acuerdo, no uses la aplicación.</p>
+    </div>
+
+    <div class="t" id="t2">
+      <h3><span>2</span>El servicio</h3>
+      <p>Revendit es una aplicación de gestión para negocios que compran y revenden productos: ventas, compras, stock, clientes, proveedores, reparto y tienda online. Funciona desde la app de Android publicada en Google Play y desde el navegador.</p>
+      <p>Podemos mejorar, cambiar o quitar funciones con el tiempo. Si un cambio afecta algo importante de lo que pagás, lo avisamos dentro de la aplicación.</p>
+    </div>
+
+    <div class="t" id="t3">
+      <h3><span>3</span>Tu cuenta</h3>
+      <ul>
+        <li>Iniciás sesión con tu cuenta de Google. No conocemos ni guardamos tu contraseña.</li>
+        <li>Revendit es para uso comercial de personas mayores de 18 años.</li>
+        <li>Sos responsable de lo que se haga con tu cuenta y de mantenerla segura.</li>
+      </ul>
+    </div>
+
+    <div class="t" id="t4">
+      <h3><span>4</span>Suscripción y pagos</h3>
+      <ul>
+        <li>Revendit tiene un único plan mensual que incluye todas las funciones.</li>
+        <li>Las cuentas nuevas tienen 30 días de prueba gratis. Si no cancelás antes de que termine, la suscripción empieza a cobrarse.</li>
+        <li>El cobro lo hace Google Play con el medio de pago de tu cuenta de Google. La suscripción se renueva sola cada mes.</li>
+        <li>Podés cancelar cuando quieras desde Google Play → Pagos y suscripciones. Seguís usando Revendit hasta el final del período que ya pagaste.</li>
+        <li>Los reembolsos se rigen por las políticas de Google Play.</li>
+        <li>Si cambiamos el precio, Google Play te avisa antes de que se aplique.</li>
+        <li>Si la suscripción vence, la cuenta pasa a modo solo lectura: podés ver y exportar tus datos, pero no cargar datos nuevos. Tu tienda online queda en pausa hasta que renueves.</li>
+      </ul>
+    </div>
+
+    <div class="t" id="t5">
+      <h3><span>5</span>Tus datos</h3>
+      <ul>
+        <li>Los datos que cargás (productos, precios, clientes, facturas, compras y fotos) son de tu negocio. No los vendemos ni los usamos para publicidad.</li>
+        <li>Podés exportarlos cuando quieras desde Configuración → Exportar mis datos.</li>
+        <li>Podés eliminar tu cuenta y todos tus datos desde Configuración → Eliminar mi cuenta y datos.</li>
+        <li>Cómo tratamos la información está explicado en la <a href="/privacidad.html">Política de privacidad</a>.</li>
+      </ul>
+      <p>Si cargás datos de tus clientes, sos responsable de tener su autorización y de usarlos según la Ley 25.326 de Protección de Datos Personales.</p>
+    </div>
+
+    <div class="t" id="t6">
+      <h3><span>6</span>Tienda online</h3>
+      <p>La tienda online es una herramienta para que tus clientes te hagan pedidos. La venta es entre tu negocio y tus clientes: vos definís los precios, el stock, las entregas y los cobros, y respondés ante ellos. Revendit no interviene en esas ventas ni procesa pagos entre tu negocio y tus clientes.</p>
+    </div>
+
+    <div class="t" id="t7">
+      <h3><span>7</span>Uso aceptable</h3>
+      <p>No podés usar Revendit para:</p>
+      <ul>
+        <li>Vender productos o servicios prohibidos por la ley.</li>
+        <li>Engañar o estafar a otras personas.</li>
+        <li>Intentar acceder a datos de otras cuentas o afectar el funcionamiento del servicio.</li>
+      </ul>
+      <p>Si se incumplen estos términos, podemos suspender o cerrar la cuenta. Antes de hacerlo te avisamos, salvo que sea grave o urgente.</p>
+    </div>
+
+    <div class="t" id="t8">
+      <h3><span>8</span>Responsabilidad</h3>
+      <ul>
+        <li>Hacemos lo posible para que Revendit funcione siempre, pero puede haber interrupciones o errores. Te recomendamos exportar una copia de tus datos cada tanto.</li>
+        <li>Los cálculos de la app (márgenes, sugerencias de pedido, estadísticas) son orientativos. Las decisiones de tu negocio son tuyas.</li>
+      </ul>
+      <p class="note"><b>Importante:</b> los comprobantes que genera Revendit no son facturas fiscales ni reemplazan la facturación electrónica de ARCA. Las obligaciones impositivas de tu negocio son tuyas. Ante dudas, consultá con un contador.</p>
+      <p>Estos términos se rigen por las leyes de la República Argentina. Nada de lo que dicen limita los derechos que te da la Ley 24.240 de Defensa del Consumidor.</p>
+      <p>Si cambiamos estos términos, publicamos la versión nueva en esta página con su fecha y, si el cambio es importante, lo avisamos en la aplicación.</p>
+    </div>
+
+    <div class="t" id="t9">
+      <h3><span>9</span>Contacto</h3>
+      <p>Para consultas, reclamos o ayuda escribinos a <a href="mailto:revenditsoporte@gmail.com"><b>revenditsoporte@gmail.com</b></a>. Respondemos personalmente.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <a class="brand" href="#inicio"><img src="/icon-192.png" alt="">Revendit</a>
+    <div><a href="#terminos">Términos del servicio</a> · <a href="/privacidad.html">Política de privacidad</a> · <a href="mailto:revenditsoporte@gmail.com">revenditsoporte@gmail.com</a></div>
+    <div class="made">Hecha en Mar del Plata, Argentina.</div>
+  </div>
+</footer>
+
+</body>
+</html>
