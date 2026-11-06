@@ -84,6 +84,13 @@
   const OWNER_EMAILS = ['altanhudson@gmail.com','yamility@gmail.com'];
   const auth = getAuth(app);
   const _esTienda = location.search.indexOf('tienda') !== -1;
+  // 4.22.24: si Chrome abrio la app desde Google Play (referrer android-app://...), se deja una marca en
+  // este celular: esa app NUNCA se redirige a la tienda (la redireccion es solo para el icono viejo de la tienda).
+  let _desdePlay = false;
+  try {
+    if((document.referrer || '').indexOf('android-app://') === 0) localStorage.setItem('rev_desde_play', '1');
+    _desdePlay = localStorage.getItem('rev_desde_play') === '1';
+  } catch(e) {}
   let _bizUid = null;            // null = datos de Surtimar
   let _bizActual = null;         // identificador del negocio con el que arranco la sesion
   window._bizUid = null;
@@ -116,7 +123,7 @@
           var _inst = (window.matchMedia && (matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || matchMedia('(display-mode: minimal-ui)').matches)) || window.navigator.standalone === true;
           var _usoTienda = false;
           for(var _i = 0; _i < localStorage.length; _i++) { var _k = localStorage.key(_i) || ''; if(_k === 'tienda_phone' || _k.indexOf('tienda_v2_') === 0) { _usoTienda = true; break; } }
-          if(_inst && _usoTienda && location.search.indexOf('panel') === -1) { location.replace('/?tienda'); return; }
+          if(_inst && _usoTienda && !_desdePlay && location.search.indexOf('panel') === -1) { location.replace('/?tienda'); return; }
         } catch(e) {}
         if(window._gateMostrarLogin) window._gateMostrarLogin();
         return;
@@ -138,6 +145,12 @@
   window._fbSubVerificar = async function(purchaseToken, productId) {
     const fn = httpsCallable(getFunctions(app, 'southamerica-east1'), 'verificarSuscripcion');
     const r = await fn({ purchaseToken: purchaseToken, productId: productId });
+    return r.data;
+  };
+  // 4.22.24 - Actividad de testers (solo duenos): la funcion del servidor lo vuelve a comprobar
+  window._fbActividadTesters = async function(emails) {
+    const fn = httpsCallable(getFunctions(app, 'southamerica-east1'), 'actividadTesters');
+    const r = await fn(Array.isArray(emails) ? { emails: emails } : {});
     return r.data;
   };
   window._fbSubLeerDoc = async function() {
@@ -2064,6 +2077,7 @@ body.pc #nf-foot{grid-column:2;grid-row:3}
         <div id="cfg-sub-resumen" style="font-size:14px;color:var(--text3);margin-bottom:12px;line-height:1.4"></div>
         <button class="btn btn-primary btn-full" onclick="showPage('suscripcion')">&#11088; Mi suscripción</button>
         <button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="showPage('exportar')">&#128228; Exportar mis datos</button>
+        <button id="btn-actividad-testers" class="btn btn-ghost btn-full" style="display:none;margin-top:8px" onclick="abrirActividadTesters()">&#128101; Actividad de testers</button>
         <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px">
           <a href="/terminos.html" onclick="return abrirLegal('terminos')" style="color:var(--accent);font-weight:600">Términos del servicio</a>
           <a href="/privacidad.html" onclick="return abrirLegal('privacidad')" style="color:var(--accent);font-weight:600">Política de privacidad</a>
@@ -3714,8 +3728,80 @@ window.abrirLegal = function(cual){
   return false;
 };
 
+
+// 4.22.24: Actividad de testers (solo duenos). Los datos los arma la funcion del servidor 'actividadTesters'.
+window.abrirActividadTesters = function(){
+  if(window._esDueno !== true) return;
+  var viejo = document.getElementById('testers-overlay'); if(viejo) viejo.remove();
+  var ov = document.createElement('div'); ov.id = 'testers-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:100001;background:var(--bg,#fff);display:flex;flex-direction:column';
+  ov.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--border)"><b style="font-size:15px">&#128101; Actividad de testers</b><button type="button" onclick="document.getElementById(\'testers-overlay\').remove()" style="padding:8px 14px;border:1px solid var(--border);background:var(--surface2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">&#10005; Cerrar</button></div>'
+    + '<div id="testers-cuerpo" style="flex:1;overflow-y:auto;padding:14px;-webkit-overflow-scrolling:touch"></div>';
+  document.body.appendChild(ov);
+  testersCargar(null);
+};
+function _tstFecha(ms){
+  if(!ms) return '—';
+  var d = new Date(ms), n = Date.now(), dif = n - ms, dias = Math.floor(dif / 86400000);
+  var f = ('0'+d.getDate()).slice(-2) + '/' + ('0'+(d.getMonth()+1)).slice(-2) + ' ' + ('0'+d.getHours()).slice(-2) + ':' + ('0'+d.getMinutes()).slice(-2);
+  var rel = dif < 0 ? '' : dif < 3600000 ? 'hace ' + Math.max(1, Math.floor(dif / 60000)) + ' min' : dif < 86400000 ? 'hace ' + Math.floor(dif / 3600000) + ' h' : dias === 1 ? 'ayer' : 'hace ' + dias + ' días';
+  return f + (rel ? ' (' + rel + ')' : '');
+}
+async function testersCargar(emails){
+  var c = document.getElementById('testers-cuerpo'); if(!c) return;
+  c.innerHTML = '<div style="padding:30px 10px;text-align:center;color:var(--text3);font-size:14px">&#8987; Consultando…</div>';
+  var r;
+  try { r = await window._fbActividadTesters(emails); }
+  catch(e){
+    var cod = (e && e.code) || '';
+    var msg = cod.indexOf('not-found') !== -1 ? 'La función del servidor todavía no está instalada.' : cod.indexOf('permission-denied') !== -1 ? 'Esta cuenta no tiene permiso.' : 'No se pudo consultar. Revisá la conexión y probá de nuevo.';
+    c.innerHTML = '<div style="padding:16px;border:1px solid var(--border);border-radius:12px;font-size:14px;color:var(--text2)">' + escH(msg) + '</div><button type="button" class="btn btn-ghost btn-full" style="margin-top:10px" onclick="testersCargar(null)">&#128260; Reintentar</button>';
+    return;
+  }
+  var lista = r.emails || [], ts = r.testers || [];
+  var entraron = ts.filter(function(t){ return t.existe; }).length;
+  var h = '<div style="font-size:13px;color:var(--text3);margin-bottom:10px">' + (lista.length ? entraron + ' de ' + lista.length + ' ya entraron a la app' : 'Todavía no cargaste mails.') + '</div>';
+  ts.forEach(function(t){
+    h += '<div style="padding:12px 14px;margin-bottom:8px;border:1px solid var(--border);border-radius:12px;background:var(--surface)">';
+    h += '<div style="font-weight:700;font-size:14px;word-break:break-all">' + (t.existe ? '&#9989; ' : '&#10060; ') + escH(t.email) + '</div>';
+    if(!t.existe){
+      h += '<div style="font-size:13px;color:var(--text3);margin-top:4px">' + (t.error ? 'No se pudo consultar este mail.' : 'Todavía no inició sesión en Revendit.') + '</div>';
+    } else {
+      h += '<div style="font-size:13px;color:var(--text2);margin-top:6px;line-height:1.55">';
+      h += 'Primer ingreso: ' + _tstFecha(t.creado) + '<br>';
+      h += 'Último ingreso: ' + _tstFecha(t.ultimoIngreso) + '<br>';
+      h += 'Última actividad: ' + _tstFecha(t.ultimaActividad) + '<br>';
+      if(t.esDueno){
+        h += '<span style="color:var(--text3)">Cuenta dueña: usa los datos de Surtimar (no se cuentan acá).</span>';
+      } else if(t.conteos){
+        var q = t.conteos, tot = (q.products||0) + (q.invoices||0) + (q.clients||0) + (q.compras||0);
+        h += 'Último cambio de datos: ' + (t.ultimoUso ? _tstFecha(t.ultimoUso) : (tot ? 'sin fecha' : 'nunca cargó nada')) + '<br>';
+        h += 'Cargó: <b>' + (q.products||0) + '</b> productos · <b>' + (q.clients||0) + '</b> clientes · <b>' + (q.invoices||0) + '</b> facturas · <b>' + (q.compras||0) + '</b> compras';
+      } else if(t.errorConteo){
+        h += '<span style="color:var(--text3)">No se pudieron contar sus registros.</span>';
+      }
+      h += '</div>';
+    }
+    h += '</div>';
+  });
+  h += '<div style="margin-top:16px;font-size:13px;font-weight:700;color:var(--text2)">Mails de los testers (uno por línea)</div>'
+     + '<textarea id="testers-emails" rows="6" autocapitalize="none" autocomplete="off" spellcheck="false" style="width:100%;margin-top:6px;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--surface);color:var(--text);box-sizing:border-box">' + escH(lista.join('\n')) + '</textarea>'
+     + '<button type="button" class="btn btn-primary btn-full" style="margin-top:10px" onclick="testersGuardar()">&#128260; Guardar lista y actualizar</button>'
+     + '<div style="margin-top:10px;font-size:12px;color:var(--text3);line-height:1.5">“Última actividad” es la última vez que el celular del tester renovó su sesión con el servidor (se renueva cada hora aprox. mientras usa la app). “Último cambio de datos” es lo último que guardó en su espacio. Solo ves cantidades y fechas, nunca el contenido de sus datos.</div>';
+  c.innerHTML = h;
+}
+window.testersCargar = testersCargar;
+window.testersGuardar = function(){
+  var ta = document.getElementById('testers-emails'); if(!ta) return;
+  var l = ta.value.split(/[\s,;]+/).map(function(x){ return x.trim(); }).filter(Boolean);
+  testersCargar(l);
+};
+
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.24', f:'06/11/2026', t:[
+    'Arreglo: la app instalada desde Google Play ya no te lleva a la tienda online si alguna vez abriste el link de la tienda en ese celular. Además, mejoras internas de mantenimiento.'
+  ]},
   {v:'4.22.23', f:'04/11/2026', t:[
     'Nuevo: los Términos del servicio y la Política de privacidad ahora se leen desde la app, sin salir de Revendit. Los encontrás en Configuración, dentro de Mi cuenta y suscripción, y en la pantalla de suscripción.'
   ]},
@@ -16391,6 +16477,8 @@ window._gateOcultar = function(user) {
   if(c && user) c.textContent = user.email || '';
   const be = document.getElementById('btn-eliminar-cuenta');
   if(be) be.style.display = window._bizUid ? 'block' : 'none';
+  const bt = document.getElementById('btn-actividad-testers');
+  if(bt) bt.style.display = window._esDueno === true ? 'block' : 'none';
 };
 
 async function loginGoogle() {
