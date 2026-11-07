@@ -3799,6 +3799,11 @@ window.testersGuardar = function(){
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.26', f:'07/11/2026', t:[
+    'Pagos del cliente: ahora cada cobro se ve con el monto que ingresaste y debajo cómo se repartió en las facturas (y si sobró algo a favor).',
+    'Borrar un cobro lo saca de todas las facturas en las que se repartió, y corrige el saldo a favor.',
+    'Arreglo: al cobrar varias facturas juntas se guarda la forma de pago elegida (antes quedaba siempre como efectivo). Los cobros del reparto ahora también figuran en Pagos.'
+  ]},
   {v:'4.22.25', f:'06/11/2026', t:[
     'Arreglo: con el Flyer rápido activo, en las vistas de lista ahora alcanza con tocar cualquier parte del producto para marcarlo. Antes solo respondía el lápiz.'
   ]},
@@ -8354,10 +8359,11 @@ function saveInv() {
   }
   // Agregar nuevo pago si se ingresó uno
   if(pago>0) {
-    inv.pagos.push({monto:pago, method:document.getElementById('i-pmethod').value, date:document.getElementById('i-date').value});
+    const _cobIdF = 'COB-'+Date.now();
+    inv.pagos.push({monto:pago, method:document.getElementById('i-pmethod').value, date:document.getElementById('i-date').value, cob:_cobIdF});
     if(!S.cobranzas) S.cobranzas = [];
     const cli2 = S.clients.find(c=>c.id===cid);
-    S.cobranzas.push({id:'COB-'+Date.now(), clientId:cid, clientName:cli2?cli2.name:'---', monto:pago, method:document.getElementById('i-pmethod').value, date:document.getElementById('i-date').value, facturas:[inv.id], aFavor:0});
+    S.cobranzas.push({id:_cobIdF, clientId:cid, clientName:cli2?cli2.name:'---', monto:pago, method:document.getElementById('i-pmethod').value, date:document.getElementById('i-date').value, facturas:[inv.id], aFavor:0});
   }
   const cliData = S.clients.find(c=>c.id===cid);
   const esEdicion = !!(window.invEditId || S.editId);
@@ -9504,12 +9510,13 @@ async function saveQPago() {
   if(!inv.pagos) inv.pagos = [];
   // Aplicar crédito disponible como pago adicional
   const montoTotal = monto + creditoDisp;
+  const _cobIdQ = 'COB-'+Date.now();
   if(creditoDisp > 0) {
-    inv.pagos.push({monto: creditoDisp, method: 'a favor', date: localDateStr()});
+    inv.pagos.push({monto: creditoDisp, method: 'a favor', date: localDateStr(), cob: _cobIdQ});
     // Descontar solo el crédito residual usado del crédito total del cliente
     if(cliQ) cliQ.credito = Math.max(0, (cliQ.credito||0) - creditoDisp);
   }
-  inv.pagos.push({monto, method, date: localDateStr()});
+  inv.pagos.push({monto, method, date: localDateStr(), cob: _cobIdQ});
   const totalPagado = inv.pagos.reduce((s,p)=>s+p.monto,0);
   inv.saldo = Math.max(0, inv.total - totalPagado);
   // Si pagó de más, el excedente SUMA al crédito del cliente (no lo reemplaza)
@@ -9523,7 +9530,7 @@ async function saveQPago() {
   inv.updatedAt = Date.now(); // crítico para que el sync no pise con versión vieja
   if(!S.cobranzas) S.cobranzas = [];
   S.cobranzas.push({
-    id: 'COB-'+Date.now(),
+    id: _cobIdQ,
     clientId: inv.clientId,
     clientName: inv.clientName,
     monto: montoTotal,
@@ -9623,46 +9630,39 @@ function showCliTab(tab) {
   document.getElementById('clidet-btn-pagos').className = 'btn '+(tab==='pagos'?'btn-primary':'btn-ghost');
   document.getElementById('clidet-btn-prods').className = 'btn '+(tab==='productos'?'btn-primary':'btn-ghost');
   if(tab==='cobranzas') {
-    if(!S.cobranzas) S.cobranzas = [];
-    const cobs = S.cobranzas.filter(c=>c.clientId===cliDetId).sort((a,b)=>b.date.localeCompare(a.date));
-    const totalRec = cobs.reduce((s,c)=>s+c.monto,0);
-    // Pagos por factura
-    const invsPagos = invs.filter(inv=>(inv.pagos||[]).length>0);
-    if(!cobs.length && !invsPagos.length) {
+    // 4.22.26: cada cobro con el monto que se ingreso y como se repartio en las facturas
+    const ents = _cobrosCliente(cliDetId);
+    if(!ents.length) {
       cont.innerHTML='<div class="empty"><div class="ei">💳</div><h3>Sin pagos</h3><p>Los pagos registrados aparecerán aquí</p></div>';
       return;
     }
-    let html = '';
-    // Total recibido
-    if(totalRec>0) {
-      html += '<div style="background:var(--surface2);border-radius:var(--rs);padding:12px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">'
-        +'<div style="font-size:13px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Total recibido</div>'
-        +'<div style="font-family:Inter,sans-serif;font-size:22px;font-weight:900;color:var(--green)">$'+totalRec.toFixed(0)+'</div>'
-        +'</div>';
-    }
-    // Pagos por factura con editar/eliminar
-    if(invsPagos.length) {
-      html += '<div class="card"><div style="padding:0">'+invsPagos.map((inv,i)=>{
-        const pagos = inv.pagos||[];
-        const sc = inv.type==='cigarrillos'?'badge-gray':inv.saldo>0?'badge-orange':inv.status==='pagada'?'badge-green':'badge-blue';
-        return '<div style="padding:12px 14px;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
-          +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
-          +'<div onclick="verInv(\''+inv.id+'\')" style="cursor:pointer"><div style="font-weight:700;font-size:15px">'+inv.id+' — '+inv.date+'</div>'
-          +'<div style="font-size:13px;color:var(--text3)">'+inv.items.length+' producto(s)</div></div>'
-          +'<div style="text-align:right"><div style="font-family:Inter,sans-serif;font-weight:800;color:var(--accent)">$'+inv.total.toFixed(0)+'</div>'
-          +'<span class="badge '+sc+'">'+inv.status+'</span></div></div>'
-          +'<div style="padding:8px;background:var(--surface2);border-radius:8px">'
-          +pagos.map((p,pi)=>'<div style="display:flex;align-items:center;gap:6px;font-size:14px;margin-bottom:2px">'
-            +'<span style="color:var(--text3);flex:1">'+p.date+' — '+p.method+'</span>'
-            +'<span style="color:var(--green);font-weight:600">+$'+(+p.monto).toFixed(0)+'</span>'
-            +'<button onclick="editarPago(\''+inv.id+'\','+pi+')" style="background:none;border:none;cursor:pointer;font-size:15px;padding:2px 4px">✏️</button>'
-            +'<button onclick="eliminarPago(\''+inv.id+'\','+pi+')" style="background:none;border:none;cursor:pointer;font-size:15px;padding:2px 4px">🗑️</button>'
-            +'</div>').join('')
-          +(inv.saldo>0?'<div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700;margin-top:4px;padding-top:4px;border-top:1px solid var(--border)"><span style="color:var(--accent3)">Pendiente</span><span style="color:var(--accent3)">$'+inv.saldo.toFixed(0)+'</span></div>':'')
-          +'</div>'
-          +'</div>';
-      }).join('')+'</div></div>';
-    }
+    const totalRec = ents.reduce(function(s,e){ return s+e.dinero; }, 0);
+    const f0 = function(n){ return '$'+(+n||0).toFixed(0); };
+    let html = '<div style="background:var(--surface2);border-radius:var(--rs);padding:12px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">'
+      +'<div style="font-size:13px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Total recibido</div>'
+      +'<div style="font-family:Inter,sans-serif;font-size:22px;font-weight:900;color:var(--green)">'+f0(totalRec)+'</div></div>';
+    html += '<div class="card"><div style="padding:0">'+ents.map(function(e,i){
+      const soloFavor = !e.cob && e.partes[0].p.method==='a favor';
+      const metodo = e.cob ? String(e.cob.method||'efectivo').replace(' + a favor','') : (soloFavor ? 'saldo a favor usado' : (e.partes[0].p.method||e.partes[0].p.forma||'efectivo'));
+      const borrar = e.cob ? 'eliminarCobro(\''+e.cob.id+'\')' : 'eliminarPagoSuelto(\''+e.partes[0].inv.id+'\','+e.partes[0].pi+')';
+      let h = '<div style="padding:12px 14px;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
+        +'<div style="display:flex;align-items:center;gap:8px">'
+        +'<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:15px">'+fmtDate(e.date)+'</div><div style="font-size:13px;color:var(--text3)">'+metodo+(e.partes.length>1?' · repartido en '+e.partes.length+' facturas':'')+'</div></div>'
+        +'<div style="font-family:Inter,sans-serif;font-size:19px;font-weight:900;color:'+(soloFavor||e.huerfano?'var(--text3)':'var(--green)')+(e.huerfano?';text-decoration:line-through':'')+'">'+(soloFavor?f0(e.partes[0].p.monto):e.huerfano?f0(e.cob.monto):f0(e.dinero))+'</div>'
+        +'<button onclick="'+borrar+'" title="Borrar" style="background:none;border:none;cursor:pointer;font-size:16px;padding:2px 4px">🗑️</button></div>';
+      let det = '';
+      if(e.cob && e.credUsado > 0.5) det += '<div style="color:var(--text3)">+ '+f0(e.credUsado)+' de saldo a favor</div>';
+      e.lineas.forEach(function(l){
+        if(e.cob && l.favor) return;
+        const est = (l.inv.saldo||0) > 0 ? '<span style="color:var(--accent3)">debe '+f0(l.inv.saldo)+'</span>' : '<span style="color:var(--green)">pagada</span>';
+        det += '<div onclick="verInv(\''+l.inv.id+'\')" style="display:flex;gap:6px;cursor:pointer"><span style="flex:1;min-width:0">→ '+l.inv.id+' <span style="font-size:12px">('+est+')</span></span><span style="font-weight:600">'+f0(l.monto)+'</span></div>';
+      });
+      if(e.sobrante > 0.5) det += '<div style="display:flex;gap:6px"><span style="flex:1">→ a favor del cliente</span><span style="font-weight:600;color:var(--green)">'+f0(e.sobrante)+'</span></div>';
+      if(e.incompleto) det += '<div style="color:var(--text3);font-size:12.5px">Parte de este cobro no aparece en las facturas (algún pago se editó o borró después).</div>';
+      if(e.huerfano) det += '<div style="color:var(--text3)">Este registro no tiene ningún pago en las facturas (la factura o el pago se borraron, o quedó repetido). No suma al total. Podés borrarlo con 🗑️.</div>';
+      if(det) h += '<div style="margin-top:6px;padding:8px 10px;background:var(--surface2);border-radius:8px;font-size:14px;color:var(--text2);line-height:1.6">'+det+'</div>';
+      return h+'</div>';
+    }).join('')+'</div></div>';
     cont.innerHTML = html;
     return;
   }
@@ -9848,26 +9848,169 @@ function ajustarSaldo(cliId) {
   openCliDet(cliId);
   toast('Saldo actualizado: $'+val.toFixed(0)+' a favor');
 }
+// 4.22.26: cobros. Cada pago cargado (cobranza) se muestra con el monto que se ingreso y como se repartio.
+// Pagos nuevos: cada parte en la factura lleva cob = id del cobro. Pagos viejos: se emparejan por factura + fecha.
+function _cobrosCliente(cid) {
+  const invs = (S.invoices||[]).filter(function(i){ return i.clientId===cid && i.type!=='presupuesto'; });
+  const invById = {}; invs.forEach(function(i){ invById[i.id] = i; });
+  const cobs = (S.cobranzas||[]).filter(function(c){ return c.clientId===cid; }).slice()
+    .sort(function(a,b){ return (a.date||'').localeCompare(b.date||'') || String(a.id).localeCompare(String(b.id)); });
+  const cobIds = {}; cobs.forEach(function(c){ cobIds[c.id] = 1; });
+  const usados = {}, porCob = {};
+  invs.forEach(function(inv){ (inv.pagos||[]).forEach(function(p,pi){
+    if(p && p.cob && cobIds[p.cob]) { (porCob[p.cob] = porCob[p.cob] || []).push({inv:inv, pi:pi, p:p}); usados[inv.id+'|'+pi] = 1; }
+  }); });
+  // Pagos viejos (sin cob): se emparejan por factura + fecha, en 3 pasadas para no confundir cobros del mismo dia
+  const _fp = function(p){ return p.date||p.fecha||''; };
+  const _mt = function(p){ return String(p.method||p.forma||''); };
+  const _cands = function(c){
+    const r = [];
+    (c.facturas||[]).forEach(function(fid){ const inv = invById[fid]; if(!inv) return;
+      (inv.pagos||[]).forEach(function(p,pi){ if(p && !p.cob && !usados[inv.id+'|'+pi] && _fp(p) === (c.date||'')) r.push({inv:inv, pi:pi, p:p}); });
+    });
+    return r;
+  };
+  const viejos = cobs.filter(function(c){ return !(porCob[c.id] && porCob[c.id].length); });
+  viejos.forEach(function(c){ porCob[c.id] = []; });
+  // 1) un pago con el mismo monto exacto (prefiere la misma forma de pago)
+  viejos.forEach(function(c){
+    const m = +c.monto||0;
+    const cs = _cands(c).filter(function(x){ return Math.abs((+x.p.monto||0) - m) < 0.5; });
+    const x = cs.find(function(x){ return String(c.method||'').indexOf(_mt(x.p)) === 0; }) || cs[0];
+    if(x) { usados[x.inv.id+'|'+x.pi] = 1; porCob[c.id].push(x); }
+  });
+  // 2) repartido en varias partes que suman hasta el monto
+  viejos.forEach(function(c){
+    if(porCob[c.id].length) return;
+    let resta = +c.monto||0;
+    const conFavor = String(c.method||'').indexOf('a favor') !== -1;
+    _cands(c).forEach(function(x){
+      if(resta < 0.5 || (+x.p.monto||0) > resta + 0.5) return;
+      if(_mt(x.p) === 'a favor' && !conFavor) return;
+      usados[x.inv.id+'|'+x.pi] = 1; porCob[c.id].push(x); resta -= (+x.p.monto||0);
+    });
+  });
+  // 3) cobro de una sola factura cuyo pago se edito despues: mismo dia, misma forma de pago, cualquier monto
+  viejos.forEach(function(c){
+    if(porCob[c.id].length || (c.facturas||[]).length !== 1) return;
+    const x = _cands(c).find(function(x){ return _mt(x.p) !== 'a favor' && String(c.method||'').indexOf(_mt(x.p)) === 0; });
+    if(x) { usados[x.inv.id+'|'+x.pi] = 1; porCob[c.id].push(x); }
+  });
+  const out = [];
+  cobs.forEach(function(c){ out.push({cob:c, partes:porCob[c.id] || [], date:c.date||''}); });
+  invs.forEach(function(inv){ (inv.pagos||[]).forEach(function(p,pi){
+    if(p && !usados[inv.id+'|'+pi]) out.push({cob:null, partes:[{inv:inv, pi:pi, p:p}], date:p.date||p.fecha||''});
+  }); });
+  out.forEach(function(e){
+    e.credUsado = e.partes.reduce(function(s,x){ return s + (x.p.method==='a favor' ? (+x.p.monto||0) : 0); }, 0);
+    e.dinero = e.cob ? Math.max(0, (+e.cob.monto||0) - e.credUsado) : (e.partes[0].p.method==='a favor' ? 0 : (+e.partes[0].p.monto||0));
+    e.sobrante = e.cob ? (+e.cob.aFavor||0) : 0;
+    // Registro de cobro viejo sin ningun pago en facturas (factura borrada, pago borrado o registro repetido): no suma al total
+    e.huerfano = !!(e.cob && !e.partes.length && !(e.sobrante > 0.5));
+    if(e.huerfano) e.dinero = 0;
+    e.incompleto = !!(e.cob && !e.huerfano && Math.abs(e.partes.reduce(function(s,x){ return s+(+x.p.monto||0); }, 0) + (+e.cob.aFavor||0) - (+e.cob.monto||0)) > 1);
+    e.lineas = e.partes.map(function(x){
+      const inv = x.inv, tot = +inv.total||0;
+      const pag = (inv.pagos||[]).reduce(function(s,q){ return s+(+q.monto||0); }, 0);
+      let aplic = +x.p.monto||0;
+      const over = pag - tot;
+      if(over > 0.5 && x.pi === inv.pagos.length-1) { const q = Math.min(over, aplic); aplic -= q; e.sobrante += q; }
+      return {inv:inv, monto:aplic, favor:x.p.method==='a favor'};
+    });
+  });
+  out.sort(function(a,b){ return (b.date||'').localeCompare(a.date||'') || String(b.cob?b.cob.id:'').localeCompare(String(a.cob?a.cob.id:'')); });
+  return out;
+}
+function _cobroDe(invId, pi) {
+  const inv = (S.invoices||[]).find(function(i){ return i.id===invId; });
+  if(!inv) return null;
+  const ents = _cobrosCliente(inv.clientId);
+  for(let i=0;i<ents.length;i++) if(ents[i].partes.some(function(x){ return x.inv.id===invId && x.pi===pi; })) return ents[i];
+  return null;
+}
+// Saca partes de pago de sus facturas y ajusta saldos, estado y saldo a favor del cliente
+function _quitarPartesPago(partes, cid, favorExtra) {
+  const afect = {};
+  partes.forEach(function(x){ (afect[x.inv.id] = afect[x.inv.id] || {inv:x.inv, idx:[]}).idx.push(x.pi); });
+  let cred = 0;
+  Object.keys(afect).forEach(function(k){
+    const a = afect[k], inv = a.inv, tot = +inv.total||0;
+    const antes = (inv.pagos||[]).reduce(function(s,p){ return s+(+p.monto||0); }, 0);
+    a.idx.sort(function(x,y){ return y-x; }).forEach(function(i){
+      const p = inv.pagos[i]; if(!p) return;
+      if(p.method==='a favor') cred += (+p.monto||0);
+      inv.pagos.splice(i,1);
+    });
+    const desp = inv.pagos.reduce(function(s,p){ return s+(+p.monto||0); }, 0);
+    cred -= (Math.max(0, antes-tot) - Math.max(0, desp-tot));
+    inv.saldo = Math.max(0, tot-desp);
+    inv.aFavor = desp > tot ? desp-tot : 0;
+    if(inv.status !== 'cancelada') inv.status = inv.saldo <= 0 ? 'pagada' : 'pendiente';
+    inv.updatedAt = Date.now();
+    try{ _markDirty('invoices', inv.id); }catch(e){}
+  });
+  cred -= (favorExtra||0);
+  const cli = (S.clients||[]).find(function(c){ return c.id===cid; });
+  if(cli && Math.abs(cred) > 0.004) { cli.credito = Math.max(0, (cli.credito||0) + cred); try{ _markDirty('clients', cli.id); }catch(e){} }
+  return cred;
+}
+function _refrescarTrasPago(cid) {
+  try{ save(['invoices','clients','cobranzas'], true); }catch(e){}
+  try{ renderInvs(); }catch(e){} try{ renderClis(); }catch(e){} try{ updDash(); }catch(e){}
+  try{ if(typeof cliDetId !== 'undefined' && cliDetId === cid) showCliTab(typeof cliDetTab !== 'undefined' && cliDetTab ? cliDetTab : 'cobranzas'); }catch(e){}
+  try{ if(typeof window._fbSaveDirty === 'function') window._fbSaveDirty(S); }catch(e){}
+}
+function _cobroTextoPartes(e) {
+  return e.lineas.map(function(l){ return l.inv.id; }).filter(function(v,i,a){ return a.indexOf(v)===i; }).join(', ');
+}
+function eliminarCobro(cobId) {
+  const c = (S.cobranzas||[]).find(function(x){ return x.id===cobId; });
+  if(!c) { toast('Cobro no encontrado'); return; }
+  const e = _cobrosCliente(c.clientId).find(function(x){ return x.cob && x.cob.id===cobId; });
+  if(!e) return;
+  const facs = _cobroTextoPartes(e);
+  let msg = '¿Borrar el cobro de $'+(+c.monto||0).toFixed(0)+' del '+fmtDate(c.date)+'?';
+  if(facs) msg += '\n\nSe saca de: '+facs+'. Esas facturas vuelven a quedar con la deuda que tenían.';
+  if(e.sobrante > 0.5) msg += '\n\nTambién se descuentan $'+e.sobrante.toFixed(0)+' del saldo a favor del cliente.';
+  if(e.credUsado > 0.5) msg += '\n\nLos $'+e.credUsado.toFixed(0)+' de saldo a favor que usó vuelven a quedar a favor.';
+  if(!confirm(msg)) return;
+  _quitarPartesPago(e.partes, c.clientId, +c.aFavor||0);
+  const ix = S.cobranzas.indexOf(c); if(ix >= 0) S.cobranzas.splice(ix, 1);
+  try{ if(window._fbDeleteDoc) window._fbDeleteDoc('cobranzas', cobId); }catch(err){}
+  _refrescarTrasPago(c.clientId);
+  toast('Cobro borrado');
+}
+function eliminarPagoSuelto(invId, pi) {
+  const e = _cobroDe(invId, pi);
+  if(!e || e.cob) return;
+  const p = e.partes[0].p;
+  if(!confirm('¿Borrar el pago de $'+(+p.monto||0).toFixed(0)+' del '+fmtDate(p.date)+' en '+invId+'?')) return;
+  _quitarPartesPago(e.partes, e.partes[0].inv.clientId, 0);
+  _refrescarTrasPago(e.partes[0].inv.clientId);
+  toast('Pago borrado');
+}
 function eliminarPago(invId, pi) {
-  const inv = S.invoices.find(i=>i.id===invId);
-  if(!inv||!inv.pagos) return;
-  const p = inv.pagos[pi];
-  if(!confirm('Eliminar pago de $'+p.monto.toFixed(0)+'?')) return;
-  inv.pagos.splice(pi, 1);
-  _recalcInv(inv);
-  try{recalcClientCredits();}catch(e){}
-  try{_markDirty('invoices', inv.id); if(inv.clientId) _markDirty('clients', inv.clientId);}catch(e){}
-  save(['invoices','clients','cobranzas'], true); renderInvs(); showCliTab('cobranzas'); toast('Pago eliminado');
+  // 4.22.26: si el pago es parte de un cobro, se borra el cobro entero (de todas las facturas donde se repartio)
+  const e = _cobroDe(invId, pi);
+  if(e && e.cob) { eliminarCobro(e.cob.id); return; }
+  eliminarPagoSuelto(invId, pi);
 }
 function editarPago(invId, pi) {
   const inv = S.invoices.find(i=>i.id===invId);
   if(!inv||!inv.pagos) return;
   const p = inv.pagos[pi];
+  const e = _cobroDe(invId, pi);
+  if(e && e.cob && e.partes.length > 1) {
+    alert('Este pago es parte de un cobro de $'+(+e.cob.monto||0).toFixed(0)+' del '+fmtDate(e.cob.date)+' repartido en: '+_cobroTextoPartes(e)+'.\n\nPara corregirlo, borrá el cobro (🗑️) y cargalo de nuevo con el monto correcto.');
+    return;
+  }
   const nuevo = prompt('Nuevo monto del pago:', p.monto.toFixed(0));
   if(nuevo === null) return;
   const val = parseFloat(nuevo);
   if(isNaN(val) || val < 0) { toast('Monto inválido'); return; }
+  const delta = val - (+p.monto||0);
   p.monto = val;
+  if(e && e.cob) { e.cob.monto = Math.max(0, (+e.cob.monto||0) + delta); try{ _markDirty('cobranzas', e.cob.id); }catch(err){} }
   _recalcInv(inv);
   try{recalcClientCredits();}catch(e){}
   try{_markDirty('invoices', inv.id); if(inv.clientId) _markDirty('clients', inv.clientId);}catch(e){}
@@ -10706,6 +10849,9 @@ function pagocliConfirm() {
 
   let restante = monto;
   let facturasAct = 0;
+  // 4.22.26: cada parte queda ligada al cobro (cob) y con la forma de pago elegida (antes quedaba siempre 'efectivo')
+  const cobId = 'COB-'+Date.now();
+  const method = document.getElementById('pagocli-method') ? document.getElementById('pagocli-method').value : 'efectivo';
 
   pendientes.forEach(inv => {
     if (restante <= 0) return;
@@ -10715,7 +10861,7 @@ function pagocliConfirm() {
 
     const aplicar = Math.min(restante, saldo);
     if (!inv.pagos) inv.pagos = [];
-    inv.pagos.push({ monto: aplicar, method: 'efectivo', date: localDateStr() });
+    inv.pagos.push({ monto: aplicar, method: method, date: localDateStr(), cob: cobId });
     restante -= aplicar;
 
     const nuevoPagado = (inv.pagos).reduce((a, p) => a + p.monto, 0);
@@ -10732,9 +10878,7 @@ function pagocliConfirm() {
   }
 
   // Registrar cobranza global
-  const method = document.getElementById('pagocli-method') ? document.getElementById('pagocli-method').value : 'efectivo';
   if(!S.cobranzas) S.cobranzas = [];
-  const cobId = 'COB-'+Date.now();
   S.cobranzas.push({
     id: cobId,
     clientId: pagocliSelected.id,
@@ -10931,14 +11075,19 @@ function confirmarCobroReparto(rutaIdx) {
   const method = document.getElementById('cobrar-rep-method').value;
   // Register payment
   if(!inv.pagos) inv.pagos = [];
-  inv.pagos.push({date:localDateStr(), monto, method});
+  const _cobIdR = 'COB-'+Date.now();
+  inv.pagos.push({date:localDateStr(), monto, method, cob:_cobIdR});
+  if(!S.cobranzas) S.cobranzas = [];
+  S.cobranzas.push({id:_cobIdR, clientId:inv.clientId, clientName:inv.clientName, monto:monto, method:method, date:localDateStr(), facturas:[inv.id], aFavor:0});
+  inv.updatedAt = Date.now();
+  try{ _markDirty('invoices', inv.id); _markDirty('cobranzas', _cobIdR); }catch(e){}
   const totalPagado = inv.pagos.reduce((s,p)=>s+p.monto,0);
   inv.saldo = Math.max(0, inv.total - totalPagado);
   if(inv.saldo <= 0) inv.status = 'pagada';
   // Mark as delivered
   repartoRuta[rutaIdx].status = 'entregado';
   repartoRuta[rutaIdx].saldo = inv.saldo;
-  save(['invoices','clients']);
+  save(['invoices','clients','cobranzas']);
   toast('Cobro registrado ✓');
   showPage('reparto');
   swRepartoTab('ruta', document.getElementById('rtab-ruta'));
