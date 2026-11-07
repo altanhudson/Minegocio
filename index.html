@@ -3799,6 +3799,9 @@ window.testersGuardar = function(){
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.25', f:'06/11/2026', t:[
+    'Arreglo: con el Flyer rápido activo, en las vistas de lista ahora alcanza con tocar cualquier parte del producto para marcarlo. Antes solo respondía el lápiz.'
+  ]},
   {v:'4.22.24', f:'06/11/2026', t:[
     'Arreglo: la app instalada desde Google Play ya no te lleva a la tienda online si alguna vez abriste el link de la tienda en ese celular. Además, mejoras internas de mantenimiento.'
   ]},
@@ -6138,7 +6141,7 @@ function renderProds(q) {
     if(prodView === 'imglist') {
       const stColor = p.stock===0?'var(--accent3)':low?'var(--orange,#fb923c)':'var(--green)';
       const stTxt = (p.stock===0?'Sin stock':(p.stock+' uds')) + (_tnMuestraStock(p)?' 🔢':'');
-      return '<div class="list-item" style="padding:8px 10px;gap:8px;align-items:flex-start" id="pc-'+pid+'">'
+      return '<div class="list-item" style="padding:8px 10px;gap:8px;align-items:flex-start'+_frSel(pid)+'" id="pc-'+pid+'">'
         + '<div style="flex-shrink:0;width:70px;height:70px;border-radius:10px;overflow:hidden;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:32px">'
         + (p.image?'<img src="'+p.image+'" loading="lazy" decoding="async" style="width:70px;height:70px;object-fit:cover">':'<span>'+(p.emoji||'📦')+'</span>')
         + '</div>'
@@ -6176,7 +6179,7 @@ function renderProds(q) {
     if(prodView === 'list') {
       const stColor = p.stock===0?'var(--accent3)':low?'var(--orange,#fb923c)':'var(--green)';
       const stTxt = (p.stock===0?'Sin stock':(p.stock+' uds')) + (_tnMuestraStock(p)?' 🔢':'');
-      return '<div class="list-item" style="padding:10px 14px;gap:10px" id="pc-'+pid+'">'
+      return '<div class="list-item" style="padding:10px 14px;gap:10px'+_frSel(pid)+'" id="pc-'+pid+'">'
         + '<div style="flex:1;min-width:0">'
         + '<div style="font-weight:600;font-size:15px;margin-bottom:2px">'+p.name+(p.soloFlyer?' <span style="background:#3483fa;color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;vertical-align:middle">FLYER</span>':'')+'</div>'
         + '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
@@ -6241,8 +6244,14 @@ function renderProds(q) {
   }).join('');
 }
 
+// 4.22.25: en modo Flyer rapido, tocar cualquier parte de la ficha la marca (antes en vista lista solo respondia el lapiz)
+function _frSel(pid){ return (window._flyerRapidoActivo && window._flyerRapidoSeleccion && window._flyerRapidoSeleccion.has(pid)) ? ';outline:3px solid #ff6b35;background:#fff3e0' : ''; }
 // Event delegation for product grid
 document.getElementById('page-productos').addEventListener('click', function(e) {
+  if(window._flyerRapidoActivo) {
+    const fc = e.target.closest('#prod-grid [id^="pc-"]');
+    if(fc) { e.preventDefault(); toggleFlyerRapidoProd(fc.id.slice(3)); return; }
+  }
   const el = e.target.closest('[data-action]');
   if(!el) return;
   const action = el.dataset.action;
