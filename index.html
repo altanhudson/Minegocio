@@ -3799,6 +3799,9 @@ window.testersGuardar = function(){
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.27', f:'07/11/2026', t:[
+    'Pagos del cliente: cada factura de un cobro ahora muestra cómo quedó en ese momento ("queda debiendo $X" o "saldó"), no el saldo de hoy.'
+  ]},
   {v:'4.22.26', f:'07/11/2026', t:[
     'Pagos del cliente: ahora cada cobro se ve con el monto que ingresaste y debajo cómo se repartió en las facturas (y si sobró algo a favor).',
     'Borrar un cobro lo saca de todas las facturas en las que se repartió, y corrige el saldo a favor.',
@@ -9654,7 +9657,7 @@ function showCliTab(tab) {
       if(e.cob && e.credUsado > 0.5) det += '<div style="color:var(--text3)">+ '+f0(e.credUsado)+' de saldo a favor</div>';
       e.lineas.forEach(function(l){
         if(e.cob && l.favor) return;
-        const est = (l.inv.saldo||0) > 0 ? '<span style="color:var(--accent3)">debe '+f0(l.inv.saldo)+'</span>' : '<span style="color:var(--green)">pagada</span>';
+        const est = l.saldoDesp > 0.5 ? '<span style="color:var(--accent3)">queda debiendo '+f0(l.saldoDesp)+'</span>' : '<span style="color:var(--green)">saldó</span>';
         det += '<div onclick="verInv(\''+l.inv.id+'\')" style="display:flex;gap:6px;cursor:pointer"><span style="flex:1;min-width:0">→ '+l.inv.id+' <span style="font-size:12px">('+est+')</span></span><span style="font-weight:600">'+f0(l.monto)+'</span></div>';
       });
       if(e.sobrante > 0.5) det += '<div style="display:flex;gap:6px"><span style="flex:1">→ a favor del cliente</span><span style="font-weight:600;color:var(--green)">'+f0(e.sobrante)+'</span></div>';
@@ -9915,7 +9918,15 @@ function _cobrosCliente(cid) {
       let aplic = +x.p.monto||0;
       const over = pag - tot;
       if(over > 0.5 && x.pi === inv.pagos.length-1) { const q = Math.min(over, aplic); aplic -= q; e.sobrante += q; }
-      return {inv:inv, monto:aplic, favor:x.p.method==='a favor'};
+      // 4.22.27: como quedo la factura justo despues de este pago (total - pagos hasta esa fecha, a igual fecha por orden de carga)
+      const fx = x.p.date||x.p.fecha||'';
+      let hasta = 0;
+      (inv.pagos||[]).forEach(function(q,qi){
+        if(!q) return;
+        const fq = q.date||q.fecha||'';
+        if(fq < fx || (fq === fx && qi <= x.pi)) hasta += (+q.monto||0);
+      });
+      return {inv:inv, monto:aplic, favor:x.p.method==='a favor', saldoDesp:Math.max(0, tot - hasta)};
     });
   });
   out.sort(function(a,b){ return (b.date||'').localeCompare(a.date||'') || String(b.cob?b.cob.id:'').localeCompare(String(a.cob?a.cob.id:'')); });
