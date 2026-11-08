@@ -3630,16 +3630,35 @@ function relRender() {
   h += '<button class="btn btn-ghost btn-full" style="margin-bottom:14px" onclick="relIrAgregar()">+ Agregar producto</button>';
   if(enCurso) {
     h += '<button class="btn btn-primary btn-full" style="margin-bottom:10px" onclick="relCompartir()">📤 Compartir por WhatsApp</button>';
+    if(r.hasta) h += '<button class="btn btn-ghost btn-full" style="margin-bottom:10px" onclick="relMas15()">⏱ +15 min</button>';
     h += '<button class="btn btn-ghost btn-full" style="color:#b91c1c" onclick="relTerminar()">⏹ Terminar ahora</button>';
   } else {
     const durs = [[30, '30 min'], [60, '1 hora'], [120, '2 horas'], [0, 'Sin límite']];
-    h += '<div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">¿Cuánto dura?</div><div style="display:flex;gap:6px;margin-bottom:14px">'
-      + durs.map(function(d){ const sel = (+r.dur || 0) === d[0]; return '<button onclick="relDur(' + d[0] + ')" style="flex:1;padding:9px 2px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:2px solid ' + (sel ? '#ea580c;background:#ffedd5;color:#9a3412' : 'var(--border);background:var(--surface2);color:var(--text2)') + '">' + d[1] + '</button>'; }).join('') + '</div>';
+    const modo = r.modo || 'preset';
+    const chip = function(sel, click, txt){ return '<button onclick="' + click + '" style="flex:1;padding:9px 2px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:2px solid ' + (sel ? '#ea580c;background:#ffedd5;color:#9a3412' : 'var(--border);background:var(--surface2);color:var(--text2)') + '">' + txt + '</button>'; };
+    h += '<div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">¿Cuánto dura?</div><div style="display:flex;gap:6px;margin-bottom:6px">'
+      + durs.map(function(d){ return chip(modo === 'preset' && (+r.dur || 0) === d[0], 'relDur(' + d[0] + ')', d[1]); }).join('') + '</div>'
+      + '<div style="display:flex;gap:6px;margin-bottom:' + (modo === 'preset' ? '14' : '8') + 'px">' + chip(modo === 'otra', "relModo('otra')", 'Otra duración') + chip(modo === 'hora', "relModo('hora')", 'Hasta una hora') + '</div>';
+    if(modo === 'otra') h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><input type="number" id="rel-otra" inputmode="numeric" min="1" max="1440" value="' + _tnEsc(r.durOtra || '') + '" placeholder="Ej: 45" oninput="relOtra(this.value)" style="flex:1"><span style="font-size:15px">minutos</span></div>';
+    if(modo === 'hora') h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><span style="font-size:15px">Termina a las</span><input type="time" id="rel-hora" value="' + _tnEsc(r.horaFin || '') + '" oninput="relHoraFin(this.value)" style="flex:1"></div>';
     h += '<button class="btn btn-primary btn-full" onclick="relPublicar()"' + (r.items.length ? '' : ' disabled') + '>⚡ Publicar oferta</button>';
   }
   b.innerHTML = h;
 }
-function relDur(m) { const r = _relCfg(); r.dur = +m || 0; _relGuardar(); relRender(); }
+function relDur(m) { const r = _relCfg(); r.modo = 'preset'; r.dur = +m || 0; _relGuardar(); relRender(); }
+function relModo(m) { const r = _relCfg(); r.modo = m; _relGuardar(); relRender(); }
+function relOtra(v) { const r = _relCfg(); r.durOtra = v; _relGuardar(); }
+function relHoraFin(v) { const r = _relCfg(); r.horaFin = v; _relGuardar(); }
+// Suma 15 minutos al cierre (si ya paso la hora, no hay nada que extender) y vuelve a publicar
+async function relMas15() {
+  const r = _relCfg();
+  if(!_relEnCurso(r) || !r.hasta) return;
+  r.hasta += 15 * 60000;
+  _relGuardar(); relRender();
+  const ok = await _relPublicarYa();
+  relRender();
+  toast(ok ? '✓ +15 min. Termina a las ' + _relHora(r.hasta) : '⚠️ No se pudo publicar. Tocá Reintentar');
+}
 function relNueva() {
   const r = _relCfg();
   r.id = ''; r.items = []; r.estado = 'borrador'; r.inicio = 0; r.hasta = 0;
@@ -3649,9 +3668,25 @@ async function relPublicar() {
   const r = _relCfg();
   if(!r.items.length) { toast('Agregá al menos un producto'); return; }
   if(!window._datosFirebaseOk || !navigator.onLine) { toast('Sin conexión con la nube. Probá de nuevo en un momento'); return; }
-  r.id = 'R' + Date.now().toString(36).toUpperCase();
-  r.inicio = Date.now();
-  r.hasta = r.dur ? r.inicio + r.dur * 60000 : 0;
+  const ahora = Date.now();
+  let hasta = 0;
+  if(r.modo === 'otra') {
+    const mins = Math.round(parseFloat(r.durOtra) || 0);
+    if(mins < 1 || mins > 1440) { toast('Poné los minutos (entre 1 y 1440)'); return; }
+    hasta = ahora + mins * 60000;
+  } else if(r.modo === 'hora') {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(r.horaFin || '');
+    if(!m) { toast('Poné la hora en que termina'); return; }
+    const d = new Date(); d.setHours(+m[1], +m[2], 0, 0);
+    if(d.getTime() <= ahora + 60000) d.setDate(d.getDate() + 1);   // pasada la medianoche: es la de mañana
+    if(d.getTime() - ahora > 12 * 3600000) { toast('Esa hora ya pasó. Poné una hora de las próximas 12 horas'); return; }
+    hasta = d.getTime();
+  } else {
+    hasta = r.dur ? ahora + r.dur * 60000 : 0;
+  }
+  r.id = 'R' + ahora.toString(36).toUpperCase();
+  r.inicio = ahora;
+  r.hasta = hasta;
   r.estado = 'activa';
   _relGuardar();
   const b = document.getElementById('mrel-body');
@@ -3670,8 +3705,7 @@ function relCompartir() {
   const r = _relCfg();
   if(!_relEnCurso(r)) return;
   if(!_relEstaPublicada()) { toast('⚠️ La oferta todavía no se publicó. Tocá Reintentar'); return; }
-  const lineas = r.items.map(function(it){ const p = (S.products || []).find(function(x){ return x.id === it.prodId; }); return p ? '• ' + p.name + ' — ' + fmtPesos(it.precio) : ''; }).filter(Boolean).join('\n');
-  const txt = '⚡ *OFERTA RELÁMPAGO* ⚡\n\n' + lineas + '\n\n' + (r.hasta ? '⏰ Solo hasta las ' + _relHora(r.hasta) + '\n' : '⏰ Por tiempo limitado\n') + '👉 Pedí acá: ' + _relLink(r);
+  const txt = '⚡ OFERTA RELÁMPAGO ⚡\nAprovechá estos productos por tiempo limitado ⏳\n\n👉 ' + _relLink(r);
   if(navigator.share) {
     navigator.share({ text: txt }).catch(function(e){ if(!e || e.name !== 'AbortError') window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank'); });
     return;
@@ -4107,6 +4141,10 @@ window.testersGuardar = function(){
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.29', f:'07/11/2026', t:[
+    '⚡ Oferta relámpago: el mensaje de WhatsApp ya no lleva productos ni precios (solo invita a entrar con el link).',
+    'Duración configurable: "Otra duración" (minutos) y "Hasta una hora" exacta. Con la oferta en curso, botón "+15 min" para extender el cierre.'
+  ]},
   {v:'4.22.28', f:'07/11/2026', t:[
     '⚡ Oferta relámpago (en Inicio, dentro de Tienda online): cargás los productos (foto con la cámara, de la galería o uno que ya tenés), elegís cuánto dura y compartís el link por WhatsApp.',
     'El cliente ve solo esos productos con la cuenta regresiva y pide como en la tienda. Cada pedido entra como una factura nueva marcada "⚡ Oferta relámpago" (si ya tenía factura ese día, las podés unificar con el botón de siempre).',
