@@ -1991,6 +1991,12 @@ body.pc #nf-foot{grid-column:2;grid-row:3}
           <select id="cfg-esp-cat" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface);font-size:15px;color:var(--text);margin-bottom:10px"></select>
           <label style="font-size:13px;color:var(--text3);display:block;margin-bottom:4px">Unidad de venta en la tienda (opcional)</label>
           <input type="text" id="cfg-esp-unidad" maxlength="15" placeholder="Ej: Cartón" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface);font-size:15px;color:var(--text);margin-bottom:10px">
+          <div style="margin:2px 0 12px;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px">
+            <div style="font-size:13.5px;font-weight:700;margin-bottom:4px">½ <span id="cfg-esp-mitad-u">unidad</span> en la tienda</div>
+            <div style="font-size:12.5px;color:var(--text3);line-height:1.45;margin-bottom:8px">Permite pedir media unidad (vale la mitad del precio). Se activa por producto en su ficha, o acá en todos los de la categoría a la vez. Guardá la categoría antes de usar estos botones.</div>
+            <div style="display:flex;gap:8px"><button type="button" onclick="cfgMitadTodos(true)" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--accent);background:var(--accent);color:#fff;font-size:13.5px;font-weight:700;cursor:pointer">Activar en todos</button><button type="button" onclick="cfgMitadTodos(false)" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:13.5px;font-weight:700;cursor:pointer">Quitar de todos</button></div>
+            <div id="cfg-esp-mitad-info" style="font-size:12.5px;color:var(--text3);margin-top:8px"></div>
+          </div>
         </div>
         <button onclick="saveCfgFacturacion()" class="btn btn-primary btn-full" style="margin-top:6px">💾 Guardar</button>
       </div>
@@ -2202,7 +2208,7 @@ body.pc #nf-foot{grid-column:2;grid-row:3}
         <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="onPhoto(this)">
       </div>
       <div class="form-group"><label class="fl">Nombre *</label><input type="text" id="p-name" placeholder="Nombre del producto"></div>
-      <div class="form-group"><label class="fl">Categoria</label><input type="text" id="p-cat" placeholder="Bebidas..."></div>
+      <div class="form-group"><label class="fl">Categoria</label><input type="text" id="p-cat" placeholder="Bebidas..." oninput="prodMitadVis()"></div>
       <div class="form-group">
         <label class="fl">Grupo <span style="font-size:11px;color:var(--text3);font-weight:400">(opcional)</span></label>
         <input type="text" id="p-grupo" placeholder="Ej: jugos-1lt" oninput="renderMinGrupoProd()">
@@ -2213,6 +2219,10 @@ body.pc #nf-foot{grid-column:2;grid-row:3}
         <label class="fl">Fracción mínima <span style="font-size:11px;color:var(--text3);font-weight:400">(opcional)</span></label>
         <input type="number" id="p-frac" placeholder="1" min="1" inputmode="numeric">
         <div style="margin-top:6px;font-size:12.5px;color:var(--text3);line-height:1.4">Si el producto se vende de a varias unidades, poné cuántas. Ej: 6 = en la factura y en la tienda la cantidad sube de 6 en 6. Dejá 1 si se vende suelto.</div>
+      </div>
+      <div class="form-group" id="p-mitad-box" style="display:none">
+        <label style="display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;cursor:pointer"><input type="checkbox" id="p-mitad" style="width:20px;height:20px;accent-color:var(--accent)"> <span id="p-mitad-lbl">Se puede vender ½</span></label>
+        <div style="margin-top:6px;font-size:12.5px;color:var(--text3);line-height:1.4">En la tienda la cantidad sube de a ½ y el precio de la mitad es la mitad. Tiene prioridad sobre la fracción mínima.</div>
       </div>
       <div>
         <div class="form-group"><label class="fl">Código de barras</label>
@@ -3479,7 +3489,7 @@ function _tnMuestraStock(p) {
   if(p.ocultarStock) return false;
   return !!(p.mostrarStock || (S.config && S.config.stockTienda && S.config.stockTienda.todos));
 }
-const _CAT_CAMPOS = ['id','name','price','image','category','oferta','ofertaDesde','wholesalePrice','wholesaleQty','grupoMay','bultoQty','variantes','fracMin','desc','emoji','sinStockManual','createdAt','visibleSince'];
+const _CAT_CAMPOS = ['id','name','price','image','category','oferta','ofertaDesde','wholesalePrice','wholesaleQty','grupoMay','bultoQty','variantes','fracMin','mitad','desc','emoji','sinStockManual','createdAt','visibleSince'];
 function _armarCatalogo() {
   const prods = (S.products || []).filter(function(p){ return p && p.visible !== false && p.price > 0 && p.name && p.name.trim() && !(window.ejEsId && window.ejEsId('products', p.id)); }).map(function(p){
     const o = {};
@@ -4215,6 +4225,10 @@ window.testersGuardar = function(){
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.31', f:'08/11/2026', t:[
+    '🚬 Medio cartón en la tienda: en la ficha de los productos de la categoría especial aparece "Se puede vender ½ cartón" (el nombre sale de la unidad que configuraste). La tienda sube de a ½ y la mitad vale la mitad del precio.',
+    'En Configuración > Facturación, categoría especial: botones para activar o quitar el ½ en todos los productos de la categoría de una vez.'
+  ]},
   {v:'4.22.30', f:'07/11/2026', t:[
     '⚡ Oferta relámpago: panel de pedidos en vivo (total por producto y quién pidió qué), se actualiza solo cada 15 segundos.',
     'Botón "Limpiar oferta" cuando termina: borra los productos creados para la oferta que nadie pidió y deja ocultos los que tienen facturas.',
@@ -5475,6 +5489,30 @@ function cfgFactCargar() {
     return '<option value="'+escH(vistas[k])+'"'+(k===actual.toLowerCase()?' selected':'')+'>'+escH(vistas[k])+'</option>';
   }).join('');
   cfgFactCambio();
+  try{ cfgMitadInfo(); }catch(e){}
+}
+function _cfgMitadProds() {
+  const ce = cfgEspecial();
+  return (S.products||[]).filter(function(p){ return ce.activa && _catCoincide(p, ce.categoria); });
+}
+function cfgMitadInfo() {
+  const u = document.getElementById('cfg-esp-mitad-u'), i = document.getElementById('cfg-esp-mitad-info');
+  const ce = cfgEspecial();
+  if(u) u.textContent = String(ce.unidad||'').trim() || 'unidad';
+  if(i) { const l = _cfgMitadProds(); const n = l.filter(function(p){ return p.mitad; }).length; i.textContent = ce.activa ? (n + ' de ' + l.length + ' productos de la categoría con ½ activado') : ''; }
+}
+function cfgMitadTodos(on) {
+  const ce = cfgEspecial();
+  if(!ce.activa || !ce.categoria) { alert('Primero activá y guardá la categoría especial.'); return; }
+  const l = _cfgMitadProds();
+  if(!l.length) { alert('No hay productos en la categoría "'+ce.categoria+'".'); return; }
+  const u = String(ce.unidad||'').trim() || 'unidad';
+  if(!confirm((on ? 'Activar' : 'Quitar')+' ½ '+u+' en '+l.length+' productos de "'+ce.categoria+'"?')) return;
+  l.forEach(function(p){ p.mitad = !!on; try{ _markDirty('products', p.id); }catch(e){} });
+  try{ save(['products']); }catch(e){}
+  try{ renderProds(); }catch(e){}
+  try{ cfgMitadInfo(); }catch(e){}
+  toast(on ? '✓ ½ '+u+' activado en '+l.length+' productos' : '✓ ½ '+u+' quitado de '+l.length+' productos');
 }
 // El descuento por retiro se guarda solo al tocarlo (antes había que tocar "Guardar" y,
 // si no, al volver a entrar aparecía tildado de nuevo).
@@ -6166,6 +6204,7 @@ function openProd(id) {
     { const _cb = document.getElementById('p-oferta'); _cb.disabled = !!p.sinStockManual; const _h = document.getElementById('p-oferta-hint'); if(_h) _h.style.display = p.sinStockManual ? '' : 'none'; }   // 4.22.3
     document.getElementById('p-soloflyer').checked = !!p.soloFlyer;
     document.getElementById('p-frac').value = p.fracMin||1;
+    document.getElementById('p-mitad').checked = !!p.mitad;
     document.getElementById('p-grupo').value = p.grupoMay||'';
     renderMinGrupoProd();
     document.getElementById('p-variantes').value = (p.variantes||[]).join(', ');
@@ -6183,12 +6222,27 @@ function openProd(id) {
   { const _cb = document.getElementById('p-oferta'); _cb.disabled = false; const _h = document.getElementById('p-oferta-hint'); if(_h) _h.style.display = 'none'; }   // 4.22.3
   document.getElementById('p-soloflyer').checked = false;
     document.getElementById('p-frac').value = 1;
+    document.getElementById('p-mitad').checked = false;
     document.getElementById('p-grupo').value = '';
     renderMinGrupoProd();
     document.getElementById('p-variantes').value = '';
     resetPhoto('');
   }
+  prodMitadVis();
   document.getElementById('mprod').classList.add('open');
+}
+// 4.22.31: la casilla de ½ solo aparece en productos de la categoría especial (si está activa)
+function _prodEsEspecialForm() {
+  const ce = cfgEspecial();
+  const cat = document.getElementById('p-cat');
+  return !!(ce.activa && cat && _catCoincide({category: cat.value}, ce.categoria));
+}
+function prodMitadVis() {
+  const box = document.getElementById('p-mitad-box'); if(!box) return;
+  const ok = _prodEsEspecialForm();
+  box.style.display = ok ? '' : 'none';
+  const l = document.getElementById('p-mitad-lbl');
+  if(l) l.textContent = 'Se puede vender ½ ' + (String(cfgEspecial().unidad||'').trim() || 'unidad');
 }
 
 function fixVisibleSince() {
@@ -6250,6 +6304,7 @@ function saveProd() {
     sinStockManual: S.editId ? ((S.products.find(p=>p.id===S.editId)||{}).sinStockManual||false) : false,
     marca: '',
     fracMin: parseInt(document.getElementById('p-frac').value)||1,
+    mitad: !!(_prodEsEspecialForm() && document.getElementById('p-mitad').checked),
     barcode: document.getElementById('p-barcode').value.trim()||null,
     grupoMay: document.getElementById('p-grupo').value.trim(),
     variantes: document.getElementById('p-variantes').value.trim().split(',').map(v=>v.trim()).filter(Boolean),
@@ -15151,7 +15206,7 @@ function tiendaProdCardGrid(p) {
   const qty = hasVar
     ? Object.entries(TC).filter(function(e){ return tcProdId(e[0])===p.id; }).reduce(function(s,e){ return s+e[1]; },0)
     : (TC[p.id]||0);
-  const step = p.fracMin && p.fracMin > 1 ? p.fracMin : 1;
+  const step = stepDe(p);
   const sinStockManual = !!p.sinStockManual;
   const imgHtml = p.image
     ? '<img src="'+p.image+'" loading="lazy" decoding="async" onclick="'+(p.desc?'tiendaAbrirDetalle(\''+p.id+'\')':'')+'" style="width:calc(100% + 24px);height:140px;border-radius:16px 16px 0 0;object-fit:contain;display:block;background:#ffffff;margin:-12px -12px 10px -12px;'+(p.desc?'cursor:pointer':'')+(sinStockManual?';filter:grayscale(70%) brightness(.8)':'')+'">'
@@ -15165,14 +15220,14 @@ function tiendaProdCardGrid(p) {
   const btnBulto = _bq>1
     ? '<button data-tid="'+p.id+'" onclick="tiendaAddBulto(this.dataset.tid)" style="width:100%;background:#fff;color:#3483fa;border:1.5px solid #3483fa;border-radius:10px;padding:7px;font-weight:800;font-size:13px;cursor:pointer;margin-top:6px">📦 Bulto x'+_bq+' +</button>'
     : '';
-  const lblUnid = _labelUnidad(p)+' x'+step+' +';
+  const lblUnid = _lblStep(p);
   const ctrl = sinStockManual
     ? '<button disabled style="width:100%;background:#eee;color:#999;border:none;border-radius:10px;padding:9px;font-weight:800;font-size:14px;margin-top:8px;cursor:not-allowed">No disponible</button>'
     : (hasVar
     ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="width:100%;background:#3483fa;color:#fff;border:none;border-radius:10px;padding:9px;font-weight:800;font-size:14px;cursor:pointer;margin-top:8px">'+lblUnid+(qty>0?' ('+qty+' en carrito)':'')+'</button>'+btnBulto
     : (qty===0
         ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="width:100%;background:#3483fa;color:#fff;border:none;border-radius:10px;padding:9px;font-weight:800;font-size:14px;cursor:pointer;margin-top:8px">'+lblUnid+'</button>'+btnBulto
-        : '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#eef0f5;color:#3483fa;border:none;border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;font-weight:700">−</button><span style="font-weight:800;font-size:16px;color:#1a1a2e">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;font-weight:700">+</button></div>'
+        : '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#eef0f5;color:#3483fa;border:none;border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;font-weight:700">−</button><span style="font-weight:800;font-size:16px;color:#1a1a2e">'+_qtyTxt(qty)+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;font-weight:700">+</button></div>'
           +btnBulto
           +(p.wholesalePrice&&p.wholesaleQty&&tiendaGetPrice(p,qty)===p.wholesalePrice?'<div style="font-size:11px;color:#2e7d32;font-weight:700;text-align:center;margin-top:4px">⭐ Precio mayorista aplicado</div>':'')));
   const mayorHtml = p.wholesalePrice&&p.wholesaleQty
@@ -15954,7 +16009,7 @@ function tiendaPriceArrow(p) {
 }
 function tiendaProdCard(p) {
   const qty = TC[p.id]||0;
-  const step = p.fracMin && p.fracMin > 1 ? p.fracMin : 1;
+  const step = stepDe(p);
   const sinStockManualL = !!p.sinStockManual;
   const imgHtml = p.image
     ? '<img src="'+p.image+'" loading="lazy" decoding="async" style="width:64px;height:64px;border-radius:4px;object-fit:cover;flex-shrink:0'+(sinStockManualL?';filter:grayscale(70%) brightness(.8)':'')+'">'
@@ -15967,10 +16022,10 @@ function tiendaProdCard(p) {
     ? '<button disabled style="background:#eee;color:#999;border:none;border-radius:4px;padding:7px 12px;font-weight:700;font-size:12px;cursor:not-allowed">No disponible</button>'
     : (qty===0
     ? '<div style="display:flex;flex-direction:column;align-items:center">'
-      +'<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:4px;padding:7px 12px;font-weight:600;font-size:13px;cursor:pointer">'+_labelUnidad(p)+' x'+step+' +</button>'
+      +'<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:4px;padding:7px 12px;font-weight:600;font-size:13px;cursor:pointer">'+_lblStep(p)+'</button>'
       +btnBultoL
       +'</div>'
-    : '<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div style="display:flex;align-items:center;gap:10px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#eef0f5;color:#3483fa;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">−</button><span style="font-size:16px;font-weight:700;min-width:20px;text-align:center">'+qty+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">+</button></div>'
+    : '<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div style="display:flex;align-items:center;gap:10px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#eef0f5;color:#3483fa;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">−</button><span style="font-size:16px;font-weight:700;min-width:20px;text-align:center">'+_qtyTxt(qty)+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">+</button></div>'
     +btnBultoL
     +(p.wholesalePrice&&p.wholesaleQty&&tiendaGetPrice(p,qty)===p.wholesalePrice?'<div style="font-size:11px;color:#2e7d32;font-weight:700">⭐ Precio mayorista</div>':'')
     +'</div>');
@@ -16284,7 +16339,7 @@ function tiendaProdCardNueva(p) {
   const qty = hasVar
     ? Object.entries(TC).filter(function(e){ return tcProdId(e[0]) === p.id; }).reduce(function(s, e){ return s + e[1]; }, 0)
     : (TC[p.id] || 0);
-  const step = p.fracMin && p.fracMin > 1 ? p.fracMin : 1;
+  const step = stepDe(p);
   const sinStock = !!p.sinStockManual;
   const bq = bultoDe(p);
   const det = p.desc ? ' onclick="tiendaAbrirDetalle(\'' + p.id + '\')" style="cursor:pointer"' : '';
@@ -16301,9 +16356,9 @@ function tiendaProdCardNueva(p) {
     else if(nsv >= 1) stk = '<div class="tn-sk ult">¡Últimas ' + nsv + '!</div>';
   }
   const sub = hasVar ? (p.variantes.length + ' variantes para elegir')
-    : (bq > 1 ? 'Bulto x' + bq + ' unidades' : (step > 1 ? 'Se vende de a ' + step : 'Por unidad'));
+    : (bq > 1 ? 'Bulto x' + bq + ' unidades' : (p.mitad ? 'Podés pedir ½ ' + _labelUnidad(p).toLowerCase() : (step > 1 ? 'Se vende de a ' + step : 'Por unidad')));
   const pc = getPriceChangeHtml(p, '22px', '#1f5fc4', 'margin-top:4px');
-  const precio = pc ? pc : '<div class="tn-pp">' + fmtPesos(p.price) + ' <small>/ unidad</small></div>';
+  const precio = pc ? pc : '<div class="tn-pp">' + fmtPesos(p.price) + ' <small>/ ' + (p.mitad ? _tnEsc(_labelUnidad(p).toLowerCase()) : 'unidad') + '</small></div>';
   let mayor = '';
   if(p.wholesalePrice && p.wholesaleQty) {
     mayor = (qty > 0 && tiendaGetPrice(p, qty) === p.wholesalePrice)
@@ -16332,7 +16387,7 @@ function tiendaProdCardNueva(p) {
     const lbl = _tnEsc(_labelUnidad(p));
     // 4.22.17: Bultos a la izquierda y Unidades a la derecha (el + de Unidades queda bajo el pulgar derecho)
     const cUni = '<div class="tn-st"><button data-tid="' + p.id + '" onclick="tiendaDec(this.dataset.tid)"' + (sue > 0 ? '' : ' disabled') + ' aria-label="menos">−</button>'
-      + '<div class="v"><b>' + sue + '</b><span>' + lbl + '</span></div>'
+      + '<div class="v"><b>' + _qtyTxt(sue) + '</b><span>' + lbl + '</span></div>'
       + '<button class="mas" data-tid="' + p.id + '" onclick="tiendaAdd(this.dataset.tid)" aria-label="más">+</button></div>';
     const cBul = (bq > 1 ? '<div class="tn-st' + (bul > 0 ? ' on' : '') + (fl ? ' flash' : '') + '"><button data-tid="' + p.id + '" onclick="tiendaDecBulto(this.dataset.tid)"' + (bul > 0 ? '' : ' disabled') + ' aria-label="menos bultos">−</button>'
         + '<div class="v"><b>' + bul + '</b><span>Bultos</span></div>'
@@ -16454,8 +16509,8 @@ function tiendaRenderVariantePopup(prodId) {
     const sel = qty > 0;
     const vEsc = v.replace(/\\/g,'\\\\').replace(/'/g,'\\\'');
     const _bqV = bultoDe(p);
-    const stepV = p.fracMin && p.fracMin > 1 ? p.fracMin : 1;
-    const btnUnidV = '<button onclick="tiendaAddVariante(\''+prodId+'\',\''+vEsc+'\')" style="background:#3483fa;color:#fff;border:none;border-radius:8px;padding:6px 8px;font-size:12px;font-weight:800;cursor:pointer;flex-shrink:0;white-space:nowrap">'+_labelUnidad(p)+' x'+stepV+' +</button>';
+    const stepV = stepDe(p);
+    const btnUnidV = '<button onclick="tiendaAddVariante(\''+prodId+'\',\''+vEsc+'\')" style="background:#3483fa;color:#fff;border:none;border-radius:8px;padding:6px 8px;font-size:12px;font-weight:800;cursor:pointer;flex-shrink:0;white-space:nowrap">'+_lblStep(p)+'</button>';
     const btnBultoV = _bqV>1
       ? '<button onclick="tiendaAddBultoVariante(\''+prodId+'\',\''+vEsc+'\')" style="background:#fff;color:#3483fa;border:1.5px solid #3483fa;border-radius:8px;padding:6px 8px;font-size:12px;font-weight:800;cursor:pointer;flex-shrink:0;white-space:nowrap">📦 Bulto x'+_bqV+' +</button>'
       : '';
@@ -16465,7 +16520,7 @@ function tiendaRenderVariantePopup(prodId) {
       +btnBultoV
       +'<div data-varctr style="display:'+(qty>0?'flex':'none')+';align-items:center;gap:6px;flex-shrink:0">'
         +'<button onclick="tiendaDecVariante(\''+prodId+'\',\''+vEsc+'\')" style="background:#eef0f5;color:#3483fa;border:none;border-radius:8px;width:32px;height:32px;font-size:20px;cursor:pointer;font-weight:700">−</button>'
-        +'<span style="font-weight:800;font-size:16px;color:#333;min-width:18px;text-align:center">'+qty+'</span>'
+        +'<span style="font-weight:800;font-size:16px;color:#333;min-width:18px;text-align:center">'+_qtyTxt(qty)+'</span>'
         +'<button onclick="tiendaAddVariante(\''+prodId+'\',\''+vEsc+'\')" style="background:#3483fa;color:#fff;border:none;border-radius:8px;width:32px;height:32px;font-size:20px;cursor:pointer;font-weight:700">+</button>'
       +'</div>'
       +'</div>';
@@ -16484,7 +16539,7 @@ function tiendaRenderVariantePopup(prodId) {
 function tiendaAddVariante(prodId, variante) {
   const p = S.products.find(x=>x.id===prodId);
   if(!p) return;
-  const step = p.fracMin&&p.fracMin>1 ? p.fracMin : 1;
+  const step = stepDe(p);
   const key = prodId+'|'+variante;
   TC[key] = (TC[key]||0) + step;
   const hint = document.getElementById('tienda-hint');
@@ -16508,7 +16563,7 @@ function tiendaAddBultoVariante(prodId, variante) {
 }
 function tiendaDecVariante(prodId, variante) {
   const p = S.products.find(x=>x.id===prodId);
-  const step = p&&p.fracMin&&p.fracMin>1 ? p.fracMin : 1;
+  const step = stepDe(p);
   const key = prodId+'|'+variante;
   TC[key] = (TC[key]||step) - step;
   if(TC[key] <= 0) delete TC[key];
@@ -16616,7 +16671,7 @@ function tiendaAdd(id) {
   const p = S.products.find(x=>x.id===id);
   // Si tiene variantes → popup selector (nunca agregar directo desde el catálogo)
   if(p && p.variantes && p.variantes.length) { tiendaSelecVariante(id); return; }
-  const step = p&&p.fracMin&&p.fracMin>1 ? p.fracMin : 1;
+  const step = stepDe(p);
   const _antes = TC[id]||0;
   TC[id] = (TC[id]||0) + step;
   _tnFlashBulto(tcProdId(id), _antes, TC[id], bultoDe(p));
@@ -16660,7 +16715,7 @@ function tiendaAddBulto(id) {
 function tiendaInc(id) {
   const p = S.products.find(x=>x.id===tcProdId(id));
   if(p && p.sinStockManual) { toast('Este producto no está disponible ahora'); return; }
-  const step = p&&p.fracMin&&p.fracMin>1 ? p.fracMin : 1;
+  const step = stepDe(p);
   const _antes = TC[id]||0;
   TC[id]=(TC[id]||0)+step;
   _tnFlashBulto(tcProdId(id), _antes, TC[id], bultoDe(p));
@@ -16672,7 +16727,7 @@ function tiendaInc(id) {
 }
 function tiendaDec(id) {
   const p = S.products.find(x=>x.id===tcProdId(id));
-  const step = p&&p.fracMin&&p.fracMin>1 ? p.fracMin : 1;
+  const step = stepDe(p);
   TC[id]=(TC[id]||step)-step;
   if(TC[id]<=0) delete TC[id];
   _tiendaActualizarTarjeta(tcProdId(id));
@@ -16683,10 +16738,26 @@ function tiendaDec(id) {
 function tiendaActBadge() {
   const total = Object.values(TC).reduce((a,b)=>a+b,0);
   const badge = document.getElementById('tienda-badge');
-  if(total>0){badge.style.display='block';badge.textContent=total;}
+  if(total>0){badge.style.display='block';badge.textContent=_qtyTxt(total);}
   else badge.style.display='none';
 }
 
+// ---- 4.22.31: medio cartón (la unidad de la categoría especial se puede pedir de a ½) ----
+function stepDe(p) {
+  if(p && p.mitad) return 0.5;
+  return (p && p.fracMin && p.fracMin > 1) ? p.fracMin : 1;
+}
+function _qtyTxt(q) {
+  q = Number(q) || 0;
+  const e = Math.floor(q + 1e-9), fr = q - e;
+  if(Math.abs(fr - 0.5) < 1e-9) return (e ? String(e) : '') + '½';
+  if(Math.abs(fr) < 1e-9) return String(e);
+  return String(Math.round(q * 100) / 100);
+}
+function _lblStep(p) {
+  const st = stepDe(p), lbl = _labelUnidad(p);
+  return st === 0.5 ? '½ ' + lbl + ' +' : lbl + ' x' + st + ' +';
+}
 function bultoDe(p) {
   // Bulto explícito del producto; si no hay, se usa el "a partir de" del mayorista,
   // que en la práctica coincide con el bulto en la mayoría de los productos.
@@ -16772,11 +16843,11 @@ function tiendaRenderCarrito() {
     return '<div style="background:#fff;border-radius:12px;padding:12px;display:flex;align-items:center;gap:12px;border:1px solid #eef0f5;margin-bottom:8px">'
       +'<div style="font-size:28px">'+emoji+'</div>'
       +'<div style="flex:1"><div style="font-size:14px;font-weight:600;color:#1a1a2e">'+name+'</div>'
-      +'<div style="font-size:12px;color:#999;margin-top:1px">$'+price.toFixed(0)+' c/u × '+qty+'</div>'
+      +'<div style="font-size:12px;color:#999;margin-top:1px">$'+price.toFixed(0)+' c/u × '+_qtyTxt(qty)+'</div>'
       +'<div style="font-size:16px;font-weight:800;color:#3483fa;margin-top:2px">$'+(price*qty).toFixed(0)+'</div></div>'
       +'<div style="display:flex;align-items:center;gap:10px">'
       +'<button data-tid="'+id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#eef0f5;color:#3483fa;border:none;border-radius:8px;width:30px;height:30px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">−</button>'
-      +'<span style="font-size:16px;font-weight:700;min-width:20px;text-align:center;color:#333">'+qty+'</span>'
+      +'<span style="font-size:16px;font-weight:700;min-width:20px;text-align:center;color:#333">'+_qtyTxt(qty)+'</span>'
       +'<button data-tid="'+id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:8px;width:30px;height:30px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">+</button>'
       +'</div></div>';
   });
@@ -16986,7 +17057,7 @@ async function tiendaConfirmar() {
     const nombre = p.name + (variante ? ' - '+variante : '');
     const unit = tiendaGetPrice(p, qty);
     total += unit*qty;
-    return '\u2022 '+nombre+' x'+qty+' = $'+(unit*qty).toFixed(2);
+    return '\u2022 '+nombre+' x'+_qtyTxt(qty)+' = $'+(unit*qty).toFixed(2);
   }).filter(Boolean).join('\n');
   const _envio = tiendaEnvioInfo(total);
   const msg = (_REL_ID ? '⚡ *Oferta relámpago*\n' : '')+'\uD83D\uDED2 *Pedido de '+TN+'*\n\n'+lineas+'\n\n*Total: $'+total.toFixed(2)+'*'+(_envio ? '\n'+_envio.wa : '');
