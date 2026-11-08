@@ -2394,7 +2394,7 @@ body.pc #nf-foot{grid-column:2;grid-row:3}
 <div class="modal-overlay" id="mrel">
   <div class="modal">
     <div class="modal-handle"></div>
-    <div class="modal-header"><h3>⚡ Oferta relámpago</h3><button class="modal-close" onclick="closeM('mrel')">×</button></div>
+    <div class="modal-header"><h3>⚡ Oferta relámpago</h3><button class="modal-close rel-x" onclick="closeM('mrel')" aria-label="Cerrar">✕</button></div>
     <div class="modal-body" id="mrel-body"></div>
   </div>
 </div>
@@ -3622,8 +3622,17 @@ function relRender() {
   h += '<div class="card" style="padding:4px 12px;margin-bottom:12px">';
   h += r.items.length ? r.items.map(function(it, i){ return _relFila(it, i, !termino && !(enCurso && r.items.length < 2)); }).join('') : '<div style="padding:14px 0;color:var(--text3);text-align:center">Todavía no agregaste productos</div>';
   h += '</div>';
+  if(enCurso || termino) h += _relHtmlPedidos(r);
+  if(_relTimerPanel) { clearInterval(_relTimerPanel); _relTimerPanel = null; }
+  if(enCurso) {
+    _relTimerPanel = setInterval(function(){
+      const m = document.getElementById('mrel');
+      if(!m || !m.classList.contains('open')) { clearInterval(_relTimerPanel); _relTimerPanel = null; return; }
+      if(_relVista === 'main') relRender();
+    }, 15000);
+  }
   if(termino) {
-    h += '<button class="btn btn-primary btn-full" onclick="relNueva()">⚡ Armar una oferta nueva</button>';
+    h += '<button class="btn btn-primary btn-full" onclick="relLimpiar()">🧹 Limpiar oferta</button>';
     b.innerHTML = h;
     return;
   }
@@ -3644,6 +3653,71 @@ function relRender() {
     h += '<button class="btn btn-primary btn-full" onclick="relPublicar()"' + (r.items.length ? '' : ' disabled') + '>⚡ Publicar oferta</button>';
   }
   b.innerHTML = h;
+}
+// ---- 4.22.30: panel de pedidos de la oferta (en vivo) y limpieza ----
+let _relTimerPanel = null;
+function _relPedidos(r) {
+  if(!r || !r.inicio) return [];
+  const tope = r.hasta ? r.hasta + 5 * 60000 : Infinity;
+  return (S.invoices || []).filter(function(inv){
+    return inv && inv.type !== 'presupuesto' && inv.status !== 'cancelada'
+      && String(inv.notes || '').indexOf('⚡ Oferta relámpago') === 0
+      && (inv.ts || 0) >= r.inicio - 1000 && (inv.ts || 0) <= tope;
+  });
+}
+function _relNombreCli(inv) {
+  const n = String(inv.clientName || 'Cliente');
+  return n.indexOf('Visitante') === 0 ? '📱 ' + n.replace('Visitante', '').trim() : n;
+}
+function _relHtmlPedidos(r) {
+  const peds = _relPedidos(r);
+  let h = '<div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:2px 0 6px">Pedidos recibidos (' + peds.length + ')</div>';
+  if(!peds.length) return h + '<div class="card" style="padding:14px;margin-bottom:12px;color:var(--text3);text-align:center;font-size:14px">Todavía no llegó ningún pedido</div>';
+  const tot = {};
+  let totalUn = 0, totalPesos = 0;
+  peds.forEach(function(inv){
+    totalPesos += (+inv.total || 0);
+    (inv.items || []).forEach(function(it){ tot[it.prodId] = (tot[it.prodId] || 0) + (+it.qty || 0); totalUn += (+it.qty || 0); });
+  });
+  h += '<div class="card" style="padding:6px 12px;margin-bottom:10px">';
+  r.items.forEach(function(it, i){
+    const p = (S.products || []).find(function(x){ return x.id === it.prodId; });
+    if(!p) return;
+    const q = tot[it.prodId] || 0;
+    h += '<div style="display:flex;justify-content:space-between;gap:8px;padding:7px 0;' + (i > 0 ? 'border-top:1px solid var(--border)' : '') + '"><span style="font-weight:600">' + _tnEsc(p.name) + '</span><span style="font-weight:800;color:' + (q ? 'var(--green)' : 'var(--text3)') + ';white-space:nowrap">' + q + ' u. · ' + fmtPesos(q * it.precio) + '</span></div>';
+  });
+  h += '<div style="display:flex;justify-content:space-between;padding:8px 0;border-top:2px solid var(--border);font-weight:800"><span>Total (' + totalUn + ' u.)</span><span>' + fmtPesos(totalPesos) + '</span></div></div>';
+  h += '<div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:2px 0 6px">Quién pidió qué</div><div class="card" style="padding:4px 12px;margin-bottom:12px">';
+  peds.slice().sort(function(a, b){ return (b.ts || 0) - (a.ts || 0); }).forEach(function(inv, i){
+    const lin = (inv.items || []).map(function(it){ return _tnEsc(it.desc || '') + ' ×' + it.qty; }).join(', ');
+    h += '<div style="padding:8px 0;' + (i > 0 ? 'border-top:1px solid var(--border)' : '') + '"><div style="display:flex;justify-content:space-between;gap:8px"><b>' + _tnEsc(_relNombreCli(inv)) + '</b><span style="font-weight:700">' + fmtPesos(inv.total || 0) + '</span></div><div style="font-size:13px;color:var(--text3)">' + lin + '</div></div>';
+  });
+  return h + '</div>';
+}
+function _relProdUsado(id) {
+  return (S.invoices || []).some(function(inv){ return inv && (inv.items || []).some(function(it){ return it.prodId === id; }); })
+    || (S.compras || []).some(function(c){ return c && (c.items || []).some(function(it){ return it.prodId === id; }); });
+}
+// Vacia la oferta terminada. Los productos creados para la oferta que nadie pidio se borran;
+// los que tienen facturas quedan ocultos (para no romper el historial). Los que ya existian no se tocan.
+function relLimpiar() {
+  const r = _relCfg();
+  const nuevos = r.items.map(function(it){ return (S.products || []).find(function(x){ return x.id === it.prodId; }); }).filter(function(p){ return p && p.relampago; });
+  const borrar = nuevos.filter(function(p){ return !_relProdUsado(p.id); });
+  const quedan = nuevos.length - borrar.length;
+  let msg = '¿Limpiar la oferta? Dejás de ver estos productos acá.';
+  if(borrar.length) msg += '\n\nSe borran ' + borrar.length + ' producto' + (borrar.length > 1 ? 's' : '') + ' que nadie pidió.';
+  if(quedan) msg += '\n\n' + quedan + ' producto' + (quedan > 1 ? 's' : '') + ' con pedidos quedan ocultos en Productos para no perder las facturas.';
+  if(!confirm(msg)) return;
+  borrar.forEach(function(p){
+    S.products = S.products.filter(function(x){ return x.id !== p.id; });
+    try { if(window._fbDeleteDoc) _fbDeleteDoc('products', p.id); } catch(e) {}
+  });
+  r.id = ''; r.items = []; r.estado = 'borrador'; r.inicio = 0; r.hasta = 0;
+  _relGuardar();
+  if(borrar.length) { try { save(['products']); } catch(e) {} try { renderProds(); } catch(e) {} try { updDash(); } catch(e) {} }
+  relRender();
+  toast('✓ Oferta limpiada');
 }
 function relDur(m) { const r = _relCfg(); r.modo = 'preset'; r.dur = +m || 0; _relGuardar(); relRender(); }
 function relModo(m) { const r = _relCfg(); r.modo = m; _relGuardar(); relRender(); }
@@ -4141,6 +4215,11 @@ window.testersGuardar = function(){
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.30', f:'07/11/2026', t:[
+    '⚡ Oferta relámpago: panel de pedidos en vivo (total por producto y quién pidió qué), se actualiza solo cada 15 segundos.',
+    'Botón "Limpiar oferta" cuando termina: borra los productos creados para la oferta que nadie pidió y deja ocultos los que tienen facturas.',
+    'La X para cerrar la ventana ahora es más grande.'
+  ]},
   {v:'4.22.29', f:'07/11/2026', t:[
     '⚡ Oferta relámpago: el mensaje de WhatsApp ya no lleva productos ni precios (solo invita a entrar con el link).',
     'Duración configurable: "Otra duración" (minutos) y "Hasta una hora" exacta. Con la oferta en curso, botón "+15 min" para extender el cierre.'
@@ -14779,6 +14858,8 @@ body.tn-body{display:block!important;background:linear-gradient(180deg,#dfeaff 0
 .tn-var{background:var(--tn-azul);color:#fff}
 .tn-nodisp{background:#eee;color:#999;cursor:not-allowed}
 .tn-vacio{text-align:center;padding:40px 16px;color:#555;font-size:14.5px}
+/* 4.22.30: X grande para cerrar la ventana de la oferta relampago */
+.rel-x{width:46px!important;height:46px!important;font-size:26px!important;line-height:1!important;border-radius:12px!important;display:flex!important;align-items:center;justify-content:center;font-weight:700}
 /* 4.22.28: oferta relampago */
 .tn-rel .tn-buscar,.tn-rel #tn-stick,.tn-rel #tienda-banners,.tn-rel #tn-instalar,.tn-rel #tienda-nivel-info,.tn-rel #tienda-hint,.tn-rel #tienda-btn-guardar{display:none!important}
 .tn-rel-login{width:100%;max-width:340px;background:#fff7d6;border:2px solid #f59e0b;color:#7c2d12;border-radius:14px;padding:12px 14px;margin:-20px 0 22px;text-align:center;font-size:15px;line-height:1.45}
