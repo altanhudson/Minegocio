@@ -523,7 +523,7 @@
                 cfgMerge.horarioCorteTs = tsEx;
               }
               // Igual para los datos del negocio: gana el cambio mas nuevo.
-              ['negocio','catEspecial','descRetiro','stockTienda'].forEach(function(k){
+              ['negocio','catEspecial','descRetiro','stockTienda','relampago'].forEach(function(k){
                 const tE = (ex[k] && ex[k].ts) || 0, tN = (nv[k] && nv[k].ts) || 0;
                 if(tE > tN) cfgMerge[k] = ex[k];
               });
@@ -617,7 +617,7 @@
                 cfgMerge.horarioCorteTs = tsEx;
               }
               // Igual para los datos del negocio: gana el cambio mas nuevo.
-              ['negocio','catEspecial','descRetiro','stockTienda'].forEach(function(k){
+              ['negocio','catEspecial','descRetiro','stockTienda','relampago'].forEach(function(k){
                 const tE = (ex[k] && ex[k].ts) || 0, tN = (nv[k] && nv[k].ts) || 0;
                 if(tE > tN) cfgMerge[k] = ex[k];
               });
@@ -708,7 +708,7 @@
     if(!catSnap.exists()) return null;
     const c = catSnap.data() || {};
     if(!Array.isArray(c.prods) || !c.prods.length) return null;
-    const r = { products: c.prods, __catalogo: { cig: c.cig || [], tel6: !!c.tel6, sub: c.sub || null } };
+    const r = { products: c.prods, __catalogo: { cig: c.cig || [], tel6: !!c.tel6, sub: c.sub || null, rel: c.rel || null } };
     if(cfgSnap.exists()) Object.assign(r, cfgSnap.data());
     return r;
   };
@@ -1379,6 +1379,7 @@ body.pc #nf-foot{grid-column:2;grid-row:3}
         <div style="display:flex;gap:10px;flex-wrap:wrap">
           <button onclick="tiendaCompartirLink()" style="flex:1;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">📤 Compartir link</button>
           <button onclick="generarFlyer()" style="flex:1;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">📢 Generar flyer</button>
+          <button onclick="abrirRelampago()" style="width:100%;padding:10px;background:linear-gradient(135deg,#f59e0b,#ea580c);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer">⚡ Oferta relámpago</button>
           <button onclick="tiendaAdminEntrar()" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">👁️ Ver tienda como admin</button>
         </div>
       </div>
@@ -2389,6 +2390,17 @@ body.pc #nf-foot{grid-column:2;grid-row:3}
   </div>
 </div>
 
+<!-- 4.22.28: OFERTA RELAMPAGO -->
+<div class="modal-overlay" id="mrel">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header"><h3>⚡ Oferta relámpago</h3><button class="modal-close" onclick="closeM('mrel')">×</button></div>
+    <div class="modal-body" id="mrel-body"></div>
+  </div>
+</div>
+<input type="file" id="rel-foto-cam" accept="image/*" capture="environment" onchange="relFotoElegida(this)" style="display:none">
+<input type="file" id="rel-foto-gal" accept="image/*" onchange="relFotoElegida(this)" style="display:none">
+
 <!-- PAGO CLIENTE -->
 <div class="modal-overlay" id="mpagocli">
   <div class="modal">
@@ -2749,6 +2761,8 @@ function load() {
 // Al abrir la app se muestra la copia al instante (sin poder cargar nada) y cuando
 // llegan los datos de Firebase se le vuelven a aplicar encima los cambios pendientes.
 const _ES_TIENDA_URL = location.search.indexOf('tienda') !== -1;
+// 4.22.28: link de oferta relampago (?tienda&relampago=ID): la tienda muestra solo esa oferta
+const _REL_ID = _ES_TIENDA_URL ? ((new URLSearchParams(location.search).get('relampago') || '').replace(/[^A-Za-z0-9]/g, '')) : '';
 const _IDB = (function(){
   let _p = null;
   function abrir() {
@@ -3487,7 +3501,25 @@ function _armarCatalogo() {
   });
   const _cat = { v: 1, prods: prods, cig: cig, tel6: tel6 };
   try { const _si = window.subCatalogoInfo && window.subCatalogoInfo(); if(_si) _cat.sub = _si; } catch(e) {}
+  try { const _rl = _relParaCatalogo(); if(_rl) _cat.rel = _rl; } catch(e) {}
   return _cat;
+}
+// 4.22.28: oferta relampago en curso -> va dentro del catalogo (lo unico que lee el link de la oferta).
+// Solo nombre, foto y precio de oferta: nada de costos, stock ni proveedores.
+function _relParaCatalogo() {
+  const r = S.config && S.config.relampago;
+  if(!r || r.estado !== 'activa' || !r.id || !Array.isArray(r.items) || !r.items.length) return null;
+  if(r.hasta && Date.now() >= r.hasta) return null;
+  const prods = [];
+  r.items.forEach(function(it){
+    const p = (S.products || []).find(function(x){ return x.id === it.prodId; });
+    if(!p || !p.name) return;
+    const o = { id: p.id, name: p.name, price: Number(it.precio) || p.price || 0, category: 'Oferta relámpago', emoji: p.emoji || '📦', visible: true };
+    if(p.image && String(p.image).indexOf('data:') !== 0) o.image = p.image;
+    if(o.price > 0) prods.push(o);
+  });
+  if(!prods.length) return null;
+  return { id: r.id, hasta: Number(r.hasta) || 0, prods: prods };
 }
 function _hashTexto(t) { let h = 5381; for(let i = 0; i < t.length; i++) { h = ((h << 5) + h + t.charCodeAt(i)) | 0; } return String(h >>> 0) + ':' + t.length; }
 let _catT = null, _catUltimo = null, _catPublicando = false;
@@ -3517,6 +3549,282 @@ async function _catalogoPublicar() {
     if(!cat.tel6) setTimeout(_catalogoProgramar, 40000);
   } catch(e) { console.warn('Catalogo de la tienda no publicado:', e); }
   finally { _catPublicando = false; }
+}
+// ===================== 4.22.28: OFERTA RELAMPAGO (app del negocio) =====================
+// S.config.relampago = { id, estado: 'borrador'|'activa'|'terminada', items: [{prodId, precio}], dur (min, 0 = sin limite),
+// inicio, hasta (0 = sin limite), ts }. Los productos nuevos son productos comunes OCULTOS de la tienda
+// (stock 0: lo pedido queda en negativo y sale solo en la Lista de compras, por su proveedor).
+let _relVista = 'main';   // main | agregar | elegir
+let _relNuevo = null;     // producto que se esta cargando
+function _relCfg() {
+  if(!S.config) S.config = {};
+  let r = S.config.relampago;
+  if(!r || typeof r !== 'object') r = S.config.relampago = { id: '', estado: 'borrador', items: [], dur: 60, inicio: 0, hasta: 0, ts: 0 };
+  if(!Array.isArray(r.items)) r.items = [];
+  if(r.dur === undefined) r.dur = 60;
+  return r;
+}
+function _relEnCurso(r) { return !!(r && r.estado === 'activa' && r.id && (!r.hasta || Date.now() < r.hasta)); }
+function _relTerminada(r) { return !!(r && (r.estado === 'terminada' || (r.estado === 'activa' && r.hasta && Date.now() >= r.hasta))); }
+function _relGuardar() { const r = _relCfg(); r.ts = Date.now(); try { save(['config']); } catch(e) {} }
+function _relEstaPublicada() {
+  try {
+    const h = _hashTexto(JSON.stringify(_armarCatalogo()));
+    let previo = null; try { previo = localStorage.getItem('rev_cat_firma_' + SK); } catch(e) {}
+    return h === _catUltimo || h === previo;
+  } catch(e) { return false; }
+}
+// Publica el catalogo YA (sin esperar los 4 segundos) y avisa si quedo publicado
+async function _relPublicarYa() {
+  try { if(_catT) { clearTimeout(_catT); _catT = null; } } catch(e) {}
+  for(let i = 0; i < 30 && _catPublicando; i++) await new Promise(function(res){ setTimeout(res, 300); });
+  try { await _catalogoPublicar(); } catch(e) {}
+  return _relEstaPublicada();
+}
+function abrirRelampago() {
+  _relVista = 'main'; _relNuevo = null;
+  relRender();
+  document.getElementById('mrel').classList.add('open');
+}
+function _relFila(it, i, editable) {
+  const p = (S.products || []).find(function(x){ return x.id === it.prodId; });
+  if(!p) return '';
+  const img = p.image ? '<img src="' + _tnEsc(p.image) + '" style="width:46px;height:46px;object-fit:cover;border-radius:8px;flex:0 0 46px">'
+    : '<div style="width:46px;height:46px;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:22px;flex:0 0 46px">' + (p.emoji || '📦') + '</div>';
+  const normal = (!p.relampago && Math.round(p.price) !== Math.round(it.precio)) ? '<div style="font-size:12px;color:var(--text3)">Precio normal ' + fmtPesos(p.price) + '</div>' : '';
+  return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;' + (i > 0 ? 'border-top:1px solid var(--border)' : '') + '">' + img
+    + '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:15px">' + _tnEsc(p.name) + '</div><div style="color:var(--green);font-weight:800">' + fmtPesos(it.precio) + '</div>' + normal + '</div>'
+    + (editable ? '<button onclick="relQuitar(' + i + ')" style="background:none;border:none;font-size:18px;cursor:pointer;padding:6px">✕</button>' : '') + '</div>';
+}
+function relRender() {
+  const b = document.getElementById('mrel-body');
+  if(!b) return;
+  if(_relVista === 'agregar') { b.innerHTML = _relHtmlAgregar(); return; }
+  if(_relVista === 'elegir') {
+    b.innerHTML = '<button onclick="_relVista=\'agregar\';relRender()" class="btn btn-ghost" style="margin-bottom:10px">← Volver</button>'
+      + '<input type="text" id="rel-buscar" placeholder="Buscar producto…" autocomplete="off" oninput="relFiltrar(this.value)" style="width:100%;margin-bottom:8px">'
+      + '<div id="rel-lista"></div>';
+    relFiltrar('');
+    return;
+  }
+  const r = _relCfg();
+  const enCurso = _relEnCurso(r), termino = _relTerminada(r);
+  let h = '';
+  if(enCurso) {
+    h += '<div style="background:#dcfce7;color:#14532d;border-radius:12px;padding:12px;margin-bottom:12px;font-size:15px"><b>🟢 Oferta en curso</b><br>'
+      + (r.hasta ? 'Termina a las <b>' + _relHora(r.hasta) + '</b> (quedan ' + _relFaltaTxt(r.hasta - Date.now()) + ')' : 'Sin hora de fin: terminala cuando quieras') + '</div>';
+    if(!_relEstaPublicada()) h += '<div style="background:#fef3c7;color:#92400e;border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:14px">⚠️ Todavía no se publicó en la tienda (conexión). <button onclick="relReintentar()" class="btn btn-ghost" style="margin-top:6px;width:100%">Reintentar</button></div>';
+  } else if(termino) {
+    h += '<div style="background:var(--surface2);border-radius:12px;padding:12px;margin-bottom:12px;font-size:15px"><b>La oferta terminó</b>' + (r.hasta ? ' a las ' + _relHora(r.hasta) : '') + '.<br><span style="font-size:13px;color:var(--text3)">Los pedidos quedaron en Facturas y lo que falta comprar, en la Lista de compras.</span></div>';
+  } else {
+    h += '<div style="font-size:14px;color:var(--text3);margin-bottom:10px">Cargá los productos, elegí cuánto dura y compartí el link por WhatsApp. Los pedidos entran como facturas y lo que falta comprar aparece en la Lista de compras.</div>';
+  }
+  h += '<div class="card" style="padding:4px 12px;margin-bottom:12px">';
+  h += r.items.length ? r.items.map(function(it, i){ return _relFila(it, i, !termino && !(enCurso && r.items.length < 2)); }).join('') : '<div style="padding:14px 0;color:var(--text3);text-align:center">Todavía no agregaste productos</div>';
+  h += '</div>';
+  if(termino) {
+    h += '<button class="btn btn-primary btn-full" onclick="relNueva()">⚡ Armar una oferta nueva</button>';
+    b.innerHTML = h;
+    return;
+  }
+  h += '<button class="btn btn-ghost btn-full" style="margin-bottom:14px" onclick="relIrAgregar()">+ Agregar producto</button>';
+  if(enCurso) {
+    h += '<button class="btn btn-primary btn-full" style="margin-bottom:10px" onclick="relCompartir()">📤 Compartir por WhatsApp</button>';
+    h += '<button class="btn btn-ghost btn-full" style="color:#b91c1c" onclick="relTerminar()">⏹ Terminar ahora</button>';
+  } else {
+    const durs = [[30, '30 min'], [60, '1 hora'], [120, '2 horas'], [0, 'Sin límite']];
+    h += '<div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">¿Cuánto dura?</div><div style="display:flex;gap:6px;margin-bottom:14px">'
+      + durs.map(function(d){ const sel = (+r.dur || 0) === d[0]; return '<button onclick="relDur(' + d[0] + ')" style="flex:1;padding:9px 2px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:2px solid ' + (sel ? '#ea580c;background:#ffedd5;color:#9a3412' : 'var(--border);background:var(--surface2);color:var(--text2)') + '">' + d[1] + '</button>'; }).join('') + '</div>';
+    h += '<button class="btn btn-primary btn-full" onclick="relPublicar()"' + (r.items.length ? '' : ' disabled') + '>⚡ Publicar oferta</button>';
+  }
+  b.innerHTML = h;
+}
+function relDur(m) { const r = _relCfg(); r.dur = +m || 0; _relGuardar(); relRender(); }
+function relNueva() {
+  const r = _relCfg();
+  r.id = ''; r.items = []; r.estado = 'borrador'; r.inicio = 0; r.hasta = 0;
+  _relGuardar(); relRender();
+}
+async function relPublicar() {
+  const r = _relCfg();
+  if(!r.items.length) { toast('Agregá al menos un producto'); return; }
+  if(!window._datosFirebaseOk || !navigator.onLine) { toast('Sin conexión con la nube. Probá de nuevo en un momento'); return; }
+  r.id = 'R' + Date.now().toString(36).toUpperCase();
+  r.inicio = Date.now();
+  r.hasta = r.dur ? r.inicio + r.dur * 60000 : 0;
+  r.estado = 'activa';
+  _relGuardar();
+  const b = document.getElementById('mrel-body');
+  if(b) b.innerHTML = '<div style="text-align:center;padding:30px 0;font-size:15px">⏳ Publicando la oferta…</div>';
+  const ok = await _relPublicarYa();
+  relRender();
+  toast(ok ? '✓ Oferta publicada. Tocá Compartir por WhatsApp' : '⚠️ No se pudo publicar. Tocá Reintentar');
+}
+async function relReintentar() {
+  const ok = await _relPublicarYa();
+  relRender();
+  toast(ok ? '✓ Oferta publicada' : '⚠️ No se pudo publicar. Revisá la conexión');
+}
+function _relLink(r) { return 'https://surtimar.com.ar/?tienda' + (window._bizUid ? '&n=' + window._bizUid : '') + '&relampago=' + r.id; }
+function relCompartir() {
+  const r = _relCfg();
+  if(!_relEnCurso(r)) return;
+  if(!_relEstaPublicada()) { toast('⚠️ La oferta todavía no se publicó. Tocá Reintentar'); return; }
+  const lineas = r.items.map(function(it){ const p = (S.products || []).find(function(x){ return x.id === it.prodId; }); return p ? '• ' + p.name + ' — ' + fmtPesos(it.precio) : ''; }).filter(Boolean).join('\n');
+  const txt = '⚡ *OFERTA RELÁMPAGO* ⚡\n\n' + lineas + '\n\n' + (r.hasta ? '⏰ Solo hasta las ' + _relHora(r.hasta) + '\n' : '⏰ Por tiempo limitado\n') + '👉 Pedí acá: ' + _relLink(r);
+  if(navigator.share) {
+    navigator.share({ text: txt }).catch(function(e){ if(!e || e.name !== 'AbortError') window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank'); });
+    return;
+  }
+  window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank');
+}
+async function relTerminar() {
+  if(!confirm('¿Terminar la oferta ahora? El link deja de tomar pedidos.')) return;
+  const r = _relCfg();
+  r.hasta = Date.now(); r.estado = 'terminada';
+  _relGuardar(); relRender();
+  const ok = await _relPublicarYa();
+  if(!ok) toast('⚠️ Sin conexión: el link se cierra apenas vuelva la señal');
+}
+async function relQuitar(i) {
+  const r = _relCfg();
+  if(_relEnCurso(r) && r.items.length < 2) { toast('Para sacar todo, terminá la oferta'); return; }
+  r.items.splice(i, 1);
+  _relGuardar(); relRender();
+  if(_relEnCurso(r)) { await _relPublicarYa(); relRender(); }
+}
+function relIrAgregar() { _relNuevo = {}; _relVista = 'agregar'; relRender(); }
+function _relLeerForm() {
+  const n = _relNuevo || (_relNuevo = {});
+  const g = function(id){ const e = document.getElementById(id); return e ? e.value : undefined; };
+  if(g('rel-nombre') !== undefined) n.nombre = g('rel-nombre');
+  if(g('rel-precio') !== undefined) n.precio = g('rel-precio');
+  if(g('rel-costo') !== undefined) n.costo = g('rel-costo');
+  if(g('rel-prov') !== undefined) n.prov = g('rel-prov');
+}
+function _relHtmlAgregar() {
+  const n = _relNuevo || {};
+  const big = 'display:flex;align-items:center;gap:12px;width:100%;padding:16px;margin-bottom:10px;border-radius:12px;border:1px solid var(--border);background:var(--surface2);font-size:16px;font-weight:700;cursor:pointer;color:var(--text);text-align:left';
+  if(!n.prodId && !n.foto) {
+    return '<button onclick="_relVista=\'main\';relRender()" class="btn btn-ghost" style="margin-bottom:12px">← Volver</button>'
+      + '<button style="' + big + '" onclick="document.getElementById(\'rel-foto-cam\').click()"><span style="font-size:28px">📷</span>Sacar foto</button>'
+      + '<button style="' + big + '" onclick="document.getElementById(\'rel-foto-gal\').click()"><span style="font-size:28px">🖼️</span>Elegir de la galería</button>'
+      + '<button style="' + big + '" onclick="_relVista=\'elegir\';relRender()"><span style="font-size:28px">📦</span>Un producto que ya tengo cargado</button>';
+  }
+  const p = n.prodId ? (S.products || []).find(function(x){ return x.id === n.prodId; }) : null;
+  const src = p ? p.image : n.foto;
+  let h = '<div style="text-align:center;margin-bottom:12px">' + (src ? '<img src="' + _tnEsc(src) + '" style="max-width:160px;max-height:160px;border-radius:12px">' : '<div style="font-size:50px">' + ((p && p.emoji) || '📦') + '</div>') + '</div>';
+  if(p) {
+    h += '<div style="font-weight:800;font-size:17px;text-align:center">' + _tnEsc(p.name) + '</div><div style="text-align:center;font-size:13px;color:var(--text3);margin-bottom:12px">Precio normal ' + fmtPesos(p.price) + ' · el precio normal no cambia</div>';
+  } else {
+    h += '<div style="text-align:center;margin:-4px 0 10px"><button class="btn btn-ghost" style="font-size:13px;padding:6px 10px" onclick="_relLeerForm();_relNuevo.foto=null;_relNuevo.file=null;relRender()">Cambiar foto</button></div>';
+    h += '<div class="form-group"><label class="fl">Nombre del producto</label><input type="text" id="rel-nombre" value="' + _tnEsc(n.nombre || '') + '" placeholder="Ej: Galletitas Oreo 118 g"></div>';
+  }
+  h += '<div class="form-group"><label class="fl">Precio de la oferta</label><input type="number" id="rel-precio" inputmode="decimal" value="' + _tnEsc(n.precio || '') + '" placeholder="0"></div>';
+  if(!p) {
+    let provSel = n.prov;
+    if(provSel === undefined) { try { provSel = localStorage.getItem('rev_rel_prov') || ''; } catch(e) { provSel = ''; } }
+    const provs = (S.proveedores || []).slice().sort(function(a, b){ return String(a.name || '').localeCompare(String(b.name || ''), 'es'); });
+    h += '<div class="form-group"><label class="fl">Costo (opcional)</label><input type="number" id="rel-costo" inputmode="decimal" value="' + _tnEsc(n.costo || '') + '" placeholder="Lo que pagás vos"></div>';
+    h += '<div class="form-group"><label class="fl">¿Dónde se compra?</label><select id="rel-prov"><option value="">Sin proveedor</option>'
+      + provs.map(function(pv){ return '<option value="' + _tnEsc(pv.id) + '"' + (pv.id === provSel ? ' selected' : '') + '>' + _tnEsc(pv.name) + '</option>'; }).join('') + '</select></div>';
+  }
+  h += '<div style="display:flex;gap:8px;margin-top:6px"><button class="btn btn-ghost" style="flex:1" onclick="_relNuevo=null;_relVista=\'main\';relRender()">Cancelar</button>'
+    + '<button class="btn btn-primary" style="flex:2" id="rel-btn-ok" onclick="relConfirmarProducto()">Agregar a la oferta</button></div>';
+  return h;
+}
+function relFiltrar(q) {
+  const el = document.getElementById('rel-lista');
+  if(!el) return;
+  const r = _relCfg();
+  const ya = {}; r.items.forEach(function(it){ ya[it.prodId] = 1; });
+  const norm = function(t){ return String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
+  const qs = norm(q).split(/\s+/).filter(Boolean);
+  const lista = (S.products || []).filter(function(p){
+    if(!p || !p.name || ya[p.id] || (p.variantes && p.variantes.length)) return false;
+    const n = norm(p.name);
+    return qs.every(function(w){ return n.indexOf(w) !== -1; });
+  }).sort(function(a, b){ return ((b.image ? 1 : 0) - (a.image ? 1 : 0)) || a.name.localeCompare(b.name, 'es'); }).slice(0, 40);
+  el.innerHTML = lista.length ? lista.map(function(p){
+    const img = p.image ? '<img src="' + _tnEsc(p.image) + '" loading="lazy" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex:0 0 40px">' : '<div style="width:40px;height:40px;flex:0 0 40px;display:flex;align-items:center;justify-content:center;font-size:20px">' + (p.emoji || '📦') + '</div>';
+    return '<div onclick="relUsarExistente(\'' + p.id + '\')" style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border);cursor:pointer">' + img
+      + '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:15px">' + _tnEsc(p.name) + '</div><div style="font-size:13px;color:var(--text3)">' + fmtPesos(p.price || 0) + '</div></div></div>';
+  }).join('') : '<div style="padding:16px;text-align:center;color:var(--text3)">No hay productos con ese nombre</div>';
+}
+function relUsarExistente(id) {
+  const p = (S.products || []).find(function(x){ return x.id === id; });
+  if(!p) return;
+  _relNuevo = { prodId: id, precio: p.price || '' };
+  _relVista = 'agregar';
+  relRender();
+}
+function relFotoElegida(input) {
+  const file = input.files && input.files[0];
+  input.value = '';
+  if(!file) return;
+  _relLeerForm();
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      const MAX = 400;
+      let w = img.width, hh = img.height;
+      if(w > MAX || hh > MAX) { if(w > hh) { hh = Math.round(hh * MAX / w); w = MAX; } else { w = Math.round(w * MAX / hh); hh = MAX; } }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = hh;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, hh);
+      const n = _relNuevo || (_relNuevo = {});
+      n.prodId = null;
+      n.foto = canvas.toDataURL('image/jpeg', 0.7);
+      _comprimirCanvas(canvas, 0.7, function(blob, ext, tipo) {
+        n.file = blob ? new File([blob], 'relampago.' + ext, { type: tipo }) : file;
+      });
+      _relVista = 'agregar';
+      relRender();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+async function relConfirmarProducto() {
+  _relLeerForm();
+  const n = _relNuevo || {};
+  const r = _relCfg();
+  const precio = parseFloat(n.precio) || 0;
+  if(precio <= 0) { toast('Poné el precio de la oferta'); return; }
+  if(n.prodId) {
+    if(r.items.some(function(it){ return it.prodId === n.prodId; })) { toast('Ese producto ya está en la oferta'); return; }
+    r.items.push({ prodId: n.prodId, precio: precio });
+  } else {
+    const nombre = String(n.nombre || '').trim();
+    if(!nombre) { toast('Poné el nombre del producto'); return; }
+    if(!n.file) { toast('La foto todavía se está preparando, probá de nuevo'); return; }
+    if(typeof window._fbUploadPhoto !== 'function' || !navigator.onLine) { toast('Sin conexión: no se puede subir la foto'); return; }
+    const btn = document.getElementById('rel-btn-ok');
+    if(btn) { btn.disabled = true; btn.textContent = 'Subiendo foto…'; }
+    const id = 'PROD-' + String(S.nProd++).padStart(3, '0') + '-' + Date.now().toString(36).slice(-4).toUpperCase();
+    let url = null;
+    try { url = await window._fbUploadPhoto(n.file, id); } catch(e) { url = null; }
+    if(!url) {
+      toast('No se pudo subir la foto. Revisá la conexión y probá de nuevo');
+      if(btn) { btn.disabled = false; btn.textContent = 'Agregar a la oferta'; }
+      return;
+    }
+    const prod = { id: id, name: nombre, emoji: '⚡', category: 'Oferta relámpago', price: precio, wholesalePrice: 0, wholesaleQty: 0, bultoQty: 0,
+      cost: parseFloat(n.costo) || 0, stock: 0, minStock: 0, desc: '', visible: false, mostrarStock: false, ocultarStock: false, visibleSince: null,
+      oferta: false, ofertaDesde: null, soloFlyer: false, enFlyer: false, sinStockManual: false, marca: '', fracMin: 1, barcode: null, grupoMay: '',
+      variantes: [], suppliers: n.prov ? [n.prov] : [], image: url, sku: 'P' + Date.now(), createdAt: Date.now(), relampago: true };
+    S.products.push(prod);
+    try { _markDirty('products', id); } catch(e) {}
+    try { save(['products', 'nProd']); } catch(e) {}
+    try { renderProds(); } catch(e) {}
+    try { localStorage.setItem('rev_rel_prov', n.prov || ''); } catch(e) {}
+    r.items.push({ prodId: id, precio: precio });
+  }
+  _relGuardar();
+  _relNuevo = null; _relVista = 'main';
+  relRender();
+  if(_relEnCurso(r)) { await _relPublicarYa(); relRender(); }
 }
 // ===================== 4.22.21: FICHAS DE LA TIENDA =====================
 // Por cada telefono (ultimos 6 digitos) se publica un documento con: los clientes que tienen
@@ -3799,6 +4107,11 @@ window.testersGuardar = function(){
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.28', f:'07/11/2026', t:[
+    '⚡ Oferta relámpago (en Inicio, dentro de Tienda online): cargás los productos (foto con la cámara, de la galería o uno que ya tenés), elegís cuánto dura y compartís el link por WhatsApp.',
+    'El cliente ve solo esos productos con la cuenta regresiva y pide como en la tienda. Cada pedido entra como una factura nueva marcada "⚡ Oferta relámpago" (si ya tenía factura ese día, las podés unificar con el botón de siempre).',
+    'Lo pedido que no tenés en stock aparece solo en la Lista de compras, en el proveedor que elegiste. Al vencer la hora, el link deja de tomar pedidos.'
+  ]},
   {v:'4.22.27', f:'07/11/2026', t:[
     'Pagos del cliente: cada factura de un cobro ahora muestra cómo quedó en ese momento ("queda debiendo $X" o "saldó"), no el saldo de hoy.'
   ]},
@@ -14428,6 +14741,14 @@ body.tn-body{display:block!important;background:linear-gradient(180deg,#dfeaff 0
 .tn-var{background:var(--tn-azul);color:#fff}
 .tn-nodisp{background:#eee;color:#999;cursor:not-allowed}
 .tn-vacio{text-align:center;padding:40px 16px;color:#555;font-size:14.5px}
+/* 4.22.28: oferta relampago */
+.tn-rel .tn-buscar,.tn-rel #tn-stick,.tn-rel #tienda-banners,.tn-rel #tn-instalar,.tn-rel #tienda-nivel-info,.tn-rel #tienda-hint,.tn-rel #tienda-btn-guardar{display:none!important}
+.tn-rel-login{width:100%;max-width:340px;background:#fff7d6;border:2px solid #f59e0b;color:#7c2d12;border-radius:14px;padding:12px 14px;margin:-20px 0 22px;text-align:center;font-size:15px;line-height:1.45}
+.tn-rel-hdr{background:linear-gradient(135deg,#f59e0b,#ea580c);color:#fff;border-radius:16px;padding:16px;margin:12px 0;text-align:center}
+.tn-rel-hdr .t{font-size:22px;font-weight:900;letter-spacing:.5px}
+.tn-rel-hdr .c{font-size:16px;margin-top:6px}
+.tn-rel-hdr .s{font-size:13.5px;margin-top:6px;opacity:.95}
+.tn-rel-fin{background:#fff;border-radius:16px;padding:28px 18px;margin:16px 0;text-align:center;color:#444;font-size:15px;line-height:1.5}
 .tn-busq{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#e7f0ff;border:1.5px solid #3483fa;border-radius:12px;padding:9px 12px;margin-top:10px}
 .tn-busq span{font-size:13px;color:#1a5cc4;font-weight:700}
 .tn-busq button{background:#3483fa;color:#fff;border:0;border-radius:8px;padding:7px 12px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap}
@@ -14582,6 +14903,7 @@ let T_VISTA = 'login'; // login | catalogo | carrito
 // ========== MODO TIENDA ==========
 function getTiendaModo() {
   if(window._tiendaPausada && window._tiendaPausada()) return 'cerrada';   // 4.7.0: el negocio no tiene suscripcion
+  if(_REL_ID) return 'abierta';   // 4.22.28: la oferta relampago toma pedidos aunque la tienda este cerrada (se controla con su hora de fin)
   // 'solo_vista' era un modo viejo que se unificó con 'cerrada'. Si quedó guardado
   // de antes, se trata como cerrada para no dejar la tienda abierta por error.
   if(S.tiendaModo === 'solo_vista') return 'cerrada';
@@ -15040,6 +15362,16 @@ function tiendaInit() {
   document.getElementById('tienda-app').style.display='block';
   document.getElementById('tienda-titulo').style.color = '#3483fa';
   tiendaAplicarNombre();
+  if(_REL_ID) {
+    document.getElementById('tienda-app').classList.add('tn-rel');
+    try {
+      const _box = document.getElementById('tienda-phone-input').parentElement;
+      const _d = document.createElement('div');
+      _d.className = 'tn-rel-login';
+      _d.innerHTML = '⚡ <b>Oferta relámpago</b><br>Ingresá tu celular para ver la oferta';
+      _box.parentElement.insertBefore(_d, _box);
+    } catch(e) {}
+  }
   // Fix login bg
   const loginEl = document.getElementById('tienda-login');
   if(loginEl) loginEl.style.background = 'transparent';
@@ -15069,7 +15401,7 @@ function tiendaInit() {
   if(window._bizKey) SK = window._bizKey;
   // Copia propia de la tienda (catalogo + configuracion). Si no hay, la copia vieja de antes.
   if(!_tiendaCacheLeer()) { try { load(); } catch(e) {} S.invoices = []; }
-  if(btn) { btn.disabled = false; btn.textContent = 'Ver productos →'; }
+  if(btn) { btn.disabled = false; btn.textContent = _REL_ID ? 'Ver la oferta ⚡' : 'Ver productos →'; }
   autoEntrar();
 
   // 2) Después, en segundo plano, traer datos frescos y refrescar el catálogo.
@@ -15091,6 +15423,7 @@ function tiendaInit() {
         if(data) {
           const _cat = data.__catalogo; delete data.__catalogo;
           window._tiendaCat = _cat || null;
+          if(_REL_ID) window._relFresco = true;   // 4.22.28: la oferta se muestra solo con datos recien bajados
           try { tiendaModoMensaje(); } catch(e) {}
           window._tiendaModoCarga = _cat ? 'rapida' : 'normal';
           Object.assign(S, data);
@@ -15457,8 +15790,9 @@ function tiendaEntrar() {
   document.getElementById('tienda-saludo').textContent = nombreMostrar ? 'Hola, ' + nombreMostrar + '! ¿Qué vas a comprar hoy?' : 'Hola! ¿Qué vas a comprar hoy?';
   const logoutBtn = document.getElementById('tienda-logout-btn');
   if(logoutBtn) logoutBtn.style.display = 'inline-block';
-  // Restaurar carrito guardado si existe
-  try { tiendaRestaurarCarrito(); } catch(e) {}
+  // Restaurar carrito guardado si existe (en la oferta relampago no: es un pedido aparte)
+  if(!_REL_ID) { try { tiendaRestaurarCarrito(); } catch(e) {} }
+  if(_REL_ID) document.getElementById('tienda-saludo').textContent = nombreMostrar ? 'Hola, ' + nombreMostrar + '!' : 'Hola!';
   try { tiendaRenderSaldo(); } catch(e) {}
   try { tiendaRenderNivel(); } catch(e) {}
   document.getElementById('tienda-footer').style.display='block';
@@ -15544,6 +15878,7 @@ let _tiendaMantenerPagina = false; // lo pone en true solo el scroll infinito, p
 function tiendaRender() {
   // 4.6.0: inicio con ofertas, cambios de precio, nuevos y categorias en recuadros;
   // dentro de una categoria, la lista con contadores de unidades y bultos.
+  if(_REL_ID) { _relTiendaRender(); return; }   // 4.22.28: link de oferta relampago
   if(!_tiendaMantenerPagina) _tiendaPagina = 1;
   _tiendaMantenerPagina = false;
   const q = ((document.getElementById('tienda-buscar') || {}).value || '').toLowerCase().trim();
@@ -15593,6 +15928,74 @@ function tiendaRender() {
   try { _tiendaSetupScrollInfinito(); } catch(e) {}
   tiendaActBadge();
   tiendaActTotal();
+}
+// ===================== 4.22.28: OFERTA RELAMPAGO (lo que ve el cliente) =====================
+// La app del negocio publica la oferta dentro del catalogo (rel: id, hora de fin y los productos con
+// su precio de oferta). El link ?tienda&relampago=ID muestra solo esos productos con la cuenta regresiva.
+// El pedido sale por el mismo camino que cualquier pedido de la tienda (factura pendiente nueva).
+let _relTimer = null;
+function _relInfo() {
+  const r = window._tiendaCat && window._tiendaCat.rel;
+  return (r && r.id && r.id === _REL_ID && Array.isArray(r.prods) && r.prods.length) ? r : null;
+}
+function _relActiva(gracia) {
+  const r = _relInfo();
+  if(!r) return false;
+  return !r.hasta || Date.now() < r.hasta + (gracia || 0);
+}
+// Pone los productos de la oferta (copias con el precio de oferta) en lugar de los del catalogo
+function _relInyectar() {
+  const r = _relInfo();
+  if(!r) return;
+  const ids = {};
+  r.prods.forEach(function(p){ ids[p.id] = 1; });
+  S.products = (S.products || []).filter(function(p){ return !p || !ids[p.id]; })
+    .concat(r.prods.map(function(p){ return Object.assign({}, p, { visible: true }); }));
+}
+function _relFaltaTxt(ms) {
+  const m = Math.max(1, Math.ceil(ms / 60000));
+  if(m >= 60) { const hh = Math.floor(m / 60), mm = m % 60; return hh + ' h' + (mm ? ' ' + mm + ' min' : ''); }
+  return m + ' min';
+}
+function _relHora(ms) { const d = new Date(ms); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+function _relIrTienda() { location.href = location.pathname + location.search.replace(/[&?]relampago=[^&]*/, ''); }
+function _relTiendaRender() {
+  const lista = document.getElementById('tienda-lista');
+  if(!lista) return;
+  if(_relTimer) { clearInterval(_relTimer); _relTimer = null; }
+  const foot = document.getElementById('tienda-footer');
+  if(!window._relFresco) {
+    lista.innerHTML = '<div class="tn-vacio">⏳ Cargando la oferta, un momento…</div>';
+    tiendaActBadge(); tiendaActTotal();
+    return;
+  }
+  if(!_relActiva()) {
+    lista.innerHTML = '<div class="tn-cont"><div class="tn-rel-fin"><div style="font-size:44px">⚡</div>'
+      + '<div style="font-size:19px;font-weight:800;margin:6px 0">Esta oferta relámpago ya terminó</div>'
+      + '<div>¡Gracias por pasar! Estate atento a la próxima.</div>'
+      + '<button class="tn-btn az" style="margin-top:16px" onclick="_relIrTienda()">Ver la tienda</button></div></div>';
+    if(foot) foot.style.display = 'none';
+    tiendaActBadge(); tiendaActTotal();
+    return;
+  }
+  _relInyectar();
+  const r = _relInfo();
+  const prods = r.prods.map(function(x){ return S.products.find(function(p){ return p.id === x.id; }); }).filter(Boolean);
+  let html = '<div class="tn-cont"><div class="tn-rel-hdr"><div class="t">⚡ OFERTA RELÁMPAGO ⚡</div>'
+    + (r.hasta ? '<div class="c">Termina en <b id="rel-cuenta">' + _relFaltaTxt(r.hasta - Date.now()) + '</b> · a las ' + _relHora(r.hasta) + '</div>' : '<div class="c">¡Por tiempo limitado!</div>')
+    + '<div class="s">Elegí las cantidades y confirmá tu pedido.</div></div>';
+  html += '<div class="tn-lista">' + prods.map(tiendaProdCardNueva).join('') + '</div></div>';
+  lista.innerHTML = html;
+  if(foot && T_VISTA !== 'login') foot.style.display = 'block';
+  if(r.hasta) {
+    _relTimer = setInterval(function(){
+      const falta = r.hasta - Date.now();
+      const el = document.getElementById('rel-cuenta');
+      if(falta <= 0) { clearInterval(_relTimer); _relTimer = null; try { tiendaRender(); } catch(e) {} return; }
+      if(el) el.textContent = _relFaltaTxt(falta);
+    }, 10000);
+  }
+  tiendaActBadge(); tiendaActTotal();
 }
 // ---- Ayudas del diseño 4.6.0 ----
 function _tnEsc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
@@ -16210,7 +16613,7 @@ function tiendaActTotal() {
     const n = Object.keys(TC).filter(function(k){ return TC[k] > 0; }).length;
     const tt = document.getElementById('tn-bar-tit'), ts = document.getElementById('tn-bar-sub');
     if(tt) tt.textContent = n ? 'Tu pedido · ' + fmtPesos(total) : 'Tu pedido está vacío';
-    if(ts) ts.textContent = n ? (n + ' producto' + (n > 1 ? 's' : '') + ' cargado' + (n > 1 ? 's' : '')) : 'Elegí una categoría y cargá unidades o bultos';
+    if(ts) ts.textContent = n ? (n + ' producto' + (n > 1 ? 's' : '') + ' cargado' + (n > 1 ? 's' : '')) : (_REL_ID ? 'Tocá + para cargar unidades' : 'Elegí una categoría y cargá unidades o bultos');
   } catch(e) {}
   try { tiendaRenderEnvio(total); } catch(e) {}
 }
@@ -16396,7 +16799,9 @@ async function tiendaConfirmar() {
     // fue reconocido, se lo busca antes de crear una ficha nueva.
     const _rapida = _ES_TIENDA_URL && window._tiendaModoCarga === 'rapida' && typeof window._fbLeerCatalogo === 'function';
     const cargar = _rapida
-      ? function(){ return window._fbLeerCatalogo().then(function(d){ if(d) delete d.__catalogo; return d; }); }
+      ? function(){ return window._fbLeerCatalogo().then(function(d){
+          if(d) { if(_REL_ID && d.__catalogo) window._tiendaCat = Object.assign({}, window._tiendaCat || {}, { rel: d.__catalogo.rel || null }); delete d.__catalogo; }
+          return d; }); }
       : (window._fbLoadTienda || window._fbLoad);
     if(cargar) {
       const _esperaMs = (_rapida || (S.clients && S.clients.length)) ? 4000 : 12000;
@@ -16406,12 +16811,21 @@ async function tiendaConfirmar() {
       ]);
       if(data) Object.assign(S, data);
     }
+    if(_REL_ID) { try { _relInyectar(); } catch(e) {} }   // 4.22.28: los productos de la oferta (con su precio de oferta)
     if(_rapida && !TC_CLI) {
       try { await Promise.race([_tiendaIdentificar(), new Promise(function(r){ setTimeout(r, 6000); })]); } catch(e) {}
     }
     try { tiendaRematchCliente(); } catch(e) {}
   } catch(e) { console.warn('Verificación de último momento falló, se sigue de largo', e); }
 
+  // 4.22.28: oferta relampago vencida (con 3 minutos de tolerancia para el que estaba terminando de pedir)
+  if(_REL_ID && !_relActiva(3 * 60000)) {
+    TC = {};
+    alert('La oferta relámpago ya terminó 😕 No se pudo tomar el pedido.');
+    try { tiendaVolverCatalogo(); } catch(e) {}
+    try { tiendaRender(); } catch(e) {}
+    return;
+  }
   // Verificar productos que ya no están disponibles en la tienda (deshabilitados después de agregarlos al carrito)
   const noDisponibles = [];
   for(const [id, qty] of items) {
@@ -16456,7 +16870,7 @@ async function tiendaConfirmar() {
     return '\u2022 '+nombre+' x'+qty+' = $'+(unit*qty).toFixed(2);
   }).filter(Boolean).join('\n');
   const _envio = tiendaEnvioInfo(total);
-  const msg = '\uD83D\uDED2 *Pedido de '+TN+'*\n\n'+lineas+'\n\n*Total: $'+total.toFixed(2)+'*'+(_envio ? '\n'+_envio.wa : '');
+  const msg = (_REL_ID ? '⚡ *Oferta relámpago*\n' : '')+'\uD83D\uDED2 *Pedido de '+TN+'*\n\n'+lineas+'\n\n*Total: $'+total.toFixed(2)+'*'+(_envio ? '\n'+_envio.wa : '');
   const url = 'https://wa.me/'+waNumeroNegocio()+'?text='+encodeURIComponent(msg);
   // Mostrar pantalla de guardando en overlay DEDICADO (no pisa #tienda-carrito)
   const _ov = document.getElementById('tienda-confirm-overlay');
@@ -16493,7 +16907,7 @@ async function tiendaConfirmar() {
     items:invItems, subtotal:invTotal,
     descRetiro:0, descExtraPct:0, descExtra:0, total:invTotal,
     pagos:[], saldo:invTotal, aFavor:0,
-    notes:'Pedido desde tienda online'+(_envio ? ' · '+_envio.wa : '')
+    notes:(_REL_ID ? '⚡ Oferta relámpago · ' : '')+'Pedido desde tienda online'+(_envio ? ' · '+_envio.wa : '')
   };
   S.invoices.unshift(inv);
   if(_esOtroNegocio() || _ES_TIENDA_URL) {
