@@ -4225,6 +4225,9 @@ window.testersGuardar = function(){
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.32', f:'08/11/2026', t:[
+    'El ½ de la tienda ahora se ve más grande.'
+  ]},
   {v:'4.22.31', f:'08/11/2026', t:[
     '🚬 Medio cartón en la tienda: en la ficha de los productos de la categoría especial aparece "Se puede vender ½ cartón" (el nombre sale de la unidad que configuraste). La tienda sube de a ½ y la mitad vale la mitad del precio.',
     'En Configuración > Facturación, categoría especial: botones para activar o quitar el ½ en todos los productos de la categoría de una vez.'
@@ -14908,6 +14911,7 @@ body.tn-body{display:block!important;background:linear-gradient(180deg,#dfeaff 0
 .tn-st button:disabled{opacity:.35}
 .tn-st .v{flex:1;text-align:center;line-height:1;min-width:0}
 .tn-st .v b{display:block;font-size:19px}
+.qfr{font-style:normal;font-size:1.5em;line-height:.8;margin-left:1px;vertical-align:-.05em}
 .tn-st .v span{font-size:10px;letter-spacing:1px;color:var(--tn-gris);font-weight:800;text-transform:uppercase}
 .tn-var,.tn-nodisp{width:100%;margin-top:10px;border:0;border-radius:12px;padding:12px;font-weight:800;font-size:14.5px;cursor:pointer;font-family:inherit}
 .tn-var{background:var(--tn-azul);color:#fff}
@@ -15227,7 +15231,7 @@ function tiendaProdCardGrid(p) {
     ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="width:100%;background:#3483fa;color:#fff;border:none;border-radius:10px;padding:9px;font-weight:800;font-size:14px;cursor:pointer;margin-top:8px">'+lblUnid+(qty>0?' ('+qty+' en carrito)':'')+'</button>'+btnBulto
     : (qty===0
         ? '<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="width:100%;background:#3483fa;color:#fff;border:none;border-radius:10px;padding:9px;font-weight:800;font-size:14px;cursor:pointer;margin-top:8px">'+lblUnid+'</button>'+btnBulto
-        : '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#eef0f5;color:#3483fa;border:none;border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;font-weight:700">−</button><span style="font-weight:800;font-size:16px;color:#1a1a2e">'+_qtyTxt(qty)+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;font-weight:700">+</button></div>'
+        : '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#eef0f5;color:#3483fa;border:none;border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;font-weight:700">−</button><span style="font-weight:800;font-size:16px;color:#1a1a2e">'+_qtyHtml(qty)+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;font-weight:700">+</button></div>'
           +btnBulto
           +(p.wholesalePrice&&p.wholesaleQty&&tiendaGetPrice(p,qty)===p.wholesalePrice?'<div style="font-size:11px;color:#2e7d32;font-weight:700;text-align:center;margin-top:4px">⭐ Precio mayorista aplicado</div>':'')));
   const mayorHtml = p.wholesalePrice&&p.wholesaleQty
@@ -16025,7 +16029,7 @@ function tiendaProdCard(p) {
       +'<button data-tid="'+p.id+'" onclick="tiendaAdd(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:4px;padding:7px 12px;font-weight:600;font-size:13px;cursor:pointer">'+_lblStep(p)+'</button>'
       +btnBultoL
       +'</div>'
-    : '<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div style="display:flex;align-items:center;gap:10px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#eef0f5;color:#3483fa;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">−</button><span style="font-size:16px;font-weight:700;min-width:20px;text-align:center">'+_qtyTxt(qty)+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">+</button></div>'
+    : '<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div style="display:flex;align-items:center;gap:10px"><button data-tid="'+p.id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#eef0f5;color:#3483fa;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">−</button><span style="font-size:16px;font-weight:700;min-width:20px;text-align:center">'+_qtyHtml(qty)+'</span><button data-tid="'+p.id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">+</button></div>'
     +btnBultoL
     +(p.wholesalePrice&&p.wholesaleQty&&tiendaGetPrice(p,qty)===p.wholesalePrice?'<div style="font-size:11px;color:#2e7d32;font-weight:700">⭐ Precio mayorista</div>':'')
     +'</div>');
@@ -16387,7 +16391,7 @@ function tiendaProdCardNueva(p) {
     const lbl = _tnEsc(_labelUnidad(p));
     // 4.22.17: Bultos a la izquierda y Unidades a la derecha (el + de Unidades queda bajo el pulgar derecho)
     const cUni = '<div class="tn-st"><button data-tid="' + p.id + '" onclick="tiendaDec(this.dataset.tid)"' + (sue > 0 ? '' : ' disabled') + ' aria-label="menos">−</button>'
-      + '<div class="v"><b>' + _qtyTxt(sue) + '</b><span>' + lbl + '</span></div>'
+      + '<div class="v"><b>' + _qtyHtml(sue) + '</b><span>' + lbl + '</span></div>'
       + '<button class="mas" data-tid="' + p.id + '" onclick="tiendaAdd(this.dataset.tid)" aria-label="más">+</button></div>';
     const cBul = (bq > 1 ? '<div class="tn-st' + (bul > 0 ? ' on' : '') + (fl ? ' flash' : '') + '"><button data-tid="' + p.id + '" onclick="tiendaDecBulto(this.dataset.tid)"' + (bul > 0 ? '' : ' disabled') + ' aria-label="menos bultos">−</button>'
         + '<div class="v"><b>' + bul + '</b><span>Bultos</span></div>'
@@ -16520,7 +16524,7 @@ function tiendaRenderVariantePopup(prodId) {
       +btnBultoV
       +'<div data-varctr style="display:'+(qty>0?'flex':'none')+';align-items:center;gap:6px;flex-shrink:0">'
         +'<button onclick="tiendaDecVariante(\''+prodId+'\',\''+vEsc+'\')" style="background:#eef0f5;color:#3483fa;border:none;border-radius:8px;width:32px;height:32px;font-size:20px;cursor:pointer;font-weight:700">−</button>'
-        +'<span style="font-weight:800;font-size:16px;color:#333;min-width:18px;text-align:center">'+_qtyTxt(qty)+'</span>'
+        +'<span style="font-weight:800;font-size:16px;color:#333;min-width:18px;text-align:center">'+_qtyHtml(qty)+'</span>'
         +'<button onclick="tiendaAddVariante(\''+prodId+'\',\''+vEsc+'\')" style="background:#3483fa;color:#fff;border:none;border-radius:8px;width:32px;height:32px;font-size:20px;cursor:pointer;font-weight:700">+</button>'
       +'</div>'
       +'</div>';
@@ -16754,6 +16758,11 @@ function _qtyTxt(q) {
   if(Math.abs(fr) < 1e-9) return String(e);
   return String(Math.round(q * 100) / 100);
 }
+function _qtyHtml(q) {
+  const t = _qtyTxt(q), i = t.indexOf('½');
+  if(i < 0) return t;
+  return t.slice(0, i) + '<i class="qfr">½</i>';
+}
 function _lblStep(p) {
   const st = stepDe(p), lbl = _labelUnidad(p);
   return st === 0.5 ? '½ ' + lbl + ' +' : lbl + ' x' + st + ' +';
@@ -16847,7 +16856,7 @@ function tiendaRenderCarrito() {
       +'<div style="font-size:16px;font-weight:800;color:#3483fa;margin-top:2px">$'+(price*qty).toFixed(0)+'</div></div>'
       +'<div style="display:flex;align-items:center;gap:10px">'
       +'<button data-tid="'+id+'" onclick="tiendaDec(this.dataset.tid)" style="background:#eef0f5;color:#3483fa;border:none;border-radius:8px;width:30px;height:30px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">−</button>'
-      +'<span style="font-size:16px;font-weight:700;min-width:20px;text-align:center;color:#333">'+_qtyTxt(qty)+'</span>'
+      +'<span style="font-size:16px;font-weight:700;min-width:20px;text-align:center;color:#333">'+_qtyHtml(qty)+'</span>'
       +'<button data-tid="'+id+'" onclick="tiendaInc(this.dataset.tid)" style="background:#3483fa;color:#fff;border:none;border-radius:8px;width:30px;height:30px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">+</button>'
       +'</div></div>';
   });
