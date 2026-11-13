@@ -1760,12 +1760,14 @@ body.pc #nf-foot{grid-column:2;grid-row:3}
   </div>
 
   <div class="page" id="page-cli-detalle">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-      <button onclick="showPage('clientes')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:10px 14px;font-size:16px;cursor:pointer">←</button>
-      <div id="clidet-nombre" style="font-family:Inter,sans-serif;font-size:18px;font-weight:800;flex:1"></div>
-      <button onclick="openCli(cliDetId)" style="background:var(--surface2);border:1px solid var(--border);color:var(--accent);border-radius:10px;padding:8px 14px;font-size:14px;font-weight:700;cursor:pointer">✏️ Editar</button>
-      <button onclick="ajustarSaldo(cliDetId)" style="background:var(--surface2);border:1px solid var(--border);color:var(--green);border-radius:10px;padding:8px 14px;font-size:14px;font-weight:700;cursor:pointer">💰 Saldo</button>
-      <button onclick="delCli(cliDetId)" style="background:var(--surface2);border:1px solid var(--border);color:var(--accent3);border-radius:10px;padding:8px 14px;font-size:14px;font-weight:700;cursor:pointer">🗑️</button>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+      <button onclick="showPage('clientes')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:10px 14px;font-size:16px;cursor:pointer;flex-shrink:0">←</button>
+      <div id="clidet-nombre" style="font-family:Inter,sans-serif;font-size:18px;font-weight:800;flex:1;min-width:0;overflow-wrap:anywhere;line-height:1.2"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button onclick="openCli(cliDetId)" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--accent);border-radius:10px;padding:10px 8px;font-size:14px;font-weight:700;cursor:pointer">✏️ Editar</button>
+      <button onclick="ajustarSaldo(cliDetId)" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--green);border-radius:10px;padding:10px 8px;font-size:14px;font-weight:700;cursor:pointer">💰 Saldo</button>
+      <button onclick="delCli(cliDetId)" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--accent3);border-radius:10px;padding:10px 8px;font-size:14px;font-weight:700;cursor:pointer">🗑️ Borrar</button>
     </div>
     <div id="clidet-saldo" style="border-radius:var(--r);padding:16px;margin-bottom:14px;text-align:center"></div>
     <div id="clidet-metricas" style="margin-bottom:14px"></div>
@@ -1781,7 +1783,7 @@ body.pc #nf-foot{grid-column:2;grid-row:3}
   <div class="page" id="page-prov-detalle">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
       <button onclick="showPage('proveedores')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:10px 14px;font-size:16px;cursor:pointer">←</button>
-      <div id="provdet-nombre" style="font-family:Inter,sans-serif;font-size:18px;font-weight:800;flex:1"></div>
+      <div id="provdet-nombre" style="font-family:Inter,sans-serif;font-size:18px;font-weight:800;flex:1;min-width:0;overflow-wrap:anywhere;line-height:1.2"></div>
       <button onclick="openProv(provDetId)" style="background:var(--surface2);border:1px solid var(--border);color:var(--accent);border-radius:10px;padding:8px 14px;font-size:14px;font-weight:700;cursor:pointer">✏️ Editar</button>
     </div>
     <div id="provdet-content"></div>
@@ -2200,15 +2202,16 @@ body.pc #nf-foot{grid-column:2;grid-row:3}
     <div class="modal-header"><span class="modal-title" id="mprod-title">Nuevo Producto</span><button class="close-btn" onclick="closeM('mprod')">x</button></div>
     <div class="modal-body">
       <div class="form-group">
-        <label class="fl">Foto del producto</label>
+        <label class="fl">Foto del producto <span style="font-size:11px;color:var(--text3);font-weight:400">(opcional)</span></label>
         <div class="photo-area" id="photo-area" onclick="document.getElementById('photo-input').click()">
           <div id="photo-preview"><div style="font-size:40px;margin-bottom:8px">&#128247;</div><div style="font-size:15px;color:var(--text3)">Toca para agregar foto</div></div>
         </div>
         <button type="button" id="btn-borrar-foto" onclick="borrarFoto()" style="display:none;width:100%;margin-top:6px;padding:8px;background:rgba(220,38,38,.1);color:var(--accent3);border:1px solid var(--accent3);border-radius:10px;font-size:14px;font-weight:600;cursor:pointer">🗑️ Borrar foto</button>
         <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="onPhoto(this)">
       </div>
-      <div class="form-group"><label class="fl">Nombre *</label><input type="text" id="p-name" placeholder="Nombre del producto"></div>
-      <div class="form-group"><label class="fl">Categoria</label><input type="text" id="p-cat" placeholder="Bebidas..." oninput="prodMitadVis()"></div>
+      <div style="margin-bottom:12px;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;color:var(--text3);line-height:1.45">Solo el <b>nombre</b> es obligatorio. Lo demás podés completarlo después. Para vender el producto en la tienda hace falta el <b>precio minorista</b>.</div>
+      <div class="form-group"><label class="fl">Nombre <span style="font-size:11px;color:var(--accent);font-weight:700">(obligatorio)</span></label><input type="text" id="p-name" placeholder="Nombre del producto"></div>
+      <div class="form-group"><label class="fl">Categoria <span style="font-size:11px;color:var(--text3);font-weight:400">(opcional)</span></label><input type="text" id="p-cat" placeholder="Bebidas..." oninput="prodMitadVis()"></div>
       <div class="form-group">
         <label class="fl">Grupo <span style="font-size:11px;color:var(--text3);font-weight:400">(opcional)</span></label>
         <input type="text" id="p-grupo" placeholder="Ej: jugos-1lt" oninput="renderMinGrupoProd()">
@@ -2225,7 +2228,7 @@ body.pc #nf-foot{grid-column:2;grid-row:3}
         <div style="margin-top:6px;font-size:12.5px;color:var(--text3);line-height:1.4">En la tienda la cantidad sube de a ½ y el precio de la mitad es la mitad. Tiene prioridad sobre la fracción mínima.</div>
       </div>
       <div>
-        <div class="form-group"><label class="fl">Código de barras</label>
+        <div class="form-group"><label class="fl">Código de barras <span style="font-size:11px;color:var(--text3);font-weight:400">(opcional)</span></label>
           <div style="display:flex;gap:8px">
             <input type="text" id="p-barcode" placeholder="Ej: 7790895000123" inputmode="numeric" style="flex:1">
             <button type="button" onclick="scanBarcodeForProduct()" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:8px 12px;font-size:14px;cursor:pointer">📷</button>
@@ -2238,7 +2241,7 @@ body.pc #nf-foot{grid-column:2;grid-row:3}
       </div>
       <div style="background:var(--surface2);border-radius:var(--rs);padding:14px;margin-bottom:14px">
         <div style="font-size:13px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Precios</div>
-        <div class="form-group"><label class="fl">Precio Minorista</label>
+        <div class="form-group"><label class="fl">Precio Minorista <span style="font-size:11px;color:var(--accent);font-weight:700">(necesario para vender)</span></label>
           <div style="display:flex;gap:8px;align-items:center">
             <input type="number" id="p-price" placeholder="0.00" min="0" step="0.01" inputmode="decimal" style="flex:1">
             <input type="number" id="p-margen-pct" placeholder="%" min="0" max="999" step="0.1" inputmode="decimal" style="width:70px;text-align:center" title="% margen sobre costo" oninput="calcPrecioDesdeMargen()">
@@ -2246,19 +2249,19 @@ body.pc #nf-foot{grid-column:2;grid-row:3}
           </div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label class="fl">Precio Mayorista</label><input type="number" id="p-wprice" placeholder="0.00" min="0" step="0.01" inputmode="decimal"></div>
-          <div class="form-group"><label class="fl">A partir de</label><input type="number" id="p-wqty" placeholder="6 uds" min="1" inputmode="numeric"></div>
+          <div class="form-group"><label class="fl">Precio Mayorista <span style="font-size:11px;color:var(--text3);font-weight:400">(opcional)</span></label><input type="number" id="p-wprice" placeholder="0.00" min="0" step="0.01" inputmode="decimal"></div>
+          <div class="form-group"><label class="fl">A partir de <span style="font-size:11px;color:var(--text3);font-weight:400">(opcional)</span></label><input type="number" id="p-wqty" placeholder="6 uds" min="1" inputmode="numeric"></div>
         </div>
-        <div class="form-group"><label class="fl">Unidades por bulto (tienda)</label><input type="number" id="p-bulto" placeholder="Vacío = sin botón bulto" min="2" inputmode="numeric"></div>
-        <div class="form-group" style="margin-bottom:0"><label class="fl">Precio de Costo</label><input type="number" id="p-cost" placeholder="0.00" min="0" step="0.01" inputmode="decimal"></div>
+        <div class="form-group"><label class="fl">Unidades por bulto (tienda) <span style="font-size:11px;color:var(--text3);font-weight:400">(opcional)</span></label><input type="number" id="p-bulto" placeholder="Vacío = sin botón bulto" min="2" inputmode="numeric"></div>
+        <div class="form-group" style="margin-bottom:0"><label class="fl">Precio de Costo <span style="font-size:11px;color:var(--text3);font-weight:400">(opcional)</span></label><input type="number" id="p-cost" placeholder="0.00" min="0" step="0.01" inputmode="decimal"></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label class="fl">Stock actual</label><input type="number" id="p-stock" placeholder="0" min="0" inputmode="numeric"></div>
-        <div class="form-group"><label class="fl">Stock minimo</label><input type="number" id="p-minst" placeholder="5" min="0" inputmode="numeric"></div>
+        <div class="form-group"><label class="fl">Stock actual <span style="font-size:11px;color:var(--text3);font-weight:400">(opcional)</span></label><input type="number" id="p-stock" placeholder="0" min="0" inputmode="numeric"></div>
+        <div class="form-group"><label class="fl">Stock minimo <span style="font-size:11px;color:var(--text3);font-weight:400">(opcional)</span></label><input type="number" id="p-minst" placeholder="5" min="0" inputmode="numeric"></div>
       </div>
-      <div class="form-group"><label class="fl">Descripcion</label><textarea id="p-desc" placeholder="Descripcion para la tienda..."></textarea></div>
+      <div class="form-group"><label class="fl">Descripcion <span style="font-size:11px;color:var(--text3);font-weight:400">(opcional)</span></label><textarea id="p-desc" placeholder="Descripcion para la tienda..."></textarea></div>
       <div class="form-group">
-        <label class="fl">Proveedores donde se compra</label>
+        <label class="fl">Proveedores donde se compra <span style="font-size:11px;color:var(--text3);font-weight:400">(opcional)</span></label>
         <div id="p-suppliers-list" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs)"></div>
         <div style="font-size:13px;color:var(--text3);margin-top:4px">Tocá para seleccionar/deseleccionar</div>
       </div>
@@ -2280,17 +2283,18 @@ body.pc #nf-foot{grid-column:2;grid-row:3}
     <div class="modal-handle"></div>
     <div class="modal-header"><span class="modal-title" id="mcli-title">Nuevo Cliente</span><button class="close-btn" onclick="closeM('mcli')">x</button></div>
     <div class="modal-body">
-      <div class="form-group"><label class="fl">Nombre / Empresa *</label><input type="text" id="c-name" placeholder="Juan Garcia"></div>
+      <div style="margin-bottom:12px;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;color:var(--text3);line-height:1.45">Solo el <b>nombre</b> es obligatorio. Lo demás podés completarlo después. Con el <b>teléfono</b> la tienda reconoce al cliente y podés mandarle la factura por WhatsApp.</div>
+      <div class="form-group"><label class="fl">Nombre / Empresa <span style="font-size:11px;color:var(--accent);font-weight:700">(obligatorio)</span></label><input type="text" id="c-name" placeholder="Juan Garcia"></div>
       <div class="form-row">
-        <div class="form-group"><label class="fl">Tipo</label><select id="c-type"><option value="persona">Persona</option><option value="empresa">Empresa</option></select></div>
-        <div class="form-group"><label class="fl">Telefono</label><input type="tel" id="c-phone" placeholder="+54 9 11..." inputmode="tel"></div>
+        <div class="form-group"><label class="fl">Tipo <span style="font-size:11px;color:var(--text3);font-weight:400">(opcional)</span></label><select id="c-type"><option value="persona">Persona</option><option value="empresa">Empresa</option></select></div>
+        <div class="form-group"><label class="fl">Telefono <span style="font-size:11px;color:var(--text3);font-weight:400">(recomendado)</span></label><input type="tel" id="c-phone" placeholder="+54 9 11..." inputmode="tel"></div>
       </div>
-      <div class="form-group"><label class="fl">Email</label><input type="email" id="c-email" placeholder="cliente@email.com" inputmode="email"></div>
-      <div class="form-group"><label class="fl">Direccion</label><input type="text" id="c-addr" placeholder="Calle, Ciudad"></div>
-      <div class="form-group"><label class="fl">CUIT / ID Fiscal</label><input type="text" id="c-tax" placeholder="Opcional"></div>
-      <div class="form-group"><label class="fl">Notas</label><textarea id="c-notes" placeholder="Notas..."></textarea></div>
-      <div class="form-group"><label class="fl">Mensaje al enviar factura</label><input type="text" id="c-invmsg" placeholder="Gracias por su compra 🙏"></div>
-      <div class="form-group" id="c-prev-group"><label class="fl">Compras previas (historial externo)</label><input type="number" id="c-prevCompras" placeholder="0" inputmode="numeric" min="0"></div>
+      <div class="form-group"><label class="fl">Email <span style="font-size:11px;color:var(--text3);font-weight:400">(opcional)</span></label><input type="email" id="c-email" placeholder="cliente@email.com" inputmode="email"></div>
+      <div class="form-group"><label class="fl">Direccion <span style="font-size:11px;color:var(--text3);font-weight:400">(opcional)</span></label><input type="text" id="c-addr" placeholder="Calle, Ciudad"></div>
+      <div class="form-group"><label class="fl">CUIT / ID Fiscal <span style="font-size:11px;color:var(--text3);font-weight:400">(opcional)</span></label><input type="text" id="c-tax" placeholder="Opcional"></div>
+      <div class="form-group"><label class="fl">Notas <span style="font-size:11px;color:var(--text3);font-weight:400">(opcional)</span></label><textarea id="c-notes" placeholder="Notas..."></textarea></div>
+      <div class="form-group"><label class="fl">Mensaje al enviar factura <span style="font-size:11px;color:var(--text3);font-weight:400">(opcional)</span></label><input type="text" id="c-invmsg" placeholder="Gracias por su compra 🙏"></div>
+      <div class="form-group" id="c-prev-group"><label class="fl">Compras previas (historial externo) <span style="font-size:11px;color:var(--text3);font-weight:400">(opcional)</span></label><input type="number" id="c-prevCompras" placeholder="0" inputmode="numeric" min="0"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" style="flex:1" onclick="closeM('mcli')">Cancelar</button>
@@ -4225,6 +4229,12 @@ window.testersGuardar = function(){
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.33', f:'13/11/2026', t:[
+    'Formularios de cliente y de producto: ahora dicen qué es obligatorio (solo el nombre), qué es opcional y qué conviene completar (teléfono del cliente, precio del producto).',
+    'Proveedores: arreglado el detalle (no abría si tenía compras, por eso no se podía editar), ✏️ para editar directo desde la lista y el aviso al borrar menciona sus compras.',
+    'Cliente: los botones Editar / Saldo / Borrar quedan en una fila propia y siempre visibles, aunque el nombre sea largo (ej. Visitante + teléfono).',
+    'Cliente: las unidades de los últimos 3 meses ya no muestran decimales larguísimos (ej. 1207.2400000000002).'
+  ]},
   {v:'4.22.32', f:'08/11/2026', t:[
     'El ½ de la tienda ahora se ve más grande.'
   ]},
@@ -10093,7 +10103,8 @@ function verCliDetalle(id) {
   const nm = (n,offset) => meses[(now.getMonth()-offset+12)%12];
   const metricsEl = document.getElementById('clidet-metricas');
   if(metricsEl) {
-    const u0=sumUds(m0),u1=sumUds(m1),u2=sumUds(m2);
+    const _r2=n=>Math.round((n+Number.EPSILON)*100)/100;
+    const u0=_r2(sumUds(m0)),u1=_r2(sumUds(m1)),u2=_r2(sumUds(m2));
     const t0=sumTotal(m0),t1=sumTotal(m1),t2=sumTotal(m2);
     const promMensual = invs.length ? (totalVida/Math.max(1,new Set(invs.map(i=>i.date.substring(0,7))).size)).toFixed(0) : 0;
     metricsEl.innerHTML =
@@ -10238,7 +10249,7 @@ function showProvTab(tab) {
       +'<div style="font-size:14px;color:var(--text3)">'+comps.length+' compras</div>'
       +'</div>'
       +'<div class="card"><div style="padding:0">'+comps.map((c,i)=>{
-        return '<div onclick="verInv(\''+inv.id+'\')" style="padding:12px 14px;cursor:pointer;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
+        return '<div onclick="verComp(\''+c.id+'\')" style="padding:12px 14px;cursor:pointer;'+(i>0?'border-top:1px solid var(--border)':'')+'">'
           +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
           +'<div style="font-weight:700;font-size:15px">'+c.date+'</div>'
           +'<div style="font-family:Inter,sans-serif;font-weight:800;color:var(--accent)">$'+c.total.toFixed(0)+'</div></div>'
@@ -10730,12 +10741,15 @@ function renderProvs(){
       +'<div style="width:44px;height:44px;border-radius:12px;background:'+pv.color+'22;color:'+pv.color+';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0;font-family:Inter,sans-serif">'+init+'</div>'
       +'<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">'+pv.name+'</div><div style="font-size:14px;color:var(--text3)">'+(pv.phone||'')+' '+(pv.days?'- '+pv.days:'')+'</div></div>'
       +'<div style="text-align:right;flex-shrink:0"><div style="font-family:Inter,sans-serif;font-weight:700;color:var(--accent);font-size:14px">$'+tot.toFixed(0)+'</div><div style="font-size:13px;color:var(--text3)">'+comps.length+' compras</div></div>'
+      +'<button data-epid="'+pv.id+'" onclick="event.stopPropagation();openProv(this.dataset.epid)" style="margin-left:8px;background:var(--surface2);border:none;border-radius:8px;padding:6px 8px;font-size:16px;cursor:pointer;flex-shrink:0">✏️</button>'
       +'<button data-dpid="'+pv.id+'" onclick="event.stopPropagation();deleteProv(this.dataset.dpid)" style="margin-left:8px;background:rgba(220,38,38,.1);border:none;border-radius:8px;padding:6px 8px;color:var(--accent3);font-size:16px;cursor:pointer;flex-shrink:0">🗑️</button>'
       +'</div>';
   }).join('')+'</div></div>';
 }
 function deleteProv(id){
-  if(!confirm('¿Eliminar este proveedor?')) return;
+  const _pv = S.proveedores.find(p => p.id === id) || {};
+  const _nc = (S.compras || []).filter(c => c.provId === id).length;
+  if(!confirm('¿Eliminar a "'+(_pv.name||'este proveedor')+'"?'+(_nc ? ' Tiene '+_nc+' compra(s); las compras se conservan.' : ''))) return;
   S.proveedores = S.proveedores.filter(p => p.id !== id);
   try{ if(window._fbDeleteDoc) _fbDeleteDoc('proveedores', id); }catch(e){}
   renderProvs(); save(['proveedores']); toast('Proveedor eliminado');
