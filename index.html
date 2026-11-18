@@ -4229,6 +4229,11 @@ window.testersGuardar = function(){
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.34', f:'18/11/2026', t:[
+    'Pedidos de la tienda: si el cliente tiene saldo a favor, al abrir, desplegar o enviar el pedido la app pregunta (una sola vez) si aplicarlo.',
+    'Tienda: el cliente ve en su pedido cuánto tiene a favor y cuánto le quedaría para pagar; también sale en el mensaje de WhatsApp.',
+    'Borrar una factura con pagos: lo pagado (incluido el saldo a favor usado) vuelve al cliente como saldo a favor, con aviso antes de borrar.'
+  ]},
   {v:'4.22.33', f:'13/11/2026', t:[
     'Formularios de cliente y de producto: ahora dicen qué es obligatorio (solo el nombre), qué es opcional y qué conviene completar (teléfono del cliente, precio del producto).',
     'Proveedores: arreglado el detalle (no abría si tenía compras, por eso no se podía editar), ✏️ para editar directo desde la lista y el aviso al borrar menciona sus compras.',
@@ -7333,7 +7338,45 @@ function resumenCambiarCliente() {
     if(s) { s.focus(); s.select(); }
   }, 200);
 }
+// 4.22.34: los pedidos de la tienda llegan sin pagos (la tienda no puede tocar el saldo
+// a favor del cliente). Al abrir, desplegar o enviar el pedido, la app pregunta UNA vez
+// si aplicar el saldo a favor (inv.favorPreguntado queda guardado y sincroniza).
+function _favorTiendaPendiente(inv) {
+  if(!inv || inv.favorPreguntado) return 0;
+  if(!String(inv.notes||'').includes('tienda online')) return 0;
+  if(inv.type === 'presupuesto' || inv.status === 'pagada' || inv.status === 'cancelada') return 0;
+  if(!((inv.saldo||0) > 0.5)) return 0;
+  const cli = S.clients.find(c=>c.id===inv.clientId);
+  if(!cli || !((cli.credito||0) > 0.5)) return 0;
+  return Math.min(cli.credito, inv.saldo);
+}
+function ofrecerFavorTienda(invId) {
+  try {
+    if(typeof enTienda === 'function' && enTienda()) return false;
+    if(window.subBloqueado && window.subBloqueado()) return false;
+  } catch(e) {}
+  const inv = S.invoices.find(i=>i.id===invId);
+  const monto = _favorTiendaPendiente(inv);
+  if(!(monto > 0.5)) return false;
+  const cli = S.clients.find(c=>c.id===inv.clientId);
+  const ok = confirm('Pedido de la tienda: '+(cli.name||'el cliente')+' tiene $'+(cli.credito).toFixed(0)+' a favor.\n\n¿Querés aplicarlo a esta factura? (se descuentan $'+monto.toFixed(0)+')');
+  inv.favorPreguntado = true;
+  if(ok) {
+    if(!inv.pagos) inv.pagos = [];
+    inv.pagos.push({monto: monto, method: 'a favor', date: localDateStr()});
+    cli.credito = Math.max(0, (cli.credito||0) - monto);
+    const pagado = inv.pagos.reduce((s,p)=>s+(+p.monto||0),0);
+    inv.saldo = Math.max(0, (inv.total||0) - pagado);
+    inv.status = inv.saldo <= 0.5 ? 'pagada' : 'pendiente';
+    try{ _markDirty('clients', cli.id); }catch(e){}
+  }
+  try{ _markDirty('invoices', inv.id); }catch(e){}
+  try{ save(ok ? ['invoices','clients'] : ['invoices'], true); }catch(e){}
+  if(ok) toast('✓ Aplicados $'+monto.toFixed(0)+' de saldo a favor');
+  return ok;
+}
 function verInv(id) {
+  try{ ofrecerFavorTienda(id); }catch(e){}
   const inv = S.invoices.find(x=>x.id===id);
   if(!inv) return;
   S.editId = id;
@@ -9737,7 +9780,9 @@ document.getElementById('page-facturas').addEventListener('click', function(e){
   if(action==='toggleInv') {
     const det=document.getElementById('inv-detail-'+id);
     const arrow=document.getElementById('inv-arrow-'+id);
-    if(det){ const open=det.style.display==='none'; det.style.display=open?'':'none'; if(arrow) arrow.textContent=open?'▲':'▼'; }
+    if(det){ const open=det.style.display==='none'; det.style.display=open?'':'none'; if(arrow) arrow.textContent=open?'▲':'▼';
+      if(open && _favorTiendaPendiente(S.invoices.find(i=>i.id===id)) > 0.5) setTimeout(function(){ try{ if(ofrecerFavorTienda(id)) { _fRefrescar(id); try{updDash();}catch(e){} } }catch(e){} }, 60);
+    }
     return;
   }
   else if(action==='togItemArmado') {
@@ -9862,6 +9907,7 @@ function _invCapturarCache(invEl, id) {
 }
 
 function openShareInvoice(id) {
+  try{ if(ofrecerFavorTienda(id)) { try{ renderInvs(); }catch(e){} } }catch(e){}
   const inv = S.invoices.find(i=>i.id===id);
   if(!inv) return;
   // Si la factura está siendo editada (pantalla de edición abierta), guardarla primero.
@@ -10528,7 +10574,25 @@ function editarPago(invId, pi) {
 }
 function cycleInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv||inv.type==='presupuesto')return;const estados={pendiente:'Pagada',pagada:'Cancelada',cancelada:'Pendiente'};const next=estados[inv.status];if(!confirm('Cambiar estado a '+next+'?'))return;const c={pendiente:'pagada',pagada:'cancelada',cancelada:'pendiente'};inv.status=c[inv.status];if(inv.status==='pagada'){if(!inv.pagos)inv.pagos=[];const totalPagado=inv.pagos.reduce((s,p)=>s+p.monto,0);if(totalPagado===0){inv.pagos.push({monto:inv.total,method:'efectivo',date:localDateStr()});}inv.saldo=0;inv.aFavor=0;}renderInvs();updDash();save(['invoices','clients']);toast('Estado: '+inv.status);}
 function cancelInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv)return;if(inv.status==='cancelada'){toast('Ya esta cancelada');return;}if(!confirm('Cancelar la factura '+id+'? Quedara en el historial sin modificar el stock.'))return;inv.status='cancelada';renderInvs();updDash();save(['invoices']);toast('Factura cancelada');}
-function delInv(id){const inv=S.invoices.find(i=>i.id===id);if(!inv)return;const hasPago=inv.pagos&&inv.pagos.reduce((s,p)=>s+p.monto,0)>0;if(!confirm('Eliminar la factura '+id+(hasPago?' (tiene pagos registrados)':'')+' y devolver el stock?'))return;S.invoices=S.invoices.filter(i=>i.id!==id);try{if(window._fbDeleteDoc)_fbDeleteDoc('invoices',id);}catch(e){}try{recalcAllStocks();recalcClientCredits();}catch(e){} renderInvs();renderProds();updDash();save(['invoices','products']);toast('Factura eliminada y stock restaurado');}
+function delInv(id){
+  const inv=S.invoices.find(i=>i.id===id); if(!inv) return;
+  const pagado=(inv.pagos||[]).reduce((s,p)=>s+(+p.monto||0),0);
+  const favorUsado=(inv.pagos||[]).filter(p=>p.method==='a favor').reduce((s,p)=>s+(+p.monto||0),0);
+  // 4.22.34: lo pagado vuelve al cliente como saldo a favor. Lo pagado DE MÁS ya se había
+  // sumado a su saldo a favor cuando se cobró, por eso se devuelve solo hasta el total.
+  const devolver=Math.max(0, Math.min(pagado, inv.total||0));
+  const cli=S.clients.find(c=>c.id===inv.clientId);
+  let msg='¿Eliminar la factura '+id+' y devolver el stock?';
+  if(devolver>0.5) msg+='\n\n💰 Tiene $'+pagado.toFixed(0)+' pagados'+(favorUsado>0.5?' (incluye $'+favorUsado.toFixed(0)+' de saldo a favor)':'')+'.\nAl borrarla, $'+devolver.toFixed(0)+' vuelven a '+(cli?cli.name:'el cliente')+' como saldo a favor.';
+  if(!confirm(msg)) return;
+  S.invoices=S.invoices.filter(i=>i.id!==id);
+  if(cli && devolver>0.5){ cli.credito=(cli.credito||0)+devolver; try{_markDirty('clients', cli.id);}catch(e){} }
+  try{if(window._fbDeleteDoc)_fbDeleteDoc('invoices',id);}catch(e){}
+  try{recalcAllStocks();recalcClientCredits();}catch(e){}
+  renderInvs();renderProds();updDash();
+  save(cli && devolver>0.5 ? ['invoices','products','clients'] : ['invoices','products']);
+  toast(cli && devolver>0.5 ? 'Factura eliminada · $'+devolver.toFixed(0)+' a favor de '+cli.name : 'Factura eliminada y stock restaurado');
+}
 
 // === DASHBOARD ===
 function calcValorInventario() {
@@ -15049,6 +15113,7 @@ body.tn-body{display:block!important;background:linear-gradient(180deg,#dfeaff 0
       </div>
       <div style="padding:12px 16px 24px">
         <div id="tienda-envio-info" style="display:none;border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.35;margin-bottom:10px"></div>
+        <div id="tienda-favor-info" style="display:none;border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.35;margin-bottom:10px;background:#f0fdf4;border:1.5px solid #16a34a;color:#166534"></div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-top:8px;border-top:1px solid #eee">
           <span style="color:#666;font-size:15px">Total del pedido</span>
           <span id="tienda-total-carrito" style="font-family:Inter,sans-serif;font-size:22px;font-weight:900;color:#3483fa">$0.00</span>
@@ -16822,6 +16887,7 @@ function tiendaActTotal() {
   if(totalEl) totalEl.textContent='$'+total.toFixed(2);
   const totalCEl = document.getElementById('tienda-total-carrito');
   if(totalCEl) totalCEl.textContent='$'+total.toFixed(2);
+  try { tiendaRenderFavor(total); } catch(e) {}
   try {
     const n = Object.keys(TC).filter(function(k){ return TC[k] > 0; }).length;
     const tt = document.getElementById('tn-bar-tit'), ts = document.getElementById('tn-bar-sub');
@@ -16831,6 +16897,26 @@ function tiendaActTotal() {
   try { tiendaRenderEnvio(total); } catch(e) {}
 }
 
+// 4.22.34: saldo a favor disponible del cliente en la tienda (descontadas sus deudas)
+function tiendaFavorDisp() {
+  if(!TC_CLI || !TC_CLI.id) return 0;
+  const c = S.clients.find(function(x){ return x.id === TC_CLI.id; }) || TC_CLI;
+  const cred = c.credito || 0;
+  if(!(cred > 0.5)) return 0;
+  const deuda = (S.invoices||[]).filter(function(i){ return i.clientId === TC_CLI.id && i.status !== 'pagada' && i.status !== 'cancelada' && i.type !== 'presupuesto'; })
+    .reduce(function(s, i){ return s + Math.max(0, i.saldo || 0); }, 0);
+  return Math.max(0, cred - deuda);
+}
+function tiendaRenderFavor(total) {
+  const el = document.getElementById('tienda-favor-info');
+  if(!el) return;
+  const fav = tiendaFavorDisp();
+  if(!(fav > 0.5) || !(total > 0)) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  const usa = Math.min(fav, total);
+  el.style.display = 'block';
+  el.innerHTML = '💰 Tenés <b>'+fmtPesos(fav)+'</b> a favor: se descuentan de este pedido.'
+    + '<div style="margin-top:4px;font-weight:800">Te quedaría para pagar: '+fmtPesos(Math.max(0, total - usa))+'</div>';
+}
 function tiendaVerCarrito() {
   tiendaRenderCarrito();
   const car = document.getElementById('tienda-carrito');
@@ -17083,7 +17169,7 @@ async function tiendaConfirmar() {
     return '\u2022 '+nombre+' x'+_qtyTxt(qty)+' = $'+(unit*qty).toFixed(2);
   }).filter(Boolean).join('\n');
   const _envio = tiendaEnvioInfo(total);
-  const msg = (_REL_ID ? '⚡ *Oferta relámpago*\n' : '')+'\uD83D\uDED2 *Pedido de '+TN+'*\n\n'+lineas+'\n\n*Total: $'+total.toFixed(2)+'*'+(_envio ? '\n'+_envio.wa : '');
+  const msg = (_REL_ID ? '⚡ *Oferta relámpago*\n' : '')+'\uD83D\uDED2 *Pedido de '+TN+'*\n\n'+lineas+'\n\n*Total: $'+total.toFixed(2)+'*'+(_envio ? '\n'+_envio.wa : '')+(function(){ try{ const f=tiendaFavorDisp(); return f>0.5 ? '\n💰 Saldo a favor: $'+f.toFixed(0)+' (se descuenta de este pedido)' : ''; }catch(e){ return ''; } })();
   const url = 'https://wa.me/'+waNumeroNegocio()+'?text='+encodeURIComponent(msg);
   // Mostrar pantalla de guardando en overlay DEDICADO (no pisa #tienda-carrito)
   const _ov = document.getElementById('tienda-confirm-overlay');
