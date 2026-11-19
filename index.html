@@ -4229,6 +4229,11 @@ window.testersGuardar = function(){
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.35', f:'18/11/2026', t:[
+    'Facturas: ahora se ve un día a la vez. Arriba hay botones Ayer, Hoy, Mañana y Pasado (con la cantidad de facturas) y flechas para ir día por día. Al entrar se abre en Hoy.',
+    'El circulito rojo en un día indica cuántas facturas de ese día están sin cobrar. Abajo, "Días anteriores con facturas sin cobrar" las junta todas.',
+    'El buscador y las pestañas Pendientes, Pagadas, Tienda, etc. siguen mostrando todas las fechas, como antes.'
+  ]},
   {v:'4.22.34', f:'18/11/2026', t:[
     'Pedidos de la tienda: si el cliente tiene saldo a favor, al abrir, desplegar o enviar el pedido la app pregunta (una sola vez) si aplicarlo.',
     'Tienda: el cliente ve en su pedido cuánto tiene a favor y cuánto le quedaría para pagar; también sale en el mensaje de WhatsApp.',
@@ -4576,6 +4581,7 @@ function avisoNuevaVersion() {
   } catch(e) {}
 }
 function showPage(p) {
+  const _pgPrev = S.page;
   try { if(S.page === 'stock' && p !== 'stock' && typeof _srPendCant === 'function' && _srPendCant() > 0) { if(!confirm('Tenés cambios de ➖/➕ sin guardar. ¿Salir sin guardar?')) return; _srPendLimpiar(); } } catch(e) {}
   document.querySelectorAll('.page').forEach(x => { x.classList.remove('active'); x.style.display=''; });
   document.querySelectorAll('.nav-tab').forEach(x => x.classList.remove('active'));
@@ -4606,7 +4612,10 @@ function showPage(p) {
   if(p==='config') { try{ cfgSecAbrir(''); }catch(e){} }
   if(p==='config') { try{ window.subRefrescarUI(); }catch(e){} }
   if(p==='estadisticas') { estTab='ventas'; try{ aplicarCfgFacturacion(); }catch(e){} renderEstadisticas(); }
-  if(p==='facturas') { try{ aplicarCfgFacturacion(); }catch(e){} }
+  if(p==='facturas') { try{ aplicarCfgFacturacion(); }catch(e){}
+    // 4.22.35: al entrar a Facturas se ve el día de hoy; al volver de crear/editar una
+    // factura se queda en el día de esa factura.
+    try{ if(!S.invDia || !['nueva-factura','resumen-factura','facturas'].includes(_pgPrev)) S.invDia = localDateStr(); renderInvs(); }catch(e){} }
   if(p==='config') {
     try{ _ppCfgRender(); }catch(e){}
     try{ renderNovedades(); }catch(e){}
@@ -8891,6 +8900,7 @@ function saveInv() {
     pagos:[], // se completa abajo
     saldo:0, aFavor:0
   };
+  try{ if(inv.date) S.invDia = inv.date; }catch(e){}
   // 4.9.0: la factura se reconstruye desde cero; conservar faltantes y su origen
   {
     const _prevF = (window.invEditId||S.editId) ? S.invoices.find(x=>x.id===(window.invEditId||S.editId)) : null;
@@ -9633,6 +9643,56 @@ function crearFacturaPendientes(invId, fecha) {
   toast('✓ Factura para el '+_fFechaLarga(fecha)+' creada ($'+nueva.total.toFixed(0)+')');
 }
 // ===== FIN FALTANTES =====
+// ── 4.22.35: barra de días de Facturas ──
+function _invSinCobrar(i){ return i.type!=='presupuesto' && i.status!=='pagada' && i.status!=='cancelada' && (i.saldo||0) > 0.5; }
+function _invDiaSuma(d, n){ const x = new Date(d+'T12:00:00'); x.setDate(x.getDate()+n); return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); }
+function invDiaIr(d){ S.invDia = d; S.invLimite = 60; renderInvs(); try{ document.getElementById('inv-list').scrollIntoView({block:'start'}); }catch(e){} }
+function invDiaMover(n){ const base = (S.invDia && S.invDia!=='viejas') ? S.invDia : localDateStr(); invDiaIr(_invDiaSuma(base, n)); }
+function _invBarDiaHtml(){
+  const hoy = localDateStr();
+  const fac = S.invoices.filter(i=>i.type!=='presupuesto');
+  const fmt = d => d.slice(8,10)+'/'+d.slice(5,7);
+  const DIAS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  const chips = [['Ayer',-1],['Hoy',0],['Mañana',1],['Pasado',2]].map(([lbl,n])=>{
+    const d = _invDiaSuma(hoy, n);
+    const del = fac.filter(i=>i.date===d);
+    const sc = d <= hoy ? del.filter(_invSinCobrar).length : 0;
+    const sel = S.invDia === d;
+    return '<button onclick="invDiaIr(\''+d+'\')" style="flex:1;min-width:0;position:relative;padding:7px 2px;border-radius:10px;cursor:pointer;font-family:inherit;'
+      +(sel ? 'border:2px solid var(--accent);background:var(--accent);color:#fff' : 'border:1.5px solid var(--border);background:var(--surface);color:var(--text)')+'">'
+      +'<div style="font-size:14px;font-weight:800">'+lbl+'</div>'
+      +'<div style="font-size:11px;opacity:.85">'+fmt(d)+' · '+del.length+'</div>'
+      +(sc ? '<span style="position:absolute;top:-7px;right:-4px;background:#dc2626;color:#fff;font-size:11px;font-weight:800;border-radius:10px;padding:0 6px;line-height:18px">'+sc+'</span>' : '')
+      +'</button>';
+  }).join('');
+  let tit, sub = '', pend = '';
+  if(S.invDia === 'viejas') {
+    const v = fac.filter(i=>i.date < hoy && _invSinCobrar(i));
+    tit = 'Sin cobrar de días anteriores';
+    sub = v.length+' factura'+(v.length!==1?'s':'')+' · '+fmtPesos(v.reduce((s,i)=>s+(i.saldo||0),0));
+  } else {
+    const d = S.invDia;
+    const del = fac.filter(i=>i.date===d && i.status!=='cancelada');
+    const rel = d===hoy ? 'Hoy' : d===_invDiaSuma(hoy,-1) ? 'Ayer' : d===_invDiaSuma(hoy,1) ? 'Mañana' : d===_invDiaSuma(hoy,2) ? 'Pasado' : '';
+    tit = (rel ? rel+' · ' : '')+DIAS[new Date(d+'T12:00:00').getDay()]+' '+fmt(d);
+    sub = del.length+' factura'+(del.length!==1?'s':'')+' · '+fmtPesos(del.reduce((s,i)=>s+(i.total||0),0));
+    if(d <= hoy) {
+      const sc = del.filter(_invSinCobrar);
+      if(sc.length) pend = '<div style="font-size:13px;font-weight:700;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:6px 10px;margin-top:6px">'+sc.length+' sin cobrar este día · '+fmtPesos(sc.reduce((s,i)=>s+(i.saldo||0),0))+'</div>';
+    }
+  }
+  const viejas = fac.filter(i=>i.date < hoy && _invSinCobrar(i));
+  const linkViejas = S.invDia === 'viejas'
+    ? '<button onclick="invDiaIr(\''+hoy+'\')" style="margin-top:6px;background:none;border:none;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;padding:2px 0;font-family:inherit">← Volver a hoy</button>'
+    : (viejas.length ? '<button onclick="invDiaIr(\'viejas\')" style="margin-top:6px;background:none;border:none;color:#b91c1c;font-size:13px;font-weight:700;cursor:pointer;padding:2px 0;text-align:left;font-family:inherit">⚠️ Días anteriores con facturas sin cobrar: '+viejas.length+' · ver ▸</button>' : '');
+  return '<div id="inv-dia-bar" style="margin-bottom:12px">'
+    +'<div style="display:flex;gap:6px;margin:6px 0 8px">'+chips+'</div>'
+    +'<div style="display:flex;align-items:center;gap:8px;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:8px 10px">'
+    +(S.invDia==='viejas' ? '' : '<button onclick="invDiaMover(-1)" aria-label="Día anterior" style="background:var(--surface2);border:none;border-radius:8px;width:40px;height:38px;font-size:20px;cursor:pointer">‹</button>')
+    +'<div style="flex:1;text-align:center;min-width:0"><div style="font-size:16px;font-weight:800">'+tit+'</div><div style="font-size:13px;color:var(--text2)">'+sub+'</div></div>'
+    +(S.invDia==='viejas' ? '' : '<button onclick="invDiaMover(1)" aria-label="Día siguiente" style="background:var(--surface2);border:none;border-radius:8px;width:40px;height:38px;font-size:20px;cursor:pointer">›</button>')
+    +'</div>'+pend+linkViejas+'</div>';
+}
 function renderInvs() {
   _facSnapRefrescar(false);   // 4.17.0
   try{renderInvDiaResumen();}catch(e){}
@@ -9651,6 +9711,15 @@ function renderInvs() {
   const _todasFilt = list;
   const _urg = list.filter(_esUrgente);
   list = list.filter(i=>!_esUrgente(i));
+  // 4.22.35: en "Todas" y sin búsqueda se ve UN día a la vez (barra de días arriba)
+  let _barDia = '';
+  if(S.invFilter==='all' && !sq.trim()) {
+    if(!S.invDia) S.invDia = localDateStr();
+    _barDia = _invBarDiaHtml();
+    if(S.invDia === 'viejas') { const _hoy = localDateStr(); list = list.filter(i=>i.date < _hoy && _invSinCobrar(i)); }
+    else list = list.filter(i=>i.date === S.invDia);
+    if(!list.length && !_urg.length){ el.innerHTML = _barDia + '<div class="empty" style="padding:30px 10px"><div class="ei">&#128197;</div><h3>Sin facturas este día</h3><p>Usá las flechas o los botones de arriba para ver otro día.</p></div>'; return; }
+  }
   if(!list.length && !_urg.length){el.innerHTML='<div class="empty"><div class="ei">&#129534;</div><h3>Sin facturas</h3><p>Crea tu primera factura</p></div>';return;}
   // Se dibujan solo las mas recientes: dibujar miles de facturas a la vez volvia lenta la app.
   // La busqueda y los filtros siguen buscando en TODAS; "Ver mas" muestra el resto.
@@ -9755,7 +9824,7 @@ function renderInvs() {
     ? '<div id="inv-urg-hdr" style="display:flex;align-items:center;gap:8px;margin-bottom:4px;scroll-margin-top:90px"><div style="flex:1;height:2px;background:#ea580c"></div><span style="font-size:14px;font-weight:900;color:#ea580c;white-space:nowrap">🚨 URGENTES ('+_urg.length+')</span><div style="flex:1;height:2px;background:#ea580c"></div></div>'
       + _urg.map((inv,ii)=>_cardInv(inv,ii,true)).join('')
     : '';
-  el.innerHTML='<div style="display:flex;flex-direction:column;gap:10px">'+_urgHtml+list.map((inv,ii)=>_cardInv(inv,ii+(_urg.length?1:0),false)).join('')+'</div>'
+  el.innerHTML=_barDia+'<div style="display:flex;flex-direction:column;gap:10px">'+_urgHtml+list.map((inv,ii)=>_cardInv(inv,ii+(_urg.length?1:0),false)).join('')+'</div>'
   +(_listaTotal.length>list.length ? '<button onclick="S.invLimite=(S.invLimite||60)+60;renderInvs()" style="display:block;width:100%;margin:14px 0 6px;padding:14px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface);color:var(--accent);font-size:15px;font-weight:800;cursor:pointer">Ver más facturas ('+(_listaTotal.length-list.length)+' restantes)</button>' : '');
   const pend=S.invoices.filter(i=>i.status==='pendiente').length;
   const b=document.getElementById('nbadge');
