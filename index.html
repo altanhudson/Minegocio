@@ -4229,10 +4229,14 @@ window.testersGuardar = function(){
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.36', f:'19/11/2026', t:[
+    'Facturas: la barra de días ahora está en todas las pestañas. Por ejemplo, Pendientes + Ayer muestra solo las pendientes de ayer. El día elegido se mantiene al cambiar de pestaña.',
+    'Al cambiar de día (botones o flechas) la pantalla ya no salta para arriba.'
+  ]},
   {v:'4.22.35', f:'18/11/2026', t:[
     'Facturas: ahora se ve un día a la vez. Arriba hay botones Ayer, Hoy, Mañana y Pasado (con la cantidad de facturas) y flechas para ir día por día. Al entrar se abre en Hoy.',
     'El circulito rojo en un día indica cuántas facturas de ese día están sin cobrar. Abajo, "Días anteriores con facturas sin cobrar" las junta todas.',
-    'El buscador y las pestañas Pendientes, Pagadas, Tienda, etc. siguen mostrando todas las fechas, como antes.'
+    'El buscador sigue buscando en todas las fechas.'
   ]},
   {v:'4.22.34', f:'18/11/2026', t:[
     'Pedidos de la tienda: si el cliente tiene saldo a favor, al abrir, desplegar o enviar el pedido la app pregunta (una sola vez) si aplicarlo.',
@@ -9646,7 +9650,17 @@ function crearFacturaPendientes(invId, fecha) {
 // ── 4.22.35: barra de días de Facturas ──
 function _invSinCobrar(i){ return i.type!=='presupuesto' && i.status!=='pagada' && i.status!=='cancelada' && (i.saldo||0) > 0.5; }
 function _invDiaSuma(d, n){ const x = new Date(d+'T12:00:00'); x.setDate(x.getDate()+n); return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); }
-function invDiaIr(d){ S.invDia = d; S.invLimite = 60; renderInvs(); try{ document.getElementById('inv-list').scrollIntoView({block:'start'}); }catch(e){} }
+function _invScrollPadre(el){ let p = el && el.parentElement; while(p && p !== document.body){ const st = getComputedStyle(p); if(/(auto|scroll)/.test(st.overflowY) && p.scrollHeight > p.clientHeight) return p; p = p.parentElement; } return null; }
+// 4.22.36: al cambiar de día la pantalla se queda quieta (la barra queda donde estaba)
+function invDiaIr(d){
+  const b0 = document.getElementById('inv-dia-bar');
+  const y0 = b0 ? b0.getBoundingClientRect().top : null;
+  S.invDia = d; S.invLimite = 60; renderInvs();
+  try{
+    const b1 = document.getElementById('inv-dia-bar');
+    if(b1 && y0 !== null){ const dy = b1.getBoundingClientRect().top - y0; if(Math.abs(dy) > 1){ const sc = _invScrollPadre(b1); if(sc) sc.scrollTop += dy; else window.scrollBy(0, dy); } }
+  }catch(e){}
+}
 function invDiaMover(n){ const base = (S.invDia && S.invDia!=='viejas') ? S.invDia : localDateStr(); invDiaIr(_invDiaSuma(base, n)); }
 function _invBarDiaHtml(){
   const hoy = localDateStr();
@@ -9713,7 +9727,7 @@ function renderInvs() {
   list = list.filter(i=>!_esUrgente(i));
   // 4.22.35: en "Todas" y sin búsqueda se ve UN día a la vez (barra de días arriba)
   let _barDia = '';
-  if(S.invFilter==='all' && !sq.trim()) {
+  if(!sq.trim()) {
     if(!S.invDia) S.invDia = localDateStr();
     _barDia = _invBarDiaHtml();
     if(S.invDia === 'viejas') { const _hoy = localDateStr(); list = list.filter(i=>i.date < _hoy && _invSinCobrar(i)); }
