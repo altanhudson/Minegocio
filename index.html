@@ -3529,6 +3529,10 @@ function _relParaCatalogo() {
     const p = (S.products || []).find(function(x){ return x.id === it.prodId; });
     if(!p || !p.name) return;
     const o = { id: p.id, name: p.name, price: Number(it.precio) || p.price || 0, category: 'Oferta relámpago', emoji: p.emoji || '📦', visible: true };
+    // 4.22.37: cantidad de la oferta ('de' = se vende de a N; 'min' = minimo N y despues de a 1)
+    const cn = Math.floor(Number(it.n) || 0);
+    if(it.cant === 'de' && cn > 1) o.fracMin = cn;
+    else if(it.cant === 'min' && cn > 1) o.relMin = cn;
     if(p.image && String(p.image).indexOf('data:') !== 0) o.image = p.image;
     if(o.price > 0) prods.push(o);
   });
@@ -3606,9 +3610,19 @@ function _relFila(it, i, editable) {
   const img = p.image ? '<img src="' + _tnEsc(p.image) + '" style="width:46px;height:46px;object-fit:cover;border-radius:8px;flex:0 0 46px">'
     : '<div style="width:46px;height:46px;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:22px;flex:0 0 46px">' + (p.emoji || '📦') + '</div>';
   const normal = (!p.relampago && Math.round(p.price) !== Math.round(it.precio)) ? '<div style="font-size:12px;color:var(--text3)">Precio normal ' + fmtPesos(p.price) + '</div>' : '';
+  const cantTx = _relCantTxt(it);
+  const cant = cantTx ? '<div style="font-size:12px;font-weight:700;color:#9a3412">' + cantTx + '</div>' : '';
   return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;' + (i > 0 ? 'border-top:1px solid var(--border)' : '') + '">' + img
-    + '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:15px">' + _tnEsc(p.name) + '</div><div style="color:var(--green);font-weight:800">' + fmtPesos(it.precio) + '</div>' + normal + '</div>'
+    + '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:15px">' + _tnEsc(p.name) + '</div><div style="color:var(--green);font-weight:800">' + fmtPesos(it.precio) + '</div>' + cant + normal + '</div>'
     + (editable ? '<button onclick="relQuitar(' + i + ')" style="background:none;border:none;font-size:18px;cursor:pointer;padding:6px">✕</button>' : '') + '</div>';
+}
+// 4.22.37: texto de la regla de cantidad de un producto de la oferta
+function _relCantTxt(it) {
+  const n = Math.floor(Number(it && it.n) || 0);
+  if(!it || n < 2) return '';
+  if(it.cant === 'de') return 'Se vende de a ' + n + ' u.';
+  if(it.cant === 'min') return 'Mínimo ' + n + ' u.';
+  return '';
 }
 function relRender() {
   const b = document.getElementById('mrel-body');
@@ -3823,7 +3837,9 @@ function _relLeerForm() {
   if(g('rel-precio') !== undefined) n.precio = g('rel-precio');
   if(g('rel-costo') !== undefined) n.costo = g('rel-costo');
   if(g('rel-prov') !== undefined) n.prov = g('rel-prov');
+  if(g('rel-cant-n') !== undefined) n.cantN = g('rel-cant-n');
 }
+function relCantModo(m) { _relLeerForm(); _relNuevo.cant = m; relRender(); setTimeout(function(){ const e = document.getElementById('rel-cant-n'); if(e && !e.value) e.focus(); }, 50); }
 function _relHtmlAgregar() {
   const n = _relNuevo || {};
   const big = 'display:flex;align-items:center;gap:12px;width:100%;padding:16px;margin-bottom:10px;border-radius:12px;border:1px solid var(--border);background:var(--surface2);font-size:16px;font-weight:700;cursor:pointer;color:var(--text);text-align:left';
@@ -3843,6 +3859,17 @@ function _relHtmlAgregar() {
     h += '<div class="form-group"><label class="fl">Nombre del producto</label><input type="text" id="rel-nombre" value="' + _tnEsc(n.nombre || '') + '" placeholder="Ej: Galletitas Oreo 118 g"></div>';
   }
   h += '<div class="form-group"><label class="fl">Precio de la oferta</label><input type="number" id="rel-precio" inputmode="decimal" value="' + _tnEsc(n.precio || '') + '" placeholder="0"></div>';
+  // 4.22.37: cantidad (Libre / Minimo / De a)
+  const cm = n.cant || 'libre';
+  const chipC = function(v, txt){ const sel = cm === v; return '<button type="button" onclick="relCantModo(\'' + v + '\')" style="flex:1;padding:9px 2px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;border:2px solid ' + (sel ? '#ea580c;background:#ffedd5;color:#9a3412' : 'var(--border);background:var(--surface2);color:var(--text2)') + '">' + txt + '</button>'; };
+  h += '<div class="form-group"><label class="fl">Cantidad</label><div style="display:flex;gap:6px">' + chipC('libre', 'Libre') + chipC('min', 'Mínimo') + chipC('de', 'De a') + '</div>';
+  if(cm !== 'libre') {
+    h += '<div style="display:flex;align-items:center;gap:8px;margin-top:8px"><span style="font-size:15px">' + (cm === 'min' ? 'Mínimo' : 'De a') + '</span><input type="number" id="rel-cant-n" inputmode="numeric" min="2" step="1" value="' + _tnEsc(n.cantN || '') + '" placeholder="Ej: 10" style="flex:1"><span style="font-size:15px">unidades</span></div>'
+      + '<div style="font-size:12px;color:var(--text3);margin-top:4px">' + (cm === 'min' ? 'El cliente arranca en esa cantidad y después suma de a 1.' : 'El cliente pide de a esa cantidad (10, 20, 30…).') + '</div>';
+  } else {
+    h += '<div style="font-size:12px;color:var(--text3);margin-top:4px">El cliente pide la cantidad que quiera.</div>';
+  }
+  h += '</div>';
   if(!p) {
     let provSel = n.prov;
     if(provSel === undefined) { try { provSel = localStorage.getItem('rev_rel_prov') || ''; } catch(e) { provSel = ''; } }
@@ -3877,6 +3904,7 @@ function relUsarExistente(id) {
   const p = (S.products || []).find(function(x){ return x.id === id; });
   if(!p) return;
   _relNuevo = { prodId: id, precio: p.price || '' };
+  if(p.fracMin && p.fracMin > 1) { _relNuevo.cant = 'de'; _relNuevo.cantN = String(p.fracMin); }   // 4.22.37: si ya se vende de a N, se propone igual
   _relVista = 'agregar';
   relRender();
 }
@@ -3914,9 +3942,17 @@ async function relConfirmarProducto() {
   const r = _relCfg();
   const precio = parseFloat(n.precio) || 0;
   if(precio <= 0) { toast('Poné el precio de la oferta'); return; }
+  // 4.22.37: regla de cantidad
+  const cant = (n.cant === 'min' || n.cant === 'de') ? n.cant : 'libre';
+  let cantN = 0;
+  if(cant !== 'libre') {
+    cantN = Number(String(n.cantN || '').replace(',', '.'));
+    if(!(cantN >= 2) || Math.floor(cantN) !== cantN || cantN > 9999) { toast('Poné la cantidad (un número entero, 2 o más)'); return; }
+  }
+  const _relItem = function(id){ const o = { prodId: id, precio: precio }; if(cant !== 'libre') { o.cant = cant; o.n = cantN; } return o; };
   if(n.prodId) {
     if(r.items.some(function(it){ return it.prodId === n.prodId; })) { toast('Ese producto ya está en la oferta'); return; }
-    r.items.push({ prodId: n.prodId, precio: precio });
+    r.items.push(_relItem(n.prodId));
   } else {
     const nombre = String(n.nombre || '').trim();
     if(!nombre) { toast('Poné el nombre del producto'); return; }
@@ -3941,7 +3977,7 @@ async function relConfirmarProducto() {
     try { save(['products', 'nProd']); } catch(e) {}
     try { renderProds(); } catch(e) {}
     try { localStorage.setItem('rev_rel_prov', n.prov || ''); } catch(e) {}
-    r.items.push({ prodId: id, precio: precio });
+    r.items.push(_relItem(id));
   }
   _relGuardar();
   _relNuevo = null; _relVista = 'main';
@@ -4229,6 +4265,13 @@ window.testersGuardar = function(){
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.37', f:'23/11/2026', t:[
+    'Oferta relámpago: al agregar un producto elegís la cantidad: Libre, Mínimo (por ejemplo, desde 10 y después de a 1) o De a (10, 20, 30…). En la tienda el cliente ve la regla y los botones la respetan.',
+    'Los pedidos de la oferta relámpago entran siempre con la fecha de hoy, aunque sea después del horario de corte.',
+    'Unificar facturas: se conservan los tildes de todas las facturas. Si un producto quedó con otra cantidad, queda sin tildar para que lo revises.',
+    'Unificar facturas: los productos de la oferta relámpago van en su propio renglón con el precio de oferta y no cambian lo que ya tenía la factura.',
+    'La factura unificada queda como Preparado solo si todas lo estaban.'
+  ]},
   {v:'4.22.36', f:'19/11/2026', t:[
     'Facturas: la barra de días ahora está en todas las pestañas. Por ejemplo, Pendientes + Ayer muestra solo las pendientes de ayer. El día elegido se mantiene al cambiar de pestaña.',
     'Al cambiar de día (botones o flechas) la pantalla ya no salta para arriba.'
@@ -9071,13 +9114,26 @@ function unificarFacturasTienda(clientId, fecha) {
 
   if(!confirm('Unificar '+facts.length+' facturas del mismo cliente en una sola?')) return;
 
+  // 4.22.37: tildes de TODAS las facturas (antes solo quedaban los de la más nueva).
+  // Por producto: cantidad con la que estaba tildado en cada factura.
+  const _tildes = {};
+  for(const inv of facts) {
+    (inv.items||[]).forEach(function(item, idx){
+      if(!_estaArmado(inv, item, idx)) return;
+      const k = _keyItemArmado(item, idx);
+      (_tildes[k] = _tildes[k] || []).push(Number(item.qty)||0);
+    });
+  }
   // Construir ítems unificados: la factura más reciente pisa a las anteriores
   const itemMap = {}; // key: prodId+(variante||'') → item
   for(const inv of facts) { // de más vieja a más nueva
     for(const item of (inv.items||[])) {
       // 4.9.0: los que vienen de pendientes van en su propio renglón (con su precio),
       // así no pisan ni son pisados por el mismo producto del pedido nuevo.
-      const key = (item.prodId||item.desc||'')+'|'+(item.variante||'')+(item.dePendiente?'|pend|'+item.price:'');
+      // 4.22.37: los de la oferta relámpago también (con su precio de oferta). Dos pedidos
+      // de la oferta del mismo producto se SUMAN: cada pedido de la oferta es un pedido aparte.
+      const key = (item.prodId||item.desc||'')+'|'+(item.variante||'')+(item.dePendiente?'|pend|'+item.price:'')+(item.rel?'|rel|'+item.price:'');
+      if(item.rel && itemMap[key]) { itemMap[key].qty = Math.round(((Number(itemMap[key].qty)||0) + (Number(item.qty)||0))*1000)/1000; continue; }
       itemMap[key] = {...item}; // la más nueva pisa a la anterior
     }
   }
@@ -9090,7 +9146,7 @@ function unificarFacturasTienda(clientId, fecha) {
     const kp = function(it){ return (it.prodId||it.desc||'')+'|'+(it.variante||''); };
     itemsUnificados.filter(function(it){ return it.dePendiente; }).forEach(function(pen){
       const k = kp(pen);
-      const j = itemsUnificados.findIndex(function(x){ return x !== pen && !x.dePendiente && kp(x) === k; });
+      const j = itemsUnificados.findIndex(function(x){ return x !== pen && !x.dePendiente && !x.rel && kp(x) === k; });
       if(j < 0) return;
       const otro = itemsUnificados[j];
       const q = Math.max(Number(pen.qty)||0, Number(otro.qty)||0);
@@ -9101,9 +9157,23 @@ function unificarFacturasTienda(clientId, fecha) {
   })();
   const totalUnificado = itemsUnificados.reduce((s,i)=>s+(i.qty||0)*(i.price||0),0);
 
+  // 4.22.37: tildes de la factura unificada. Queda tildado si en alguna factura estaba
+  // tildado con la MISMA cantidad que quedó; si la cantidad cambió, se destilda para revisarlo.
+  const _armados = {};
+  let _destildados = 0;
+  itemsUnificados.forEach(function(item, idx){
+    const k = _keyItemArmado(item, idx);
+    const qs = _tildes[k];
+    if(!qs) return;
+    const q = Number(item.qty)||0;
+    if(qs.some(function(x){ return Math.abs(x - q) < 1e-9; })) _armados[k] = true;
+    else _destildados++;
+  });
   // Tomar la factura más reciente como base, borrar las demás
   const base = facts[facts.length-1];
   base.items = itemsUnificados;
+  base.itemsArmados = _armados;
+  base.preparado = facts.every(function(i){ return !!i.preparado; });   // 4.22.37: Preparado solo si lo estaban todas
   // El subtotal debe recalcularse junto con el total. Si no, queda el subtotal viejo
   // de la factura base y aparece un "Subtotal" fantasma en la factura compartida.
   base.subtotal = totalUnificado;
@@ -9135,7 +9205,7 @@ function unificarFacturasTienda(clientId, fecha) {
   try{recalcAllStocks();recalcClientCredits();}catch(e){}
   try{save(['invoices','products']);}catch(e){}
   renderInvs();
-  toast('✓ '+facts.length+' pedidos unificados en uno');
+  toast('✓ '+facts.length+' pedidos unificados en uno'+(_destildados ? ' · '+_destildados+' producto'+(_destildados>1?'s':'')+' sin tildar porque cambió la cantidad' : ''));
   if(_avisosPend.length) {   // 4.15.1: aviso más largo para poder leerlo
     toast('✓ Unificados. ⚠ '+_avisosPend.join(' · '));
     try{ const t = document.getElementById('toast'); clearTimeout(t._t); t._t = setTimeout(function(){ t.classList.remove('show'); }, 9000); }catch(e){}
@@ -9149,9 +9219,10 @@ function unificarFacturasTienda(clientId, fecha) {
 // al índice como último recurso.
 function _keyItemArmado(item, idx) {
   if(!item) return 'i'+idx;
-  if(item.prodId) return item.prodId + (item.variante ? '|'+item.variante : '');
+  const rel = item.rel ? '|rel' : '';   // 4.22.37: el renglon de la oferta relampago tiene su propio tilde
+  if(item.prodId) return item.prodId + (item.variante ? '|'+item.variante : '') + rel;
   const nombre = (item.desc || item.name || '').trim();
-  return nombre ? 'n:'+nombre : 'i'+idx;
+  return nombre ? 'n:'+nombre+rel : 'i'+idx;
 }
 // Lee el estado del tilde. Contempla las facturas viejas, donde los tildes se
 // habían guardado por índice numérico, para no perder lo ya marcado.
@@ -16522,7 +16593,7 @@ function tiendaProdCardNueva(p) {
     else if(nsv >= 1) stk = '<div class="tn-sk ult">¡Últimas ' + nsv + '!</div>';
   }
   const sub = hasVar ? (p.variantes.length + ' variantes para elegir')
-    : (bq > 1 ? 'Bulto x' + bq + ' unidades' : (p.mitad ? 'Podés pedir ½ ' + _labelUnidad(p).toLowerCase() : (step > 1 ? 'Se vende de a ' + step : 'Por unidad')));
+    : (bq > 1 ? 'Bulto x' + bq + ' unidades' : (p.mitad ? 'Podés pedir ½ ' + _labelUnidad(p).toLowerCase() : (step > 1 ? 'Se vende de a ' + step + ' u.' : (p.relMin > 1 ? 'Mínimo ' + p.relMin + ' u.' : 'Por unidad'))));
   const pc = getPriceChangeHtml(p, '22px', '#1f5fc4', 'margin-top:4px');
   const precio = pc ? pc : '<div class="tn-pp">' + fmtPesos(p.price) + ' <small>/ ' + (p.mitad ? _tnEsc(_labelUnidad(p).toLowerCase()) : 'unidad') + '</small></div>';
   let mayor = '';
@@ -16839,7 +16910,7 @@ function tiendaAdd(id) {
   if(p && p.variantes && p.variantes.length) { tiendaSelecVariante(id); return; }
   const step = stepDe(p);
   const _antes = TC[id]||0;
-  TC[id] = (TC[id]||0) + step;
+  TC[id] = _relMinAplicar(p, (TC[id]||0) + step);
   _tnFlashBulto(tcProdId(id), _antes, TC[id], bultoDe(p));
   // Ocultar banner de orientación al primer producto agregado
   const hint = document.getElementById('tienda-hint');
@@ -16883,7 +16954,7 @@ function tiendaInc(id) {
   if(p && p.sinStockManual) { toast('Este producto no está disponible ahora'); return; }
   const step = stepDe(p);
   const _antes = TC[id]||0;
-  TC[id]=(TC[id]||0)+step;
+  TC[id]=_relMinAplicar(p, (TC[id]||0)+step);
   _tnFlashBulto(tcProdId(id), _antes, TC[id], bultoDe(p));
   const cartBtn = document.getElementById('tienda-cart-btn');
   if(cartBtn) { cartBtn.style.transform='scale(1.2)'; cartBtn.style.transition='transform .15s'; setTimeout(()=>{ cartBtn.style.transform='scale(1)'; },200); }
@@ -16895,7 +16966,7 @@ function tiendaDec(id) {
   const p = S.products.find(x=>x.id===tcProdId(id));
   const step = stepDe(p);
   TC[id]=(TC[id]||step)-step;
-  if(TC[id]<=0) delete TC[id];
+  if(TC[id]<=0 || (p && p.relMin > 1 && TC[id] < p.relMin)) delete TC[id];   // 4.22.37: por debajo del minimo de la oferta se saca
   _tiendaActualizarTarjeta(tcProdId(id));
   if(document.getElementById('tienda-carrito').style.display!=='none') tiendaRenderCarrito();
   tiendaActTotal();
@@ -16908,6 +16979,8 @@ function tiendaActBadge() {
   else badge.style.display='none';
 }
 
+// 4.22.37: oferta relampago con minimo: el primer toque ya pone el minimo
+function _relMinAplicar(p, q) { return (p && p.relMin > 1 && q > 0 && q < p.relMin) ? p.relMin : q; }
 // ---- 4.22.31: medio cartón (la unidad de la categoría especial se puede pedir de a ½) ----
 function stepDe(p) {
   if(p && p.mitad) return 0.5;
@@ -17225,6 +17298,16 @@ async function tiendaConfirmar() {
     return;
   }
 
+  // 4.22.37: oferta relampago: respetar el minimo y el "de a" de cada producto
+  if(_REL_ID) {
+    for(const [id, qty] of items) {
+      const p = S.products.find(x=>x.id===tcProdId(id));
+      if(!p) continue;
+      const fm = (p.fracMin && p.fracMin > 1) ? p.fracMin : 0;
+      if(p.relMin > 1 && qty < p.relMin) { alert('"'+p.name+'" se pide desde '+p.relMin+' unidades. Corregí la cantidad y volvé a confirmar.'); return; }
+      if(fm && Math.abs(qty / fm - Math.round(qty / fm)) > 1e-9) { alert('"'+p.name+'" se vende de a '+fm+' unidades. Corregí la cantidad y volvé a confirmar.'); return; }
+    }
+  }
   // Verificar si hay productos con variantes pero sin variante elegida
   for(const [id, qty] of items) {
     const pid = tcProdId(id);
@@ -17278,6 +17361,7 @@ async function tiendaConfirmar() {
     const desc = p.name + (variante ? ' - '+variante : '');
     const itemObj = {prodId:pid, desc, qty, price:unit, retailPrice:p.price, wholesalePrice:p.wholesalePrice||0, wholesaleQty:p.wholesaleQty||0};
     if(variante) itemObj.variante = variante;
+    if(_REL_ID) itemObj.rel = 1;   // 4.22.37: producto de la oferta relampago (al unificar va en su propio renglon)
     return itemObj;
   }).filter(Boolean);
   const invTotal = invItems.reduce((s,i)=>s+i.qty*i.price,0);
@@ -17285,7 +17369,7 @@ async function tiendaConfirmar() {
     id:'FAC-'+String(S.nInv++).padStart(4,'0')+'-'+Date.now().toString(36).slice(-4).toUpperCase(),
     type:'factura', status:'pendiente',
     clientId:cli.id, clientName:cli.name,
-    date:tiendaFechaFactura(), ts:Date.now(),
+    date:(_REL_ID ? localDateStr() : tiendaFechaFactura()), ts:Date.now(),   // 4.22.37: la oferta relampago siempre es para hoy (sin horario de corte)
     items:invItems, subtotal:invTotal,
     descRetiro:0, descExtraPct:0, descExtra:0, total:invTotal,
     pagos:[], saldo:invTotal, aFavor:0,
