@@ -4265,6 +4265,9 @@ window.testersGuardar = function(){
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.38', f:'23/11/2026', t:[
+    'Tienda: al elegir sabor o variante, cada uno tiene su contador − cantidad + siempre a la vista. El sabor elegido queda resaltado.'
+  ]},
   {v:'4.22.37', f:'23/11/2026', t:[
     'Oferta relámpago: al agregar un producto elegís la cantidad: Libre, Mínimo (por ejemplo, desde 10 y después de a 1) o De a (10, 20, 30…). En la tienda el cliente ve la regla y los botones la respetan.',
     'Los pedidos de la oferta relámpago entran siempre con la fecha de hoy, aunque sea después del horario de corte.',
@@ -16741,26 +16744,9 @@ function tiendaRenderVariantePopup(prodId) {
   const totalEnCarrito = (p.variantes||[]).reduce(function(s,v){
     return s + (TC[prodId+'|'+v]||0);
   }, 0);
+  // 4.22.38: una fila por variante con contador − cantidad + siempre visible
   const botonesVariantes = (p.variantes||[]).map(function(v) {
-    const qty = TC[prodId+'|'+v]||0;
-    const sel = qty > 0;
-    const vEsc = v.replace(/\\/g,'\\\\').replace(/'/g,'\\\'');
-    const _bqV = bultoDe(p);
-    const stepV = stepDe(p);
-    const btnUnidV = '<button onclick="tiendaAddVariante(\''+prodId+'\',\''+vEsc+'\')" style="background:#3483fa;color:#fff;border:none;border-radius:8px;padding:6px 8px;font-size:12px;font-weight:800;cursor:pointer;flex-shrink:0;white-space:nowrap">'+_lblStep(p)+'</button>';
-    const btnBultoV = _bqV>1
-      ? '<button onclick="tiendaAddBultoVariante(\''+prodId+'\',\''+vEsc+'\')" style="background:#fff;color:#3483fa;border:1.5px solid #3483fa;border-radius:8px;padding:6px 8px;font-size:12px;font-weight:800;cursor:pointer;flex-shrink:0;white-space:nowrap">📦 Bulto x'+_bqV+' +</button>'
-      : '';
-    return '<div data-variante="'+v+'" style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">'
-      +'<button data-varbtn onclick="tiendaAddVariante(\''+prodId+'\',\''+vEsc+'\')" style="flex:1 1 100%;background:'+(sel?'#3483fa':'#f0f4ff')+';border:1.5px solid #3483fa;color:'+(sel?'#fff':'#3483fa')+';border-radius:12px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;text-align:left">'+v+'</button>'
-      +btnUnidV
-      +btnBultoV
-      +'<div data-varctr style="display:'+(qty>0?'flex':'none')+';align-items:center;gap:6px;flex-shrink:0">'
-        +'<button onclick="tiendaDecVariante(\''+prodId+'\',\''+vEsc+'\')" style="background:#eef0f5;color:#3483fa;border:none;border-radius:8px;width:32px;height:32px;font-size:20px;cursor:pointer;font-weight:700">−</button>'
-        +'<span style="font-weight:800;font-size:16px;color:#333;min-width:18px;text-align:center">'+_qtyHtml(qty)+'</span>'
-        +'<button onclick="tiendaAddVariante(\''+prodId+'\',\''+vEsc+'\')" style="background:#3483fa;color:#fff;border:none;border-radius:8px;width:32px;height:32px;font-size:20px;cursor:pointer;font-weight:700">+</button>'
-      +'</div>'
-      +'</div>';
+    return '<div data-variante="'+_tnEsc(v)+'">'+_tnVarFilaHtml(p, v)+'</div>';
   }).join('');
   ov.innerHTML = '<div style="background:#fff;border-radius:18px;padding:24px 20px;max-width:340px;width:100%;box-shadow:0 8px 30px rgba(0,0,0,.25);max-height:85vh;display:flex;flex-direction:column">'
     +'<div style="font-size:17px;font-weight:800;color:#1a1a2e;margin-bottom:4px;text-align:center">¿Qué variante querés?</div>'
@@ -16772,6 +16758,26 @@ function tiendaRenderVariantePopup(prodId) {
     +(totalEnCarrito>0?'✓ Listo ('+totalEnCarrito+' en carrito)':'Cancelar')
     +'</button>'
     +'</div>';
+}
+// 4.22.38: contenido de una fila del popup de variantes
+function _tnVarFilaHtml(p, v) {
+  const prodId = p.id;
+  const qty = TC[prodId+'|'+v]||0;
+  const sel = qty > 0;
+  const vEsc = _tnEsc(v.replace(/\\/g,'\\\\').replace(/'/g,'\\\''));
+  const bq = bultoDe(p);
+  const btn = function(txt, fn, on){ return '<button onclick="'+fn+'(\''+prodId+'\',\''+vEsc+'\')" aria-label="'+(txt==='+'?'Sumar':'Restar')+'" style="width:40px;height:40px;border-radius:10px;font-size:22px;font-weight:800;cursor:pointer;line-height:1;'+(on?'background:#3483fa;color:#fff;border:none':'background:#fff;color:'+(sel?'#3483fa':'#b8bfcc')+';border:1.5px solid '+(sel?'#9cc2f7':'#e3e7ee'))+'">'+txt+'</button>'; };
+  const sub = [];
+  if(bq > 1) sub.push('<button onclick="tiendaAddBultoVariante(\''+prodId+'\',\''+vEsc+'\')" style="margin-top:6px;background:#fff;color:#3483fa;border:1.5px solid #3483fa;border-radius:8px;padding:4px 8px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap">📦 Bulto x'+bq+' +</button>');
+  const st = stepDe(p);
+  if(st !== 1) sub.push('<div style="font-size:12px;color:#6b7280;margin-top:2px">'+(st < 1 ? 'De a ½' : 'De a '+st+' u.')+'</div>');
+  return '<div style="display:flex;align-items:center;gap:10px;padding:10px 10px;margin-bottom:6px;border-radius:12px;border:1.5px solid '+(sel?'#3483fa':'#e3e7ee')+';background:'+(sel?'#eaf2ff':'#fff')+'">'
+    + '<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:'+(sel?'800':'600')+';color:'+(sel?'#1a4fa0':'#1a1a2e')+';word-break:break-word">'+_tnEsc(v)+'</div>'+sub.join('')+'</div>'
+    + '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'
+    + btn('−', 'tiendaDecVariante', false)
+    + '<span style="font-weight:800;font-size:17px;min-width:22px;text-align:center;color:'+(sel?'#1a4fa0':'#b8bfcc')+'">'+(sel ? _qtyHtml(qty) : '0')+'</span>'
+    + btn('+', 'tiendaAddVariante', true)
+    + '</div></div>';
 }
 function tiendaAddVariante(prodId, variante) {
   const p = S.products.find(x=>x.id===prodId);
@@ -16802,7 +16808,8 @@ function tiendaDecVariante(prodId, variante) {
   const p = S.products.find(x=>x.id===prodId);
   const step = stepDe(p);
   const key = prodId+'|'+variante;
-  TC[key] = (TC[key]||step) - step;
+  if(!TC[key]) return;   // 4.22.38: el − con 0 no hace nada
+  TC[key] = TC[key] - step;
   if(TC[key] <= 0) delete TC[key];
   tiendaActBadge();
   tiendaActTotal();
@@ -16812,30 +16819,11 @@ function tiendaUpdateVarianteRow(prodId, variante) {
   // Actualiza solo la fila de la variante y el botón Listo sin re-renderizar todo
   const p = S.products.find(x=>x.id===prodId);
   if(!p) return;
-  const qty = TC[prodId+'|'+variante]||0;
-  const vEsc = variante.replace(/\\/g,'\\\\').replace(/'/g,'\\\'');
-
   // Actualizar fila de la variante — buscamos por data-variante
   const ov = document.getElementById('tienda-variante-overlay');
   if(!ov) return;
-  const rows = ov.querySelectorAll('[data-variante]');
-  rows.forEach(function(row) {
-    if(row.dataset.variante !== variante) return;
-    const btn = row.querySelector('[data-varbtn]');
-    const ctr = row.querySelector('[data-varctr]');
-    if(btn) {
-      btn.style.background = qty>0 ? '#3483fa' : '#f0f4ff';
-      btn.style.color = qty>0 ? '#fff' : '#3483fa';
-    }
-    if(ctr) {
-      if(qty > 0) {
-        ctr.style.display = 'flex';
-        const span = ctr.querySelector('span');
-        if(span) span.textContent = qty;
-      } else {
-        ctr.style.display = 'none';
-      }
-    }
+  ov.querySelectorAll('[data-variante]').forEach(function(row) {
+    if(row.dataset.variante === variante) row.innerHTML = _tnVarFilaHtml(p, variante);
   });
 
   // Actualizar botón Listo
