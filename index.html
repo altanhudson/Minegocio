@@ -2237,7 +2237,11 @@ body.pc #nf-foot{grid-column:2;grid-row:3}
       </div>
       <div class="form-group">
         <label class="fl">Variantes <span style="font-size:11px;color:var(--text3);font-weight:400">(opcional — ej: Vainilla, Chocolate, Relleno)</span></label>
-        <input type="text" id="p-variantes" placeholder="Separadas por coma: Vainilla, Chocolate, Relleno">
+        <input type="text" id="p-variantes" placeholder="Separadas por coma: Vainilla, Chocolate, Relleno" oninput="_pVarSinRender()">
+        <div id="p-varsin-box" style="display:none;margin-top:10px">
+          <div style="font-size:12.5px;color:var(--text3);margin-bottom:6px;line-height:1.4">Tocá una variante para marcarla <b>sin stock</b>: en la tienda se ve en gris y no se puede elegir. En facturas solo avisa.</div>
+          <div id="p-varsin" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+        </div>
       </div>
       <div style="background:var(--surface2);border-radius:var(--rs);padding:14px;margin-bottom:14px">
         <div style="font-size:13px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Precios</div>
@@ -3493,12 +3497,21 @@ function _tnMuestraStock(p) {
   if(p.ocultarStock) return false;
   return !!(p.mostrarStock || (S.config && S.config.stockTienda && S.config.stockTienda.todos));
 }
-const _CAT_CAMPOS = ['id','name','price','image','category','oferta','ofertaDesde','wholesalePrice','wholesaleQty','grupoMay','bultoQty','variantes','fracMin','mitad','desc','emoji','sinStockManual','createdAt','visibleSince'];
+// 4.22.39: variantes sin stock, con marca propia (el nombre de la variante no se toca)
+function _varSinStock(p, v) { return !!(p && p.sinStockVariantes && p.sinStockVariantes[v]); }
+function _varTodasSinStock(p) { return !!(p && p.variantes && p.variantes.length && p.variantes.every(function(v){ return _varSinStock(p, v); })); }
+function _varSinStockLimpio(p, obj) {
+  const o = {};
+  ((p && p.variantes) || []).forEach(function(v){ if(obj && obj[v]) o[v] = true; });
+  return o;
+}
+const _CAT_CAMPOS = ['id','name','price','image','category','oferta','ofertaDesde','wholesalePrice','wholesaleQty','grupoMay','bultoQty','variantes','fracMin','mitad','desc','emoji','sinStockManual','sinStockVariantes','createdAt','visibleSince'];
 function _armarCatalogo() {
   const prods = (S.products || []).filter(function(p){ return p && p.visible !== false && p.price > 0 && p.name && p.name.trim() && !(window.ejEsId && window.ejEsId('products', p.id)); }).map(function(p){
     const o = {};
     _CAT_CAMPOS.forEach(function(k){ const v = p[k]; if(v !== undefined && v !== null && v !== '') o[k] = v; });
     if(o.image && String(o.image).indexOf('data:') === 0) delete o.image; // las viejas en base64 se pasan a la nube aparte
+    if(o.sinStockVariantes) { const _sv = _varSinStockLimpio(p, o.sinStockVariantes); if(Object.keys(_sv).length) o.sinStockVariantes = _sv; else delete o.sinStockVariantes; }
     if(p.priceHistory && p.priceHistory.length) o.priceHistory = [p.priceHistory[p.priceHistory.length - 1]];
     o.visible = true;
     // 4.16.0: stock visible en la tienda solo en los productos que se eligieron (sin variantes)
@@ -4265,6 +4278,11 @@ window.testersGuardar = function(){
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.39', f:'25/11/2026', t:[
+    'Variantes sin stock: en Editar producto, debajo de Variantes, tocá una variante para marcarla sin stock. Ya no hace falta ponerle ❌ en el nombre.',
+    'En la tienda la variante sin stock se ve en gris y no se puede elegir. Si todas están sin stock, el producto figura "No disponible por ahora".',
+    'En facturas la variante sin stock muestra un aviso, pero se puede cargar igual.'
+  ]},
   {v:'4.22.38', f:'23/11/2026', t:[
     'Tienda: al elegir sabor o variante, cada uno tiene su contador − cantidad + siempre a la vista. El sabor elegido queda resaltado.'
   ]},
@@ -6285,6 +6303,7 @@ function openProd(id) {
     document.getElementById('p-grupo').value = p.grupoMay||'';
     renderMinGrupoProd();
     document.getElementById('p-variantes').value = (p.variantes||[]).join(', ');
+    window._pVarSin = Object.assign({}, p.sinStockVariantes || {}); _pVarSinRender();   // 4.22.39
     S.photo = p.image||null;
     if(p.image) { showPhoto(p.image); } else resetPhoto('');
   } else {
@@ -6303,6 +6322,7 @@ function openProd(id) {
     document.getElementById('p-grupo').value = '';
     renderMinGrupoProd();
     document.getElementById('p-variantes').value = '';
+    window._pVarSin = {}; _pVarSinRender();   // 4.22.39
     resetPhoto('');
   }
   prodMitadVis();
@@ -6385,6 +6405,7 @@ function saveProd() {
     barcode: document.getElementById('p-barcode').value.trim()||null,
     grupoMay: document.getElementById('p-grupo').value.trim(),
     variantes: document.getElementById('p-variantes').value.trim().split(',').map(v=>v.trim()).filter(Boolean),
+    sinStockVariantes: _varSinStockLimpio({variantes: document.getElementById('p-variantes').value.trim().split(',').map(v=>v.trim()).filter(Boolean)}, window._pVarSin || {}),   // 4.22.39
     suppliers: [...(pSelectedSuppliers||[])],
     image: S.photo||null,
     sku: S.editId ? (S.products.find(p=>p.id===S.editId)||{}).sku : 'P'+Date.now(),
@@ -6460,6 +6481,32 @@ function saveProd() {
     showPage(pg);
   }
   } catch(err) { toast('Error al guardar: '+err.message); console.error('saveProd error:', err); }
+}
+
+// 4.22.39: botones de variante sin stock en Editar producto
+function _pVarSinLista() {
+  const el = document.getElementById('p-variantes');
+  return el ? el.value.trim().split(',').map(function(v){ return v.trim(); }).filter(Boolean) : [];
+}
+function _pVarSinRender() {
+  const box = document.getElementById('p-varsin-box'), cont = document.getElementById('p-varsin');
+  if(!box || !cont) return;
+  if(!window._pVarSin) window._pVarSin = {};
+  const vs = _pVarSinLista();
+  box.style.display = vs.length ? '' : 'none';
+  cont.innerHTML = vs.map(function(v, i){
+    const on = !!window._pVarSin[v];
+    return '<button type="button" data-i="'+i+'" onclick="_pVarSinTog(this)" style="padding:7px 11px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;'
+      + (on ? 'background:#dc2626;color:#fff;border:1.5px solid #dc2626' : 'background:var(--surface);color:var(--text2);border:1.5px solid var(--border)') + '">'
+      + (on ? '🚫 ' : '✓ ') + v.replace(/</g,'&lt;') + (on ? ' · sin stock' : '') + '</button>';
+  }).join('');
+}
+function _pVarSinTog(btn) {
+  const v = _pVarSinLista()[parseInt(btn.dataset.i)];
+  if(v === undefined) return;
+  if(!window._pVarSin) window._pVarSin = {};
+  if(window._pVarSin[v]) delete window._pVarSin[v]; else window._pVarSin[v] = true;
+  _pVarSinRender();
 }
 
 function applyMarcaUpdateBtn(btn) {
@@ -6782,7 +6829,7 @@ function renderProds(q) {
           const qty = (p.stockVariantes||{})[v]||0;
           const vc = qty<=0?'var(--accent3)':qty<=3?'var(--orange,#fb923c)':'var(--green)';
           return '<div style="display:flex;justify-content:space-between;font-size:12px">'
-            +'<span style="color:var(--text2)">'+v+'</span>'
+            +'<span style="color:var(--text2)">'+(_varSinStock(p, v)?'🚫 ':'')+v+(_varSinStock(p, v)?' <b style="color:#dc2626">sin stock</b>':'')+'</span>'
             +'<span style="font-weight:700;color:'+vc+'">'+qty+' uds</span>'
             +'</div>';
         }).join('')
@@ -7912,7 +7959,7 @@ function cartRenderList(q) {
         const vid = p.id+'__'+v.replace(/[^a-zA-Z0-9]/g,'_');
         return '<div style="display:flex;align-items:center;padding:8px 16px 8px 28px;background:'+(hasQtyV?'#f0faf9':'var(--surface)')+';border-top:1px solid var(--border);'+(hasQtyV?'border-left:3px solid var(--accent)':'')+'">'
           +'<div style="flex:1;min-width:0">'
-          +'<div style="font-weight:600;font-size:13px;color:var(--text2)">'+v+'</div>'
+          +'<div style="font-weight:600;font-size:13px;color:var(--text2)">'+v+(_varSinStock(p, v)?' <span style="font-size:11px;font-weight:800;color:#dc2626">🚫 sin stock</span>':'')+'</div>'
           +'<div style="font-size:12px;margin-top:2px;color:'+(hasQtyV&&qtyV>stockV?'var(--accent3)':'var(--text3)')+'">Stock: '+stockV+(hasQtyV?' → '+(stockV-qtyV):'')+(hasQtyV?' · <span style="color:var(--accent);font-weight:700">$'+(qtyV*priceV).toFixed(0)+'</span>':'')+'</div>'
           +'</div>'
           +'<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;align-items:flex-end">'
@@ -7996,7 +8043,7 @@ function cartQtyChangeVar(input) {
   if(qty > 0) {
     const usePrice = parseFloat(input.dataset.price)||p.price||0;
     if(existing>=0) { S.invItems[existing].qty=qty; if(!S.invItems[existing].price) S.invItems[existing].price=usePrice; chkW(existing); }
-    else { S.invItems.push({desc:p.name+' ('+variante+')',qty:qty,price:usePrice,prodId:p.id,variante:variante,retailPrice:usePrice,wholesalePrice:p.wholesalePrice||0,wholesaleQty:p.wholesaleQty||0}); chkW(S.invItems.length-1); }
+    else { S.invItems.push({desc:p.name+' ('+variante+')',qty:qty,price:usePrice,prodId:p.id,variante:variante,retailPrice:usePrice,wholesalePrice:p.wholesalePrice||0,wholesaleQty:p.wholesaleQty||0}); chkW(S.invItems.length-1); if(_varSinStock(p, variante)) toast('⚠️ '+variante+' está marcada sin stock (se carga igual)'); }
   } else {
     if(existing>=0) S.invItems.splice(existing,1);
   }
@@ -16580,7 +16627,7 @@ function tiendaProdCardNueva(p) {
     ? Object.entries(TC).filter(function(e){ return tcProdId(e[0]) === p.id; }).reduce(function(s, e){ return s + e[1]; }, 0)
     : (TC[p.id] || 0);
   const step = stepDe(p);
-  const sinStock = !!p.sinStockManual;
+  const sinStock = !!p.sinStockManual || _varTodasSinStock(p);   // 4.22.39
   const bq = bultoDe(p);
   const det = p.desc ? ' onclick="tiendaAbrirDetalle(\'' + p.id + '\')" style="cursor:pointer"' : '';
   const img = p.image
@@ -16762,6 +16809,12 @@ function tiendaRenderVariantePopup(prodId) {
 // 4.22.38: contenido de una fila del popup de variantes
 function _tnVarFilaHtml(p, v) {
   const prodId = p.id;
+  if(_varSinStock(p, v) && !(TC[prodId+'|'+v] > 0)) {   // 4.22.39: variante sin stock: gris y sin botones
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 10px;margin-bottom:6px;border-radius:12px;border:1.5px solid #e3e7ee;background:#f3f4f6;opacity:.75">'
+      + '<div style="flex:1;min-width:0;font-size:15px;font-weight:600;color:#9ca3af;word-break:break-word;text-decoration:line-through">'+_tnEsc(v)+'</div>'
+      + '<div style="flex-shrink:0;font-size:12.5px;font-weight:800;color:#dc2626;background:#fee2e2;border-radius:8px;padding:6px 9px">Sin stock</div>'
+      + '</div>';
+  }
   const qty = TC[prodId+'|'+v]||0;
   const sel = qty > 0;
   const vEsc = _tnEsc(v.replace(/\\/g,'\\\\').replace(/'/g,'\\\''));
@@ -16782,6 +16835,7 @@ function _tnVarFilaHtml(p, v) {
 function tiendaAddVariante(prodId, variante) {
   const p = S.products.find(x=>x.id===prodId);
   if(!p) return;
+  if(_varSinStock(p, variante)) { toast('Esta variante no tiene stock ahora'); return; }   // 4.22.39
   const step = stepDe(p);
   const key = prodId+'|'+variante;
   TC[key] = (TC[key]||0) + step;
@@ -16793,6 +16847,7 @@ function tiendaAddVariante(prodId, variante) {
 }
 function tiendaAddBultoVariante(prodId, variante) {
   const p = S.products.find(x=>x.id===prodId);
+  if(p && _varSinStock(p, variante)) { toast('Esta variante no tiene stock ahora'); return; }   // 4.22.39
   const bq = bultoDe(p);
   if(!p || bq < 2) { tiendaAddVariante(prodId, variante); return; }
   const key = prodId+'|'+variante;
@@ -16882,7 +16937,7 @@ function _tnFlashBulto(prodId, antes, despues, bq) {
 }
 function tiendaAdd(id) {
   const p0 = S.products.find(x=>x.id===tcProdId(id));
-  if(p0 && p0.sinStockManual) { toast('Este producto no está disponible ahora'); return; }
+  if(p0 && (p0.sinStockManual || _varTodasSinStock(p0))) { toast('Este producto no está disponible ahora'); return; }
   const modo = getTiendaModo();
   if(modo === 'cerrada') {
     // Aviso claro al tocar: la tienda deja ver precios pero no toma pedidos
@@ -16940,6 +16995,7 @@ function tiendaAddBulto(id) {
 function tiendaInc(id) {
   const p = S.products.find(x=>x.id===tcProdId(id));
   if(p && p.sinStockManual) { toast('Este producto no está disponible ahora'); return; }
+  if(p && tcVariante(id) && _varSinStock(p, tcVariante(id))) { toast('Esta variante no tiene stock ahora'); return; }   // 4.22.39
   const step = stepDe(p);
   const _antes = TC[id]||0;
   TC[id]=_relMinAplicar(p, (TC[id]||0)+step);
@@ -17152,7 +17208,7 @@ function tiendaRestaurarCarrito() {
       for(const key of Object.keys(carrito)) {
         const pid = tcProdId(key);
         const p = S.products.find(x=>x.id===pid);
-        if(!p || p.visible===false || p.sinStockManual) { quitados.push(p?p.name:pid); delete carrito[key]; }
+        if(!p || p.visible===false || p.sinStockManual || (tcVariante(key) && _varSinStock(p, tcVariante(key)))) { quitados.push(p?p.name+(tcVariante(key)?' ('+tcVariante(key)+')':''):pid); delete carrito[key]; }
       }
       if(!Object.keys(carrito).length) return; // no quedó nada válido: no restaurar nada
       if(quitados.length) {
@@ -17274,7 +17330,7 @@ async function tiendaConfirmar() {
   for(const [id, qty] of items) {
     const pid = tcProdId(id);
     const p = S.products.find(x=>x.id===pid);
-    if(!p || p.visible===false || p.sinStockManual) noDisponibles.push({id, nombre: p ? p.name : pid});
+    if(!p || p.visible===false || p.sinStockManual || (tcVariante(id) && _varSinStock(p, tcVariante(id)))) noDisponibles.push({id, nombre: p ? p.name+(tcVariante(id)?' ('+tcVariante(id)+')':'') : pid});
   }
   if(noDisponibles.length) {
     noDisponibles.forEach(x => delete TC[x.id]);
