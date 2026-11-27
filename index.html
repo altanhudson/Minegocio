@@ -1586,13 +1586,11 @@ body.pc #nf-foot{grid-column:2;grid-row:3}
       <div class="pago-box" style="margin-top:8px">
         <div style="font-size:13px;color:var(--accent2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Registrar Pago</div>
         <div style="display:flex;gap:8px">
-          <div style="flex:1"><div style="font-size:12px;color:var(--text3);margin-bottom:4px">MONTO</div><input type="number" id="i-pago" placeholder="0.00" min="0" step="0.01" inputmode="decimal" oninput="calcPago()" style="font-size:15px;font-weight:600;width:100%;border:1px solid var(--border);border-radius:10px;padding:8px"></div>
+          <div style="flex:1"><div style="font-size:12px;color:var(--text3);margin-bottom:4px">MONTO</div><input type="number" id="i-pago" placeholder="0.00" min="0" step="0.01" inputmode="decimal" oninput="calcPago()" onfocus="this.select()" style="font-size:15px;font-weight:600;width:100%;border:1px solid var(--border);border-radius:10px;padding:8px"></div>
           <div style="flex:1"><div style="font-size:12px;color:var(--text3);margin-bottom:4px">FORMA</div><select id="i-pmethod" style="font-size:15px;width:100%;border:1px solid var(--border);border-radius:10px;padding:8px;background:var(--surface2)"><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="debito">Débito</option><option value="credito">Crédito</option></select></div>
         </div>
-        <div id="pago-info" style="display:none;margin-top:10px;font-size:15px">
-          <div id="pi-pend" class="pago-info-row" style="display:none"><span style="color:var(--text2)">Queda pendiente</span><span id="pi-pend-amt" style="color:var(--accent3);font-weight:700"></span></div>
-          <div id="pi-fav" class="pago-info-row" style="display:none"><span style="color:var(--text2)">Queda a favor</span><span id="pi-fav-amt" style="color:var(--green);font-weight:700"></span></div>
-        </div>
+        <button type="button" id="i-pago-total" onclick="pagoTotalFactura()" style="display:block;width:100%;margin-top:10px;padding:11px;border-radius:10px;border:1.5px solid var(--green);background:#22c55e18;color:var(--green);font-size:15px;font-weight:800;cursor:pointer">💵 Paga el total</button>
+        <div id="pago-info" style="display:none;margin-top:10px"></div>
       </div>
       <div class="form-group" style="margin-top:14px"><label class="fl">Nota para el cliente</label><textarea id="i-notes" placeholder="Notas para el cliente (aparece en la factura)..."></textarea></div>
       <div class="form-group" style="margin-top:10px"><label class="fl">📝 Nota interna 🔒</label><textarea id="i-nota-interna" placeholder="Solo la ves vos, no va en la factura..." style="border-color:#ca8a04;background:#fffbeb"></textarea></div>
@@ -4278,6 +4276,10 @@ window.testersGuardar = function(){
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.41', f:'27/11/2026', t:[
+    'Resumen de la factura (Registrar pago): botón "Paga el total" que completa el monto con lo que falta pagar (descuenta pagos anteriores si estás editando).',
+    'Debajo aparece el mismo recuadro que en Cobrar: si salda la factura, si queda pendiente o si queda a favor. Al tocar el monto se selecciona entero.'
+  ]},
   {v:'4.22.40', f:'27/11/2026', t:[
     'Cobrar una factura: desde que abrís la pantalla se ve el recuadro que dice si el pago salda toda la factura, si queda pendiente o si queda a favor (igual que Cobrar cliente del Inicio).',
     'Al tocar el monto a cobrar se selecciona el número entero: escribís el nuevo sin tener que borrar.'
@@ -8921,18 +8923,33 @@ function calcTotals() {
   calcPago();
 }
 
-function calcPago() {
+// 4.22.41: lo que falta pagar = total - pagos que la factura ya tenía (si se está editando)
+function _pagoFaltaFactura() {
   const total=parseFloat((document.getElementById('i-total').textContent||'0').replace('$',''))||0;
+  const eid = window.invEditId || S.editId;
+  const prev = eid ? (S.invoices||[]).find(function(x){ return x.id===eid; }) : null;
+  const yaPagado = prev ? (prev.pagos||[]).reduce(function(s,p){ return s+(p.monto||0); }, 0) : 0;
+  return Math.max(0, Math.round((total - yaPagado) * 100) / 100);
+}
+function pagoTotalFactura() {
+  const falta = _pagoFaltaFactura();
+  const el = document.getElementById('i-pago');
+  if(falta <= 0) { toast('Esta factura ya está paga'); return; }
+  el.value = falta.toFixed(2);
+  calcPago();
+}
+function calcPago() {
   const pago=parseFloat(document.getElementById('i-pago').value)||0;
   const info=document.getElementById('pago-info');
-  const pend=document.getElementById('pi-pend');
-  const fav=document.getElementById('pi-fav');
-  if(pago<=0){info.style.display='none';return;}
+  if(!info) return;
+  if(pago<=0){info.style.display='none';info.innerHTML='';return;}
   info.style.display='';
-  const diff=pago-total;
-  if(diff<0){pend.style.display='flex';fav.style.display='none';document.getElementById('pi-pend-amt').textContent='$'+Math.abs(diff).toFixed(2);}
-  else if(diff>0){pend.style.display='none';fav.style.display='flex';document.getElementById('pi-fav-amt').textContent='$'+diff.toFixed(2);}
-  else{pend.style.display='flex';fav.style.display='none';document.getElementById('pi-pend-amt').textContent='$0.00';}
+  const resta = Math.round((_pagoFaltaFactura() - pago) * 100) / 100;
+  // 4.22.41: mismo recuadro que Cobrar factura y Cobrar cliente
+  const caja = function(ok, txt){ return '<div style="background:'+(ok?'#22c55e22':'#ff6b3522')+';border:1px solid '+(ok?'var(--green)':'var(--accent3)')+';border-radius:8px;padding:10px 12px;font-size:15px">'+txt+'</div>'; };
+  if(resta > 0) info.innerHTML = caja(false, '⚠️ Pago parcial — quedan <strong>$'+resta.toFixed(0)+'</strong> pendientes');
+  else if(resta < 0) info.innerHTML = caja(true, '✅ Salda toda la factura y queda <strong style="color:var(--green)">$'+Math.abs(resta).toFixed(0)+' a favor</strong>');
+  else info.innerHTML = caja(true, '✅ Salda toda la factura exactamente');
 }
 
 let _savingInv = false;
