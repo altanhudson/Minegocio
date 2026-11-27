@@ -2439,7 +2439,7 @@ body.pc #nf-foot{grid-column:2;grid-row:3}
         <div id="pagocli-lista"></div>
         <div class="form-group" style="margin-top:14px">
           <label class="fl">Monto recibido</label>
-          <input type="number" id="pagocli-monto" placeholder="0.00" inputmode="decimal" min="0" step="0.01" oninput="pagocliCalc()">
+          <input type="number" id="pagocli-monto" placeholder="0.00" inputmode="decimal" min="0" step="0.01" oninput="pagocliCalc()" onfocus="this.select()">
         </div>
         <div id="pagocli-resultado" style="margin-top:10px"></div>
       </div>
@@ -2505,7 +2505,7 @@ body.pc #nf-foot{grid-column:2;grid-row:3}
       <div id="mqpago-info" style="background:var(--surface2);border-radius:var(--rs);padding:12px;margin-bottom:14px;font-size:15px"></div>
       <div class="form-group">
         <label class="fl">Monto que paga ahora</label>
-        <input type="number" id="qp-monto" placeholder="0.00" min="0" step="0.01" inputmode="decimal" oninput="calcQPago()" style="font-size:20px;font-weight:700">
+        <input type="number" id="qp-monto" placeholder="0.00" min="0" step="0.01" inputmode="decimal" oninput="calcQPago()" onfocus="this.select()" style="font-size:20px;font-weight:700">
       </div>
       <div class="form-group">
         <label class="fl">Forma de pago</label>
@@ -2516,7 +2516,7 @@ body.pc #nf-foot{grid-column:2;grid-row:3}
           <option value="credito">Credito</option>
         </select>
       </div>
-      <div id="qp-result" style="font-size:14px;min-height:40px"></div>
+      <div id="qp-result" style="min-height:40px;margin-bottom:12px"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" style="flex:1" onclick="closeM('mqpago')">Cancelar</button>
@@ -4278,6 +4278,10 @@ window.testersGuardar = function(){
 
 // ===== NOVEDADES (la primera es la versión actual: de acá sale el número que se muestra) =====
 const NOVEDADES = [
+  {v:'4.22.40', f:'27/11/2026', t:[
+    'Cobrar una factura: desde que abrís la pantalla se ve el recuadro que dice si el pago salda toda la factura, si queda pendiente o si queda a favor (igual que Cobrar cliente del Inicio).',
+    'Al tocar el monto a cobrar se selecciona el número entero: escribís el nuevo sin tener que borrar.'
+  ]},
   {v:'4.22.39', f:'25/11/2026', t:[
     'Variantes sin stock: en Editar producto, debajo de Variantes, tocá una variante para marcarla sin stock. Ya no hace falta ponerle ❌ en el nombre.',
     'En la tienda la variante sin stock se ve en gris y no se puede elegir. Si todas están sin stock, el producto figura "No disponible por ahora".',
@@ -10232,6 +10236,7 @@ function openQPago(id) {
     +avisoAnterior;
   document.getElementById('qp-monto').value = debe > 0 ? debe.toFixed(2) : '';
   document.getElementById('qp-result').innerHTML = '';
+  calcQPago();   // 4.22.40: el recuadro se ve desde que se abre
   document.getElementById('mqpago').classList.add('open');
 }
 
@@ -10242,11 +10247,14 @@ function calcQPago() {
   const creditoDisp = _creditoResidualParaFac(inv);
   const debe = inv.saldo||0;
   const totalEfectivo = monto + creditoDisp;
-  const resta = debe - totalEfectivo;
+  const resta = Math.round((debe - totalEfectivo) * 100) / 100;
+  // 4.22.40: mismo recuadro que "Cobrar cliente" del Inicio
+  const caja = function(ok, txt){ return '<div style="background:'+(ok?'#22c55e22':'#ff6b3522')+';border:1px solid '+(ok?'var(--green)':'var(--accent3)')+';border-radius:8px;padding:10px 12px;font-size:15px">'+txt+'</div>'; };
   let html = '';
-  if(resta > 0) html = '<span style="color:var(--accent3)">Queda pendiente: $'+resta.toFixed(2)+'</span>';
-  else if(resta < 0) html = '<span style="color:var(--green)">A favor: $'+Math.abs(resta).toFixed(2)+'</span>';
-  else html = '<span style="color:var(--green)">✓ Cancela la deuda</span>';
+  if(monto <= 0 && creditoDisp <= 0) html = '';
+  else if(resta > 0) html = caja(false, '⚠️ Pago parcial — quedan <strong>$'+resta.toFixed(0)+'</strong> pendientes');
+  else if(resta < 0) html = caja(true, '✅ Salda toda la factura y queda <strong style="color:var(--green)">$'+Math.abs(resta).toFixed(0)+' a favor</strong>');
+  else html = caja(true, '✅ Salda toda la factura exactamente');
   document.getElementById('qp-result').innerHTML = html;
 }
 
